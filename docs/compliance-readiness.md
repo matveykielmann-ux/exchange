@@ -12,9 +12,9 @@
 | NMLS record | **None** |
 | Bank, payout, custody, KYC, screening or courier contracts | **None** |
 | AML/BSA program, compliance officer, independent testing | **None** |
-| Real-money capability | **Disabled in code** (`REAL_MONEY_ENABLED = false`; only mock adapters exist; unknown service modes fail closed) |
+| Real-money capability | **Disabled in code** (`REAL_MONEY_ENABLED = false`; production adapters exist but report `NOT_CONFIGURED` without credentials and `DISABLED_BY_POLICY` for anything that moves money; unknown modes fail closed) |
 
-The site states all of this plainly: the sitewide preview banner, the footer, `/legal#licensing`, and MOCK badges on every price, quote, receipt and status.
+The site states all of this plainly: the sitewide sandbox banner, the footer, `/legal/contact` (licensing and registrations), and SANDBOX/MOCK badges on every simulated price, quote, receipt and status.
 
 ## Launch gate: all must be verified and signed off
 
@@ -67,7 +67,7 @@ The feature flag `FEATURE_FLAGS.courierCashDelivery = false`. The payout option 
 - [ ] Server-side quotes (submit only `quoteId`), authenticated provider webhooks, idempotency, reconciliation, treasury and hedging controls.
 - [ ] Real authentication (OIDC, httpOnly cookies, WebAuthn/TOTP, rate limits), security headers and CSP, penetration test, incident response, vulnerability disclosure program.
 - [ ] Customer support and complaint channels; published hours and response targets (none are promised today).
-- [ ] Trademark clearance for the brand name (**"Settlewell" is a placeholder**).
+- [ ] Trademark clearance for the brand name (**"Arcvale" is a working name; it replaced the placeholder "Settlewell"**).
 
 ## Language rules for the preview (enforced in copy)
 

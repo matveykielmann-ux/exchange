@@ -1,0 +1,63 @@
+# Arcvale on a single VPS: the app container behind Caddy (automatic HTTPS).
+#   cp .env.example .env.production   # fill it in; never commit it
+#   docker compose --env-file .env.production up -d --build
+# See README_DEPLOY.md. Nothing here deploys anywhere by itself.
+
+name: arcvale
+
+services:
+  app:
+    build: .
+    image: arcvale:${ARCVALE_IMAGE_TAG:-local}
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      HOST: 0.0.0.0
+      PORT: '8787'
+      TRUST_PROXY: 'true'
+      STATIC_DIR: /app/dist
+    volumes:
+      - arcvale-data:/app/data
+      - ./backups:/app/backups
+    expose:
+      - '8787'
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    stop_grace_period: 20s
+    logging:
+      driver: json-file
+      options: { max-size: '20m', max-file: '5' }
+    networks: [internal]
+
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      ARCVALE_DOMAIN: ${ARCVALE_DOMAIN:?Set ARCVALE_DOMAIN in .env.production}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env.production}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options: { max-size: '20m', max-file: '5' }
+    networks: [internal]
+
+volumes:
+  arcvale-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  internal:

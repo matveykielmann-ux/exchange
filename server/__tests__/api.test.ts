@@ -378,3 +378,26 @@ describe('staff MFA', () => {
     }
   });
 });
+
+describe('behind a reverse proxy', () => {
+  it('rate-limits by the hop the proxy appended, so a forged X-Forwarded-For cannot dodge the limit', async () => {
+    const env = await boot({ trustProxy: true });
+    try {
+      const c = env.client();
+      const statuses: number[] = [];
+      for (let i = 0; i < 12; i++) {
+        const r = await c.post(
+          '/api/auth/signin',
+          { email: `nobody${i}@example.test`, password: 'wrong-password-123' },
+          // The client controls the first entry; the proxy appends the real address last.
+          { 'x-forwarded-for': `10.0.0.${i}, 203.0.113.7` },
+        );
+        statuses.push(r.status);
+      }
+      expect(statuses.slice(0, 10).every((s) => s === 401)).toBe(true);
+      expect(statuses.slice(10)).toEqual([429, 429]);
+    } finally {
+      await env.app.close();
+    }
+  });
+});

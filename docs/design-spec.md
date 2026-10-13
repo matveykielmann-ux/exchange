@@ -1,8 +1,8 @@
-# Design specification — Settlewell (working name)
+# Design specification — Arcvale (working name)
 
 Status: v1, Phase 1 output. Owner: product/design. Applies to every page in `src/`.
 
-> **Settlewell is a placeholder working name.** A web search found no financial company using it, but it has not had trademark clearance. The name lives in one constant (`src/config/brand.ts`) so it can be replaced in one edit.
+> **Arcvale is a working name** (it replaced the earlier placeholder "Settlewell"). It has not had trademark clearance. The name lives in one constant (`src/config/brand.ts`) so it can be replaced in one edit.
 
 ## 1. Research basis and limits
 

@@ -109,9 +109,10 @@ function parseCookies(header: string | undefined): Record<string, string> {
 
 function clientIp(req: IncomingMessage, trustProxy: boolean): string {
   if (trustProxy) {
+    // Use the address our own proxy appended (the last hop). Earlier entries come from the client and can be forged.
     const fwd = req.headers['x-forwarded-for'];
-    const first = (Array.isArray(fwd) ? fwd[0] : fwd)?.split(',')[0]?.trim();
-    if (first) return first;
+    const last = (Array.isArray(fwd) ? fwd.join(',') : fwd)?.split(',').pop()?.trim();
+    if (last) return last;
   }
   return req.socket.remoteAddress ?? 'unknown';
 }
