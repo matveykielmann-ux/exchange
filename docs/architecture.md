@@ -10,6 +10,7 @@ Status: frontend preview with mock adapters only. **Real-money movement is disab
 | React Router 7 (`BrowserRouter`) | Plain client-side routing. No server rendering is needed for a preview. |
 | Plain CSS with design tokens (`src/styles/*.css`) | A small, auditable design system that maps 1:1 to `docs/design-spec.md`. No runtime CSS-in-JS and no utility-class soup. |
 | `@fontsource` self-hosted fonts | No third-party requests, which is simpler for privacy and a strict CSP. |
+| GSAP 3.15 + `@gsap/react` | Animation. All plugins are registered once in `src/lib/gsap.ts`; import `gsap`/`useGSAP` from there. The module is **not** imported by the app entry: registering every plugin adds about 123 kB gzipped, so it should only be loaded from the (lazy) routes that animate, and trimmed to the plugins actually used before launch. |
 | Vitest + Testing Library; Playwright + axe | Unit and component tests, plus real-browser visual and accessibility QA (`.claude/skills/visual-qa`). |
 
 ## Layers
