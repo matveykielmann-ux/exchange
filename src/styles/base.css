@@ -110,14 +110,14 @@
     top: -100px;
     z-index: 100;
     background: var(--ink-900);
-    color: #fff;
+    color: var(--on-ink);
     padding: var(--s-3) var(--s-4);
     border-radius: var(--r-control);
     font-weight: 600;
   }
   .skip-link:focus {
     top: var(--s-4);
-    color: #fff;
+    color: var(--on-ink);
   }
 
   @media (prefers-reduced-motion: reduce) {

@@ -15,7 +15,7 @@
 7. Courier cash delivery stays behind `FEATURE_FLAGS.courierCashDelivery = false` until the checklist in `docs/compliance-readiness.md` §6 is signed off.
 
 ## Design system
-Use tokens in `src/styles/tokens.css` and the existing classes (`.btn`, `.panel`, `.field`, `.option`, `.notice`, `.badge`, `.dl`, `.title`). Primary buttons are navy; emerald is an accent (links, focus, selected, completed). Use `font-variant-numeric: tabular-nums` for figures.
+Use tokens in `src/styles/tokens.css` and the existing classes (`.btn`, `.panel`, `.field`, `.option`, `.notice`, `.badge`, `.dl`, `.title`). Primary buttons are navy in the light theme and emerald in the dark theme (via `--cta-*` tokens); otherwise emerald is an accent (links, focus, selected, completed). Both themes are token-driven, so never hardcode colors. Motion follows `docs/design-spec.md` §7 (explanatory only, off under reduced motion, `@/lib/motion`). Use `font-variant-numeric: tabular-nums` for figures.
 
 shadcn/ui and registry components (`@react-bits`, `@spaceui` in `components.json`) are added with `pnpm exec shadcn add <item>` into `src/components/ui` (hooks into `src/hooks`). Tailwind v4 runs without preflight; its theme maps to our tokens in `src/styles/shadcn.css`. App stylesheets stay unlayered and win over utilities, so existing pages are unaffected. Registry code must pass our lint and strict typecheck, and any new npm dependency a component pulls in needs approval (see below). Keep layouts working at 1440, 1024, 768 and 390px with no horizontal scroll.
 

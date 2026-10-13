@@ -2,6 +2,7 @@ node_modules
 dist
 coverage
 qa-output
+qa-output-*
 test-results
 playwright-report
 *.log

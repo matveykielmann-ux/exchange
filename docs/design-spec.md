@@ -49,7 +49,7 @@ Footer: Product · Company resources · Legal; preview disclosure; risk line
 
 ## 4. Visual language
 
-### 4.1 Color tokens (light theme only for v1)
+### 4.1 Color tokens (light theme)
 
 Contrast ratios are computed with the WCAG 2.x formula against the canvas and white.
 
@@ -73,11 +73,20 @@ Contrast ratios are computed with the WCAG 2.x formula against the canvas and wh
 
 **Usage ratio:** about 75% neutrals, about 20% navy, emerald at most 5–10% of a screen. **Primary buttons are navy**, so the brand emerald is never confused with "success". "Completed" is emerald and always paired with a check icon and a text label. No red-up/green-down trading colors anywhere.
 
+### 4.1.1 Dark theme
+
+The app follows the system color scheme and has a sun/moon toggle in the header; the choice is stored in `localStorage` (`settlewell.theme`) and applied before first paint by an inline script in `index.html`. Every color is a token in `src/styles/tokens.css`; the dark palette redefines the same tokens, so components never branch on the theme.
+
+- Canvas `#08111F`, surface `#0E1A2E`, sunken `#13223A`, hairline `#213350`. Ink is light (`--ink-900` `#EEF2F7`).
+- Emerald lifts to `#34C08E` so links, focus and "completed" keep at least 4.5:1 on the dark surfaces.
+- **The primary button is emerald with dark text in the dark theme** (`--cta-bg`, `--cta-fg`), because a navy button on a navy canvas has no contrast. Light theme keeps navy primary buttons. Semantic tokens (`--cta-*`, `--on-ink`, `--on-emerald`, `--navy`, `--header-bg`) carry the difference.
+- Dark is not a "crypto" look: still no gradients, glow, glass or neon. The axe scan runs in both themes (`QA_SCHEME=dark`).
+
 ### 4.2 Typography
 
 - **Display:** *Instrument Serif* (OFL, self-hosted), used only for H1 and H2 marketing headlines, at regular weight. It gives an editorial, established-institution tone that crypto templates lack.
 - **UI and figures:** *Geist* variable (OFL, self-hosted) with `font-variant-numeric: tabular-nums` on every money figure. Not Inter (a deliberate move away from the template default).
-- **Mono:** *Geist Mono*, only for addresses, transaction IDs and hashes.
+- **Mono:** *Geist Mono*, only for addresses, transaction IDs, hashes and the transaction event log.
 - Fonts are bundled via `@fontsource`, so there are no third-party font requests (better for privacy and CSP).
 
 | Step | Size / line height | Use |
@@ -135,7 +144,17 @@ Tested at **1440, 1024, 768 and 390px**.
 
 ## 7. Motion
 
-Only 120–200ms opacity and transform transitions on hover, focus and menu disclosure. There are no animated tickers or counting numbers. `prefers-reduced-motion` disables all transitions.
+Motion explains a change; it never decorates. (v1 allowed only hover and focus transitions. In October 2026 the owner asked for a livelier "terminal" feel that stays clear to everyone, so the rules below replace that.)
+
+- **Allowed:** opacity and transform moves of 120–500ms that point at what changed:
+  - **Price tape** (home and `/exchange`): a changed reference price flashes its cell once and shows ▲/▼ with the change. Neutral ink colors, never red/green trading colors. Labelled MOCK.
+  - **Rolling digits** on "You receive": only the digits that changed roll into place (~0.35s). The final value renders at once and is what assistive tech reads; nothing counts up from zero.
+  - **Rate-hold ring** on the review step: a small ring empties with the quote timer and turns warning-colored under 15 seconds, next to the same countdown in text.
+  - **Hold to confirm** for the irreversible exchange: press and hold for one second with a fill showing progress; releasing early cancels. Enter, Space or a click without a pointer confirms immediately, so keyboard and screen-reader users are never blocked.
+  - **Status rail and event log** on `/transactions/:id`: a newly reached step draws its connector and settles its dot; the current step pulses softly. New log lines type in left to right; the full text is in the DOM from the start.
+- **Not allowed:** looping decorative animation, parallax, counting money up from zero, motion that is the only carrier of a state (state is always also in text), anything longer than 0.5s except the one-second hold and the quote countdown.
+- **Reduced motion:** with `prefers-reduced-motion: reduce` every one of these is off (GSAP tweens run inside `gsap.matchMedia()` with `REDUCED_OK` from `src/lib/motion.ts`; CSS animations have a reduce override). The hold-to-confirm fill still runs, because it is the feedback for an ongoing press, not decoration.
+- **Implementation:** GSAP core and `useGSAP` via `@/lib/motion` (no plugins in shared UI). First render is always static; only updates animate.
 
 ## 8. Mock-data labelling rules (non-negotiable)
 

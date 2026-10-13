@@ -1,10 +1,12 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { BRAND } from '@/config/brand';
+import { useTheme } from '@/lib/theme';
 import { useUser } from '@/state/auth';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Icon } from './Icon';
 import { Logo } from './Logo';
+import { PriceTape } from './PriceTape';
 
 const NAV = [
   { to: '/exchange', label: 'Sell crypto' },
@@ -28,6 +30,16 @@ function PreviewBanner() {
   );
 }
 
+function ThemeToggle() {
+  const [theme, setTheme] = useTheme();
+  const next = theme === 'dark' ? 'light' : 'dark';
+  return (
+    <button type="button" className="btn btn--ghost theme-toggle" aria-label={`Switch to ${next} theme`} onClick={() => setTheme(next)}>
+      <Icon name={theme === 'dark' ? 'sun' : 'moon'} width={18} height={18} />
+    </button>
+  );
+}
+
 function SiteHeader() {
   const user = useUser();
   const [open, setOpen] = useState(false);
@@ -46,6 +58,7 @@ function SiteHeader() {
           ))}
         </nav>
         <div className="header-actions">
+          <ThemeToggle />
           {user ? (
             <>
               <Link className="btn btn--secondary hide-on-compact" to="/account">
@@ -222,8 +235,12 @@ function useRouteFocus() {
   }, [location.pathname, location.hash]);
 }
 
+/** Routes that open with the live price strip. */
+const TAPE_ROUTES = new Set(['/', '/exchange']);
+
 export function Layout() {
   useRouteFocus();
+  const { pathname } = useLocation();
   return (
     <>
       <a className="skip-link" href="#main">
@@ -231,6 +248,11 @@ export function Layout() {
       </a>
       <PreviewBanner />
       <SiteHeader />
+      {TAPE_ROUTES.has(pathname) ? (
+        <div className="container tape-wrap">
+          <PriceTape />
+        </div>
+      ) : null}
       <main id="main">
         <Suspense
           fallback={

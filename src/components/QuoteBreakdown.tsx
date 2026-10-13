@@ -4,17 +4,7 @@ import { PAYOUT_METHODS, describeFee } from '@/domain/payout';
 import type { Quote } from '@/domain/quote';
 import { formatAsset, formatPriceMicros } from '@/lib/format';
 import { InfoHint } from './InfoHint';
-
-function SplitDollars({ cents }: { cents: bigint }) {
-  const text = formatUsd(cents);
-  const [whole, frac] = text.split('.');
-  return (
-    <>
-      {whole}
-      <span className="cents">.{frac}</span>
-    </>
-  );
-}
+import { RollingAmount } from './RollingAmount';
 
 /**
  * The quote anatomy. Rows reconcile exactly: gross − spread − fee = net.
@@ -82,7 +72,7 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
       <div className="quote-total">
         <span className="quote-total__label">You receive</span>
         <span className={`quote-total__value${sk}`} aria-live="off">
-          <SplitDollars cents={quote.netCents} />
+          <RollingAmount cents={quote.netCents} />
         </span>
       </div>
       {!compact && (

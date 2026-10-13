@@ -2,7 +2,8 @@
    Tailwind; Tailwind utilities beat the element defaults in base.css. See src/styles/shadcn.css. */
 @layer theme, base, components, utilities;
 
-/* Design tokens — see docs/design-spec.md §4. Light theme only in v1. */
+/* Design tokens — see docs/design-spec.md §4. Light and dark themes: dark follows the OS setting unless
+   the header toggle sets data-theme on <html>. Only colour tokens change between themes. */
 :root {
   color-scheme: light;
 
@@ -35,6 +36,22 @@
   --info: #2b4c8c;
   --info-tint: #eaf0fa;
   --info-line: #bccbe6;
+
+  /* Semantic surfaces that differ by theme */
+  --cta-bg: var(--ink-900);
+  --cta-bg-hover: var(--ink-800);
+  --cta-fg: #ffffff;
+  --on-ink: #ffffff;
+  --on-emerald: #ffffff;
+  --navy: #0f1e36;
+  --header-bg: rgb(250 248 244 / 92%);
+  --emerald-line: #b9dccb;
+  --warn-stripe: #fdf6e8;
+  --skeleton-hi: #ece8e0;
+  --focus-soft: rgb(11 107 76 / 18%);
+  --grid-line: rgb(15 30 54 / 4%);
+  --flash: #fff3c4;
+  --logo-bg: #0f1e36;
 
   /* Type */
   --font-display: 'Instrument Serif', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
@@ -75,11 +92,96 @@
   --r-panel: 16px;
   --r-badge: 6px;
 
-  --shadow-panel: 0 1px 2px rgb(15 30 54 / 6%), 0 12px 32px -12px rgb(15 30 54 / 14%);
+  --shadow-panel: var(--shadow-panel-color);
+  --shadow-panel-color: 0 1px 2px rgb(15 30 54 / 6%), 0 12px 32px -12px rgb(15 30 54 / 14%);
   --focus-ring: 0 0 0 2px var(--canvas), 0 0 0 4px var(--emerald-700);
 
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --dur: 160ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --canvas: #08111f;
+    --surface: #0e1a2e;
+    --surface-sunken: #13223a;
+    --line: #213350;
+    --line-strong: #4a5d7c;
+    --ink-900: #eef2f7;
+    --ink-800: #d7dee9;
+    --ink-700: #b9c3d3;
+    --ink-500: #93a0b5;
+    --ink-400: #8390a6;
+    --emerald-700: #34c08e;
+    --emerald-600: #5fd3a7;
+    --emerald-tint: rgb(52 192 142 / 14%);
+    --warn: #f0b85a;
+    --warn-tint: rgb(240 184 90 / 12%);
+    --warn-line: rgb(240 184 90 / 38%);
+    --danger: #ff8f85;
+    --danger-tint: rgb(255 143 133 / 12%);
+    --danger-line: rgb(255 143 133 / 38%);
+    --info: #9dbcf2;
+    --info-tint: rgb(157 188 242 / 12%);
+    --info-line: rgb(157 188 242 / 35%);
+    --cta-bg: #34c08e;
+    --cta-bg-hover: #5fd3a7;
+    --cta-fg: #04140d;
+    --on-ink: #08111f;
+    --on-emerald: #04140d;
+    --navy: #0c1729;
+    --header-bg: rgb(8 17 31 / 88%);
+    --emerald-line: rgb(52 192 142 / 38%);
+    --warn-stripe: rgb(240 184 90 / 6%);
+    --skeleton-hi: #1a2c48;
+    --focus-soft: rgb(52 192 142 / 25%);
+    --grid-line: rgb(180 200 230 / 4%);
+    --flash: rgb(255 214 102 / 16%);
+    --logo-bg: #1f3150;
+    --shadow-panel-color: 0 1px 2px rgb(0 0 0 / 30%), 0 16px 40px -16px rgb(0 0 0 / 60%);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --canvas: #08111f;
+  --surface: #0e1a2e;
+  --surface-sunken: #13223a;
+  --line: #213350;
+  --line-strong: #4a5d7c;
+  --ink-900: #eef2f7;
+  --ink-800: #d7dee9;
+  --ink-700: #b9c3d3;
+  --ink-500: #93a0b5;
+  --ink-400: #8390a6;
+  --emerald-700: #34c08e;
+  --emerald-600: #5fd3a7;
+  --emerald-tint: rgb(52 192 142 / 14%);
+  --warn: #f0b85a;
+  --warn-tint: rgb(240 184 90 / 12%);
+  --warn-line: rgb(240 184 90 / 38%);
+  --danger: #ff8f85;
+  --danger-tint: rgb(255 143 133 / 12%);
+  --danger-line: rgb(255 143 133 / 38%);
+  --info: #9dbcf2;
+  --info-tint: rgb(157 188 242 / 12%);
+  --info-line: rgb(157 188 242 / 35%);
+  --cta-bg: #34c08e;
+  --cta-bg-hover: #5fd3a7;
+  --cta-fg: #04140d;
+  --on-ink: #08111f;
+  --on-emerald: #04140d;
+  --navy: #0c1729;
+  --header-bg: rgb(8 17 31 / 88%);
+  --emerald-line: rgb(52 192 142 / 38%);
+  --warn-stripe: rgb(240 184 90 / 6%);
+  --skeleton-hi: #1a2c48;
+  --focus-soft: rgb(52 192 142 / 25%);
+  --grid-line: rgb(180 200 230 / 4%);
+  --flash: rgb(255 214 102 / 16%);
+  --logo-bg: #1f3150;
+  --shadow-panel-color: 0 1px 2px rgb(0 0 0 / 30%), 0 16px 40px -16px rgb(0 0 0 / 60%);
 }
 
 @media (max-width: 1023px) {

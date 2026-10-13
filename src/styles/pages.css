@@ -249,7 +249,7 @@
 
 /* ============ Navy band ============ */
 .band {
-  background: var(--ink-900);
+  background: var(--navy);
   color: #c9d1de;
   padding-block: var(--s-20);
 }
@@ -297,7 +297,7 @@
 }
 .band :focus-visible {
   box-shadow:
-    0 0 0 2px var(--ink-900),
+    0 0 0 2px var(--navy),
     0 0 0 4px #7fd3b0;
 }
 @media (max-width: 1023px) {
@@ -366,6 +366,7 @@
   padding-top: var(--s-6);
   border-top: 1px solid var(--line);
   flex-wrap: wrap;
+  align-items: flex-start;
 }
 .flow__step-title {
   font-size: 1.5rem;
@@ -414,6 +415,10 @@
   .flow__actions .btn {
     width: 100%;
   }
+  .flow__actions .hold {
+    justify-items: stretch;
+    text-align: center;
+  }
   .flow__actions > span:empty {
     display: none;
   }
@@ -426,7 +431,7 @@
   padding: var(--s-5);
   border-radius: 12px;
   border: 1px dashed var(--warn-line);
-  background: repeating-linear-gradient(-45deg, var(--warn-tint), var(--warn-tint) 10px, #fdf6e8 10px, #fdf6e8 20px);
+  background: repeating-linear-gradient(-45deg, var(--warn-tint), var(--warn-tint) 10px, var(--warn-stripe) 10px, var(--warn-stripe) 20px);
 }
 .deposit-box__address {
   display: flex;

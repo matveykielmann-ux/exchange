@@ -1,7 +1,9 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AmountField, AssetNetworkFields, QuoteIssues } from '@/components/ExchangeInputs';
+import { HoldButton } from '@/components/HoldButton';
 import { QuoteSkeleton } from '@/components/QuoteSkeleton';
+import { RateRing } from '@/components/RateRing';
 import { Field } from '@/components/Field';
 import { Icon } from '@/components/Icon';
 import { QuoteBreakdown } from '@/components/QuoteBreakdown';
@@ -21,7 +23,7 @@ import { useServices } from '@/state/services';
 import { quoteData, useQuote, type QuoteState } from '@/state/useQuote';
 import { useDestinations } from '@/state/useDestinations';
 import { Checkbox } from '@/components/Checkbox';
-import { Countdown, TimerBar } from '@/components/Countdown';
+import { Countdown } from '@/components/Countdown';
 import { useExpired } from '@/lib/useExpired';
 import { canConfirmExchange } from '@/domain/identity';
 
@@ -404,13 +406,14 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
           <div className="panel__head">
             <h3 id="locked-title">Your quote</h3>
             {locked && !expired ? (
-              <span className="small">
-                <Icon name="clock" width={14} height={14} style={{ display: 'inline', verticalAlign: '-2px' }} />{' '}
-                <Countdown to={locked.quote.expiresAt} prefix="Expires in" ended="Expired" />
+              <span className="small rate-hold">
+                <RateRing from={locked.quote.createdAt} to={locked.quote.expiresAt} />
+                <span>
+                  Rate held · <Countdown to={locked.quote.expiresAt} prefix="Expires in" ended="Expired" />
+                </span>
               </span>
             ) : null}
           </div>
-          {locked && !expired ? <TimerBar from={locked.quote.createdAt} to={locked.quote.expiresAt} /> : null}
           <div className="panel__body stack">
             {locked ? (
               <>
@@ -455,9 +458,9 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
           <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
             <Icon name="arrowLeft" width={18} height={18} /> Back
           </button>
-          <button type="button" className="btn btn--lg" disabled={!canConfirm} onClick={confirm}>
+          <HoldButton disabled={!canConfirm} onConfirm={confirm}>
             {submitting ? 'Confirming…' : 'Confirm exchange'}
-          </button>
+          </HoldButton>
         </div>
         {!canConfirm && locked && !expired ? (
           <p className="small muted" style={{ textAlign: 'right' }}>

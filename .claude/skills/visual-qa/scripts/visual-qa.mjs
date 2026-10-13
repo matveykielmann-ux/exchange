@@ -10,6 +10,8 @@ import { AxeBuilder } from '@axe-core/playwright';
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:5173';
 const OUT = process.env.QA_OUT ?? 'qa-output';
+// QA_SCHEME=dark runs every check with the OS set to dark mode (the app follows it).
+const SCHEME = process.env.QA_SCHEME === 'dark' ? 'dark' : 'light';
 const WIDTHS = [1440, 1024, 768, 390];
 const HEIGHT = { 1440: 900, 1024: 768, 768: 1024, 390: 844 };
 const PAGES = (
@@ -88,7 +90,7 @@ async function axe(page, where) {
 async function scanPages(browser) {
   for (const width of WIDTHS) {
     await mkdir(`${OUT}/${width}`, { recursive: true });
-    const context = await browser.newContext({ viewport: { width, height: HEIGHT[width] }, reducedMotion: 'reduce' });
+    const context = await browser.newContext({ viewport: { width, height: HEIGHT[width] }, reducedMotion: 'reduce', colorScheme: SCHEME });
     for (const route of PAGES) {
       const page = await context.newPage();
       const where = `${route} @${width}`;
@@ -111,7 +113,7 @@ async function scanPages(browser) {
 }
 
 async function keyboardChecks(browser) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: SCHEME });
   const page = await context.newPage();
   await page.goto(BASE_URL + '/', { waitUntil: 'networkidle' });
   await page.keyboard.press('Tab');
@@ -149,7 +151,7 @@ async function keyboardChecks(browser) {
 async function flow(browser, width) {
   const dir = `${OUT}/flow`;
   await mkdir(dir, { recursive: true });
-  const context = await browser.newContext({ viewport: { width, height: HEIGHT[width] }, reducedMotion: 'reduce' });
+  const context = await browser.newContext({ viewport: { width, height: HEIGHT[width] }, reducedMotion: 'reduce', colorScheme: SCHEME });
   const page = await context.newPage();
   const where = `flow @${width}`;
   const sink = { consoleErrors: [], pageErrors: [], failedRequests: [] };
@@ -223,7 +225,7 @@ async function flow(browser, width) {
 
   // Step 4: review — verification gate, acknowledgements, confirm
   await expectText('Verify your identity to confirm', 'kyc gate');
-  const confirm = page.getByRole('button', { name: 'Confirm exchange' });
+  const confirm = page.getByRole('button', { name: /^Confirm exchange/ });
   if (!(await confirm.isDisabled())) fail(where, 'confirm must be disabled before verification');
   await page.getByRole('button', { name: 'Run simulated verification' }).click();
   await expectText('Expires in', 'quote countdown');
@@ -231,7 +233,14 @@ async function flow(browser, width) {
   await boxes.nth(0).check();
   await boxes.nth(1).check();
   await shot('06-review');
+  // Hold-to-confirm: a quick click must not submit; a one-second hold does.
   await confirm.click();
+  await page.waitForTimeout(400);
+  if (!page.url().includes('/exchange')) fail(where, 'a quick click submitted the exchange without a hold');
+  await confirm.hover();
+  await page.mouse.down();
+  await page.waitForTimeout(1300);
+  await page.mouse.up();
   await page.waitForURL('**/transactions/tx_*');
   await expectText('MOCK-USDT-TRON-', 'placeholder deposit address');
   await shot('07-awaiting-deposit');

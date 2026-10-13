@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
 import { QuoteBreakdown } from '@/components/QuoteBreakdown';
+import { EventLog, StatusRail } from '@/components/TransactionProgress';
 import { MockBadge, Notice, StatusBadge } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { NETWORKS, networkLabel } from '@/domain/assets';
@@ -17,7 +18,6 @@ import {
   statusTone,
   TERMINAL_STATUSES,
   timelineFor,
-  type StepState,
   type Transaction,
   type TransactionEvent,
 } from '@/domain/transaction';
@@ -26,8 +26,6 @@ import { formatAsset, formatDateTime } from '@/lib/format';
 import { useUser } from '@/state/auth';
 import { useServices } from '@/state/services';
 import type { TransactionSimulator } from '@/services/types';
-
-const STATE_TEXT: Record<StepState, string> = { done: 'Completed', current: 'In progress', upcoming: 'Not started', failed: 'Stopped' };
 
 function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
@@ -231,26 +229,7 @@ export function TransactionPage() {
               <span className="small muted">Updated {formatDateTime(tx.updatedAt)}</span>
             </div>
             <div className="panel__body">
-              <ol className="timeline">
-                {steps.map((s) => (
-                  <li key={s.key} data-state={s.state}>
-                    <span className="timeline__dot" aria-hidden="true">
-                      {s.state === 'done' ? (
-                        <Icon name="check" />
-                      ) : s.state === 'failed' ? (
-                        <Icon name="x" />
-                      ) : s.state === 'current' ? (
-                        <Icon name="clock" />
-                      ) : null}
-                    </span>
-                    <div>
-                      <p className="timeline__label">{s.label}</p>
-                      <p className="timeline__state">{STATE_TEXT[s.state]}</p>
-                    </div>
-                    {s.detail ? <span className="timeline__detail">{s.detail}</span> : null}
-                  </li>
-                ))}
-              </ol>
+              <StatusRail steps={steps} />
             </div>
           </section>
 
@@ -280,17 +259,13 @@ export function TransactionPage() {
           ) : null}
 
           <section aria-labelledby="log-title" className="stack">
-            <h2 id="log-title" className="title">
-              Event log
-            </h2>
-            <dl className="dl">
-              {[...tx.log].reverse().map((l, i) => (
-                <div key={`${l.at}-${i}`}>
-                  <dt className="small tabular">{formatDateTime(l.at)}</dt>
-                  <dd>{l.detail}</dd>
-                </div>
-              ))}
-            </dl>
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <h2 id="log-title" className="title">
+                Event log
+              </h2>
+              <MockBadge label="Simulated events" />
+            </div>
+            <EventLog log={tx.log} />
           </section>
         </div>
 
