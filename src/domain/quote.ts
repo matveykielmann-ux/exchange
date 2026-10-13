@@ -153,6 +153,36 @@ export function calculateQuote(req: QuoteRequest): QuoteResult {
   };
 }
 
+/** Issues about the amount itself (vs. the chosen payout method), which block step 1 of the flow. */
+export function amountIssues(issues: QuoteIssue[]): QuoteIssue[] {
+  return issues.filter((i) => i.code !== 'payout_ineligible');
+}
+
+/**
+ * Server-side quote verification. Nothing the client sends is trusted: the
+ * price is looked up independently for the quote's timestamp, the timestamp
+ * must be fresh, every derived field is recomputed, and issues come from the
+ * recomputation rather than the client.
+ */
+export function verifyQuote(
+  quote: Quote,
+  priceAt: (asset: AssetCode, time: number) => Micros,
+  now: number,
+): QuoteResult | { error: 'expired' | 'tampered' } {
+  if (quote.createdAt > now || now - quote.createdAt >= PRICING_POLICY.quoteTtlMs) return { error: 'expired' };
+  if (priceAt(quote.asset, quote.createdAt) !== quote.referencePriceMicros) return { error: 'tampered' };
+  const { quote: r, issues } = calculateQuote({ ...quote, now: quote.createdAt });
+  const same =
+    r.source === quote.source &&
+    r.grossCents === quote.grossCents &&
+    r.spreadCents === quote.spreadCents &&
+    r.spreadBps === quote.spreadBps &&
+    r.payoutFeeCents === quote.payoutFeeCents &&
+    r.netCents === quote.netCents &&
+    r.expiresAt === quote.expiresAt;
+  return same ? { quote, issues } : { error: 'tampered' };
+}
+
 export function isQuoteExpired(quote: Pick<Quote, 'expiresAt'>, now: number): boolean {
   return now >= quote.expiresAt;
 }

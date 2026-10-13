@@ -50,7 +50,7 @@ export function HomePage() {
                 <Icon name="check" /> Network chosen with the asset, with clear warnings
               </li>
               <li>
-                <Icon name="check" /> A dedicated desk for {formatUsd(PRICING_POLICY.retailMaximumCents).replace('.00', '')}+
+                <Icon name="check" /> A dedicated desk for {formatUsd(PRICING_POLICY.retailMaximumCents, { whole: true })}+
               </li>
             </ul>
             <div className="row hero__ctas">
@@ -253,7 +253,7 @@ export function HomePage() {
           <div className="stack">
             <p className="eyebrow eyebrow--on-dark">Large transactions</p>
             <h2 id="large-title" className="display-m">
-              Selling {formatUsd(PRICING_POLICY.retailMaximumCents).replace('.00', '')} or more?
+              Selling {formatUsd(PRICING_POLICY.retailMaximumCents, { whole: true })} or more?
             </h2>
             <p className="lead">
               Large amounts go through a desk rather than the online flow. You get enhanced verification, a negotiated price, and a wire to

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AmountField, AssetNetworkFields, QuoteIssues } from '@/components/ExchangeInputs';
 import { Field } from '@/components/Field';
@@ -8,18 +8,21 @@ import { MockBadge, Notice } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { ASSETS, NETWORKS, networkLabel, parseAssetAmount } from '@/domain/assets';
 import { formatUsd } from '@/domain/money';
-import { describeFee, PAYOUT_METHODS, PAYOUT_ORDER, payoutEligibility, payoutFeeCents, type PayoutMethodId } from '@/domain/payout';
-import { isQuoteExpired, PRICING_POLICY } from '@/domain/quote';
+import { describeFee, feeLabel, PAYOUT_METHODS, payoutOptions } from '@/domain/payout';
+import { amountIssues, PRICING_POLICY } from '@/domain/quote';
 import { validateRefundAddress } from '@/domain/validation';
 import { AddBankForm } from '@/components/AddBankForm';
 import { errorMessage } from '@/lib/errors';
-import { formatAsset, formatCountdown } from '@/lib/format';
-import { useNow } from '@/lib/useNow';
+import { describeDestination, formatAsset } from '@/lib/format';
 import { useUser } from '@/state/auth';
 import { useDraft, type ExchangeDraft } from '@/state/draft';
 import { useServices } from '@/state/services';
-import { quoteData, useQuote } from '@/state/useQuote';
-import type { PayoutDestinationRecord } from '@/services/types';
+import { quoteData, useQuote, type QuoteState } from '@/state/useQuote';
+import { useDestinations } from '@/state/useDestinations';
+import { Checkbox } from '@/components/Checkbox';
+import { Countdown, TimerBar } from '@/components/Countdown';
+import { useExpired } from '@/lib/useExpired';
+import { canConfirmExchange } from '@/domain/identity';
 
 const STEPS = ['Amount', 'Payout', 'Details', 'Review'] as const;
 
@@ -46,13 +49,12 @@ function Stepper({ current }: { current: number }) {
 }
 
 /* ---------------- Step 1 ---------------- */
-function AmountStep({ onNext }: { onNext: () => void }) {
+function AmountStep({ state, onNext }: { state: QuoteState; onNext: () => void }) {
   const { draft, update, setAsset } = useDraft();
   const [touched, setTouched] = useState(false);
-  const { state } = useQuote(draft);
   const data = quoteData(state);
-  const amountIssues = data?.issues.filter((i) => i.code !== 'payout_ineligible') ?? [];
-  const ready = state.status === 'ready' && amountIssues.length === 0;
+  const issues = data ? amountIssues(data.issues) : [];
+  const ready = state.status === 'ready' && issues.length === 0;
 
   return (
     <form
@@ -85,7 +87,7 @@ function AmountStep({ onNext }: { onNext: () => void }) {
           <p>{draft.asset} sent on any other network may be lost. Check the network your wallet or exchange uses before you continue.</p>
         </Notice>
       ) : null}
-      <div aria-live="polite">{data ? <QuoteIssues issues={amountIssues} asset={draft.asset} /> : null}</div>
+      <div aria-live="polite">{data ? <QuoteIssues issues={issues} asset={draft.asset} /> : null}</div>
       <div className="flow__actions">
         <span />
         <button className="btn btn--lg" type="submit" disabled={!ready}>
@@ -99,8 +101,8 @@ function AmountStep({ onNext }: { onNext: () => void }) {
 /* ---------------- Step 2 ---------------- */
 function PayoutStep({ grossCents, onBack, onNext }: { grossCents: bigint | null; onBack: () => void; onNext: () => void }) {
   const { draft, update } = useDraft();
-  const selected = PAYOUT_METHODS[draft.payoutMethod];
-  const selectedOk = grossCents !== null && payoutEligibility(selected, grossCents).eligible;
+  const options = payoutOptions(grossCents);
+  const selectedOk = options.some((o) => o.method.id === draft.payoutMethod && o.eligibility.eligible);
 
   return (
     <form
@@ -114,28 +116,25 @@ function PayoutStep({ grossCents, onBack, onNext }: { grossCents: bigint | null;
         <legend>
           <h2 className="flow__step-title">How do you want to receive dollars?</h2>
         </legend>
-        {PAYOUT_ORDER.map((id) => {
-          const m = PAYOUT_METHODS[id];
-          const eligibility =
-            grossCents === null ? { eligible: false as const, reason: 'Enter an amount first' } : payoutEligibility(m, grossCents);
+        {options.map(({ method: m, eligibility, feeCents }) => {
           const disabled = !eligibility.eligible;
-          const inputId = `payout-${id}`;
+          const inputId = `payout-${m.id}`;
           return (
-            <label key={id} className="option" htmlFor={inputId} data-disabled={disabled || undefined}>
+            <label key={m.id} className="option" htmlFor={inputId} data-disabled={disabled || undefined}>
               <input
                 id={inputId}
                 type="radio"
                 name="payout"
-                value={id}
-                checked={draft.payoutMethod === id}
+                value={m.id}
+                checked={draft.payoutMethod === m.id}
                 disabled={disabled}
                 aria-describedby={`${inputId}-desc`}
-                onChange={() => update({ payoutMethod: id as PayoutMethodId, destinationId: null })}
+                onChange={() => update({ payoutMethod: m.id, destinationId: null })}
               />
               <span>
                 <span className="option__title">{m.name}</span>
                 <span className="option__meta" id={`${inputId}-desc`} style={{ display: 'block' }}>
-                  {disabled ? eligibility.eligible === false && eligibility.reason : `${m.timingEstimate}. ${m.summary}`}
+                  {eligibility.eligible ? `${m.timingEstimate}. ${m.summary}` : eligibility.reason}
                 </span>
               </span>
               <span className="option__aside">
@@ -143,13 +142,7 @@ function PayoutStep({ grossCents, onBack, onNext }: { grossCents: bigint | null;
                   <span className="badge badge--neutral">{m.availability.available ? 'Not eligible' : 'Not offered'}</span>
                 ) : (
                   <>
-                    <strong>
-                      {grossCents !== null
-                        ? payoutFeeCents(m, grossCents) === 0n
-                          ? 'No fee'
-                          : `${formatUsd(payoutFeeCents(m, grossCents))} fee`
-                        : '—'}
-                    </strong>
+                    <strong>{feeLabel(feeCents)}</strong>
                     {m.fee.kind === 'percent' ? describeFee(m.fee) : null}
                   </>
                 )}
@@ -179,16 +172,10 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
   const { draft, update } = useDraft();
   const user = useUser();
   const { payouts } = useServices();
-  const [destinations, setDestinations] = useState<PayoutDestinationRecord[] | null>(null);
+  const { list: destinations, reload: load } = useDestinations();
   const [touched, setTouched] = useState(false);
   const [adding, setAdding] = useState(false);
   const method = PAYOUT_METHODS[draft.payoutMethod];
-
-  const load = useCallback(() => {
-    if (!user) return;
-    payouts.listDestinations(user.email).then(setDestinations);
-  }, [payouts, user]);
-  useEffect(load, [load]);
 
   if (!user) {
     return (
@@ -249,7 +236,7 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
               <span>
                 <span className="option__title">{d.label}</span>
                 <span className="option__meta tabular" style={{ display: 'block' }}>
-                  {d.kind === 'bank' ? 'Bank account' : 'Debit card'} ending {d.last4}
+                  {describeDestination(d)}
                 </span>
               </span>
               <span className="option__aside">
@@ -343,26 +330,19 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
   const user = useUser();
   const navigate = useNavigate();
   const { reset } = useDraft();
-  const now = useNow(1000);
   const { state: quoteState, refresh } = useQuote(draft, { live: false });
   const locked = quoteState.status === 'ready' ? quoteState.data : null;
   const loading = quoteState.status === 'loading';
-  const [destination, setDestination] = useState<PayoutDestinationRecord | null>(null);
+  const expired = useExpired(locked?.quote.expiresAt ?? null);
+  const destination = useDestinations().list?.find((d) => d.id === draft.destinationId) ?? null;
   const [ackNetwork, setAckNetwork] = useState(false);
   const [ackRisk, setAckRisk] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!user) return;
-    services.payouts.listDestinations(user.email).then((list) => setDestination(list.find((d) => d.id === draft.destinationId) ?? null));
-  }, [services, user, draft.destinationId]);
-
   if (!user) return null;
-  const verified = user.verification !== 'unverified';
-  const expired = locked ? isQuoteExpired(locked.quote, now) : false;
-  const remaining = locked ? locked.quote.expiresAt - now : 0;
+  const verified = canConfirmExchange(user.verification);
   const canConfirm =
     !!locked && !expired && !loading && locked.issues.length === 0 && verified && ackNetwork && ackRisk && !!destination && !submitting;
 
@@ -373,7 +353,7 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
     try {
       const tx = await services.transactions.create({
         quoteResult: locked,
-        destination,
+        destinationId: destination.id,
         refundAddress: draft.refundAddress,
         customerEmail: user.email,
       });
@@ -423,22 +403,13 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
           <div className="panel__head">
             <h3 id="locked-title">Your quote</h3>
             {locked && !expired ? (
-              <span className="small tabular" role="timer" aria-label={`Quote expires in ${formatCountdown(remaining)}`}>
-                <Icon name="clock" width={14} height={14} style={{ display: 'inline', verticalAlign: '-2px' }} /> Expires in{' '}
-                {formatCountdown(remaining)}
+              <span className="small">
+                <Icon name="clock" width={14} height={14} style={{ display: 'inline', verticalAlign: '-2px' }} />{' '}
+                <Countdown to={locked.quote.expiresAt} prefix="Expires in" ended="Expired" />
               </span>
             ) : null}
           </div>
-          {locked && !expired ? (
-            <div
-              className="timer-bar"
-              style={{ marginTop: 0, borderRadius: 0 }}
-              data-urgent={remaining < 15_000 || undefined}
-              aria-hidden="true"
-            >
-              <span style={{ transform: `scaleX(${Math.max(0, remaining / PRICING_POLICY.quoteTtlMs)})` }} />
-            </div>
-          ) : null}
+          {locked && !expired ? <TimerBar from={locked.quote.createdAt} to={locked.quote.expiresAt} /> : null}
           <div className="panel__body stack">
             {locked ? (
               <>
@@ -465,30 +436,14 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
 
         <fieldset className="stack" style={{ border: 0, padding: 0, margin: 0 }}>
           <legend className="visually-hidden">Acknowledgements</legend>
-          <label className="row" style={{ alignItems: 'flex-start', flexWrap: 'nowrap', gap: 12 }}>
-            <input
-              type="checkbox"
-              checked={ackNetwork}
-              onChange={(e) => setAckNetwork(e.target.checked)}
-              style={{ width: 20, height: 20, marginTop: 2, flex: 'none', accentColor: 'var(--emerald-700)' }}
-            />
-            <span>
-              I will send exactly {locked ? formatAsset(locked.quote.amountAtomic, locked.quote.asset) : draft.asset} on{' '}
-              <strong>{networkLabel(draft.asset, draft.network)}</strong>, from a wallet I control, within the deposit window.
-            </span>
-          </label>
-          <label className="row" style={{ alignItems: 'flex-start', flexWrap: 'nowrap', gap: 12 }}>
-            <input
-              type="checkbox"
-              checked={ackRisk}
-              onChange={(e) => setAckRisk(e.target.checked)}
-              style={{ width: 20, height: 20, marginTop: 2, flex: 'none', accentColor: 'var(--emerald-700)' }}
-            />
-            <span>
-              I understand blockchain transactions can't be reversed, and that nobody from this service will ever ask me to send crypto on
-              their behalf. I understand this is a preview and no real funds will move.
-            </span>
-          </label>
+          <Checkbox id="ack-network" checked={ackNetwork} onChange={setAckNetwork}>
+            I will send exactly {locked ? formatAsset(locked.quote.amountAtomic, locked.quote.asset) : draft.asset} on{' '}
+            <strong>{networkLabel(draft.asset, draft.network)}</strong>, from a wallet I control, within the deposit window.
+          </Checkbox>
+          <Checkbox id="ack-risk" checked={ackRisk} onChange={setAckRisk}>
+            I understand blockchain transactions can't be reversed, and that nobody from this service will ever ask me to send crypto on
+            their behalf. I understand this is a preview and no real funds will move.
+          </Checkbox>
         </fieldset>
 
         {error ? <Notice tone="danger" title={error} role="alert" /> : null}
@@ -511,7 +466,7 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
       <aside className="flow__aside flow__aside--after" aria-label="Exchange details">
         <div className="panel">
           <div className="panel__head">
-            <h3 style={{ fontSize: 'var(--fs-title)' }}>Exchange details</h3>
+            <h3 className="title">Exchange details</h3>
           </div>
           <div className="panel__body">
             <dl className="dl">
@@ -549,19 +504,17 @@ export function ExchangePage() {
   useDocumentTitle('Sell crypto');
   const { draft, update } = useDraft();
   const user = useUser();
-  const { state } = useQuote(draft, { live: draft.step < 4 });
-  const data = quoteData(state);
   const parsed = parseAssetAmount(draft.amount, draft.asset);
   const amountOk = parsed.ok && parsed.value > 0n;
-  const amountIssues = data?.issues.filter((i) => i.code !== 'payout_ineligible') ?? [];
+  // Upper bound on the step from what is known without a quote; step 4 fetches its own locked quote.
+  const reachable = !amountOk ? 1 : !user ? 3 : 4;
+  const { state } = useQuote(draft, { enabled: Math.min(draft.step, reachable) < 4 });
+  const data = quoteData(state);
+  const blocking = data ? amountIssues(data.issues) : [];
   const headingRef = useRef<HTMLDivElement>(null);
 
   // Never allow a step whose prerequisites aren't met (e.g. after a refresh).
-  const maxStep = useMemo(() => {
-    if (!amountOk || (data && amountIssues.length)) return 1;
-    if (!user) return 3;
-    return 4;
-  }, [amountOk, data, amountIssues.length, user]);
+  const maxStep = blocking.length ? 1 : reachable;
   const step = Math.min(draft.step, maxStep) as ExchangeDraft['step'];
 
   const go = (s: ExchangeDraft['step']) => {
@@ -592,36 +545,34 @@ export function ExchangePage() {
       ) : (
         <div className="flow__grid">
           <div ref={headingRef}>
-            {step === 1 && <AmountStep onNext={() => go(2)} />}
+            {step === 1 && <AmountStep state={state} onNext={() => go(2)} />}
             {step === 2 && <PayoutStep grossCents={data?.quote.grossCents ?? null} onBack={() => go(1)} onNext={() => go(3)} />}
             {step === 3 && <DetailsStep onBack={() => go(2)} onNext={() => go(4)} />}
           </div>
-          {step < 4 ? (
-            <aside className="flow__aside" aria-label="Quote summary">
-              {data ? (
-                <div className="summary-bar" aria-hidden="true">
-                  <span className="small">You receive (indicative)</span>
-                  <strong>{formatUsd(data.quote.netCents < 0n ? 0n : data.quote.netCents)}</strong>
-                </div>
-              ) : null}
-              <div className="panel flow__aside--hide-mobile">
-                <div className="panel__head">
-                  <h2 style={{ fontSize: 'var(--fs-title)' }}>Indicative quote</h2>
-                  <MockBadge label="Mock pricing" />
-                </div>
-                <div className="panel__body">
-                  {data ? (
-                    <QuoteBreakdown quote={data.quote} loading={state.status === 'loading'} />
-                  ) : (
-                    <p className="muted small">Enter an amount to see the breakdown.</p>
-                  )}
-                  <p className="quote-meta">
-                    <span>Final quote is locked on the review step.</span>
-                  </p>
-                </div>
+          <aside className="flow__aside" aria-label="Quote summary">
+            {data ? (
+              <div className="summary-bar" aria-hidden="true">
+                <span className="small">You receive (indicative)</span>
+                <strong>{formatUsd(data.quote.netCents < 0n ? 0n : data.quote.netCents)}</strong>
               </div>
-            </aside>
-          ) : null}
+            ) : null}
+            <div className="panel flow__aside--hide-mobile">
+              <div className="panel__head">
+                <h2 className="title">Indicative quote</h2>
+                <MockBadge label="Mock pricing" />
+              </div>
+              <div className="panel__body">
+                {data ? (
+                  <QuoteBreakdown quote={data.quote} loading={state.status === 'loading'} />
+                ) : (
+                  <p className="muted small">Enter an amount to see the breakdown.</p>
+                )}
+                <p className="quote-meta">
+                  <span>Final quote is locked on the review step.</span>
+                </p>
+              </div>
+            </div>
+          </aside>
         </div>
       )}
     </div>

@@ -7,6 +7,7 @@
  * can label it, and so a test can assert nothing mock leaks into production.
  */
 import type { AssetCode, NetworkId } from '@/domain/assets';
+import type { VerificationLevel } from '@/domain/identity';
 import type { AtomicAmount, Cents, Micros } from '@/domain/money';
 import type { PayoutMethodId } from '@/domain/payout';
 import type { QuoteResult } from '@/domain/quote';
@@ -37,7 +38,7 @@ export interface QuoteService {
 }
 
 /* ---------- Identity ---------- */
-export type VerificationLevel = 'unverified' | 'verified' | 'enhanced';
+export type { VerificationLevel };
 export interface User {
   email: string;
   name: string;
@@ -90,14 +91,19 @@ export interface PayoutProvider {
 /* ---------- Deposits / blockchain monitoring ---------- */
 export interface DepositMonitor {
   createDepositAddress(asset: AssetCode, network: NetworkId): string;
-  /** Mock-only: the next "happy path" event a monitor would emit. */
-  nextSimulatedEvent(tx: Transaction): TransactionEvent | null;
+}
+
+/** Preview-only: stands in for blockchain and payout-provider events. Absent in production. */
+export interface TransactionSimulator {
+  /** The next "happy path" event a monitor or payout provider would emit. */
+  nextEvent(tx: Transaction): TransactionEvent | null;
 }
 
 /* ---------- Transactions ---------- */
 export interface CreateTransactionInput {
   quoteResult: QuoteResult;
-  destination: PayoutDestinationRecord;
+  /** Resolved server-side against the customer's own saved destinations. */
+  destinationId: string;
   refundAddress: string;
   customerEmail: string;
 }
@@ -142,4 +148,5 @@ export interface Services {
   transactions: TransactionService;
   largeDesk: LargeTransactionDesk;
   courier: CourierProvider;
+  simulator?: TransactionSimulator;
 }

@@ -1,5 +1,6 @@
 import { ASSETS, type AssetCode } from '@/domain/assets';
 import { formatUnits, MICROS_PER_CENT, type AtomicAmount, type Micros } from '@/domain/money';
+import type { PayoutDestinationRecord } from '@/services/types';
 
 export function formatAsset(atomic: AtomicAmount, asset: AssetCode, { withCode = true } = {}): string {
   const a = ASSETS[asset];
@@ -7,9 +8,13 @@ export function formatAsset(atomic: AtomicAmount, asset: AssetCode, { withCode =
   return withCode ? `${body} ${asset}` : body;
 }
 
-/** USD micros → "$68,420.15" (truncated to cents; sub-cent shown for stablecoins). */
-export function formatPriceMicros(micros: Micros, { precise = false } = {}): string {
-  if (precise) return '$' + formatUnits(micros, 6, { minFraction: 4, maxFraction: 4 });
+export function describeDestination(d: Pick<PayoutDestinationRecord, 'kind' | 'last4'>): string {
+  return `${d.kind === 'bank' ? 'Bank account' : 'Debit card'} ending ${d.last4}`;
+}
+
+/** USD micros per unit → "$68,420.15"; stablecoins get four decimals so a de-peg is visible. */
+export function formatPriceMicros(micros: Micros, asset: AssetCode): string {
+  if (ASSETS[asset].class === 'stable') return '$' + formatUnits(micros, 6, { minFraction: 4, maxFraction: 4 });
   return '$' + formatUnits(micros / MICROS_PER_CENT, 2, { minFraction: 2, maxFraction: 2 });
 }
 

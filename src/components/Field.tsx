@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { Icon } from './Icon';
 
 export interface FieldRenderProps {
@@ -52,21 +52,24 @@ export function Field({
   );
 }
 
-export function ErrorSummary({
-  errors,
-  title = 'Fix the following to continue',
-}: {
-  errors: Array<{ fieldId: string; message: string }>;
-  title?: string;
-}) {
-  if (!errors.length) return null;
+/**
+ * Lists a form's errors as links to their fields and takes focus whenever a new
+ * set of errors arrives (i.e. after a failed submit).
+ */
+export function ErrorSummary({ errors, title = 'Fix the following to continue' }: { errors: Record<string, string>; title?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (Object.keys(errors).length) ref.current?.focus();
+  }, [errors]);
+  const entries = Object.entries(errors);
+  if (!entries.length) return null;
   return (
-    <div className="error-summary" role="alert" tabIndex={-1} id="error-summary">
+    <div className="error-summary" role="alert" tabIndex={-1} ref={ref}>
       <h2>{title}</h2>
       <ul>
-        {errors.map((e) => (
-          <li key={e.fieldId}>
-            <a href={`#${e.fieldId}`}>{e.message}</a>
+        {entries.map(([fieldId, message]) => (
+          <li key={fieldId}>
+            <a href={`#${fieldId}`}>{message}</a>
           </li>
         ))}
       </ul>

@@ -40,9 +40,7 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
             Reference price
             <small>Mock mid-market, per {quote.asset}</small>
           </dt>
-          <dd className={sk}>
-            {formatPriceMicros(quote.referencePriceMicros, { precise: quote.asset === 'USDT' || quote.asset === 'USDC' })}
-          </dd>
+          <dd className={sk}>{formatPriceMicros(quote.referencePriceMicros, quote.asset)}</dd>
         </div>
         <div>
           <dt>Value at reference price</dt>
@@ -60,7 +58,7 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
             Payout fee
             <small>{method.name}</small>
           </dt>
-          <dd className={sk}>{quote.payoutFeeCents === 0n ? '$0.00' : formatUsd(-quote.payoutFeeCents)}</dd>
+          <dd className={sk}>{formatUsd(-quote.payoutFeeCents)}</dd>
         </div>
       </dl>
       <div className="quote-total">

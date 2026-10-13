@@ -16,14 +16,15 @@ type QuoteData = QuoteResult & { price: ReferencePrice };
 export type QuoteState =
   | { status: 'idle' }
   | { status: 'loading'; previous: QuoteData | null }
-  | { status: 'ready'; data: QuoteData }
+  /** `refreshing`: a periodic re-price for the same inputs is in flight; the data stays usable. */
+  | { status: 'ready'; data: QuoteData; refreshing: boolean }
   | { status: 'error'; message: string };
 
-type Stored = { key: string; data: QuoteData | null; error: string | null };
+type Stored = { key: string; inputs: string; data: QuoteData | null; error: string | null };
 
 export function useQuote(
   input: { asset: AssetCode; network: NetworkId; amount: string; payoutMethod: PayoutMethodId },
-  { live = true } = {},
+  { live = true, enabled = true } = {},
 ) {
   const { quotes } = useServices();
   const [stored, setStored] = useState<Stored | null>(null);
@@ -32,7 +33,8 @@ export function useQuote(
 
   const parsed = parseAssetAmount(amount, asset);
   const amountAtomic = parsed.ok && parsed.value > 0n ? parsed.value : null;
-  const key = amountAtomic === null ? null : `${asset}|${network}|${amountAtomic}|${payoutMethod}|${nonce}`;
+  const inputs = `${asset}|${network}|${amountAtomic}|${payoutMethod}`;
+  const key = amountAtomic === null || !enabled ? null : `${inputs}|${nonce}`;
 
   useEffect(() => {
     if (key === null || amountAtomic === null) return;
@@ -40,25 +42,27 @@ export function useQuote(
     quotes
       .getQuote({ asset, network, amountAtomic, payoutMethod })
       .then((data) => {
-        if (!cancelled) setStored({ key, data, error: null });
+        if (!cancelled) setStored({ key, inputs, data, error: null });
       })
       .catch(() => {
-        if (!cancelled) setStored({ key, data: null, error: 'Pricing is unavailable right now. Try again in a moment.' });
+        if (!cancelled) setStored({ key, inputs, data: null, error: 'Pricing is unavailable right now. Try again in a moment.' });
       });
     return () => {
       cancelled = true;
     };
-  }, [quotes, key, asset, network, amountAtomic, payoutMethod]);
+  }, [quotes, key, inputs, asset, network, amountAtomic, payoutMethod]);
 
   useEffect(() => {
-    if (!live) return;
+    if (!live || !enabled) return;
     const t = window.setInterval(() => setNonce((n) => n + 1), PRICING_POLICY.indicativeRefreshMs);
     return () => window.clearInterval(t);
-  }, [live]);
+  }, [live, enabled]);
 
   let state: QuoteState;
   if (key === null) state = { status: 'idle' };
-  else if (stored?.key === key) state = stored.error ? { status: 'error', message: stored.error } : { status: 'ready', data: stored.data! };
+  else if (stored?.key === key)
+    state = stored.error ? { status: 'error', message: stored.error } : { status: 'ready', data: stored.data!, refreshing: false };
+  else if (stored?.inputs === inputs && stored.data) state = { status: 'ready', data: stored.data, refreshing: true };
   else state = { status: 'loading', previous: stored?.data ?? null };
 
   return { state, refresh: () => setNonce((n) => n + 1) };

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { REAL_MONEY_ENABLED, resolveServiceMode } from '@/config/runtime';
 import { isValidAddress, NETWORKS, type NetworkId } from '@/domain/assets';
+import { calculateQuote } from '@/domain/quote';
 import { createMockServices } from '../mock';
-import { isMockDepositAddress } from '../mock/deposits';
+import { isPreviewDepositAddress } from '@/domain/transaction';
 import { MOCK_MFA_CODE } from '../mock/auth';
 
 let clock = 1_700_000_000_000;
@@ -47,7 +48,7 @@ describe('mock services', () => {
     const s = services();
     for (const network of Object.keys(NETWORKS) as NetworkId[]) {
       const addr = s.deposits.createDepositAddress('USDC', network);
-      expect(isMockDepositAddress(addr)).toBe(true);
+      expect(isPreviewDepositAddress(addr)).toBe(true);
       for (const n of Object.keys(NETWORKS) as NetworkId[]) expect(isValidAddress(n, addr)).toBe(false);
     }
   });
@@ -57,13 +58,13 @@ describe('mock services', () => {
     const q = await s.quotes.getQuote({ asset: 'BTC', network: 'bitcoin', amountAtomic: 5_000_000n, payoutMethod: 'ach' });
     let tx = await s.transactions.create({
       quoteResult: q,
-      destination: dest,
+      destinationId: dest.id,
       refundAddress: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
       customerEmail: email,
     });
     expect(tx.status).toBe('awaiting_deposit');
     for (let i = 0; i < 10; i++) {
-      const next = s.deposits.nextSimulatedEvent(tx);
+      const next = s.simulator!.nextEvent(tx);
       if (!next) break;
       tx = await s.transactions.dispatch(tx.id, email, next);
     }
@@ -76,13 +77,64 @@ describe('mock services', () => {
     const q = await s.quotes.getQuote({ asset: 'BTC', network: 'bitcoin', amountAtomic: 5_000_000n, payoutMethod: 'ach' });
     const refundAddress = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
     const tampered = { ...q, quote: { ...q.quote, netCents: q.quote.netCents + 100_00n } };
-    await expect(s.transactions.create({ quoteResult: tampered, destination: dest, refundAddress, customerEmail: email })).rejects.toThrow(
-      /verification failed/,
+    await expect(
+      s.transactions.create({ quoteResult: tampered, destinationId: dest.id, refundAddress, customerEmail: email }),
+    ).rejects.toThrow(/verification failed/);
+    // A self-consistent quote at a forged price is also rejected: the price is looked up independently.
+    const forged = calculateQuote({ ...q.quote, referencePriceMicros: q.quote.referencePriceMicros * 5n, now: q.quote.createdAt });
+    forged.quote.id = 'forged';
+    await expect(
+      s.transactions.create({ quoteResult: forged, destinationId: dest.id, refundAddress, customerEmail: email }),
+    ).rejects.toThrow(/verification failed/);
+    // Client-supplied issues are ignored: an over-limit quote with its issues stripped is refused.
+    const big = await s.quotes.getQuote({ asset: 'BTC', network: 'bitcoin', amountAtomic: 100_000_000n, payoutMethod: 'ach' });
+    await expect(
+      s.transactions.create({ quoteResult: { ...big, issues: [] }, destinationId: dest.id, refundAddress, customerEmail: email }),
+    ).rejects.toThrow(/cannot be confirmed/);
+    // A quote can be used once.
+    await s.transactions.create({ quoteResult: q, destinationId: dest.id, refundAddress, customerEmail: email });
+    await expect(s.transactions.create({ quoteResult: q, destinationId: dest.id, refundAddress, customerEmail: email })).rejects.toThrow(
+      /already been used/,
     );
     clock += 61_000;
-    await expect(s.transactions.create({ quoteResult: q, destination: dest, refundAddress, customerEmail: email })).rejects.toThrow(
+    await expect(s.transactions.create({ quoteResult: q, destinationId: dest.id, refundAddress, customerEmail: email })).rejects.toThrow(
       /expired/,
     );
+  });
+
+  it('requires verification and a destination the customer owns', async () => {
+    const s = services();
+    await s.auth.signUp({ name: 'New User', email: 'new@example.com', password: 'correct-horse-battery' });
+    const q = await s.quotes.getQuote({ asset: 'BTC', network: 'bitcoin', amountAtomic: 5_000_000n, payoutMethod: 'ach' });
+    const refundAddress = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
+    await expect(
+      s.transactions.create({ quoteResult: q, destinationId: 'x', refundAddress, customerEmail: 'new@example.com' }),
+    ).rejects.toThrow(/Verify your identity/);
+    const other = await signedUp(s, 'other@example.com');
+    await s.kyc.startVerification('new@example.com', 'verified');
+    await expect(
+      s.transactions.create({ quoteResult: q, destinationId: other.dest.id, refundAddress, customerEmail: 'new@example.com' }),
+    ).rejects.toThrow(/saved payout destination/);
+  });
+
+  it('expires unpaid transactions after the deposit window and refunds late deposits', async () => {
+    const { s, email, dest } = await signedUp();
+    const q = await s.quotes.getQuote({ asset: 'BTC', network: 'bitcoin', amountAtomic: 5_000_000n, payoutMethod: 'ach' });
+    const tx = await s.transactions.create({
+      quoteResult: q,
+      destinationId: dest.id,
+      refundAddress: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
+      customerEmail: email,
+    });
+    clock = tx.depositDeadline + 1;
+    const expired = await s.transactions.get(tx.id, email);
+    expect(expired?.status).toBe('expired');
+    const late = await s.transactions.dispatch(tx.id, email, {
+      type: 'DEPOSIT_DETECTED',
+      txHash: 'h',
+      amountAtomic: tx.quote.amountAtomic,
+    });
+    expect(late.status).toBe('refund_pending');
   });
 
   it('enforces ownership on reads and writes', async () => {
@@ -90,7 +142,7 @@ describe('mock services', () => {
     const q = await s.quotes.getQuote({ asset: 'BTC', network: 'bitcoin', amountAtomic: 5_000_000n, payoutMethod: 'ach' });
     const tx = await s.transactions.create({
       quoteResult: q,
-      destination: dest,
+      destinationId: dest.id,
       refundAddress: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
       customerEmail: email,
     });
@@ -103,13 +155,13 @@ describe('mock services', () => {
     const q = await s.quotes.getQuote({ asset: 'ETH', network: 'ethereum', amountAtomic: 10n ** 17n, payoutMethod: 'ach' });
     let tx = await s.transactions.create({
       quoteResult: q,
-      destination: dest,
+      destinationId: dest.id,
       refundAddress: '0x000000000000000000000000000000000000dEaD',
       customerEmail: email,
     });
     const seen: string[] = [];
     for (let i = 0; i < 12; i++) {
-      const next = s.deposits.nextSimulatedEvent(tx);
+      const next = s.simulator!.nextEvent(tx);
       if (!next) break;
       tx = await s.transactions.dispatch(tx.id, email, next);
       seen.push(tx.status);

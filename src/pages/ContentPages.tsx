@@ -8,7 +8,8 @@ import { FAQ, FaqList, type FaqItem } from '@/content/faq';
 import { NETWORKS } from '@/domain/assets';
 import { formatBps, formatUsd } from '@/domain/money';
 import { describeFee, PAYOUT_METHODS, PAYOUT_ORDER } from '@/domain/payout';
-import { PRICING_POLICY } from '@/domain/quote';
+import { calculateQuote, PRICING_POLICY } from '@/domain/quote';
+import { QuoteBreakdown } from '@/components/QuoteBreakdown';
 
 function WithToc({ toc, children }: { toc: Array<[string, string]>; children: ReactNode }) {
   return (
@@ -114,6 +115,16 @@ export function HowItWorksPage() {
 }
 
 /* ---------------- Fees ---------------- */
+/** Computed with the live formula so the example can never drift from the fee schedule. */
+const FEES_EXAMPLE = calculateQuote({
+  asset: 'BTC',
+  network: 'bitcoin',
+  amountAtomic: 10_000_000n, // 0.10 BTC
+  payoutMethod: 'ach',
+  referencePriceMicros: 68_000_000_000n, // $68,000.00 — illustrative
+  now: 0,
+}).quote;
+
 export function FeesPage() {
   useDocumentTitle('Fees');
   const vol = PRICING_POLICY.spreadBps.volatile;
@@ -161,13 +172,13 @@ export function FeesPage() {
             </thead>
             <tbody>
               <tr>
-                <th scope="row">Under {formatUsd(vol[0].upToCents!).replace('.00', '')}</th>
+                <th scope="row">Under {formatUsd(vol[0].upToCents!, { whole: true })}</th>
                 <td className="num">{formatBps(vol[0].bps)}</td>
                 <td className="num">{formatBps(stb[0].bps)}</td>
               </tr>
               <tr>
                 <th scope="row">
-                  {formatUsd(vol[0].upToCents!).replace('.00', '')} to {formatUsd(PRICING_POLICY.retailMaximumCents).replace('.00', '')}
+                  {formatUsd(vol[0].upToCents!, { whole: true })} to {formatUsd(PRICING_POLICY.retailMaximumCents, { whole: true })}
                 </th>
                 <td className="num">{formatBps(vol[1].bps)}</td>
                 <td className="num">{formatBps(stb[1].bps)}</td>
@@ -223,29 +234,15 @@ export function FeesPage() {
           </li>
         </ul>
         <h2 id="example">Worked example</h2>
-        <p>Selling 0.10 BTC at an illustrative reference price of $68,000.00, paid by bank transfer:</p>
-        <dl className="dl">
-          <div>
-            <dt>Value at reference price</dt>
-            <dd className="tabular">$6,800.00</dd>
+        <p>
+          Selling 0.10 BTC at an illustrative reference price of {formatUsd(FEES_EXAMPLE.referencePriceMicros / 10_000n)}, paid by bank
+          transfer:
+        </p>
+        <div className="panel">
+          <div className="panel__body">
+            <QuoteBreakdown quote={FEES_EXAMPLE} />
           </div>
-          <div>
-            <dt>Spread ({formatBps(vol[0].bps)})</dt>
-            <dd className="tabular">−$68.00</dd>
-          </div>
-          <div>
-            <dt>Payout fee (ACH)</dt>
-            <dd className="tabular">$0.00</dd>
-          </div>
-          <div>
-            <dt>
-              <strong>You receive</strong>
-            </dt>
-            <dd className="tabular">
-              <strong>$6,732.00</strong>
-            </dd>
-          </div>
-        </dl>
+        </div>
       </WithToc>
     </>
   );
@@ -339,7 +336,7 @@ export function FaqPage() {
       <div className="container section--tight stack stack--lg" style={{ maxWidth: 'calc(860px + 2 * var(--gutter))' }}>
         {groups.map((g) => (
           <section key={g} aria-labelledby={`faq-${g}`} className="stack">
-            <h2 id={`faq-${g}`} style={{ fontSize: 'var(--fs-title)' }}>
+            <h2 id={`faq-${g}`} className="title">
               {g}
             </h2>
             <FaqList items={FAQ.filter((f) => f.group === g)} />
@@ -396,7 +393,7 @@ export function HelpPage() {
           <ul className="pillars" style={{ rowGap: 48 }}>
             {topics.map((t) => (
               <li key={t.title}>
-                <h2 style={{ fontSize: 'var(--fs-title)' }}>{t.title}</h2>
+                <h2 className="title">{t.title}</h2>
                 <p>{t.body}</p>
                 <p>
                   <Link to={t.to}>

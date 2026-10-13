@@ -5,7 +5,7 @@
  */
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { defaultNetwork, isAssetCode, isSupportedPair, type AssetCode, type NetworkId } from '@/domain/assets';
-import type { PayoutMethodId } from '@/domain/payout';
+import { PAYOUT_METHODS, type PayoutMethodId } from '@/domain/payout';
 
 export interface ExchangeDraft {
   asset: AssetCode;
@@ -33,9 +33,20 @@ function load(): ExchangeDraft {
   try {
     const raw = window.sessionStorage.getItem(KEY);
     if (!raw) return INITIAL_DRAFT;
-    const parsed = { ...INITIAL_DRAFT, ...(JSON.parse(raw) as Partial<ExchangeDraft>) };
-    if (!isAssetCode(parsed.asset) || !isSupportedPair(parsed.asset, parsed.network)) return INITIAL_DRAFT;
-    return parsed;
+    const raw_ = JSON.parse(raw) as Record<string, unknown>;
+    const d = { ...INITIAL_DRAFT, ...raw_ } as ExchangeDraft;
+    // Session storage is user-editable: validate every field before trusting it.
+    const valid =
+      isAssetCode(d.asset) &&
+      isSupportedPair(d.asset, d.network) &&
+      typeof d.amount === 'string' &&
+      d.amount.length <= 40 &&
+      Object.hasOwn(PAYOUT_METHODS, d.payoutMethod) &&
+      (d.destinationId === null || typeof d.destinationId === 'string') &&
+      typeof d.refundAddress === 'string' &&
+      d.refundAddress.length <= 128 &&
+      [1, 2, 3, 4].includes(d.step);
+    return valid ? d : INITIAL_DRAFT;
   } catch {
     return INITIAL_DRAFT;
   }

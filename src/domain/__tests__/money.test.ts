@@ -18,6 +18,10 @@ describe('parseDecimal', () => {
     expect(parseDecimal('1e5', 2)).toEqual({ ok: false, reason: 'invalid' });
     expect(parseDecimal('-1', 2)).toEqual({ ok: false, reason: 'invalid' });
     expect(parseDecimal('1.2.3', 2)).toEqual({ ok: false, reason: 'invalid' });
+    // Decimal commas are rejected instead of being read as thousands separators.
+    expect(parseDecimal('0,05', 8)).toEqual({ ok: false, reason: 'invalid' });
+    expect(parseDecimal('1,5', 8)).toEqual({ ok: false, reason: 'invalid' });
+    expect(parseDecimal('12,500.25', 2)).toEqual({ ok: true, value: 1_250_025n });
   });
 });
 

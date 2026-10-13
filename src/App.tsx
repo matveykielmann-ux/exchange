@@ -1,19 +1,30 @@
-import type { ReactNode } from 'react';
+import { lazy, type ComponentType, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { AccountPage } from './pages/AccountPage';
-import { SignInPage, SignUpPage } from './pages/AuthPages';
-import { CashDeliveryPage } from './pages/CashDeliveryPage';
-import { FaqPage, FeesPage, HelpPage, HowItWorksPage, LegalPage, NotFoundPage, SecurityPage } from './pages/ContentPages';
-import { ExchangePage } from './pages/ExchangePage';
 import { HomePage } from './pages/HomePage';
-import { LargeTransactionsPage } from './pages/LargeTransactionsPage';
-import { TransactionPage } from './pages/TransactionPage';
-import { TransactionsPage } from './pages/TransactionsPage';
 import { useUser } from './state/auth';
 import { DraftProvider } from './state/draft';
 import { ServicesProvider } from './state/services';
 import type { Services } from './services/types';
+
+// Route-level code splitting: the homepage ships eagerly, everything else on demand.
+const named = <T extends Record<string, unknown>, K extends keyof T>(load: () => Promise<T>, key: K) =>
+  lazy(() => load().then((m) => ({ default: m[key] as ComponentType })));
+const ExchangePage = named(() => import('./pages/ExchangePage'), 'ExchangePage');
+const TransactionPage = named(() => import('./pages/TransactionPage'), 'TransactionPage');
+const TransactionsPage = named(() => import('./pages/TransactionsPage'), 'TransactionsPage');
+const AccountPage = named(() => import('./pages/AccountPage'), 'AccountPage');
+const SignInPage = named(() => import('./pages/AuthPages'), 'SignInPage');
+const SignUpPage = named(() => import('./pages/AuthPages'), 'SignUpPage');
+const LargeTransactionsPage = named(() => import('./pages/LargeTransactionsPage'), 'LargeTransactionsPage');
+const CashDeliveryPage = named(() => import('./pages/CashDeliveryPage'), 'CashDeliveryPage');
+const HowItWorksPage = named(() => import('./pages/ContentPages'), 'HowItWorksPage');
+const FeesPage = named(() => import('./pages/ContentPages'), 'FeesPage');
+const SecurityPage = named(() => import('./pages/ContentPages'), 'SecurityPage');
+const FaqPage = named(() => import('./pages/ContentPages'), 'FaqPage');
+const HelpPage = named(() => import('./pages/ContentPages'), 'HelpPage');
+const LegalPage = named(() => import('./pages/ContentPages'), 'LegalPage');
+const NotFoundPage = named(() => import('./pages/ContentPages'), 'NotFoundPage');
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const user = useUser();

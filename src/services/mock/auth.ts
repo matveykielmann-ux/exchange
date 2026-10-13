@@ -21,7 +21,10 @@ interface Session {
 
 const normalize = (email: string) => email.trim().toLowerCase();
 
-export function createMockAuth(opts: MockOptions): AuthService & { setVerification(email: string, level: VerificationLevel): void } {
+export function createMockAuth(opts: MockOptions): AuthService & {
+  setVerification(email: string, level: VerificationLevel): void;
+  verificationOf(email: string): VerificationLevel | null;
+} {
   const listeners = new Set<(u: User | null) => void>();
   const challenges = new Map<string, string>();
 
@@ -92,12 +95,21 @@ export function createMockAuth(opts: MockOptions): AuthService & { setVerificati
 
     signOut() {
       removeStore(SESSION_KEY);
+      try {
+        window.sessionStorage.clear(); // drop the in-progress exchange draft
+      } catch {
+        /* storage unavailable */
+      }
       emit();
     },
 
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+
+    verificationOf(email) {
+      return users()[normalize(email)]?.verification ?? null;
     },
 
     setVerification(email, level) {

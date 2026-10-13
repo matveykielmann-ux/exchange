@@ -25,6 +25,7 @@ function makeTx(overrides: Partial<Transaction> = {}): Transaction {
     depositDeadline: 1_800_000,
     confirmations: { count: 0, required: 12 },
     depositTxHash: null,
+    depositAmountAtomic: null,
     payoutReference: null,
     reviewReason: null,
     log: [{ at: 0, type: 'CREATED', status: 'awaiting_deposit', detail: '' }],
@@ -75,6 +76,34 @@ describe('transaction state machine', () => {
     expect(timelineFor(tx).find((s) => s.key === 'payout')?.state).toBe('failed');
     tx = applyEvent(tx, { type: 'RETRY_PAYOUT' }, 2);
     expect(tx.status).toBe('payout_processing');
+  });
+
+  it('never pays out a late or mismatched deposit at the locked rate', () => {
+    const tx = makeTx();
+    expect(applyEvent(tx, { type: 'DEPOSIT_DETECTED', txHash: 'h', amountAtomic: 1n }, 1).status).toBe('refund_pending');
+    expect(applyEvent(tx, { type: 'DEPOSIT_DETECTED', txHash: 'h', amountAtomic: tx.quote.amountAtomic }, tx.depositDeadline).status).toBe(
+      'refund_pending',
+    );
+    const expired = applyEvent(tx, { type: 'WINDOW_EXPIRED' }, 1);
+    expect(applyEvent(expired, { type: 'DEPOSIT_DETECTED', txHash: 'h', amountAtomic: tx.quote.amountAtomic }, 2).status).toBe(
+      'refund_pending',
+    );
+  });
+
+  it('only accepts increasing confirmation counts', () => {
+    const tx = makeTx({ status: 'confirming', depositTxHash: 'h', confirmations: { count: 5, required: 12 } });
+    expect(() => applyEvent(tx, { type: 'CONFIRMATION', count: 5 }, 1)).toThrow(InvalidTransitionError);
+    expect(() => applyEvent(tx, { type: 'CONFIRMATION', count: 3 }, 1)).toThrow(InvalidTransitionError);
+  });
+
+  it('holds flagged transactions for review before payout', () => {
+    const tx = makeTx({ status: 'confirming', depositTxHash: 'h', confirmations: { count: 5, required: 12 }, reviewReason: 'flag' });
+    const held = applyEvent(tx, { type: 'CONFIRMATION', count: 12 }, 1);
+    expect(held.status).toBe('compliance_review');
+    expect(() => applyEvent(held, { type: 'PAYOUT_SETTLED', reference: 'x' }, 2)).toThrow(InvalidTransitionError);
+    const cleared = applyEvent(held, { type: 'REVIEW_CLEARED' }, 2);
+    expect(cleared.status).toBe('payout_processing');
+    expect(cleared.reviewReason).toBeNull();
   });
 
   it('expires or cancels only before a deposit', () => {

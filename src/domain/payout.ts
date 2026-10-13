@@ -4,7 +4,7 @@
  * are contracted.
  */
 import { FEATURE_FLAGS } from '@/config/runtime';
-import { divRoundHalfUp, type Cents } from './money';
+import { divRoundHalfUp, formatBps, formatUsd, type Cents } from './money';
 
 export type PayoutMethodId = 'ach' | 'wire' | 'instant_debit' | 'courier_cash';
 
@@ -25,8 +25,6 @@ export interface PayoutMethod {
   minCents: Cents;
   maxCents: Cents;
   availability: Availability;
-  /** Whether the method can be used from the large-transaction desk. */
-  largeTransactionEligible: boolean;
 }
 
 export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
@@ -39,7 +37,6 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
     minCents: 50_00n,
     maxCents: 25_000_00n,
     availability: { available: true },
-    largeTransactionEligible: false,
   },
   wire: {
     id: 'wire',
@@ -50,7 +47,6 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
     minCents: 1_000_00n,
     maxCents: 25_000_00n,
     availability: { available: true },
-    largeTransactionEligible: true,
   },
   instant_debit: {
     id: 'instant_debit',
@@ -61,7 +57,6 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
     minCents: 50_00n,
     maxCents: 5_000_00n,
     availability: { available: true },
-    largeTransactionEligible: false,
   },
   courier_cash: {
     id: 'courier_cash',
@@ -77,7 +72,6 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
           available: false,
           reason: 'Not offered. Requires verified licensing, cash-reporting controls, an insured carrier and local legal review.',
         },
-    largeTransactionEligible: false,
   },
 };
 
@@ -104,9 +98,9 @@ export function describeFee(fee: FeeSchedule): string {
     case 'none':
       return 'No payout fee';
     case 'flat':
-      return `$${(Number(fee.cents) / 100).toFixed(2)} flat`;
+      return `${formatUsd(fee.cents)} flat`;
     case 'percent':
-      return `${(fee.bps / 100).toFixed(2)}% (min $${(Number(fee.minCents) / 100).toFixed(2)}, max $${(Number(fee.maxCents) / 100).toFixed(2)})`;
+      return `${formatBps(fee.bps)} (min ${formatUsd(fee.minCents)}, max ${formatUsd(fee.maxCents)})`;
   }
 }
 
@@ -114,9 +108,28 @@ export type PayoutEligibility = { eligible: true } | { eligible: false; reason: 
 
 export function payoutEligibility(method: PayoutMethod, grossCents: Cents): PayoutEligibility {
   if (!method.availability.available) return { eligible: false, reason: method.availability.reason };
-  if (grossCents < method.minCents)
-    return { eligible: false, reason: `Requires at least $${(Number(method.minCents) / 100).toLocaleString('en-US')}` };
+  if (grossCents < method.minCents) return { eligible: false, reason: `Requires at least ${formatUsd(method.minCents, { whole: true })}.` };
   if (grossCents > method.maxCents)
-    return { eligible: false, reason: `Limit is $${(Number(method.maxCents) / 100).toLocaleString('en-US')} per transaction` };
+    return { eligible: false, reason: `Limit is ${formatUsd(method.maxCents, { whole: true })} per transaction.` };
   return { eligible: true };
+}
+
+export interface PayoutOption {
+  method: PayoutMethod;
+  eligibility: PayoutEligibility;
+  feeCents: Cents;
+}
+
+/** Every payout method with its eligibility and fee for a given sale value (null = no amount yet). */
+export function payoutOptions(grossCents: Cents | null): PayoutOption[] {
+  return PAYOUT_ORDER.map((id) => {
+    const method = PAYOUT_METHODS[id];
+    if (grossCents === null) return { method, eligibility: { eligible: false, reason: 'Enter an amount first.' }, feeCents: 0n };
+    return { method, eligibility: payoutEligibility(method, grossCents), feeCents: payoutFeeCents(method, grossCents) };
+  });
+}
+
+/** Short label for a computed fee, e.g. "No fee" or "$25.00 fee". */
+export function feeLabel(feeCents: Cents): string {
+  return feeCents === 0n ? 'No fee' : `${formatUsd(feeCents)} fee`;
 }

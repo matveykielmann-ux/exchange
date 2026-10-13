@@ -1,11 +1,11 @@
 import type { Services } from '../types';
 import { createMockAuth } from './auth';
 import { createMockCourier } from './courier';
-import { createMockDeposits } from './deposits';
+import { createMockDeposits, createMockSimulator } from './deposits';
 import { createMockKyc } from './kyc';
 import { createMockLargeDesk } from './largeDesk';
 import { createMockPayouts } from './payouts';
-import { createMockPricing } from './pricing';
+import { createMockPricing, mockPriceAt } from './pricing';
 import { createMockQuotes } from './quotes';
 import { createMockScreening } from './screening';
 import { createMockTransactions } from './transactions';
@@ -17,6 +17,7 @@ export function createMockServices(overrides: Partial<MockOptions> = {}): Servic
   const auth = createMockAuth(opts);
   const deposits = createMockDeposits(opts);
   const screening = createMockScreening(opts);
+  const payouts = createMockPayouts(opts);
   return {
     mode: 'mock',
     pricing,
@@ -24,10 +25,11 @@ export function createMockServices(overrides: Partial<MockOptions> = {}): Servic
     auth,
     kyc: createMockKyc(opts, (email, level) => auth.setVerification(email, level)),
     screening,
-    payouts: createMockPayouts(opts),
+    payouts,
     deposits,
-    transactions: createMockTransactions(opts, { deposits, screening }),
+    transactions: createMockTransactions(opts, { deposits, screening, payouts, priceAt: mockPriceAt, verificationOf: auth.verificationOf }),
     largeDesk: createMockLargeDesk(opts),
     courier: createMockCourier(opts),
+    simulator: createMockSimulator(opts),
   };
 }

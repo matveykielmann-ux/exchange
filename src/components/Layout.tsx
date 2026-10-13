@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { BRAND } from '@/config/brand';
 import { useUser } from '@/state/auth';
@@ -233,7 +233,15 @@ export function Layout() {
       <PreviewBanner />
       <SiteHeader />
       <main id="main">
-        <Outlet />
+        <Suspense
+          fallback={
+            <div className="container flow" aria-busy="true">
+              <p className="muted">Loading…</p>
+            </div>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </main>
       <SiteFooter />
     </>

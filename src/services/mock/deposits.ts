@@ -5,19 +5,20 @@
  */
 import type { AssetCode, NetworkId } from '@/domain/assets';
 import type { Transaction, TransactionEvent } from '@/domain/transaction';
-import type { DepositMonitor } from '../types';
+import type { DepositMonitor, TransactionSimulator } from '../types';
 import { mockId, type MockOptions } from './util';
-
-export function isMockDepositAddress(address: string): boolean {
-  return address.startsWith('MOCK-') && address.endsWith('-DO-NOT-SEND');
-}
 
 export function createMockDeposits(opts: MockOptions): DepositMonitor {
   return {
     createDepositAddress(asset: AssetCode, network: NetworkId) {
       return `MOCK-${asset}-${network.toUpperCase()}-${mockId(opts, 10)}-DO-NOT-SEND`;
     },
-    nextSimulatedEvent(tx: Transaction): TransactionEvent | null {
+  };
+}
+
+export function createMockSimulator(opts: MockOptions): TransactionSimulator {
+  return {
+    nextEvent(tx: Transaction): TransactionEvent | null {
       const step = Math.max(1, Math.ceil(tx.confirmations.required / 3));
       switch (tx.status) {
         case 'awaiting_deposit':
@@ -28,8 +29,6 @@ export function createMockDeposits(opts: MockOptions): DepositMonitor {
         case 'compliance_review':
           return { type: 'REVIEW_CLEARED' };
         case 'payout_processing':
-          if (tx.reviewReason && !tx.log.some((l) => l.type === 'REVIEW_REQUIRED'))
-            return { type: 'REVIEW_REQUIRED', reason: tx.reviewReason };
           return { type: 'PAYOUT_SETTLED', reference: `MOCK-PAYOUT-${mockId(opts, 8)}` };
         case 'payout_failed':
           return { type: 'RETRY_PAYOUT' };

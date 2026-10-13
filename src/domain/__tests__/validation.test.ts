@@ -6,6 +6,7 @@ import {
   validatePassword,
   validateRefundAddress,
   validateUsdAmount,
+  validateUsPhone,
 } from '../validation';
 
 describe('validators', () => {
@@ -33,7 +34,9 @@ describe('validators', () => {
     expect(validateRefundAddress('0x52908400098527886E0F7030069857D2E4169EE7', 'tron')).toMatch(/doesn't look like a Tron/);
   });
   it('enforces the large-desk minimum', () => {
-    expect(validateUsdAmount('10,000', { minDollars: 25_000 })).toMatch(/\$25,000 or more/);
-    expect(validateUsdAmount('75,000', { minDollars: 25_000 })).toBeNull();
+    expect(validateUsdAmount('10,000', { minCents: 25_000_00n })).toMatch(/\$25,000 or more/);
+    expect(validateUsdAmount('75,000', { minCents: 25_000_00n })).toBeNull();
+    expect(validateUsPhone('(415) 555-0100')).toBeNull();
+    expect(validateUsPhone('555-0100')).toMatch(/area code/);
   });
 });

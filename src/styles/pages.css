@@ -411,6 +411,9 @@
   .flow__actions > :last-child {
     order: -1;
   }
+  .flow__actions .btn {
+    width: 100%;
+  }
   .flow__actions > span:empty {
     display: none;
   }
@@ -579,16 +582,5 @@
     position: static;
     padding-bottom: var(--s-4);
     border-bottom: 1px solid var(--line);
-  }
-}
-
-.kv-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--s-6);
-}
-@media (max-width: 900px) {
-  .kv-grid {
-    grid-template-columns: 1fr;
   }
 }

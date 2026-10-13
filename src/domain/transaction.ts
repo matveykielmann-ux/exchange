@@ -65,10 +65,21 @@ export interface Transaction {
   depositDeadline: number;
   confirmations: { count: number; required: number };
   depositTxHash: string | null;
+  /** What actually arrived on-chain; may differ from the quoted amount. */
+  depositAmountAtomic: AtomicAmount | null;
   payoutReference: string | null;
   /** Set when pre-deposit screening asks for a manual review before payout. */
   reviewReason: string | null;
   log: TransactionLogEntry[];
+}
+
+/**
+ * Preview deposit addresses are deliberately invalid on every chain (prefix
+ * MOCK-, suffix -DO-NOT-SEND, contain "-"). The UI refuses to display anything
+ * else while the app runs in mock mode.
+ */
+export function isPreviewDepositAddress(address: string): boolean {
+  return address.startsWith('MOCK-') && address.endsWith('-DO-NOT-SEND');
 }
 
 export const TERMINAL_STATUSES: ReadonlySet<TransactionStatus> = new Set(['completed', 'expired', 'cancelled', 'refunded']);
@@ -77,11 +88,11 @@ export const TERMINAL_STATUSES: ReadonlySet<TransactionStatus> = new Set(['compl
 const TRANSITIONS: Partial<
   Record<
     TransactionStatus,
-    Partial<Record<TransactionEventType, TransactionStatus | ((tx: Transaction, e: TransactionEvent) => TransactionStatus)>>
+    Partial<Record<TransactionEventType, TransactionStatus | ((tx: Transaction, e: TransactionEvent, now: number) => TransactionStatus)>>
   >
 > = {
   awaiting_deposit: {
-    DEPOSIT_DETECTED: 'deposit_detected',
+    DEPOSIT_DETECTED: (tx, e, now) => depositOutcome(tx, e, now),
     WINDOW_EXPIRED: 'expired',
     CUSTOMER_CANCELLED: 'cancelled',
   },
@@ -101,6 +112,10 @@ const TRANSITIONS: Partial<
     PAYOUT_SETTLED: 'completed',
     PAYOUT_FAILED: 'payout_failed',
   },
+  expired: {
+    // Funds can still arrive after expiry; they are never paid out at the stale rate.
+    DEPOSIT_DETECTED: 'refund_pending',
+  },
   payout_failed: {
     RETRY_PAYOUT: 'payout_processing',
   },
@@ -109,9 +124,18 @@ const TRANSITIONS: Partial<
   },
 };
 
+/** A late deposit, or one that doesn't match the quoted amount, is never paid out at the locked rate. */
+function depositOutcome(tx: Transaction, e: TransactionEvent, now: number): TransactionStatus {
+  if (e.type !== 'DEPOSIT_DETECTED') return tx.status;
+  if (now >= tx.depositDeadline || e.amountAtomic !== tx.quote.amountAtomic) return 'refund_pending';
+  return 'deposit_detected';
+}
+
+/** Final confirmations lead to payout — unless screening asked for a review first. */
 function confirmationOutcome(tx: Transaction, e: TransactionEvent): TransactionStatus {
   if (e.type !== 'CONFIRMATION') return tx.status;
-  return e.count >= tx.confirmations.required ? 'payout_processing' : 'confirming';
+  if (e.count < tx.confirmations.required) return 'confirming';
+  return tx.reviewReason ? 'compliance_review' : 'payout_processing';
 }
 
 export class InvalidTransitionError extends Error {
@@ -132,9 +156,13 @@ export function canApply(status: TransactionStatus, type: TransactionEventType):
   return allowedEvents(status).includes(type);
 }
 
-function describe(e: TransactionEvent, tx: Transaction): string {
+function describe(e: TransactionEvent, tx: Transaction, now: number): string {
   switch (e.type) {
     case 'DEPOSIT_DETECTED':
+      if (tx.status === 'expired' || now >= tx.depositDeadline)
+        return 'Deposit arrived after the deadline. It will be returned to your refund address.';
+      if (e.amountAtomic !== tx.quote.amountAtomic)
+        return 'Deposit amount differs from the quote. It will be returned to your refund address; start a new exchange for the amount you sent.';
       return `Deposit seen on ${NETWORKS[tx.quote.network].name}.`;
     case 'CONFIRMATION':
       return `${Math.min(e.count, tx.confirmations.required)} of ${tx.confirmations.required} confirmations.`;
@@ -162,16 +190,22 @@ function describe(e: TransactionEvent, tx: Transaction): string {
 export function applyEvent(tx: Transaction, event: TransactionEvent, now: number): Transaction {
   const rule = TRANSITIONS[tx.status]?.[event.type];
   if (!rule) throw new InvalidTransitionError(tx.status, event.type);
-  const next = typeof rule === 'function' ? rule(tx, event) : rule;
+  // Confirmation counts only ever increase; a replayed or reordered event is rejected.
+  if (event.type === 'CONFIRMATION' && (!Number.isInteger(event.count) || event.count <= tx.confirmations.count))
+    throw new InvalidTransitionError(tx.status, event.type);
+  const next = typeof rule === 'function' ? rule(tx, event, now) : rule;
 
   const updated: Transaction = { ...tx, status: next, updatedAt: now };
-  if (event.type === 'DEPOSIT_DETECTED') updated.depositTxHash = event.txHash;
+  if (event.type === 'DEPOSIT_DETECTED') {
+    updated.depositTxHash = event.txHash;
+    updated.depositAmountAtomic = event.amountAtomic;
+  }
   if (event.type === 'CONFIRMATION') {
     updated.confirmations = { ...tx.confirmations, count: Math.min(event.count, tx.confirmations.required) };
   }
   if (event.type === 'PAYOUT_SETTLED') updated.payoutReference = event.reference;
   if (event.type === 'REVIEW_CLEARED') updated.reviewReason = null;
-  updated.log = [...tx.log, { at: now, type: event.type, status: next, detail: describe(event, tx) }];
+  updated.log = [...tx.log, { at: now, type: event.type, status: next, detail: describe(event, tx, now) }];
   return updated;
 }
 
@@ -229,7 +263,13 @@ export function timelineFor(tx: Transaction): TimelineStep[] {
     {
       key: 'deposit',
       label: 'Deposit received',
-      state: tx.depositTxHash ? 'done' : tx.status === 'awaiting_deposit' ? 'current' : 'failed',
+      state: tx.depositTxHash
+        ? 'done'
+        : tx.status === 'awaiting_deposit'
+          ? 'current'
+          : tx.status === 'refund_pending' || tx.status === 'refunded'
+            ? 'upcoming'
+            : 'failed',
     },
     {
       key: 'confirm',

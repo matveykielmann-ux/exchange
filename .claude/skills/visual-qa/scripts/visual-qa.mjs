@@ -162,6 +162,8 @@ async function flow(browser, width) {
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: 'Create account' }).click();
   await page.waitForURL('**/account');
+  // Routes are lazy-loaded: let the chunk finish before navigating away.
+  await page.getByText('Identity verification').first().waitFor();
 
   // Step 1: amount — below minimum, then above retail max, then valid
   await page.goto(BASE_URL + '/exchange', { waitUntil: 'networkidle' });

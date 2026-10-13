@@ -1,6 +1,8 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Checkbox } from '@/components/Checkbox';
 import { ErrorSummary, Field } from '@/components/Field';
+import { errorMessage } from '@/lib/errors';
 import { Notice } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { validateEmail, validatePassword, validateRequired } from '@/domain/validation';
@@ -9,8 +11,10 @@ import { useServices } from '@/state/services';
 function useReturnTo(): string {
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from;
-  // Only allow same-site relative paths, so a crafted state can't redirect off-site.
-  return from && from.startsWith('/') && !from.startsWith('//') ? from : '/account';
+  // Only allow same-site relative paths (no protocol-relative, backslash or
+  // control characters), so a crafted state can't redirect off-site.
+  // eslint-disable-next-line no-control-regex
+  return from && /^\/(?![/\\])[^\\\u0000-\u001f]*$/.test(from) ? from : '/account';
 }
 
 function PreviewAuthNotice() {
@@ -35,7 +39,6 @@ export function SignInPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const summaryRef = useRef<HTMLDivElement>(null);
 
   async function submitCredentials(e: FormEvent) {
     e.preventDefault();
@@ -45,17 +48,14 @@ export function SignInPage() {
     if (!password) next['signin-password'] = 'Enter your password.';
     setErrors(next);
     setServerError(null);
-    if (Object.keys(next).length) {
-      requestAnimationFrame(() => summaryRef.current?.querySelector<HTMLElement>('#error-summary')?.focus());
-      return;
-    }
+    if (Object.keys(next).length) return;
     setBusy(true);
     try {
       const { challengeId } = await auth.signIn({ email, password });
       setPassword('');
       setChallenge(challengeId);
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : 'Sign-in failed.');
+      setServerError(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -74,7 +74,7 @@ export function SignInPage() {
       await auth.verifyMfa({ challengeId: challenge, code });
       navigate(returnTo, { replace: true });
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : 'Verification failed.');
+      setServerError(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -90,9 +90,7 @@ export function SignInPage() {
         <PreviewAuthNotice />
         {!challenge ? (
           <form className="stack" onSubmit={submitCredentials} noValidate>
-            <div ref={summaryRef}>
-              <ErrorSummary errors={Object.entries(errors).map(([fieldId, message]) => ({ fieldId, message }))} />
-            </div>
+            <ErrorSummary errors={errors} />
             <Field label="Email" id="signin-email" error={errors['signin-email']}>
               {(p) => (
                 <input
@@ -177,7 +175,6 @@ export function SignUpPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const summaryRef = useRef<HTMLDivElement>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -191,17 +188,14 @@ export function SignUpPage() {
     if (!agree) next['signup-agree'] = 'Confirm you understand this is a preview.';
     setErrors(next);
     setServerError(null);
-    if (Object.keys(next).length) {
-      requestAnimationFrame(() => summaryRef.current?.querySelector<HTMLElement>('#error-summary')?.focus());
-      return;
-    }
+    if (Object.keys(next).length) return;
     setBusy(true);
     try {
       await auth.signUp({ name, email, password });
       setPassword('');
       navigate(returnTo, { replace: true });
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : 'Could not create the account.');
+      setServerError(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -216,9 +210,7 @@ export function SignUpPage() {
         </div>
         <PreviewAuthNotice />
         <form className="stack" onSubmit={submit} noValidate>
-          <div ref={summaryRef}>
-            <ErrorSummary errors={Object.entries(errors).map(([fieldId, message]) => ({ fieldId, message }))} />
-          </div>
+          <ErrorSummary errors={errors} />
           <Field label="Full legal name" id="signup-name" error={errors['signup-name']}>
             {(p) => <input className="input" {...p} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />}
           </Field>
@@ -239,28 +231,10 @@ export function SignUpPage() {
               />
             )}
           </Field>
-          <div className="field">
-            <label className="row" style={{ alignItems: 'flex-start', flexWrap: 'nowrap', gap: 12 }} htmlFor="signup-agree">
-              <input
-                id="signup-agree"
-                type="checkbox"
-                checked={agree}
-                onChange={(e) => setAgree(e.target.checked)}
-                aria-invalid={errors['signup-agree'] ? true : undefined}
-                aria-describedby={errors['signup-agree'] ? 'signup-agree-error' : undefined}
-                style={{ width: 20, height: 20, marginTop: 2, flex: 'none', accentColor: 'var(--emerald-700)' }}
-              />
-              <span>
-                I understand this is a preview with simulated data, and I've read the <Link to="/legal#terms">terms</Link> and{' '}
-                <Link to="/legal#privacy">privacy notice</Link>.
-              </span>
-            </label>
-            {errors['signup-agree'] ? (
-              <p className="field__error" id="signup-agree-error">
-                {errors['signup-agree']}
-              </p>
-            ) : null}
-          </div>
+          <Checkbox id="signup-agree" checked={agree} onChange={setAgree} error={errors['signup-agree']}>
+            I understand this is a preview with simulated data, and I've read the <Link to="/legal#terms">terms</Link> and{' '}
+            <Link to="/legal#privacy">privacy notice</Link>.
+          </Checkbox>
           {serverError ? <Notice tone="danger" title={serverError} role="alert" /> : null}
           <button className="btn btn--lg btn--block" type="submit" disabled={busy}>
             {busy ? 'Creating…' : 'Create account'}

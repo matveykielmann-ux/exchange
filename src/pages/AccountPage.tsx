@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AddBankForm } from '@/components/AddBankForm';
 import { Icon } from '@/components/Icon';
@@ -6,10 +6,11 @@ import { MockBadge, Notice, PageHeader, StatusBadge } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { formatUsd } from '@/domain/money';
 import { PRICING_POLICY } from '@/domain/quote';
-import { formatDateTime } from '@/lib/format';
+import { describeDestination, formatDateTime } from '@/lib/format';
+import { useDestinations } from '@/state/useDestinations';
 import { useUser } from '@/state/auth';
 import { useServices } from '@/state/services';
-import type { PayoutDestinationRecord, VerificationLevel } from '@/services/types';
+import type { VerificationLevel } from '@/services/types';
 
 const LEVEL: Record<VerificationLevel, { label: string; tone: 'neutral' | 'success' | 'info'; body: string }> = {
   unverified: { label: 'Not verified', tone: 'neutral', body: 'Verify your identity before your first exchange.' },
@@ -30,14 +31,9 @@ export function AccountPage() {
   const user = useUser();
   const services = useServices();
   const navigate = useNavigate();
-  const [destinations, setDestinations] = useState<PayoutDestinationRecord[] | null>(null);
+  const { list: destinations, reload: load } = useDestinations();
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState<VerificationLevel | null>(null);
-
-  const load = useCallback(() => {
-    if (user) services.payouts.listDestinations(user.email).then(setDestinations);
-  }, [services, user]);
-  useEffect(load, [load]);
 
   if (!user) return null;
   const level = LEVEL[user.verification];
@@ -124,7 +120,7 @@ export function AccountPage() {
                           <span>
                             <span className="tx-list__title">{d.label}</span>
                             <span className="small muted tabular" style={{ display: 'block' }}>
-                              {d.kind === 'bank' ? 'Bank account' : 'Debit card'} ending {d.last4}
+                              {describeDestination(d)}
                             </span>
                           </span>
                           <MockBadge />

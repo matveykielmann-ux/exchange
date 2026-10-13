@@ -30,7 +30,7 @@ export function TransactionsPage() {
           <p className="muted">Loading…</p>
         ) : list.length === 0 ? (
           <div className="stack" style={{ maxWidth: 520 }}>
-            <h2 style={{ fontSize: 'var(--fs-title)' }}>No exchanges yet</h2>
+            <h2 className="title">No exchanges yet</h2>
             <p>When you confirm an exchange, it appears here with its status and receipt.</p>
             <div>
               <Link className="btn" to="/exchange">

@@ -5,9 +5,6 @@
   margin-inline: auto;
   padding-inline: var(--gutter);
 }
-.container--narrow {
-  max-width: calc(780px + 2 * var(--gutter));
-}
 
 main {
   flex: 1;
@@ -61,6 +58,9 @@ main {
   color: var(--emerald-700);
 }
 
+.title {
+  font-size: var(--fs-title);
+}
 .lead {
   font-size: var(--fs-body-l);
   color: var(--ink-700);
@@ -366,6 +366,20 @@ main {
   --btn-fg: var(--ink-500);
   --btn-border: var(--line);
   transform: none;
+}
+.check {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+.check input {
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  flex: none;
+  accent-color: var(--emerald-700);
+  cursor: inherit;
 }
 .link-button {
   background: none;
@@ -861,6 +875,10 @@ main {
   background: var(--ink-700);
   transform-origin: left center;
   transition: transform 1s linear;
+}
+.timer-bar--flush {
+  margin-top: 0;
+  border-radius: 0;
 }
 .timer-bar[data-urgent='true'] > span {
   background: var(--warn);

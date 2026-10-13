@@ -1,6 +1,6 @@
 /** Field validators. Each returns an error message, or null when valid. */
 import { ASSETS, NETWORKS, isValidAddress, parseAssetAmount, type AssetCode, type NetworkId } from './assets';
-import { parseDecimal } from './money';
+import { formatUsd, parseDecimal, type Cents } from './money';
 
 export type FieldError = string | null;
 
@@ -26,7 +26,7 @@ export function validateCryptoAmount(value: string, asset: AssetCode): FieldErro
   if (!parsed.ok) {
     if (parsed.reason === 'empty') return `Enter an amount of ${asset}.`;
     if (parsed.reason === 'too_many_decimals') return `${asset} amounts can have at most ${ASSETS[asset].inputDecimals} decimal places.`;
-    return 'Enter a number, for example 0.25.';
+    return 'Enter a number using a period for decimals, for example 0.25.';
   }
   if (parsed.value === 0n) return 'Enter an amount greater than zero.';
   return null;
@@ -63,10 +63,18 @@ export function validateAccountNumber(value: string): FieldError {
   return null;
 }
 
-export function validateUsdAmount(value: string, { minDollars }: { minDollars: number }): FieldError {
+export function validateUsdAmount(value: string, { minCents }: { minCents: Cents }): FieldError {
   const parsed = parseDecimal(value, 2);
   if (!parsed.ok) return parsed.reason === 'empty' ? 'Enter an approximate amount in USD.' : 'Enter a dollar amount, for example 75,000.';
-  if (parsed.value < BigInt(minDollars) * 100n)
-    return `The large-transaction desk handles $${minDollars.toLocaleString('en-US')} or more. Use the standard exchange below that.`;
+  if (parsed.value < minCents)
+    return `The large-transaction desk handles ${formatUsd(minCents, { whole: true })} or more. Use the standard exchange below that.`;
+  return null;
+}
+
+export function validateUsPhone(value: string): FieldError {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return 'Enter a phone number.';
+  const lengthOk = digits.length === 10 || (digits.length === 11 && digits.startsWith('1'));
+  if (!lengthOk || !/^[\d\s()+.-]+$/.test(value.trim())) return 'Enter a US phone number, including area code.';
   return null;
 }

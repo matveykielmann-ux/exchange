@@ -1,17 +1,16 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { AssetNetworkFields } from '@/components/ExchangeInputs';
 import { ErrorSummary, Field } from '@/components/Field';
 import { MockBadge, Notice, PageHeader } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
-import { ASSET_ORDER, ASSETS, defaultNetwork, networkLabel, type AssetCode, type NetworkId } from '@/domain/assets';
+import { defaultNetwork, type AssetCode, type NetworkId } from '@/domain/assets';
 import { formatBps, formatUsd, parseDecimal } from '@/domain/money';
 import { PRICING_POLICY } from '@/domain/quote';
-import { validateEmail, validateRequired, validateUsdAmount } from '@/domain/validation';
+import { validateEmail, validateRequired, validateUsdAmount, validateUsPhone } from '@/domain/validation';
 import { errorMessage } from '@/lib/errors';
 import { useServices } from '@/state/services';
 import type { LargeTransactionRequest } from '@/services/types';
-
-const MIN_DOLLARS = Number(PRICING_POLICY.retailMaximumCents / 100n);
 
 export function LargeTransactionsPage() {
   useDocumentTitle('Large transactions');
@@ -29,24 +28,20 @@ export function LargeTransactionsPage() {
   const [busy, setBusy] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [reference, setReference] = useState<string | null>(null);
-  const summaryRef = useRef<HTMLDivElement>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     const next: Record<string, string> = {};
     const checks: Array<[string, string | null]> = [
-      ['lt-amount', validateUsdAmount(amount, { minDollars: MIN_DOLLARS })],
+      ['lt-amount', validateUsdAmount(amount, { minCents: PRICING_POLICY.retailMaximumCents })],
       ['lt-name', validateRequired(fullName, customerType === 'business' ? 'the contact name' : 'your full name')],
       ['lt-email', validateEmail(email)],
-      ['lt-phone', /^[\d\s()+-]{10,}$/.test(phone.trim()) ? null : 'Enter a US phone number, including area code.'],
+      ['lt-phone', validateUsPhone(phone)],
     ];
     for (const [id, err] of checks) if (err) next[id] = err;
     setErrors(next);
     setServerError(null);
-    if (Object.keys(next).length) {
-      requestAnimationFrame(() => summaryRef.current?.querySelector<HTMLElement>('#error-summary')?.focus());
-      return;
-    }
+    if (Object.keys(next).length) return;
     const parsed = parseDecimal(amount, 2);
     if (!parsed.ok) return;
     setBusy(true);
@@ -74,7 +69,7 @@ export function LargeTransactionsPage() {
     <>
       <PageHeader
         eyebrow="Large transactions"
-        title={<>A desk for {formatUsd(PRICING_POLICY.retailMaximumCents).replace('.00', '')} and up.</>}
+        title={<>A desk for {formatUsd(PRICING_POLICY.retailMaximumCents, { whole: true })} and up.</>}
         lead="Large sales are priced and reviewed one by one. You work with a desk, not a checkout, and receive dollars by wire."
       />
 
@@ -167,7 +162,7 @@ export function LargeTransactionsPage() {
           {reference ? (
             <div className="panel">
               <div className="panel__body stack" role="status">
-                <h3 style={{ fontSize: 'var(--fs-title)' }}>Request recorded</h3>
+                <h3 className="title">Request recorded</h3>
                 <p>
                   Reference <span className="mono">{reference}</span>
                 </p>
@@ -184,41 +179,20 @@ export function LargeTransactionsPage() {
           ) : (
             <form className="panel" onSubmit={submit} noValidate>
               <div className="panel__body stack">
-                <div ref={summaryRef}>
-                  <ErrorSummary errors={Object.entries(errors).map(([fieldId, message]) => ({ fieldId, message }))} />
-                </div>
+                <ErrorSummary errors={errors} />
                 <div className="form-grid">
-                  <Field label="Asset" id="lt-asset">
-                    {(p) => (
-                      <select
-                        className="select"
-                        {...p}
-                        value={asset}
-                        onChange={(e) => {
-                          const a = e.target.value as AssetCode;
-                          setAsset(a);
-                          setNetwork(defaultNetwork(a));
-                        }}
-                      >
-                        {ASSET_ORDER.map((c) => (
-                          <option key={c} value={c}>
-                            {c} · {ASSETS[c].name}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </Field>
-                  <Field label="Network" id="lt-network">
-                    {(p) => (
-                      <select className="select" {...p} value={network} onChange={(e) => setNetwork(e.target.value as NetworkId)}>
-                        {ASSETS[asset].networks.map((n) => (
-                          <option key={n.network} value={n.network}>
-                            {networkLabel(asset, n.network)}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </Field>
+                  <div className="span-2">
+                    <AssetNetworkFields
+                      idPrefix="lt"
+                      asset={asset}
+                      network={network}
+                      onAsset={(a) => {
+                        setAsset(a);
+                        setNetwork(defaultNetwork(a));
+                      }}
+                      onNetwork={setNetwork}
+                    />
+                  </div>
                   <Field
                     label="Approximate amount (USD)"
                     id="lt-amount"

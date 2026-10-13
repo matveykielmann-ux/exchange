@@ -17,8 +17,12 @@ export type ParseResult = { ok: true; value: bigint } | { ok: false; reason: 'em
  * `decimals` precision, allowing at most `maxFraction` typed fraction digits.
  */
 export function parseDecimal(input: string, decimals: number, maxFraction: number = decimals): ParseResult {
-  const cleaned = input.trim().replace(/,/g, '');
-  if (cleaned === '') return { ok: false, reason: 'empty' };
+  const trimmed = input.trim();
+  if (trimmed === '') return { ok: false, reason: 'empty' };
+  // Commas are accepted only as US thousands separators ("12,500.25"). A decimal
+  // comma ("0,05") is rejected rather than silently read as 5.
+  if (trimmed.includes(',') && !/^\d{1,3}(,\d{3})+(\.\d*)?$/.test(trimmed)) return { ok: false, reason: 'invalid' };
+  const cleaned = trimmed.replace(/,/g, '');
   if (!/^\d*\.?\d*$/.test(cleaned) || cleaned === '.') return { ok: false, reason: 'invalid' };
   const [whole = '', fraction = ''] = cleaned.split('.');
   if (fraction.length > Math.min(maxFraction, decimals)) return { ok: false, reason: 'too_many_decimals' };
@@ -55,9 +59,12 @@ export function formatUnits(
   return negative ? `-${body}` : body;
 }
 
-export function formatUsd(cents: Cents, { sign = false }: { sign?: boolean } = {}): string {
+/** `whole`: drop the cents when they are zero ("$25,000"), for policy limits and headings. */
+export function formatUsd(cents: Cents, { sign = false, whole = false }: { sign?: boolean; whole?: boolean } = {}): string {
   const negative = cents < 0n;
-  const body = '$' + formatUnits(negative ? -cents : cents, 2, { minFraction: 2, maxFraction: 2 });
+  const abs = negative ? -cents : cents;
+  const minFraction = whole && abs % 100n === 0n ? 0 : 2;
+  const body = '$' + formatUnits(abs, 2, { minFraction, maxFraction: 2 });
   if (negative) return `−${body}`; // U+2212 minus for typographic alignment
   return sign && cents > 0n ? `+${body}` : body;
 }
@@ -76,7 +83,3 @@ export function divRoundHalfUp(numerator: bigint, denominator: bigint): bigint {
 export function formatBps(bps: number): string {
   return `${(bps / 100).toFixed(2)}%`;
 }
-
-/** Serialization helpers — bigint is not JSON-safe. */
-export const bigintToString = (v: bigint): string => v.toString();
-export const stringToBigint = (v: string): bigint => BigInt(v);

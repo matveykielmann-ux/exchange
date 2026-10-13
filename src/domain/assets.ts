@@ -132,7 +132,7 @@ export const ASSETS: Record<AssetCode, Asset> = {
 export const ASSET_ORDER: AssetCode[] = ['BTC', 'ETH', 'USDT', 'USDC'];
 
 export function isAssetCode(v: unknown): v is AssetCode {
-  return typeof v === 'string' && v in ASSETS;
+  return typeof v === 'string' && Object.hasOwn(ASSETS, v);
 }
 
 export function isSupportedPair(asset: AssetCode, network: NetworkId): boolean {

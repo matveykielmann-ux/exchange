@@ -7,21 +7,27 @@ import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { NETWORKS, networkLabel } from '@/domain/assets';
 import { formatUsd } from '@/domain/money';
 import { PAYOUT_METHODS } from '@/domain/payout';
+import { Countdown } from '@/components/Countdown';
+import { useExpired } from '@/lib/useExpired';
 import {
   allowedEvents,
+  canApply,
+  isPreviewDepositAddress,
   STATUS_LABEL,
   statusTone,
   TERMINAL_STATUSES,
   timelineFor,
+  type StepState,
   type Transaction,
   type TransactionEvent,
 } from '@/domain/transaction';
-import { formatAsset, formatCountdown, formatDateTime } from '@/lib/format';
-import { useNow } from '@/lib/useNow';
+import { errorMessage } from '@/lib/errors';
+import { formatAsset, formatDateTime } from '@/lib/format';
 import { useUser } from '@/state/auth';
 import { useServices } from '@/state/services';
+import type { TransactionSimulator } from '@/services/types';
 
-const STATE_TEXT = { done: 'Completed', current: 'In progress', upcoming: 'Not started', failed: 'Stopped' } as const;
+const STATE_TEXT: Record<StepState, string> = { done: 'Completed', current: 'In progress', upcoming: 'Not started', failed: 'Stopped' };
 
 function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
@@ -45,9 +51,18 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   );
 }
 
-function MockControls({ tx, onEvent, busy }: { tx: Transaction; onEvent: (e: TransactionEvent) => void; busy: boolean }) {
-  const { deposits } = useServices();
-  const next = deposits.nextSimulatedEvent(tx);
+function MockControls({
+  tx,
+  simulator,
+  onEvent,
+  busy,
+}: {
+  tx: Transaction;
+  simulator: TransactionSimulator;
+  onEvent: (e: TransactionEvent) => void;
+  busy: boolean;
+}) {
+  const next = simulator.nextEvent(tx);
   const allowed = allowedEvents(tx.status);
   const alternates: Array<{ label: string; event: TransactionEvent }> = [];
   if (allowed.includes('WINDOW_EXPIRED')) alternates.push({ label: 'Simulate deposit window expiring', event: { type: 'WINDOW_EXPIRED' } });
@@ -92,7 +107,6 @@ export function TransactionPage() {
   const services = useServices();
   const location = useLocation();
   const justCreated = (location.state as { justCreated?: boolean } | null)?.justCreated;
-  const now = useNow(1000);
   const [tx, setTx] = useState<Transaction | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,6 +117,11 @@ export function TransactionPage() {
     services.transactions.get(id, user.email).then(setTx);
   }, [services, id, user]);
   useEffect(load, [load]);
+  // When the deposit window closes, re-read: the service expires the transaction.
+  const windowClosed = useExpired(tx?.status === 'awaiting_deposit' ? tx.depositDeadline : null);
+  useEffect(() => {
+    if (windowClosed) load();
+  }, [windowClosed, load]);
 
   if (tx === undefined)
     return (
@@ -124,7 +143,6 @@ export function TransactionPage() {
   const tone = statusTone(tx.status);
   const network = NETWORKS[tx.quote.network];
   const steps = timelineFor(tx);
-  const remaining = tx.depositDeadline - now;
 
   async function dispatch(event: TransactionEvent) {
     if (!user) return;
@@ -133,7 +151,7 @@ export function TransactionPage() {
     try {
       setTx(await services.transactions.dispatch(tx!.id, user.email, event));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That action is not available.');
+      setError(errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -180,14 +198,19 @@ export function TransactionPage() {
               <div className="deposit-box">
                 <div className="row" style={{ justifyContent: 'space-between' }}>
                   <strong>Network: {networkLabel(tx.quote.asset, tx.quote.network)}</strong>
-                  <span className="tabular" role="timer" aria-label={`Deposit window closes in ${formatCountdown(remaining)}`}>
-                    {remaining > 0 ? `Window closes in ${formatCountdown(remaining)}` : 'Window closed'}
-                  </span>
+                  <Countdown to={tx.depositDeadline} prefix="Window closes in" ended="Window closed" />
                 </div>
-                <div className="deposit-box__address">
-                  <code>{tx.depositAddress}</code>
-                  <CopyButton value={tx.depositAddress} label="Copy" />
-                </div>
+                {isPreviewDepositAddress(tx.depositAddress) ? (
+                  <div className="deposit-box__address">
+                    <code>{tx.depositAddress}</code>
+                    <CopyButton value={tx.depositAddress} label="Copy" />
+                  </div>
+                ) : (
+                  // Defense in depth: never display something that could be a real address in the preview.
+                  <Notice tone="danger" title="Deposit address withheld" role="alert">
+                    <p>The stored address is not a preview placeholder, so it is not shown. Do not send funds.</p>
+                  </Notice>
+                )}
                 <p className="small">
                   <strong>Placeholder address. Do not send funds.</strong> It is deliberately invalid on every network. A live service would
                   show a real, single-use address here.
@@ -243,9 +266,9 @@ export function TransactionPage() {
           ) : null}
 
           {error ? <Notice tone="danger" title={error} role="alert" /> : null}
-          <MockControls tx={tx} busy={busy} onEvent={dispatch} />
+          {services.simulator ? <MockControls tx={tx} simulator={services.simulator} busy={busy} onEvent={dispatch} /> : null}
 
-          {!TERMINAL_STATUSES.has(tx.status) && allowedEvents(tx.status).includes('CUSTOMER_CANCELLED') ? (
+          {canApply(tx.status, 'CUSTOMER_CANCELLED') ? (
             <div>
               <button type="button" className="btn btn--danger" disabled={busy} onClick={() => dispatch({ type: 'CUSTOMER_CANCELLED' })}>
                 Cancel this exchange
@@ -257,34 +280,24 @@ export function TransactionPage() {
           ) : null}
 
           <section aria-labelledby="log-title" className="stack">
-            <h2 id="log-title" style={{ fontSize: 'var(--fs-title)' }}>
+            <h2 id="log-title" className="title">
               Event log
             </h2>
-            <ol className="dl" style={{ listStyle: 'none', padding: 0 }}>
+            <dl className="dl">
               {[...tx.log].reverse().map((l, i) => (
-                <li key={`${l.at}-${i}`}>
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'minmax(140px, 40%) 1fr',
-                      gap: 16,
-                      padding: '12px 0',
-                      borderBottom: '1px solid var(--line)',
-                    }}
-                  >
-                    <span className="muted small tabular">{formatDateTime(l.at)}</span>
-                    <span>{l.detail}</span>
-                  </div>
-                </li>
+                <div key={`${l.at}-${i}`}>
+                  <dt className="small tabular">{formatDateTime(l.at)}</dt>
+                  <dd>{l.detail}</dd>
+                </div>
               ))}
-            </ol>
+            </dl>
           </section>
         </div>
 
         <aside className="flow__aside flow__aside--after" aria-label="Receipt">
           <div className="panel">
             <div className="panel__head">
-              <h2 style={{ fontSize: 'var(--fs-title)' }}>Receipt</h2>
+              <h2 className="title">Receipt</h2>
               <MockBadge />
             </div>
             <div className="panel__body stack">
