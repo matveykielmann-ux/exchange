@@ -77,14 +77,14 @@
   --secondary-foreground: var(--ink-900);
   --muted: var(--surface-sunken);
   --muted-foreground: var(--ink-500);
-  --accent: var(--emerald-tint);
-  --accent-foreground: var(--emerald-700);
+  --accent: var(--brand-tint);
+  --accent-foreground: var(--brand-700);
   --destructive: var(--danger);
   --border: var(--line);
   --input: var(--line-strong);
-  --ring: var(--emerald-700);
+  --ring: var(--brand-700);
   --chart-1: var(--ink-900);
-  --chart-2: var(--emerald-600);
+  --chart-2: var(--brand-600);
   --chart-3: var(--info);
   --chart-4: var(--warn);
   --chart-5: var(--ink-400);
@@ -92,10 +92,10 @@
   --sidebar-foreground: var(--ink-700);
   --sidebar-primary: var(--cta-bg);
   --sidebar-primary-foreground: var(--cta-fg);
-  --sidebar-accent: var(--emerald-tint);
-  --sidebar-accent-foreground: var(--emerald-700);
+  --sidebar-accent: var(--brand-tint);
+  --sidebar-accent-foreground: var(--brand-700);
   --sidebar-border: var(--line);
-  --sidebar-ring: var(--emerald-700);
+  --sidebar-ring: var(--brand-700);
 }
 
 /*

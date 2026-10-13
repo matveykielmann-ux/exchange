@@ -70,8 +70,8 @@ function SiteHeader() {
               Sign in
             </Link>
           )}
-          <Link className="btn hide-on-compact" to="/exchange">
-            Start an exchange
+          <Link className="btn btn--dark hide-on-compact" to="/exchange">
+            Start an exchange <Icon name="arrowUpRight" width={16} height={16} />
           </Link>
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
@@ -236,7 +236,7 @@ function useRouteFocus() {
 }
 
 /** Routes that open with the live price strip. */
-const TAPE_ROUTES = new Set(['/', '/exchange']);
+const TAPE_ROUTES = new Set(['/exchange']);
 
 export function Layout() {
   useRouteFocus();

@@ -35,8 +35,8 @@ main {
 .display-l,
 .display-m {
   font-family: var(--font-display);
-  font-weight: 400;
-  letter-spacing: -0.015em;
+  font-weight: 700;
+  letter-spacing: -0.035em;
   color: var(--ink-900);
 }
 .display-xl {
@@ -54,8 +54,8 @@ main {
 .display-xl em,
 .display-l em,
 .display-m em {
-  font-style: italic;
-  color: var(--emerald-700);
+  font-style: normal;
+  color: var(--brand-600);
 }
 
 .title {
@@ -138,9 +138,10 @@ main {
   gap: 10px;
   color: var(--ink-900);
   text-decoration: none;
-  font-weight: 650;
-  font-size: 1.125rem;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  font-size: 1.0625rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 .brand:hover {
   color: var(--ink-900);
@@ -153,6 +154,7 @@ main {
   display: flex;
   gap: var(--s-1);
   flex: 1;
+  justify-content: center;
 }
 .primary-nav a,
 .mobile-nav li a {
@@ -172,9 +174,8 @@ main {
   color: var(--ink-900);
 }
 .primary-nav a[aria-current='page'] {
-  color: var(--ink-900);
-  box-shadow: inset 0 -2px 0 var(--emerald-700);
-  border-radius: 0;
+  color: var(--brand-700);
+  background: var(--brand-tint);
 }
 .header-actions {
   display: flex;
@@ -322,6 +323,9 @@ main {
     color var(--dur) var(--ease),
     transform var(--dur) var(--ease);
 }
+.btn:not(.btn--secondary, .btn--ghost, .btn--danger, .btn--on-dark, .btn--dark) {
+  box-shadow: 0 8px 22px -10px var(--glow);
+}
 .btn:hover {
   --btn-bg: var(--cta-bg-hover);
   --btn-border: var(--cta-bg-hover);
@@ -340,13 +344,23 @@ main {
   width: 100%;
 }
 .btn--secondary {
-  --btn-bg: transparent;
+  --btn-bg: var(--surface);
   --btn-fg: var(--ink-900);
-  --btn-border: var(--line-strong);
+  --btn-border: var(--line);
+  box-shadow: 0 1px 2px rgb(18 15 43 / 5%);
 }
 .btn--secondary:hover {
   --btn-bg: var(--surface);
-  --btn-border: var(--ink-900);
+  --btn-border: var(--line-strong);
+}
+.btn--dark {
+  --btn-bg: var(--dark-bg);
+  --btn-fg: var(--dark-fg);
+  --btn-border: var(--dark-bg);
+}
+.btn--dark:hover {
+  --btn-bg: var(--dark-bg-hover);
+  --btn-border: var(--dark-bg-hover);
 }
 .btn--ghost {
   --btn-bg: transparent;
@@ -359,12 +373,12 @@ main {
 }
 .btn--on-dark {
   --btn-bg: #fff;
-  --btn-fg: #0f1e36;
+  --btn-fg: #120f2b;
   --btn-border: #fff;
 }
 .btn--on-dark:hover {
-  --btn-bg: #e9edf4;
-  --btn-fg: #0f1e36;
+  --btn-bg: #ece7fb;
+  --btn-fg: #120f2b;
 }
 .btn--danger {
   --btn-bg: transparent;
@@ -394,14 +408,14 @@ main {
   height: 20px;
   margin: 2px 0 0;
   flex: none;
-  accent-color: var(--emerald-700);
+  accent-color: var(--brand-700);
   cursor: inherit;
 }
 .link-button {
   background: none;
   border: 0;
   padding: 0;
-  color: var(--emerald-700);
+  color: var(--brand-700);
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
@@ -434,9 +448,9 @@ main {
   border-color: var(--info-line);
 }
 .badge--success {
-  background: var(--emerald-tint);
-  color: var(--emerald-700);
-  border-color: var(--emerald-line);
+  background: var(--success-tint);
+  color: var(--success);
+  border-color: var(--success-line);
 }
 .badge--danger {
   background: var(--danger-tint);
@@ -593,7 +607,7 @@ main {
 .input:focus-visible,
 .select:focus-visible,
 .textarea:focus-visible {
-  border-color: var(--emerald-700);
+  border-color: var(--brand-700);
   box-shadow: 0 0 0 3px var(--focus-soft);
   border-radius: var(--r-control);
 }
@@ -679,7 +693,7 @@ main {
   border-color: var(--ink-700);
 }
 .amount-input:focus-within {
-  border-color: var(--emerald-700);
+  border-color: var(--brand-700);
   box-shadow: 0 0 0 3px var(--focus-soft);
 }
 .amount-input[data-invalid='true'] {
@@ -757,11 +771,11 @@ main {
   height: 10px;
   border-radius: 50%;
   transform: scale(0);
-  background: var(--emerald-700);
+  background: var(--brand-700);
   transition: transform var(--dur) var(--ease);
 }
 .option input:checked {
-  border-color: var(--emerald-700);
+  border-color: var(--brand-700);
 }
 .option input:checked::before {
   transform: scale(1);
@@ -770,9 +784,9 @@ main {
   box-shadow: var(--focus-ring);
 }
 .option:has(input:checked) {
-  border-color: var(--emerald-700);
-  background: linear-gradient(var(--emerald-tint), var(--emerald-tint)) padding-box;
-  box-shadow: inset 0 0 0 1px var(--emerald-700);
+  border-color: var(--brand-700);
+  background: linear-gradient(var(--brand-tint), var(--brand-tint)) padding-box;
+  box-shadow: inset 0 0 0 1px var(--brand-700);
 }
 .option[data-disabled='true'] {
   cursor: not-allowed;
@@ -936,12 +950,12 @@ main {
   flex: none;
 }
 .stepper li[data-state='done']::before {
-  background: var(--emerald-700);
+  background: var(--brand-700);
 }
 .stepper li[data-state='done'] .stepper__num {
-  background: var(--emerald-700);
-  border-color: var(--emerald-700);
-  color: var(--on-emerald);
+  background: var(--brand-700);
+  border-color: var(--brand-700);
+  color: var(--on-brand);
 }
 .stepper li[data-state='done'] .stepper__num svg {
   width: 12px;
@@ -998,7 +1012,7 @@ main {
   display: none;
 }
 .timeline li[data-state='done'] .timeline__rail {
-  background: var(--emerald-700);
+  background: var(--brand-700);
 }
 .timeline li[data-state='current'] .timeline__dot {
   animation: rail-pulse 2s ease-out infinite;
@@ -1032,9 +1046,9 @@ main {
   height: 14px;
 }
 .timeline li[data-state='done'] .timeline__dot {
-  background: var(--emerald-700);
-  border-color: var(--emerald-700);
-  color: var(--on-emerald);
+  background: var(--brand-700);
+  border-color: var(--brand-700);
+  color: var(--on-brand);
 }
 .timeline li[data-state='current'] .timeline__dot {
   border-color: var(--info);
@@ -1083,7 +1097,7 @@ main {
 }
 .event-log li::before {
   content: '>';
-  color: var(--emerald-700);
+  color: var(--brand-700);
 }
 .event-log__time {
   color: var(--ink-500);
@@ -1359,7 +1373,7 @@ main {
   border-radius: 0 var(--r-control) var(--r-control) 0;
 }
 .otp__slot[data-active='true'] {
-  border-color: var(--emerald-700);
+  border-color: var(--brand-700);
   box-shadow: 0 0 0 3px var(--focus-soft);
 }
 .otp__slot[aria-invalid='true'] {
@@ -1393,7 +1407,7 @@ main {
 }
 .info-hint:hover,
 .info-hint[data-state='open'] {
-  color: var(--emerald-700);
+  color: var(--brand-700);
 }
 .info-hint:focus-visible {
   border-radius: 50%;
@@ -1533,7 +1547,7 @@ main {
   stroke: var(--line);
 }
 .rate-ring__left {
-  stroke: var(--emerald-700);
+  stroke: var(--brand-700);
   stroke-linecap: round;
   transition: stroke-dashoffset 1s linear;
 }
@@ -1557,7 +1571,7 @@ main {
 .hold__fill {
   position: absolute;
   inset: 0;
-  background: var(--emerald-600);
+  background: var(--brand-600);
   transform: scaleX(0);
   transform-origin: left center;
 }

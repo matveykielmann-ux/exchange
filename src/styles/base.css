@@ -47,12 +47,12 @@
   }
 
   a {
-    color: var(--emerald-700);
+    color: var(--brand-700);
     text-decoration-thickness: 1px;
     text-underline-offset: 3px;
   }
   a:hover {
-    color: var(--emerald-600);
+    color: var(--brand-600);
     text-decoration-thickness: 2px;
   }
 
@@ -77,7 +77,7 @@
   }
 
   ::selection {
-    background: var(--emerald-tint);
+    background: var(--brand-tint);
     color: var(--ink-900);
   }
 
