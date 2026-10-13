@@ -9,6 +9,7 @@ import './styles/tokens.css';
 import './styles/base.css';
 import './styles/components.css';
 import './styles/pages.css';
+import './styles/shadcn.css';
 import { App } from './App';
 import { createServices } from './services/registry';
 

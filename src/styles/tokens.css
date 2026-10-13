@@ -1,3 +1,7 @@
+/* Cascade layers. Our own stylesheets stay unlayered (except base.css) so they always win over
+   Tailwind; Tailwind utilities beat the element defaults in base.css. See src/styles/shadcn.css. */
+@layer theme, base, components, utilities;
+
 /* Design tokens — see docs/design-spec.md §4. Light theme only in v1. */
 :root {
   color-scheme: light;
