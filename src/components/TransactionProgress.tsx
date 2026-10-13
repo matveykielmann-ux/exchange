@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { Icon } from '@/components/Icon';
-import type { StepState, TimelineStep, Transaction } from '@/domain/transaction';
+import type { OrderStep, OrderStepState as StepState } from '@/domain/order';
+import type { OrderEventView } from '@/services/types';
 import { formatDateTime } from '@/lib/format';
 import { gsap, REDUCED_OK, useGSAP } from '@/lib/motion';
 
@@ -11,7 +12,7 @@ const STATE_TEXT: Record<StepState, string> = { done: 'Completed', current: 'In 
  * settles in (~0.4s). The first render is static, and nothing moves under
  * reduced motion. State is always carried by text, not only by color or motion.
  */
-export function StatusRail({ steps }: { steps: TimelineStep[] }) {
+export function StatusRail({ steps }: { steps: OrderStep[] }) {
   const ref = useRef<HTMLOListElement>(null);
   const prev = useRef<Map<string, StepState> | null>(null);
   const signature = steps.map((s) => `${s.key}:${s.state}`).join('|');
@@ -55,7 +56,11 @@ export function StatusRail({ steps }: { steps: TimelineStep[] }) {
             <p className="timeline__label">{s.label}</p>
             <p className="timeline__state">{STATE_TEXT[s.state]}</p>
           </div>
-          {s.detail ? <span className="timeline__detail">{s.detail}</span> : null}
+          {s.at ? (
+            <time className="timeline__detail" dateTime={new Date(s.at).toISOString()}>
+              {formatDateTime(s.at)}
+            </time>
+          ) : null}
         </li>
       ))}
     </ol>
@@ -67,7 +72,7 @@ export function StatusRail({ steps }: { steps: TimelineStep[] }) {
  * (a left-to-right reveal, ~0.5s); the text is in the DOM from the start, so
  * screen readers and copy/paste never see a partial line.
  */
-export function EventLog({ log }: { log: Transaction['log'] }) {
+export function EventLog({ log }: { log: OrderEventView[] }) {
   const ref = useRef<HTMLOListElement>(null);
   const prevCount = useRef<number | null>(null);
   const entries = [...log].reverse();
@@ -92,10 +97,10 @@ export function EventLog({ log }: { log: Transaction['log'] }) {
 
   return (
     <ol className="event-log" ref={ref}>
-      {entries.map((l, i) => (
-        <li key={`${l.at}-${entries.length - i}`}>
-          <time className="event-log__time" dateTime={new Date(l.at).toISOString()}>
-            {formatDateTime(l.at)}
+      {entries.map((l) => (
+        <li key={l.seq}>
+          <time className="event-log__time" dateTime={new Date(l.createdAt).toISOString()}>
+            {formatDateTime(l.createdAt)}
           </time>
           <span className="event-log__text">{l.detail}</span>
         </li>

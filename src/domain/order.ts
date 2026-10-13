@@ -454,6 +454,15 @@ export const DEPOSIT_EXCEPTION_LABEL: Record<DepositException, string> = {
   order_closed: 'Deposit arrived for a closed order.',
 };
 
+/**
+ * Sandbox deposit addresses are deliberately invalid on every chain (prefix
+ * MOCK-, suffix -DO-NOT-SEND, contain "-"). In sandbox mode the server and the
+ * UI refuse to show anything else.
+ */
+export function isPreviewDepositAddress(address: string): boolean {
+  return address.startsWith('MOCK-') && address.endsWith('-DO-NOT-SEND');
+}
+
 /* ---------- Presentation ---------- */
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {

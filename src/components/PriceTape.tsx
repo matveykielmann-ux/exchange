@@ -30,7 +30,12 @@ export function PriceTape() {
   useEffect(() => {
     let alive = true;
     const load = async () => {
-      const prices = await Promise.all(ASSET_ORDER.map((a) => pricing.getReferencePrice(a)));
+      let prices: Awaited<ReturnType<typeof pricing.prices>>;
+      try {
+        prices = await pricing.prices();
+      } catch {
+        return; // Keep the last prices; the cells show their age through the next refresh.
+      }
       if (!alive) return;
       setRows((old) => {
         const next: Partial<Record<AssetCode, Row>> = {};
@@ -64,7 +69,7 @@ export function PriceTape() {
   );
 
   return (
-    <div className="tape" ref={ref} role="region" aria-label="Demo reference prices">
+    <div className="tape" ref={ref} role="region" aria-label="Reference prices">
       {ASSET_ORDER.map((a) => {
         const row = rows[a];
         return (
@@ -79,7 +84,7 @@ export function PriceTape() {
         );
       })}
       <div className="tape__badge">
-        <MockBadge label="Demo prices" />
+        <MockBadge label="Sandbox prices" />
       </div>
     </div>
   );

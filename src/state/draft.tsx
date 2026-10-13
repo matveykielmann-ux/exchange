@@ -17,7 +17,7 @@ export interface ExchangeDraft {
   step: 1 | 2 | 3 | 4;
 }
 
-const KEY = 'settlewell.mock.v1.draft';
+const KEY = 'arcvale.v2.draft';
 
 export const INITIAL_DRAFT: ExchangeDraft = {
   asset: 'BTC',

@@ -6,15 +6,23 @@ import './styles/tokens.css';
 import './styles/base.css';
 import './styles/components.css';
 import './styles/pages.css';
+import './styles/support.css';
+import './styles/admin.css';
 import './styles/shadcn.css';
 import { App } from './App';
+import { BootError } from './components/BootError';
 import { createServices } from './services/registry';
 
-const root = document.getElementById('root');
-if (!root) throw new Error('Root element missing');
+const el = document.getElementById('root');
+if (!el) throw new Error('Root element missing');
+const root = createRoot(el);
 
-createRoot(root).render(
-  <StrictMode>
-    <App services={createServices()} />
-  </StrictMode>,
-);
+createServices()
+  .then((services) =>
+    root.render(
+      <StrictMode>
+        <App services={services} />
+      </StrictMode>,
+    ),
+  )
+  .catch((e: unknown) => root.render(<BootError error={e} />));

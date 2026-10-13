@@ -4,8 +4,8 @@ import { Field } from '@/components/Field';
 import { Notice, PageHeader, StatusBadge } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { FEATURE_FLAGS } from '@/config/runtime';
+import { errorMessage } from '@/lib/errors';
 import { useServices } from '@/state/services';
-import type { CourierAvailability } from '@/services/types';
 
 const REQUIREMENTS = [
   ['Licensing', 'Confirm that money transmitter licensing in each state covers in-person cash disbursement.'],
@@ -21,10 +21,10 @@ const REQUIREMENTS = [
 
 export function CashDeliveryPage() {
   useDocumentTitle('Cash delivery');
-  const { courier } = useServices();
+  const { cash } = useServices();
   const [zip, setZip] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<CourierAvailability | null>(null);
+  const [result, setResult] = useState<Awaited<ReturnType<typeof cash.availability>> | null>(null);
 
   async function check(e: FormEvent) {
     e.preventDefault();
@@ -33,7 +33,11 @@ export function CashDeliveryPage() {
       return;
     }
     setError(null);
-    setResult(await courier.checkAvailability(zip));
+    try {
+      setResult(await cash.availability(zip));
+    } catch (err) {
+      setError(errorMessage(err));
+    }
   }
 
   return (
@@ -54,7 +58,7 @@ export function CashDeliveryPage() {
             <h2 className="display-m">Requirements</h2>
             <p>
               Cash delivery carries the highest anti-money-laundering and physical-safety risk of any payout method. See{' '}
-              <Link to="/legal#licensing">licensing status</Link>.
+              <Link to="/legal/cash-delivery">cash delivery terms</Link>.
             </p>
           </div>
           <dl className="dl">
@@ -72,7 +76,7 @@ export function CashDeliveryPage() {
           <div className="section-head">
             <p className="eyebrow">Availability</p>
             <h2 className="display-m">Check an area</h2>
-            <p>The checker is wired to the courier interface, which returns "not available" everywhere.</p>
+            <p>Cash delivery is switched off on the server, so every area returns "not available".</p>
           </div>
           <form className="panel" onSubmit={check} noValidate>
             <div className="panel__body stack">

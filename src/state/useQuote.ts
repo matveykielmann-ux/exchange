@@ -7,11 +7,10 @@
 import { useEffect, useState } from 'react';
 import { parseAssetAmount, type AssetCode, type NetworkId } from '@/domain/assets';
 import type { PayoutMethodId } from '@/domain/payout';
-import { PRICING_POLICY, type QuoteResult } from '@/domain/quote';
-import type { ReferencePrice } from '@/services/types';
+import { PRICING_POLICY } from '@/domain/quote';
+import type { QuoteData } from '@/services/types';
+import { errorMessage } from '@/lib/errors';
 import { useServices } from './services';
-
-type QuoteData = QuoteResult & { price: ReferencePrice };
 
 export type QuoteState =
   | { status: 'idle' }
@@ -40,12 +39,12 @@ export function useQuote(
     if (key === null || amountAtomic === null) return;
     let cancelled = false;
     quotes
-      .getQuote({ asset, network, amountAtomic, payoutMethod })
+      .indicative({ asset, network, amountAtomic, payoutMethod })
       .then((data) => {
         if (!cancelled) setStored({ key, inputs, data, error: null });
       })
-      .catch(() => {
-        if (!cancelled) setStored({ key, inputs, data: null, error: 'Pricing is unavailable right now. Try again in a moment.' });
+      .catch((e: unknown) => {
+        if (!cancelled) setStored({ key, inputs, data: null, error: errorMessage(e) });
       });
     return () => {
       cancelled = true;

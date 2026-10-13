@@ -11,19 +11,20 @@ import { PRICING_POLICY } from '@/domain/quote';
 import { validateEmail, validateRequired, validateUsdAmount, validateUsPhone } from '@/domain/validation';
 import { errorMessage } from '@/lib/errors';
 import { useServices } from '@/state/services';
-import type { LargeTransactionRequest } from '@/services/types';
+import type { LargeDeskRequest } from '@/services/types';
 
 export function LargeTransactionsPage() {
   useDocumentTitle('Large transactions');
-  const { largeDesk } = useServices();
+  const { largeDesk, config } = useServices();
+  const sandbox = config.mode === 'sandbox';
   const [asset, setAsset] = useState<AssetCode>('BTC');
   const [network, setNetwork] = useState<NetworkId>('bitcoin');
   const [amount, setAmount] = useState('');
-  const [customerType, setCustomerType] = useState<LargeTransactionRequest['customerType']>('individual');
+  const [customerType, setCustomerType] = useState<LargeDeskRequest['customerType']>('individual');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [timing, setTiming] = useState<LargeTransactionRequest['timing']>('this_month');
+  const [timing, setTiming] = useState<LargeDeskRequest['timing']>('this_month');
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -79,7 +80,7 @@ export function LargeTransactionsPage() {
           <div className="section-head">
             <p className="eyebrow">How it works</p>
             <h2 className="display-m">What to expect</h2>
-            <p>No turnaround time is promised in this demo. A live desk would publish its hours and response targets.</p>
+            <p>No turnaround time is promised. The desk will publish its hours and response targets before launch.</p>
           </div>
           <ol className="steps-row" style={{ gridTemplateColumns: '1fr' }}>
             <li>
@@ -116,10 +117,10 @@ export function LargeTransactionsPage() {
             <h2 className="display-m">Indicative spreads</h2>
             <p>Every desk price is quoted per request. These starting points are illustrative only.</p>
           </div>
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Desk comparison">
             <table className="data-table">
               <caption>
-                Indicative only, not an offer. <MockBadge label="Demo policy" />
+                Indicative only, not an offer. <MockBadge label="Sandbox policy" />
               </caption>
               <thead>
                 <tr>
@@ -167,9 +168,17 @@ export function LargeTransactionsPage() {
                 <p>
                   Reference <span className="mono">{reference}</span>
                 </p>
-                <Notice tone="warn" title="Nobody will contact you">
-                  <p>This is a demo. The request was saved in this browser only. There is no desk staff behind this form yet.</p>
-                </Notice>
+                {sandbox ? (
+                  <Notice tone="warn" title="Sandbox: nobody will contact you">
+                    <p>
+                      The request is stored on the sandbox server and appears in the staff desk queue. <MockBadge />
+                    </p>
+                  </Notice>
+                ) : (
+                  <Notice tone="info" title="What happens next">
+                    <p>A member of the desk will reply by email. Keep the reference above for your records.</p>
+                  </Notice>
+                )}
                 <div>
                   <button type="button" className="btn btn--secondary" onClick={() => setReference(null)}>
                     Submit another request
@@ -285,7 +294,6 @@ export function LargeTransactionsPage() {
                 <button className="btn btn--lg" type="submit" disabled={busy}>
                   {busy ? 'Sending…' : 'Request a quote'}
                 </button>
-                <p className="small muted">Demo: the request is stored in this browser only and is not sent to anyone.</p>
               </div>
             </form>
           )}

@@ -231,10 +231,10 @@ export function HomePage() {
               are sent where they can be received.
             </p>
           </div>
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Comparison">
             <table className="data-table data-table--stack">
               <caption>
-                Confirmation counts are demo policy values. <MockBadge label="Demo policy" />
+                Confirmation counts are current policy values. <MockBadge label="Sandbox policy" />
               </caption>
               <thead>
                 <tr>
@@ -348,8 +348,8 @@ export function HomePage() {
               Designed for regulated operation.
             </h2>
             <p className="lead">
-              These controls are built into the product design. In this demo they are simulated. None of them is a claim about a live
-              service.
+              These controls run on our server for every order. In the sandbox, the providers behind them are simulated. None of them is a
+              claim of licensing or insurance.
             </p>
           </div>
           <ul className="pillars">

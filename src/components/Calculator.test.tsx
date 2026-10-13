@@ -2,14 +2,14 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
-import { createMockServices } from '@/services/mock';
+import { createFakeServices } from '@/test/fakeServices';
 import { DraftProvider } from '@/state/draft';
 import { ServicesProvider } from '@/state/services';
 import { Calculator } from './Calculator';
 
 function renderCalc() {
   return render(
-    <ServicesProvider services={createMockServices({ latencyMs: 0 })}>
+    <ServicesProvider services={createFakeServices()}>
       <DraftProvider>
         <MemoryRouter>
           <Calculator />
@@ -20,9 +20,9 @@ function renderCalc() {
 }
 
 describe('<Calculator />', () => {
-  it('shows an itemized, demo-labelled quote and enables Continue', async () => {
+  it('shows an itemized, sandbox-labelled quote and enables Continue', async () => {
     renderCalc();
-    expect(screen.getByText('Demo pricing')).toBeInTheDocument();
+    expect(screen.getByText('Sandbox pricing')).toBeInTheDocument();
     expect(await screen.findByText('Exchange spread')).toBeInTheDocument();
     expect(screen.getByText('Payout fee')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: /Continue/ })).toBeEnabled();

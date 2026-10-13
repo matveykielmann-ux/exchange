@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AmountField, AssetNetworkFields, QuoteIssues } from '@/components/ExchangeInputs';
 import { HoldButton } from '@/components/HoldButton';
@@ -12,10 +12,10 @@ import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { ASSETS, NETWORKS, networkLabel, parseAssetAmount } from '@/domain/assets';
 import { formatUsd } from '@/domain/money';
 import { describeFee, feeLabel, PAYOUT_METHODS, payoutOptions } from '@/domain/payout';
-import { amountIssues, PRICING_POLICY } from '@/domain/quote';
+import { amountIssues } from '@/domain/quote';
 import { validateRefundAddress } from '@/domain/validation';
 import { AddBankForm } from '@/components/AddBankForm';
-import { errorMessage } from '@/lib/errors';
+import { errorMessage, isNotConfigured } from '@/lib/errors';
 import { describeDestination, formatAsset } from '@/lib/format';
 import { useUser } from '@/state/auth';
 import { useDraft, type ExchangeDraft } from '@/state/draft';
@@ -25,7 +25,9 @@ import { useDestinations } from '@/state/useDestinations';
 import { Checkbox } from '@/components/Checkbox';
 import { Countdown } from '@/components/Countdown';
 import { useExpired } from '@/lib/useExpired';
-import { canConfirmExchange } from '@/domain/identity';
+import { clientId } from '@/services/http';
+import type { QuoteData } from '@/services/types';
+import { useConfig } from '@/state/config';
 
 const STEPS = ['Amount', 'Payout', 'Details', 'Review'] as const;
 
@@ -174,8 +176,11 @@ function PayoutStep({ grossCents, onBack, onNext }: { grossCents: bigint | null;
 function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
   const { draft, update } = useDraft();
   const user = useUser();
-  const { payouts } = useServices();
+  const { account } = useServices();
+  const sandbox = useConfig().mode === 'sandbox';
   const { list: destinations, reload: load } = useDestinations();
+  const [cardError, setCardError] = useState<{ message: string; notConfigured: boolean } | null>(null);
+  const [addingCard, setAddingCard] = useState(false);
   const [touched, setTouched] = useState(false);
   const [adding, setAdding] = useState(false);
   const method = PAYOUT_METHODS[draft.payoutMethod];
@@ -190,7 +195,7 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
             Sign in
           </Link>
           <Link className="btn btn--lg btn--secondary" to="/signup" state={{ from: '/exchange' }}>
-            Create a demo account
+            Create an account
           </Link>
         </div>
         <div className="flow__actions">
@@ -258,23 +263,38 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
       {draft.payoutMethod === 'instant_debit' ? (
         usable.length === 0 ? (
           <div className="stack">
-            <Notice tone="neutral" title="Card payouts use a simulated card in this demo">
+            <Notice tone="neutral" title={sandbox ? 'Sandbox: a test card is added for you' : 'Cards are added through our card provider'}>
               <p>
-                Real card entry requires a PCI DSS-compliant tokenization provider, which is not integrated. We never ask for a card number
-                here.
+                {sandbox
+                  ? 'The sandbox adds a test debit card. No card number is entered.'
+                  : 'Card numbers are entered only in the card provider’s secure form, never on this site. The security code (CVV) is never stored.'}
               </p>
             </Notice>
+            {cardError ? <Notice tone={cardError.notConfigured ? 'warn' : 'danger'} title={cardError.message} role="alert" /> : null}
             <div>
               <button
                 type="button"
                 className="btn btn--secondary"
+                disabled={addingCard}
                 onClick={async () => {
-                  const d = await payouts.addSimulatedCard(user.email);
-                  update({ destinationId: d.id });
-                  load();
+                  setAddingCard(true);
+                  setCardError(null);
+                  try {
+                    const d = await account.addCard('Debit card');
+                    update({ destinationId: d.id });
+                    load();
+                  } catch (e) {
+                    setCardError(
+                      isNotConfigured(e)
+                        ? { message: 'Card payouts are not available yet: the card provider is not connected.', notConfigured: true }
+                        : { message: errorMessage(e), notConfigured: false },
+                    );
+                  } finally {
+                    setAddingCard(false);
+                  }
                 }}
               >
-                Add simulated debit card
+                {addingCard ? 'Adding…' : sandbox ? 'Add test debit card' : 'Add a debit card'}
               </button>
             </div>
           </div>
@@ -328,77 +348,167 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
 }
 
 /* ---------------- Step 4 ---------------- */
+
+/**
+ * Firm quote for the review step: issued and stored by the server, usable
+ * once, until it expires. A new one is fetched on demand after expiry.
+ */
+function useFirmQuote(draft: ExchangeDraft) {
+  const { quotes } = useServices();
+  const [nonce, setNonce] = useState(0);
+  const [stored, setStored] = useState<{ key: string; data: QuoteData | null; error: string | null } | null>(null);
+  const parsed = parseAssetAmount(draft.amount, draft.asset);
+  const amountAtomic = parsed.ok ? parsed.value : null;
+  const key = `${draft.asset}|${draft.network}|${amountAtomic}|${draft.payoutMethod}|${nonce}`;
+  useEffect(() => {
+    if (amountAtomic === null) return;
+    let cancelled = false;
+    quotes
+      .firm({ asset: draft.asset, network: draft.network, amountAtomic, payoutMethod: draft.payoutMethod })
+      .then((data) => !cancelled && setStored({ key, data, error: null }))
+      .catch((e: unknown) => !cancelled && setStored({ key, data: null, error: errorMessage(e) }));
+    return () => {
+      cancelled = true;
+    };
+  }, [quotes, key, amountAtomic, draft.asset, draft.network, draft.payoutMethod]);
+  const current = stored?.key === key ? stored : null;
+  return {
+    data: current?.data ?? null,
+    error: current?.error ?? null,
+    loading: !current,
+    refresh: useCallback(() => setNonce((n) => n + 1), []),
+  };
+}
+
+const KYC_COPY: Record<string, { tone: 'info' | 'warn' | 'danger'; title: string; body: string }> = {
+  unverified: {
+    tone: 'info',
+    title: 'Verify your identity to confirm',
+    body: 'US rules require identity verification before an exchange. It takes a few minutes and is needed once.',
+  },
+  pending: {
+    tone: 'info',
+    title: 'Verification in progress',
+    body: 'We will update this page when the result arrives. You can keep this page open.',
+  },
+  needs_info: {
+    tone: 'warn',
+    title: 'We need more information',
+    body: 'Our team will contact you in your support messages. You can confirm the exchange once verification is complete.',
+  },
+  rejected: {
+    tone: 'danger',
+    title: 'We can’t verify your identity',
+    body: 'We can’t offer exchanges on this account. Contact support if you think this is a mistake.',
+  },
+};
+
 function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraft }) {
   const services = useServices();
+  const config = useConfig();
   const user = useUser();
   const navigate = useNavigate();
   const { reset } = useDraft();
-  const { state: quoteState, refresh } = useQuote(draft, { live: false });
-  const locked = quoteState.status === 'ready' ? quoteState.data : null;
-  const loading = quoteState.status === 'loading';
+  const firm = useFirmQuote(draft);
+  const locked = firm.data;
   const expired = useExpired(locked?.quote.expiresAt ?? null);
   const destination = useDestinations().list?.find((d) => d.id === draft.destinationId) ?? null;
+  const orderDocs = config.legal.filter((d) => d.acceptance === 'order');
   const [ackNetwork, setAckNetwork] = useState(false);
-  const [ackRisk, setAckRisk] = useState(false);
+  const [ackDocs, setAckDocs] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // One idempotency key per firm quote: a retried confirm can't create a second order.
+  const keyRef = useRef<{ quoteId: string; key: string } | null>(null);
 
   if (!user) return null;
-  const verified = canConfirmExchange(user.verification);
+  const kyc = user.verification.status;
+  const verified = kyc === 'verified';
   const canConfirm =
-    !!locked && !expired && !loading && locked.issues.length === 0 && verified && ackNetwork && ackRisk && !!destination && !submitting;
+    !!locked &&
+    !expired &&
+    !firm.loading &&
+    locked.issues.length === 0 &&
+    verified &&
+    ackNetwork &&
+    ackDocs &&
+    !!destination &&
+    !submitting;
 
   async function confirm() {
-    if (!locked || !destination || !user) return;
+    if (!locked || !destination) return;
+    if (keyRef.current?.quoteId !== locked.quote.id) keyRef.current = { quoteId: locked.quote.id, key: clientId('order') };
     setSubmitting(true);
     setError(null);
     try {
-      const tx = await services.transactions.create({
-        quoteResult: locked,
-        destinationId: destination.id,
-        refundAddress: draft.refundAddress,
-        customerEmail: user.email,
-      });
+      const order = await services.orders.create(
+        {
+          quoteId: locked.quote.id,
+          destinationId: destination.id,
+          refundAddress: draft.refundAddress,
+          accepted: orderDocs.map((d) => ({ slug: d.slug, version: d.version })),
+        },
+        keyRef.current.key,
+      );
       reset();
-      navigate(`/transactions/${tx.id}`, { state: { justCreated: true } });
+      navigate(`/orders/${order.id}`, { state: { justCreated: true } });
     } catch (e) {
       setError(errorMessage(e));
       setSubmitting(false);
     }
   }
 
+  async function verify() {
+    setVerifying(true);
+    setVerifyError(null);
+    try {
+      const r = await services.account.startVerification();
+      if (r.hostedUrl) window.location.assign(r.hostedUrl);
+    } catch (e) {
+      setVerifyError(isNotConfigured(e) ? 'Identity verification is not available yet: the provider is not connected.' : errorMessage(e));
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  const kycCopy = KYC_COPY[kyc];
   return (
     <div className="flow__grid">
       <div className="flow__main">
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <h2 className="flow__step-title">Review and confirm</h2>
-          <MockBadge label="Demo quote" />
+          <MockBadge label="Sandbox quote" />
         </div>
 
-        {!verified ? (
-          <Notice tone="info" title="Verify your identity to confirm">
-            <p>
-              US rules require identity verification before an exchange. In this demo, verification is simulated and no documents are
-              collected.
-            </p>
-            <div>
-              <button
-                type="button"
-                className="btn btn--secondary"
-                disabled={verifying}
-                onClick={async () => {
-                  setVerifying(true);
-                  try {
-                    await services.kyc.startVerification(user.email, 'verified');
-                  } finally {
-                    setVerifying(false);
-                  }
-                }}
-              >
-                {verifying ? 'Verifying…' : 'Run simulated verification'}
-              </button>
-            </div>
+        {!verified && kycCopy ? (
+          <Notice tone={kycCopy.tone} title={kycCopy.title}>
+            <p>{kycCopy.body}</p>
+            {config.mode === 'sandbox' && kyc === 'unverified' ? (
+              <p className="small">
+                Sandbox: verification is decided by test rules. A name containing “Review” needs more information, “Reject” is rejected, and
+                any other name is approved. <MockBadge />
+              </p>
+            ) : null}
+            {kyc === 'unverified' ? (
+              <div>
+                <button type="button" className="btn btn--secondary" disabled={verifying} onClick={verify}>
+                  {verifying ? 'Starting…' : 'Verify my identity'}
+                </button>
+              </div>
+            ) : kyc === 'needs_info' || kyc === 'rejected' ? (
+              <div>
+                <Link to="/support" className="btn btn--secondary">
+                  Open support messages
+                </Link>
+              </div>
+            ) : null}
+            {verifyError ? (
+              <p className="field__error" role="alert">
+                {verifyError}
+              </p>
+            ) : null}
           </Notice>
         ) : null}
 
@@ -417,11 +527,18 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
           <div className="panel__body stack">
             {locked ? (
               <>
-                <QuoteBreakdown quote={locked.quote} loading={loading} />
+                <QuoteBreakdown quote={locked.quote} loading={firm.loading} />
                 <QuoteIssues issues={locked.issues} asset={locked.quote.asset} />
               </>
-            ) : quoteState.status === 'error' ? (
-              <p className="muted">{quoteState.message}</p>
+            ) : firm.error ? (
+              <Notice tone="warn" title="We couldn’t lock a quote" role="alert">
+                <p>{firm.error}</p>
+                <div>
+                  <button type="button" className="btn btn--secondary" onClick={firm.refresh}>
+                    <Icon name="refresh" width={16} height={16} /> Try again
+                  </button>
+                </div>
+              </Notice>
             ) : (
               <QuoteSkeleton rows={5} />
             )}
@@ -430,7 +547,7 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
                 <Notice tone="warn" title="This quote has expired">
                   <p>Prices move. Get a new quote to continue. Nothing has been submitted.</p>
                   <div>
-                    <button type="button" className="btn btn--secondary" onClick={refresh}>
+                    <button type="button" className="btn btn--secondary" onClick={firm.refresh}>
                       <Icon name="refresh" width={16} height={16} /> Get a new quote
                     </button>
                   </div>
@@ -444,11 +561,20 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
           <legend className="visually-hidden">Acknowledgements</legend>
           <Checkbox id="ack-network" checked={ackNetwork} onChange={setAckNetwork}>
             I will send exactly {locked ? formatAsset(locked.quote.amountAtomic, locked.quote.asset) : draft.asset} on{' '}
-            <strong>{networkLabel(draft.asset, draft.network)}</strong>, from a wallet I control, within the deposit window.
+            <strong>{networkLabel(draft.asset, draft.network)}</strong>, from a wallet I control, within the deposit window. Blockchain
+            transactions can’t be reversed, and nobody from this service will ever ask me to send crypto on their behalf.
           </Checkbox>
-          <Checkbox id="ack-risk" checked={ackRisk} onChange={setAckRisk}>
-            I understand blockchain transactions can't be reversed, and that nobody from this service will ever ask me to send crypto on
-            their behalf. I understand this is a demo and no real funds will move.
+          <Checkbox id="ack-docs" checked={ackDocs} onChange={setAckDocs}>
+            I have read and accept the{' '}
+            {orderDocs.map((d, i) => (
+              <span key={d.slug}>
+                {i > 0 ? (i === orderDocs.length - 1 ? ' and ' : ', ') : null}
+                <Link to={`/legal/${d.slug}`} target="_blank">
+                  {d.title}
+                </Link>
+              </span>
+            ))}{' '}
+            for this order.
           </Checkbox>
         </fieldset>
 
@@ -465,7 +591,7 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
         {!canConfirm && locked && !expired ? (
           <p className="small muted" style={{ textAlign: 'right' }}>
             {!verified ? 'Verify your identity, then ' : ''}
-            {!ackNetwork || !ackRisk ? 'tick both boxes to confirm.' : ''}
+            {!ackNetwork || !ackDocs ? 'tick both boxes to confirm.' : ''}
           </p>
         ) : null}
       </div>
@@ -495,7 +621,7 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
               </div>
               <div>
                 <dt>Deposit window</dt>
-                <dd>{PRICING_POLICY.depositWindowMs / 60000} minutes after you confirm</dd>
+                <dd>{config.policy.depositWindowMs / 60000} minutes after you confirm</dd>
               </div>
             </dl>
           </div>
@@ -565,7 +691,7 @@ export function ExchangePage() {
             <div className="panel flow__aside--hide-mobile">
               <div className="panel__head">
                 <h2 className="title">Indicative quote</h2>
-                <MockBadge label="Demo pricing" />
+                <MockBadge label="Sandbox pricing" />
               </div>
               <div className="panel__body">
                 {data ? (

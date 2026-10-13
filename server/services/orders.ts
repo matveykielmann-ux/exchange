@@ -10,6 +10,7 @@ import { PAYOUT_METHODS, payoutEligibility, type PayoutMethodId } from '@/domain
 import { isQuoteExpired, PRICING_POLICY } from '@/domain/quote';
 import { canConfirmExchange } from '@/domain/identity';
 import {
+  isPreviewDepositAddress,
   orderSteps,
   postDepositEvent,
   transition,
@@ -19,7 +20,6 @@ import {
   type OrderMachineState,
   type OrderStatus,
 } from '@/domain/order';
-import { isPreviewDepositAddress } from '@/domain/transaction';
 import { validateRefundAddress } from '@/domain/validation';
 import type { Actor, AppContext } from '../context';
 import { ApiError, badRequest, conflict, notConfigured, notFound } from '../http/errors';

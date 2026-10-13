@@ -1,31 +1,66 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { REGEXP_ONLY_DIGITS } from 'input-otp';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Checkbox } from '@/components/Checkbox';
 import { ErrorSummary, Field } from '@/components/Field';
 import { errorMessage } from '@/lib/errors';
-import { Notice } from '@/components/ui';
+import { MockBadge, Notice } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
+import { US_STATE_NAMES, US_STATES } from '@/domain/usStates';
 import { validateEmail, validatePassword, validateRequired } from '@/domain/validation';
+import { ApiError } from '@/services/http';
+import { isStaff } from '@/state/auth';
+import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
 
-function useReturnTo(): string {
+function useReturnTo(fallback = '/account'): string {
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from;
   // Only allow same-site relative paths (no protocol-relative, backslash or
   // control characters), so a crafted state can't redirect off-site.
   // eslint-disable-next-line no-control-regex
-  return from && /^\/(?![/\\])[^\\\u0000-\u001f]*$/.test(from) ? from : '/account';
+  return from && /^\/(?![/\\])[^\\\u0000-\u001f]*$/.test(from) ? from : fallback;
 }
 
-function PreviewAuthNotice() {
+function SandboxAccountsNotice() {
+  const config = useConfig();
+  if (config.mode !== 'sandbox') return null;
   return (
-    <Notice tone="warn" title="Demo accounts are simulated">
+    <Notice tone="warn" title="Sandbox accounts">
       <p>
-        Accounts exist only in this browser. Passwords are checked for length and then discarded, never stored. Don't reuse a real password.
+        Accounts here are stored on the sandbox server and never touch real money. Don't reuse a real password. <MockBadge />
       </p>
     </Notice>
+  );
+}
+
+function CodeInput({
+  value,
+  onChange,
+  fieldProps,
+}: {
+  value: string;
+  onChange(v: string): void;
+  fieldProps: { id: string; 'aria-invalid': true | undefined; 'aria-describedby': string | undefined };
+}) {
+  return (
+    <InputOTP
+      {...fieldProps}
+      maxLength={6}
+      pattern={REGEXP_ONLY_DIGITS}
+      autoComplete="one-time-code"
+      value={value}
+      onChange={onChange}
+      autoFocus
+      containerClassName="otp"
+    >
+      <InputOTPGroup>
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <InputOTPSlot key={i} index={i} className="otp__slot" aria-invalid={fieldProps['aria-invalid']} />
+        ))}
+      </InputOTPGroup>
+    </InputOTP>
   );
 }
 
@@ -33,7 +68,7 @@ export function SignInPage() {
   useDocumentTitle('Sign in');
   const { auth } = useServices();
   const navigate = useNavigate();
-  const returnTo = useReturnTo();
+  const returnTo = useReturnTo('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -41,6 +76,8 @@ export function SignInPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const done = (role: Parameters<typeof isStaff>[0]) => navigate(returnTo || (isStaff(role) ? '/admin' : '/account'), { replace: true });
 
   async function submitCredentials(e: FormEvent) {
     e.preventDefault();
@@ -53,9 +90,10 @@ export function SignInPage() {
     if (Object.keys(next).length) return;
     setBusy(true);
     try {
-      const { challengeId } = await auth.signIn({ email, password });
+      const r = await auth.signIn({ email, password });
       setPassword('');
-      setChallenge(challengeId);
+      if (r.mfaRequired) setChallenge(r.challengeId);
+      else done(r.user);
     } catch (err) {
       setServerError(errorMessage(err));
     } finally {
@@ -73,10 +111,10 @@ export function SignInPage() {
     setBusy(true);
     setServerError(null);
     try {
-      await auth.verifyMfa({ challengeId: challenge, code });
-      navigate(returnTo, { replace: true });
+      done(await auth.verifyMfa({ challengeId: challenge, code }));
     } catch (err) {
       setServerError(errorMessage(err));
+      setCode('');
     } finally {
       setBusy(false);
     }
@@ -86,10 +124,10 @@ export function SignInPage() {
     <div className="container auth">
       <div className="auth__panel stack stack--lg">
         <div className="stack">
-          <h1 className="display-l">{challenge ? 'Check your code' : 'Sign in'}</h1>
+          <h1 className="display-l">{challenge ? 'Two-step sign-in' : 'Sign in'}</h1>
           <p className="muted">{challenge ? 'Enter the 6-digit code from your authenticator app.' : 'Welcome back.'}</p>
         </div>
-        <PreviewAuthNotice />
+        <SandboxAccountsNotice />
         {!challenge ? (
           <form className="stack" onSubmit={submitCredentials} noValidate>
             <ErrorSummary errors={errors} />
@@ -119,36 +157,24 @@ export function SignInPage() {
             </Field>
             {serverError ? <Notice tone="danger" title={serverError} role="alert" /> : null}
             <button className="btn btn--lg btn--block" type="submit" disabled={busy}>
-              {busy ? 'Checking…' : 'Continue'}
+              {busy ? 'Checking…' : 'Sign in'}
             </button>
-            <p className="small">
-              New here?{' '}
-              <Link to="/signup" state={{ from: returnTo }}>
-                Create a demo account
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <p className="small">
+                New here?{' '}
+                <Link to="/signup" state={{ from: returnTo || undefined }}>
+                  Create an account
+                </Link>
+              </p>
+              <Link className="small" to="/reset-password">
+                Forgot your password?
               </Link>
-            </p>
+            </div>
           </form>
         ) : (
           <form className="stack" onSubmit={submitCode} noValidate>
-            <Field label="Verification code" id="signin-code" error={errors['signin-code']} hint="Demo code: 000000">
-              {(p) => (
-                <InputOTP
-                  {...p}
-                  maxLength={6}
-                  pattern={REGEXP_ONLY_DIGITS}
-                  autoComplete="one-time-code"
-                  value={code}
-                  onChange={setCode}
-                  autoFocus
-                  containerClassName="otp"
-                >
-                  <InputOTPGroup>
-                    {[0, 1, 2, 3, 4, 5].map((i) => (
-                      <InputOTPSlot key={i} index={i} className="otp__slot" aria-invalid={p['aria-invalid']} />
-                    ))}
-                  </InputOTPGroup>
-                </InputOTP>
-              )}
+            <Field label="Verification code" id="signin-code" error={errors['signin-code']} hint="The code changes every 30 seconds.">
+              {(p) => <CodeInput value={code} onChange={setCode} fieldProps={p} />}
             </Field>
             {serverError ? <Notice tone="danger" title={serverError} role="alert" /> : null}
             <button className="btn btn--lg btn--block" type="submit" disabled={busy}>
@@ -173,12 +199,14 @@ export function SignInPage() {
 
 export function SignUpPage() {
   useDocumentTitle('Create account');
-  const { auth } = useServices();
+  const { auth, config } = useServices();
   const navigate = useNavigate();
   const returnTo = useReturnTo();
+  const signupDocs = config.legal.filter((d) => d.acceptance === 'signup');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [state, setState] = useState('');
   const [agree, setAgree] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
@@ -187,23 +215,38 @@ export function SignUpPage() {
   async function submit(e: FormEvent) {
     e.preventDefault();
     const next: Record<string, string> = {};
-    const n = validateRequired(name, 'your full name');
+    const n = validateRequired(name, 'your full legal name');
     const em = validateEmail(email);
     const pw = validatePassword(password);
     if (n) next['signup-name'] = n;
     if (em) next['signup-email'] = em;
     if (pw) next['signup-password'] = pw;
-    if (!agree) next['signup-agree'] = 'Confirm you understand this is a demo.';
+    if (!state) next['signup-state'] = 'Choose the state where you live.';
+    if (!agree) next['signup-agree'] = 'Accept the terms to create an account.';
     setErrors(next);
     setServerError(null);
     if (Object.keys(next).length) return;
     setBusy(true);
     try {
-      await auth.signUp({ name, email, password });
+      await auth.signUp({
+        email,
+        password,
+        fullName: name,
+        stateOfResidence: state,
+        accepted: signupDocs.map((d) => ({ slug: d.slug, version: d.version })),
+      });
       setPassword('');
       navigate(returnTo, { replace: true });
     } catch (err) {
-      setServerError(errorMessage(err));
+      const field = err instanceof ApiError ? err.field : undefined;
+      const map: Record<string, string> = {
+        email: 'signup-email',
+        password: 'signup-password',
+        fullName: 'signup-name',
+        stateOfResidence: 'signup-state',
+      };
+      if (field && map[field]) setErrors({ [map[field]]: errorMessage(err) });
+      else setServerError(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -214,20 +257,39 @@ export function SignUpPage() {
       <div className="auth__panel stack stack--lg">
         <div className="stack">
           <h1 className="display-l">Create an account</h1>
-          <p className="muted">You'll need one to confirm an exchange.</p>
+          <p className="muted">You'll need one to place an order. We'll verify your identity before your first payout.</p>
         </div>
-        <PreviewAuthNotice />
+        <SandboxAccountsNotice />
         <form className="stack" onSubmit={submit} noValidate>
           <ErrorSummary errors={errors} />
-          <Field label="Full legal name" id="signup-name" error={errors['signup-name']}>
-            {(p) => <input className="input" {...p} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />}
+          <Field label="Full legal name" id="signup-name" error={errors['signup-name']} hint="As it appears on your government ID.">
+            {(p) => (
+              <input className="input" {...p} autoComplete="name" maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />
+            )}
           </Field>
           <Field label="Email" id="signup-email" error={errors['signup-email']}>
             {(p) => (
               <input className="input" {...p} type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             )}
           </Field>
-          <Field label="Password" id="signup-password" error={errors['signup-password']} hint="At least 12 characters.">
+          <Field label="State of residence" id="signup-state" error={errors['signup-state']}>
+            {(p) => (
+              <select className="select" {...p} autoComplete="address-level1" value={state} onChange={(e) => setState(e.target.value)}>
+                <option value="">Choose a state</option>
+                {US_STATES.map((s) => (
+                  <option key={s} value={s}>
+                    {US_STATE_NAMES[s]}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+          <Field
+            label="Password"
+            id="signup-password"
+            error={errors['signup-password']}
+            hint="At least 12 characters. A passphrase works well."
+          >
             {(p) => (
               <input
                 className="input"
@@ -240,8 +302,16 @@ export function SignUpPage() {
             )}
           </Field>
           <Checkbox id="signup-agree" checked={agree} onChange={setAgree} error={errors['signup-agree']}>
-            I understand this is a demo with simulated data, and I've read the <Link to="/legal#terms">terms</Link> and{' '}
-            <Link to="/legal#privacy">privacy notice</Link>.
+            I agree to the{' '}
+            {signupDocs.map((d, i) => (
+              <span key={d.slug}>
+                {i > 0 ? (i === signupDocs.length - 1 ? ' and ' : ', ') : null}
+                <Link to={`/legal/${d.slug}`} target="_blank">
+                  {d.title}
+                </Link>
+              </span>
+            ))}
+            , including receiving documents electronically.
           </Checkbox>
           {serverError ? <Notice tone="danger" title={serverError} role="alert" /> : null}
           <button className="btn btn--lg btn--block" type="submit" disabled={busy}>
@@ -254,6 +324,173 @@ export function SignUpPage() {
             </Link>
           </p>
         </form>
+      </div>
+    </div>
+  );
+}
+
+export function ResetRequestPage() {
+  useDocumentTitle('Reset password');
+  const { auth } = useServices();
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState<{ sandboxResetUrl?: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const err = validateEmail(email);
+    setError(err);
+    if (err) return;
+    setBusy(true);
+    try {
+      setSent(await auth.requestPasswordReset(email));
+    } catch (e2) {
+      setError(errorMessage(e2));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const sandboxPath = sent?.sandboxResetUrl ? new URL(sent.sandboxResetUrl).pathname + new URL(sent.sandboxResetUrl).search : null;
+  return (
+    <div className="container auth">
+      <div className="auth__panel stack stack--lg">
+        <div className="stack">
+          <h1 className="display-l">Reset your password</h1>
+          <p className="muted">We'll email a link that works once, for 30 minutes.</p>
+        </div>
+        {sent ? (
+          <div className="stack">
+            <Notice tone="info" title="Check your email" role="status">
+              <p>If an account exists for {email}, a reset link is on its way. It can take a few minutes to arrive.</p>
+            </Notice>
+            {sandboxPath ? (
+              <Notice tone="warn" title="Sandbox: email is not sent">
+                <p>
+                  The sandbox shows the link here instead of emailing it. <Link to={sandboxPath}>Open the reset link</Link> <MockBadge />
+                </p>
+              </Notice>
+            ) : null}
+            <Link to="/signin">Back to sign in</Link>
+          </div>
+        ) : (
+          <form className="stack" onSubmit={submit} noValidate>
+            <Field label="Email" id="reset-email" error={error}>
+              {(p) => (
+                <input
+                  className="input"
+                  {...p}
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              )}
+            </Field>
+            <button className="btn btn--lg btn--block" type="submit" disabled={busy}>
+              {busy ? 'Sending…' : 'Send reset link'}
+            </button>
+            <Link className="small" to="/signin">
+              Back to sign in
+            </Link>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function ResetConfirmPage() {
+  useDocumentTitle('Choose a new password');
+  const { auth } = useServices();
+  const [params] = useSearchParams();
+  const token = params.get('token') ?? '';
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const next: Record<string, string> = {};
+    const pw = validatePassword(password);
+    if (pw) next['reset-password'] = pw;
+    if (confirm !== password) next['reset-confirm'] = 'The passwords don’t match.';
+    setErrors(next);
+    setServerError(null);
+    if (Object.keys(next).length) return;
+    setBusy(true);
+    try {
+      await auth.confirmPasswordReset(token, password);
+      setDone(true);
+    } catch (err) {
+      setServerError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="container auth">
+      <div className="auth__panel stack stack--lg">
+        <h1 className="display-l">Choose a new password</h1>
+        {!token ? (
+          <Notice tone="danger" title="This link is incomplete">
+            <p>
+              Open the link from your email again, or <Link to="/reset-password">request a new one</Link>.
+            </p>
+          </Notice>
+        ) : done ? (
+          <div className="stack">
+            <Notice tone="info" title="Password changed" role="status">
+              <p>Every session on your account was signed out. Sign in with your new password.</p>
+            </Notice>
+            <Link className="btn btn--lg" to="/signin">
+              Sign in
+            </Link>
+          </div>
+        ) : (
+          <form className="stack" onSubmit={submit} noValidate>
+            <ErrorSummary errors={errors} />
+            <Field label="New password" id="reset-password" error={errors['reset-password']} hint="At least 12 characters.">
+              {(p) => (
+                <input
+                  className="input"
+                  {...p}
+                  type="password"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              )}
+            </Field>
+            <Field label="Confirm new password" id="reset-confirm" error={errors['reset-confirm']}>
+              {(p) => (
+                <input
+                  className="input"
+                  {...p}
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                />
+              )}
+            </Field>
+            {serverError ? (
+              <Notice tone="danger" title={serverError} role="alert">
+                <p>
+                  Links expire after 30 minutes and work once. <Link to="/reset-password">Request a new link</Link>.
+                </p>
+              </Notice>
+            ) : null}
+            <button className="btn btn--lg btn--block" type="submit" disabled={busy}>
+              {busy ? 'Saving…' : 'Save new password'}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

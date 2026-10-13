@@ -13,11 +13,12 @@ export interface FaqItem {
 export const FAQ: FaqItem[] = [
   {
     group: 'Getting started',
-    q: 'Is this a live exchange?',
+    q: 'Can I exchange real funds today?',
     a: (
       <p>
-        No. This is a demo. Prices, quotes, verification and transactions are simulated, and no real funds can be sent or received. See the{' '}
-        <Link to="/legal#preview">demo disclosure</Link>.
+        Not yet. Exchanges open only once our payment, custody and verification providers are connected and approved. Until then, the
+        sandbox simulates prices, verification and transactions, and no real funds can be sent or received. See the{' '}
+        <Link to="/legal/terms">Terms of Service</Link>.
       </p>
     ),
   },
@@ -117,8 +118,8 @@ export const FAQ: FaqItem[] = [
     q: 'Why do I need to verify my identity?',
     a: (
       <p>
-        US rules require exchanges to verify customers and screen transactions. In this demo, verification is simulated and no documents are
-        collected.
+        US rules require exchanges to verify customers and screen transactions. We use an identity-verification provider for this. In the
+        sandbox, verification is simulated and no documents are collected.
       </p>
     ),
   },

@@ -7,7 +7,7 @@ import { useCallback, useSyncExternalStore } from 'react';
  * choice before first paint so there is no flash.
  */
 export type Theme = 'light' | 'dark';
-const KEY = 'settlewell.theme';
+const KEY = 'arcvale.theme';
 const media = () => window.matchMedia('(prefers-color-scheme: dark)');
 
 function current(): Theme {

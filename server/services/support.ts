@@ -257,7 +257,14 @@ export function postSystemMessage(ctx: AppContext, actor: Actor, customerId: str
 export function inbox(
   ctx: AppContext,
   staffId: string,
-  f: { status: ConversationStatus | 'all'; q: string | null; assigned: 'me' | 'unassigned' | 'any'; page: number; pageSize: number },
+  f: {
+    status: ConversationStatus | 'all';
+    q: string | null;
+    assigned: 'me' | 'unassigned' | 'any';
+    unread?: boolean;
+    page: number;
+    pageSize: number;
+  },
 ) {
   const where: string[] = [];
   const params: Record<string, string | number> = {};
@@ -269,6 +276,10 @@ export function inbox(
     where.push('c.assigned_operator_id = :me');
     params.me = staffId;
   } else if (f.assigned === 'unassigned') where.push('c.assigned_operator_id IS NULL');
+  if (f.unread)
+    where.push(
+      "EXISTS (SELECT 1 FROM support_messages m WHERE m.conversation_id = c.id AND m.author_kind = 'customer' AND m.created_at > c.staff_last_read_at)",
+    );
   if (f.q) {
     where.push("(c.subject LIKE :q ESCAPE '\\' OR u.email LIKE :q ESCAPE '\\' OR o.reference LIKE :q ESCAPE '\\' OR c.id = :exact)");
     params.q = `%${f.q.replace(/[\\%_]/g, (m) => '\\' + m)}%`;

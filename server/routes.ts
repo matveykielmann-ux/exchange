@@ -691,6 +691,7 @@ function registerAdminRoutes(r: Router, app: AppContext) {
           status: (['open', 'pending', 'resolved'] as const).find((s) => s === q.get('status')) ?? 'all',
           q: q.get('q')?.trim().slice(0, 120) || null,
           assigned: (['me', 'unassigned'] as const).find((x) => x === q.get('assigned')) ?? 'any',
+          unread: q.get('unread') === 'true',
           ...pageV(q),
         }),
       };

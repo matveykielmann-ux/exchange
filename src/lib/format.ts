@@ -1,6 +1,6 @@
 import { ASSETS, type AssetCode } from '@/domain/assets';
 import { formatUnits, MICROS_PER_CENT, type AtomicAmount, type Micros } from '@/domain/money';
-import type { PayoutDestinationRecord } from '@/services/types';
+import type { Destination } from '@/services/types';
 
 export function formatAsset(atomic: AtomicAmount, asset: AssetCode, { withCode = true } = {}): string {
   const a = ASSETS[asset];
@@ -8,7 +8,7 @@ export function formatAsset(atomic: AtomicAmount, asset: AssetCode, { withCode =
   return withCode ? `${body} ${asset}` : body;
 }
 
-export function describeDestination(d: Pick<PayoutDestinationRecord, 'kind' | 'last4'>): string {
+export function describeDestination(d: Pick<Destination, 'kind' | 'last4'>): string {
   return `${d.kind === 'bank' ? 'Bank account' : 'Debit card'} ending ${d.last4}`;
 }
 

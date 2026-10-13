@@ -299,7 +299,7 @@ export async function requestPasswordReset(
   if (!user) return { sandboxResetUrl: null }; // Same response either way: don't reveal which emails have accounts.
   const token = randomToken();
   const now = ctx.clock.now();
-  const url = `${ctx.config.publicOrigin}/reset-password?token=${token}`;
+  const url = `${ctx.config.publicOrigin}/reset-password/confirm?token=${token}`;
   ctx.db.tx(() => {
     ctx.db.run('UPDATE password_reset_tokens SET used_at = ? WHERE user_id = ? AND used_at IS NULL', [now, user.id]);
     ctx.db.run('INSERT INTO password_reset_tokens (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)', [
