@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'coverage', 'qa-output', 'playwright-report', 'test-results', 'docs'] },
+  { ignores: ['dist', 'dist-server', 'data', 'coverage', 'qa-output', 'playwright-report', 'test-results', 'docs'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],
@@ -21,6 +21,11 @@ export default tseslint.config(
     // Context modules export a provider plus its hook; content modules export data plus a renderer.
     files: ['src/state/**', 'src/content/**'],
     rules: { 'react-refresh/only-export-components': 'off' },
+  },
+  {
+    files: ['server/**/*.ts', 'vite.server.config.ts', 'scripts/**'],
+    languageOptions: { globals: globals.node },
+    rules: { 'react-refresh/only-export-components': 'off', 'react-hooks/rules-of-hooks': 'off' },
   },
   {
     files: ['**/*.{js,mjs}'],

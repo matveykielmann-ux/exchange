@@ -42,7 +42,13 @@ export interface QuoteRequest {
   payoutMethod: PayoutMethodId;
   referencePriceMicros: Micros;
   now: number;
+  /** Where the reference price came from. Defaults to 'mock' for the browser-only calculator. */
+  source?: QuoteSource;
+  /** Server-assigned id; generated locally when omitted. */
+  id?: string;
 }
+
+export type QuoteSource = 'mock' | 'sandbox' | 'live';
 
 export type QuoteIssue =
   | { code: 'unsupported_network' }
@@ -54,7 +60,7 @@ export type QuoteIssue =
 
 export interface Quote {
   id: string;
-  source: 'mock';
+  source: QuoteSource;
   asset: AssetCode;
   network: NetworkId;
   amountAtomic: AtomicAmount;
@@ -133,8 +139,8 @@ export function calculateQuote(req: QuoteRequest): QuoteResult {
 
   return {
     quote: {
-      id: quoteId(req.now),
-      source: 'mock',
+      id: req.id ?? quoteId(req.now),
+      source: req.source ?? 'mock',
       asset: req.asset,
       network: req.network,
       amountAtomic: req.amountAtomic,

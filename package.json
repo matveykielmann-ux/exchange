@@ -3,21 +3,28 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "US-focused crypto-to-USD exchange frontend. Mock data only — no real-money movement.",
+  "description": "Arcvale: US-focused crypto-to-USD exchange. Sandbox mode is fully simulated; production providers report NOT_CONFIGURED until credentials are supplied. Real-money movement is disabled.",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "node scripts/dev.mjs",
+    "build": "tsc -b && vite build && vite build -c vite.server.config.ts",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
     "qa:visual": "node .claude/skills/visual-qa/scripts/visual-qa.mjs",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \".claude/skills/**/*.mjs\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \".claude/skills/**/*.mjs\""
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"server/**/*.ts\" \"scripts/**/*.mjs\" \".claude/skills/**/*.mjs\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"server/**/*.ts\" \"scripts/**/*.mjs\" \".claude/skills/**/*.mjs\"",
+    "dev:web": "vite",
+    "start": "node --disable-warning=ExperimentalWarning dist-server/main.js",
+    "server:build": "vite build -c vite.server.config.ts",
+    "server:cli": "node --disable-warning=ExperimentalWarning dist-server/cli.js",
+    "server:seed": "pnpm server:build && pnpm server:cli seed",
+    "server:scenarios": "pnpm server:build && pnpm server:cli scenarios",
+    "test:server": "vitest run --project server"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13"
   },
   "packageManager": "pnpm@10.28.0",
   "dependencies": {
