@@ -20,9 +20,9 @@ function renderCalc() {
 }
 
 describe('<Calculator />', () => {
-  it('shows an itemized, mock-labelled quote and enables Continue', async () => {
+  it('shows an itemized, demo-labelled quote and enables Continue', async () => {
     renderCalc();
-    expect(screen.getByText('Mock pricing')).toBeInTheDocument();
+    expect(screen.getByText('Demo pricing')).toBeInTheDocument();
     expect(await screen.findByText('Exchange spread')).toBeInTheDocument();
     expect(screen.getByText('Payout fee')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: /Continue/ })).toBeEnabled();

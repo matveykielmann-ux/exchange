@@ -234,7 +234,7 @@ export function HomePage() {
           <div className="table-wrap">
             <table className="data-table data-table--stack">
               <caption>
-                Confirmation counts are preview policy values. <MockBadge label="Mock policy" />
+                Confirmation counts are demo policy values. <MockBadge label="Demo policy" />
               </caption>
               <thead>
                 <tr>
@@ -348,7 +348,7 @@ export function HomePage() {
               Designed for regulated operation.
             </h2>
             <p className="lead">
-              These controls are built into the product design. In this preview they are simulated. None of them is a claim about a live
+              These controls are built into the product design. In this demo they are simulated. None of them is a claim about a live
               service.
             </p>
           </div>

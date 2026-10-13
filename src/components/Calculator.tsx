@@ -26,7 +26,7 @@ export function Calculator() {
     <section className="panel panel--raised calculator" aria-labelledby="calc-title">
       <div className="panel__head">
         <h2 id="calc-title">Sell crypto for USD</h2>
-        <MockBadge label="Mock pricing" />
+        <MockBadge label="Demo pricing" />
       </div>
       <div className="panel__body stack">
         <AssetNetworkFields
@@ -94,7 +94,7 @@ export function Calculator() {
         </button>
         <p className="quote-meta" style={{ marginTop: 0 }}>
           <span>Indicative. Refreshes every {PRICING_POLICY.indicativeRefreshMs / 1000}s.</span>
-          {data ? <span className="tabular">Mock price as of {formatTime(data.price.asOf)}</span> : null}
+          {data ? <span className="tabular">Demo price as of {formatTime(data.price.asOf)}</span> : null}
         </p>
       </div>
     </section>

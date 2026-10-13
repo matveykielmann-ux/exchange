@@ -75,7 +75,7 @@ export function HowItWorksPage() {
         <div className="table-wrap">
           <table className="data-table data-table--stack">
             <caption>
-              Confirmation policy <MockBadge label="Mock policy" />
+              Confirmation policy <MockBadge label="Demo policy" />
             </caption>
             <thead>
               <tr>
@@ -137,7 +137,7 @@ export function FeesPage() {
         lead="An exchange spread and a payout fee. Both appear as separate lines, in dollars, before you confirm."
       >
         <div className="row">
-          <MockBadge label="Mock fee schedule" />
+          <MockBadge label="Demo fee schedule" />
         </div>
       </PageHeader>
       <WithToc
@@ -149,8 +149,8 @@ export function FeesPage() {
           ['example', 'Worked example'],
         ]}
       >
-        <Notice tone="warn" title="Preview schedule">
-          <p>These values are placeholders for the preview. A live fee schedule would be set and approved before launch.</p>
+        <Notice tone="warn" title="Demo schedule">
+          <p>These values are placeholders for the demo. A live fee schedule would be set and approved before launch.</p>
         </Notice>
         <h2 id="spread">Exchange spread</h2>
         <p>
@@ -256,11 +256,11 @@ export function SecurityPage() {
       <PageHeader
         eyebrow="Security"
         title="How the product protects you."
-        lead="What is designed in, what is simulated in this preview, and how to protect yourself from scams."
+        lead="What is designed in, what is simulated in this demo, and how to protect yourself from scams."
       />
       <WithToc
         toc={[
-          ['preview-status', 'Preview status'],
+          ['preview-status', 'Demo status'],
           ['account', 'Your account'],
           ['data', 'Your data'],
           ['transactions', 'Transactions'],
@@ -268,8 +268,8 @@ export function SecurityPage() {
           ['report', 'Report an issue'],
         ]}
       >
-        <h2 id="preview-status">Preview status</h2>
-        <Notice tone="warn" title="Controls in this preview are simulated">
+        <h2 id="preview-status">Demo status</h2>
+        <Notice tone="warn" title="Controls in this demo are simulated">
           <p>
             No identity provider, screening provider, custodian or bank is connected. The descriptions below explain how the product is
             designed, not what a live service guarantees.
@@ -283,7 +283,7 @@ export function SecurityPage() {
         </ul>
         <h2 id="data">Your data</h2>
         <ul>
-          <li>The preview keeps data only in your browser's local storage. Clearing site data removes it.</li>
+          <li>The demo keeps data only in your browser's local storage. Clearing site data removes it.</li>
           <li>No analytics, advertising or third-party scripts are loaded. Fonts are served from this site.</li>
         </ul>
         <h2 id="transactions">Transactions</h2>
@@ -318,7 +318,7 @@ export function SecurityPage() {
         </ul>
         <h2 id="report">Report a security issue</h2>
         <p>
-          A live service would publish a vulnerability disclosure policy and a dedicated contact here. The preview contact,{' '}
+          A live service would publish a vulnerability disclosure policy and a dedicated contact here. The demo contact,{' '}
           <span className="mono">{BRAND.supportEmail}</span>, is a placeholder and is not monitored.
         </p>
       </WithToc>
@@ -383,11 +383,7 @@ export function HelpPage() {
   ];
   return (
     <>
-      <PageHeader
-        eyebrow="Help"
-        title="How can we help?"
-        lead="Answers to common problems. Live support isn't available in this preview."
-      />
+      <PageHeader eyebrow="Help" title="How can we help?" lead="Answers to common problems. Live support isn't available in this demo." />
       <section className="section--tight">
         <div className="container">
           <ul className="pillars" style={{ rowGap: 48 }}>
@@ -425,22 +421,22 @@ export function LegalPage() {
       <PageHeader
         eyebrow="Legal"
         title="Legal information."
-        lead="Plain-language disclosures for this preview. They are drafts, not legal advice, and must be replaced by counsel-approved documents before any launch."
+        lead="Plain-language disclosures for this demo. They are drafts, not legal advice, and must be replaced by counsel-approved documents before any launch."
       />
       <WithToc
         toc={[
-          ['preview', 'Preview disclosure'],
+          ['preview', 'Demo disclosure'],
           ['licensing', 'Licensing status'],
           ['risk', 'Risk disclosures'],
           ['privacy', 'Privacy'],
           ['terms', 'Terms of use'],
         ]}
       >
-        <h2 id="preview">Preview disclosure</h2>
+        <h2 id="preview">Demo disclosure</h2>
         <p>
-          This website is a product preview. Prices, quotes, fees, identity verification, screening results, deposit addresses,
-          transactions, receipts and payout references are <strong>simulated</strong>. No cryptocurrency or US dollars can be sent,
-          received, held or exchanged through it. Deposit addresses are deliberately invalid placeholders.
+          This website is a product demo. Prices, quotes, fees, identity verification, screening results, deposit addresses, transactions,
+          receipts and payout references are <strong>simulated</strong>. No cryptocurrency or US dollars can be sent, received, held or
+          exchanged through it. Deposit addresses are deliberately invalid placeholders.
         </p>
         <h2 id="licensing">Licensing and regulatory status</h2>
         <dl className="dl">
@@ -482,13 +478,13 @@ export function LegalPage() {
         </ul>
         <h2 id="privacy">Privacy</h2>
         <p>
-          The preview stores what you enter (name, email, payout destination nicknames and the last four digits, refund addresses and
-          simulated transactions) in your browser's local storage on this device only. Nothing is sent to a server. Passwords are not
-          stored. No cookies, analytics or third-party trackers are used. Clear this site's data in your browser to remove everything.
+          The demo stores what you enter (name, email, payout destination nicknames and the last four digits, refund addresses and simulated
+          transactions) in your browser's local storage on this device only. Nothing is sent to a server. Passwords are not stored. No
+          cookies, analytics or third-party trackers are used. Clear this site's data in your browser to remove everything.
         </p>
-        <h2 id="terms">Terms of use (preview)</h2>
+        <h2 id="terms">Terms of use (demo)</h2>
         <ol>
-          <li>The preview is provided for demonstration and evaluation only, without warranty.</li>
+          <li>The demo is provided for demonstration and evaluation only, without warranty.</li>
           <li>Nothing on the site is an offer, solicitation or recommendation to buy or sell any asset.</li>
           <li>Don't enter real bank details, identity documents, private keys or seed phrases.</li>
           <li>Simulated figures must not be relied on for any financial decision.</li>

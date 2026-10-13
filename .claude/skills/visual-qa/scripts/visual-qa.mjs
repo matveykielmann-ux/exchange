@@ -245,13 +245,15 @@ async function flow(browser, width) {
   await expectText('MOCK-USDT-TRON-', 'placeholder deposit address');
   await shot('07-awaiting-deposit');
 
-  // Advance through the state machine
-  const advance = page.getByRole('button', { name: /^Advance/ });
-  for (let i = 0; i < 8 && (await advance.count()); i++) {
-    await advance.click();
-    await page.waitForTimeout(500);
-    if (i === 1) await shot('08-confirming');
-  }
+  // One manual step, then let the demo play the rest of the happy path.
+  await page.getByRole('button', { name: /^Next step/ }).click();
+  await page.waitForTimeout(500);
+  await page.getByRole('button', { name: /^Next step/ }).click();
+  await page.waitForTimeout(500);
+  await shot('08-confirming');
+  await page.getByRole('button', { name: /Play to payout/ }).click();
+  await page.locator('main h1', { hasText: /^Completed$/ }).waitFor({ timeout: 20000 });
+  await page.waitForTimeout(400);
   await expectText('Payout sent. Reference MOCK-PAYOUT-', 'completed log entry');
   await shot('09-completed');
   const heading = await page.locator('main h1').textContent();

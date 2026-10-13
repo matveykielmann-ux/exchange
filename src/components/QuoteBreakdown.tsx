@@ -31,11 +31,11 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
             <span className="quote-lines__term">
               Reference price
               <InfoHint label="reference price">
-                A simulated mid-market price for {quote.asset}, generated for this preview. Your payout is calculated from it, then the
-                spread and payout fee below are taken off.
+                A simulated mid-market price for {quote.asset}, generated for this demo. Your payout is calculated from it, then the spread
+                and payout fee below are taken off.
               </InfoHint>
             </span>
-            <small>Mock mid-market, per {quote.asset}</small>
+            <small>Demo mid-market, per {quote.asset}</small>
           </dt>
           <dd className={sk}>{formatPriceMicros(quote.referencePriceMicros, quote.asset)}</dd>
         </div>

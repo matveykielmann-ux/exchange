@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
 import { QuoteBreakdown } from '@/components/QuoteBreakdown';
@@ -49,15 +49,20 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   );
 }
 
+/** Pause between demo steps so each state is visible. */
+const PLAY_STEP_MS = 900;
+
 function MockControls({
   tx,
   simulator,
   onEvent,
+  onPlay,
   busy,
 }: {
   tx: Transaction;
   simulator: TransactionSimulator;
   onEvent: (e: TransactionEvent) => void;
+  onPlay: () => void;
   busy: boolean;
 }) {
   const next = simulator.nextEvent(tx);
@@ -78,15 +83,21 @@ function MockControls({
   return (
     <section className="mock-controls" aria-labelledby="mock-controls-title">
       <h2 id="mock-controls-title">
-        <MockBadge label="Mock controls" /> Simulate what happens next
+        <MockBadge label="Demo controls" /> Simulate what happens next
       </h2>
       <p className="small muted">
-        These buttons stand in for blockchain monitoring and payout-provider events. They exist only in the preview.
+        These buttons stand in for blockchain monitoring and payout-provider events. They exist only in the demo. Use “Play to payout” to
+        watch the whole path, deposit to dollars, one step at a time.
       </p>
       <div className="row">
         {next ? (
-          <button type="button" className="btn" disabled={busy} onClick={() => onEvent(next)}>
-            Advance: {next.type === 'CONFIRMATION' ? 'add confirmations' : next.type.toLowerCase().replace(/_/g, ' ')}
+          <button type="button" className="btn" disabled={busy} onClick={onPlay}>
+            <Icon name="play" width={16} height={16} /> Play to payout
+          </button>
+        ) : null}
+        {next ? (
+          <button type="button" className="btn btn--secondary" disabled={busy} onClick={() => onEvent(next)}>
+            Next step: {next.type === 'CONFIRMATION' ? 'add confirmations' : next.type.toLowerCase().replace(/_/g, ' ')}
           </button>
         ) : null}
         {alternates.map((a) => (
@@ -108,6 +119,13 @@ export function TransactionPage() {
   const [tx, setTx] = useState<Transaction | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   useDocumentTitle(tx ? `Exchange ${tx.id}` : 'Exchange');
 
   const load = useCallback(() => {
@@ -142,6 +160,29 @@ export function TransactionPage() {
   const network = NETWORKS[tx.quote.network];
   const steps = timelineFor(tx);
 
+  /** Demo only: steps through the happy path with a short pause so each state is visible. */
+  async function playToPayout() {
+    const simulator = services.simulator;
+    if (!user || !simulator || !tx) return;
+    setBusy(true);
+    setError(null);
+    try {
+      let current = tx;
+      for (let event = simulator.nextEvent(current); event; event = simulator.nextEvent(current)) {
+        current = await services.transactions.dispatch(current.id, user.email, event);
+        if (!mounted.current) return;
+        setTx(current);
+        if (TERMINAL_STATUSES.has(current.status)) break;
+        await new Promise((resolve) => window.setTimeout(resolve, PLAY_STEP_MS));
+        if (!mounted.current) return;
+      }
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      if (mounted.current) setBusy(false);
+    }
+  }
+
   async function dispatch(event: TransactionEvent) {
     if (!user) return;
     setBusy(true);
@@ -171,7 +212,7 @@ export function TransactionPage() {
           </div>
           <div className="row">
             <StatusBadge tone={tone}>{STATUS_LABEL[tx.status]}</StatusBadge>
-            <MockBadge label="Mock transaction" />
+            <MockBadge label="Demo transaction" />
           </div>
         </div>
       </div>
@@ -204,9 +245,9 @@ export function TransactionPage() {
                     <CopyButton value={tx.depositAddress} label="Copy" />
                   </div>
                 ) : (
-                  // Defense in depth: never display something that could be a real address in the preview.
+                  // Defense in depth: never display something that could be a real address in the demo.
                   <Notice tone="danger" title="Deposit address withheld" role="alert">
-                    <p>The stored address is not a preview placeholder, so it is not shown. Do not send funds.</p>
+                    <p>The stored address is not a demo placeholder, so it is not shown. Do not send funds.</p>
                   </Notice>
                 )}
                 <p className="small">
@@ -245,7 +286,9 @@ export function TransactionPage() {
           ) : null}
 
           {error ? <Notice tone="danger" title={error} role="alert" /> : null}
-          {services.simulator ? <MockControls tx={tx} simulator={services.simulator} busy={busy} onEvent={dispatch} /> : null}
+          {services.simulator ? (
+            <MockControls tx={tx} simulator={services.simulator} busy={busy} onEvent={dispatch} onPlay={playToPayout} />
+          ) : null}
 
           {canApply(tx.status, 'CUSTOMER_CANCELLED') ? (
             <div>

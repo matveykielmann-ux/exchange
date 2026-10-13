@@ -52,7 +52,7 @@ export function AccountPage() {
     <>
       <PageHeader eyebrow="Account" title={user.name} lead={user.email}>
         <div className="row">
-          <MockBadge label="Preview account" />
+          <MockBadge label="Demo account" />
           <span className="small muted">Created {formatDateTime(user.createdAt)}</span>
         </div>
       </PageHeader>
@@ -72,7 +72,7 @@ export function AccountPage() {
               </div>
               <div className="panel__body stack">
                 <p>{level.body}</p>
-                <Notice tone="neutral" title="Simulated in this preview">
+                <Notice tone="neutral" title="Simulated in this demo">
                   <p>
                     A live service would use an identity-verification provider to check a government ID, a selfie, and your SSN, and would
                     ask for source-of-funds documents for enhanced verification. Nothing is collected here.
@@ -175,7 +175,7 @@ export function AccountPage() {
                 <dl className="dl">
                   <div>
                     <dt>Two-step sign-in</dt>
-                    <dd>On (simulated authenticator, preview code)</dd>
+                    <dd>On (simulated authenticator, demo code)</dd>
                   </div>
                   <div>
                     <dt>Session</dt>

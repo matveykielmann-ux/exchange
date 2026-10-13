@@ -16,8 +16,8 @@ export const FAQ: FaqItem[] = [
     q: 'Is this a live exchange?',
     a: (
       <p>
-        No. This is a preview. Prices, quotes, verification and transactions are simulated, and no real funds can be sent or received. See
-        the <Link to="/legal#preview">preview disclosure</Link>.
+        No. This is a demo. Prices, quotes, verification and transactions are simulated, and no real funds can be sent or received. See the{' '}
+        <Link to="/legal#preview">demo disclosure</Link>.
       </p>
     ),
   },
@@ -117,8 +117,8 @@ export const FAQ: FaqItem[] = [
     q: 'Why do I need to verify my identity?',
     a: (
       <p>
-        US rules require exchanges to verify customers and screen transactions. In this preview, verification is simulated and no documents
-        are collected.
+        US rules require exchanges to verify customers and screen transactions. In this demo, verification is simulated and no documents are
+        collected.
       </p>
     ),
   },

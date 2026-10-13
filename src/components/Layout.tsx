@@ -19,12 +19,12 @@ const NAV = [
 
 function PreviewBanner() {
   return (
-    <div className="preview-banner" role="region" aria-label="Preview notice">
+    <div className="preview-banner" role="region" aria-label="Demo notice">
       <div className="container">
         <span>
-          <strong>Preview environment.</strong> Prices, quotes, verification and transactions are simulated. No real funds move.
+          <strong>Demo.</strong> Prices, quotes, verification and transactions are simulated. No real funds move.
         </span>
-        <Link to="/legal#preview">What this means</Link>
+        <Link to="/legal#preview">About the demo</Link>
       </div>
     </div>
   );
@@ -136,7 +136,7 @@ function SiteFooter() {
               <Logo />
             </Link>
             <p className="muted" style={{ maxWidth: '34ch' }}>
-              A preview of a crypto-to-USD exchange for US customers. Every figure on this site is simulated.
+              A demo of a crypto-to-USD exchange for US customers. Every figure on this site is simulated.
             </p>
           </div>
           <div>
@@ -177,7 +177,7 @@ function SiteFooter() {
             <h2>Legal</h2>
             <ul>
               <li>
-                <Link to="/legal#preview">Preview disclosure</Link>
+                <Link to="/legal#preview">Demo disclosure</Link>
               </li>
               <li>
                 <Link to="/legal#licensing">Licensing status</Link>

@@ -64,7 +64,7 @@ export function PriceTape() {
   );
 
   return (
-    <div className="tape" ref={ref} role="region" aria-label="Mock reference prices">
+    <div className="tape" ref={ref} role="region" aria-label="Demo reference prices">
       {ASSET_ORDER.map((a) => {
         const row = rows[a];
         return (
@@ -79,7 +79,7 @@ export function PriceTape() {
         );
       })}
       <div className="tape__badge">
-        <MockBadge label="Mock prices" />
+        <MockBadge label="Demo prices" />
       </div>
     </div>
   );
