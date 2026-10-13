@@ -126,11 +126,23 @@ async function keyboardChecks(browser) {
   if (!ring || ring === 'none') fail('keyboard', 'focused button has no visible focus ring');
   // Mobile menu toggles with keyboard and exposes aria-expanded.
   await page.setViewportSize({ width: 390, height: 844 });
-  const menu = page.getByRole('button', { name: 'Menu' });
+  // The menu is a modal sheet: while open, the page behind it (trigger included) is hidden from
+  // assistive tech, so hold the trigger by CSS rather than by role.
+  const menu = page.locator('.menu-button');
   await menu.focus();
   await page.keyboard.press('Enter');
   if ((await menu.getAttribute('aria-expanded')) !== 'true') fail('keyboard', 'mobile menu did not open with Enter');
+  const sheet = page.getByRole('dialog', { name: 'Menu' });
+  try {
+    await sheet.waitFor({ timeout: 3000 });
+  } catch {
+    fail('keyboard', 'mobile menu sheet is not exposed as a dialog named "Menu"');
+  }
   await page.screenshot({ path: `${OUT}/390/_menu-open.png` });
+  await page.keyboard.press('Escape');
+  await sheet.waitFor({ state: 'detached', timeout: 3000 }).catch(() => fail('keyboard', 'Escape did not close the mobile menu'));
+  const back = await page.evaluate(() => document.activeElement?.classList.contains('menu-button'));
+  if (!back) fail('keyboard', 'focus did not return to the Menu button after closing');
   await context.close();
 }
 
@@ -167,8 +179,11 @@ async function flow(browser, width) {
 
   // Step 1: amount — below minimum, then above retail max, then valid
   await page.goto(BASE_URL + '/exchange', { waitUntil: 'networkidle' });
-  await page.getByLabel('Asset').selectOption('USDT');
-  await page.getByLabel('Network').selectOption('tron');
+  // Asset and network are shadcn Selects: open the trigger, then pick the option.
+  await page.getByLabel('Asset').click();
+  await page.getByRole('option', { name: /^USDT/ }).click();
+  await page.getByLabel('Network').click();
+  await page.getByRole('option', { name: /^Tron/ }).click();
   const amount = page.getByLabel('Amount to sell');
   await amount.fill('10');
   await expectText('Minimum is $50.00', 'below minimum');

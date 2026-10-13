@@ -5,6 +5,8 @@ import { PRICING_POLICY } from '@/domain/quote';
 import { formatTime } from '@/lib/format';
 import { useDraft } from '@/state/draft';
 import { quoteData, useQuote } from '@/state/useQuote';
+import { ChoiceSelect } from './ChoiceSelect';
+import { QuoteSkeleton } from './QuoteSkeleton';
 import { AmountField, AssetNetworkFields, QuoteIssues } from './ExchangeInputs';
 import { Field } from './Field';
 import { Icon } from './Icon';
@@ -48,22 +50,20 @@ export function Calculator() {
           hint={`${PAYOUT_METHODS[draft.payoutMethod].timingEstimate}. ${describeFee(PAYOUT_METHODS[draft.payoutMethod].fee)}.`}
         >
           {(p) => (
-            <select
-              className="select"
-              {...p}
+            <ChoiceSelect
+              field={p}
               value={draft.payoutMethod}
-              onChange={(e) => update({ payoutMethod: e.target.value as PayoutMethodId })}
-            >
-              {PAYOUT_ORDER.map((id) => {
+              onChange={(payoutMethod: PayoutMethodId) => update({ payoutMethod })}
+              choices={PAYOUT_ORDER.map((id) => {
                 const m = PAYOUT_METHODS[id];
-                return (
-                  <option key={id} value={id} disabled={!m.availability.available}>
-                    {m.name}
-                    {m.availability.available ? '' : ' — not offered'}
-                  </option>
-                );
+                return {
+                  value: id,
+                  label: m.availability.available ? m.name : `${m.name} — not offered`,
+                  detail: m.availability.available ? m.timingEstimate : m.availability.reason,
+                  disabled: !m.availability.available,
+                };
               })}
-            </select>
+            />
           )}
         </Field>
 
@@ -76,6 +76,8 @@ export function Calculator() {
             </div>
           ) : state.status === 'idle' ? (
             <p className="small muted">Enter an amount to see a full breakdown.</p>
+          ) : state.status === 'loading' ? (
+            <QuoteSkeleton rows={3} />
           ) : null}
         </div>
 

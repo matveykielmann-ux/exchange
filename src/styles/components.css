@@ -155,7 +155,7 @@ main {
   flex: 1;
 }
 .primary-nav a,
-.mobile-nav a {
+.mobile-nav li a {
   color: var(--ink-700);
   text-decoration: none;
   font-size: 0.9375rem;
@@ -184,9 +184,6 @@ main {
 .site-header .menu-button {
   display: none;
 }
-.mobile-nav {
-  display: none;
-}
 
 @media (max-width: 1180px) {
   .primary-nav,
@@ -199,33 +196,51 @@ main {
   .site-header__inner {
     justify-content: space-between;
   }
-  .mobile-nav[data-open='true'] {
-    display: block;
-    border-top: 1px solid var(--line);
-    background: var(--canvas);
-    padding-block: var(--s-3) var(--s-6);
-  }
-  .mobile-nav ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-  }
-  .mobile-nav a {
-    display: block;
-    padding: 14px 4px;
-    border-bottom: 1px solid var(--line);
-    border-radius: 0;
-    font-size: 1.0625rem;
-  }
-  .mobile-nav .mobile-nav__actions {
-    display: grid;
-    gap: var(--s-3);
-    margin-top: var(--s-5);
-  }
-  .mobile-nav .mobile-nav__actions a {
-    border: 0;
-  }
+}
+
+/* ============ Mobile menu (shadcn Sheet) ============ */
+.mobile-sheet {
+  width: min(360px, 88vw);
+  padding: var(--s-5) var(--gutter) var(--s-6);
+  background: var(--canvas);
+  border-color: var(--line);
+  overflow-y: auto;
+}
+[data-slot='sheet-overlay'] {
+  background: rgb(15 30 54 / 40%);
+}
+
+.mobile-sheet > button:last-child {
+  /* Close button: match our focus ring and hit area. */
+  top: var(--s-4);
+  right: var(--s-4);
+  padding: 10px;
+  border-radius: var(--r-control);
+  opacity: 1;
+  color: var(--ink-900);
+}
+.mobile-sheet__title {
+  font-size: var(--fs-title);
+  color: var(--ink-900);
+  margin: 0;
+}
+.mobile-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.mobile-nav li a {
+  display: block;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  font-size: 1.0625rem;
+}
+.mobile-nav .mobile-nav__actions {
+  display: grid;
+  gap: var(--s-3);
+  margin-top: var(--s-5);
 }
 
 /* ============ Footer ============ */
@@ -1147,33 +1162,30 @@ main {
 .faq {
   border-top: 1px solid var(--line);
 }
-.faq details {
+.faq .faq__item {
   border-bottom: 1px solid var(--line);
 }
-.faq summary {
-  list-style: none;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
+.faq h3 {
+  font-size: inherit;
+  letter-spacing: normal;
+}
+.faq .faq__question {
   gap: var(--s-4);
   padding: var(--s-5) 0;
   font-weight: 600;
   color: var(--ink-900);
   font-size: 1.0625rem;
+  text-decoration: none;
+  cursor: pointer;
 }
-.faq summary::-webkit-details-marker {
-  display: none;
-}
-.faq summary::after {
-  content: '+';
-  font-weight: 400;
-  font-size: 1.5rem;
-  line-height: 1;
+.faq .faq__question > svg {
+  width: 20px;
+  height: 20px;
   color: var(--ink-500);
-  transition: transform var(--dur) var(--ease);
+  transition: rotate var(--dur) var(--ease);
 }
-.faq details[open] summary::after {
-  transform: rotate(45deg);
+.faq [data-slot='accordion-content'] {
+  font-size: inherit;
 }
 .faq .faq__answer {
   padding: 0 0 var(--s-6);
@@ -1234,4 +1246,149 @@ main {
   font-weight: 700;
   letter-spacing: 0.02em;
   flex: none;
+}
+
+/* ============ shadcn Select (ChoiceSelect) ============ */
+.select[data-slot='select-trigger'] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  width: 100%;
+  height: auto;
+  padding-right: 14px;
+  background-image: none;
+  font-size: inherit;
+  text-align: left;
+}
+.select[data-slot='select-trigger'] > svg {
+  color: var(--ink-900);
+  opacity: 1;
+}
+.select[data-slot='select-trigger'] .choice-select__detail {
+  display: none;
+}
+.choice-select__content {
+  min-width: var(--radix-select-trigger-width);
+  border-color: var(--line);
+  border-radius: var(--r-control);
+  box-shadow: var(--shadow-panel);
+}
+.choice-select__item {
+  padding-block: 10px;
+  font-size: var(--fs-body);
+  border-radius: 6px;
+  color: var(--ink-900);
+}
+.choice-select__item > span:last-child {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.choice-select__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.choice-select__detail {
+  font-size: var(--fs-small);
+  color: var(--ink-500);
+}
+.asset-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  color: var(--ink-900);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* ============ shadcn InputOTP (verification code) ============ */
+.otp__slot {
+  width: 48px;
+  height: 52px;
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--ink-900);
+  font-size: var(--fs-figure-l);
+  font-variant-numeric: tabular-nums;
+}
+.otp__slot:first-child {
+  border-radius: var(--r-control) 0 0 var(--r-control);
+}
+.otp__slot:last-child {
+  border-radius: 0 var(--r-control) var(--r-control) 0;
+}
+.otp__slot[data-active='true'] {
+  border-color: var(--emerald-700);
+  box-shadow: 0 0 0 3px rgb(11 107 76 / 18%);
+}
+.otp__slot[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+@media (max-width: 389px) {
+  .otp__slot {
+    width: 42px;
+  }
+}
+
+/* ============ InfoHint (shadcn Popover) ============ */
+.quote-lines__term {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.info-hint {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-block: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-400);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.info-hint:hover,
+.info-hint[data-state='open'] {
+  color: var(--emerald-700);
+}
+.info-hint:focus-visible {
+  border-radius: 50%;
+}
+.info-hint__content {
+  width: min(300px, calc(100vw - 32px));
+  padding: var(--s-3) var(--s-4);
+  border-color: var(--line);
+  border-radius: var(--r-control);
+  background: var(--surface);
+  box-shadow: var(--shadow-panel);
+  color: var(--ink-700);
+  font-size: var(--fs-small);
+  line-height: 1.5;
+}
+
+/* ============ QuoteSkeleton (shadcn Skeleton) ============ */
+.quote-skeleton .quote-lines > div {
+  align-items: center;
+}
+.quote-skeleton__bar {
+  height: 14px;
+  border-radius: 6px;
+  background: var(--surface-sunken);
+}
+.quote-skeleton__bar--total {
+  height: 36px;
+}
+.otp input:focus-visible {
+  /* The active slot shows the focus ring; the transparent input underneath stays plain. */
+  box-shadow: none;
 }

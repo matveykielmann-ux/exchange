@@ -2,6 +2,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { BRAND } from '@/config/brand';
 import { useUser } from '@/state/auth';
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Icon } from './Icon';
 import { Logo } from './Logo';
 
@@ -59,57 +60,55 @@ function SiteHeader() {
           <Link className="btn hide-on-compact" to="/exchange">
             Start an exchange
           </Link>
-          <button
-            type="button"
-            className="btn btn--secondary menu-button"
-            aria-expanded={open}
-            aria-controls="mobile-nav"
-            onClick={() => setOpen((o) => !o)}
-          >
-            <Icon name={open ? 'x' : 'menu'} width={18} height={18} />
-            Menu
-          </button>
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <button type="button" className="btn btn--secondary menu-button">
+                <Icon name="menu" width={18} height={18} />
+                Menu
+              </button>
+            </SheetTrigger>
+            <SheetContent
+              side="right"
+              className="mobile-sheet"
+              aria-describedby={undefined}
+              onClick={(e) => {
+                if ((e.target as HTMLElement).closest('a')) setOpen(false);
+              }}
+            >
+              <SheetTitle className="mobile-sheet__title">Menu</SheetTitle>
+              <nav className="mobile-nav" aria-label="Mobile">
+                <ul>
+                  {NAV.map((n) => (
+                    <li key={n.to}>
+                      <NavLink to={n.to}>{n.label}</NavLink>
+                    </li>
+                  ))}
+                  {user ? (
+                    <>
+                      <li>
+                        <NavLink to="/transactions">Activity</NavLink>
+                      </li>
+                      <li>
+                        <NavLink to="/account">Account</NavLink>
+                      </li>
+                    </>
+                  ) : null}
+                </ul>
+                <div className="mobile-nav__actions">
+                  <Link className="btn btn--lg" to="/exchange">
+                    Start an exchange
+                  </Link>
+                  {!user ? (
+                    <Link className="btn btn--secondary btn--lg" to="/signin">
+                      Sign in
+                    </Link>
+                  ) : null}
+                </div>
+              </nav>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
-      <nav
-        id="mobile-nav"
-        className="mobile-nav"
-        data-open={open}
-        aria-label="Mobile"
-        onClick={(e) => {
-          if ((e.target as HTMLElement).closest('a')) setOpen(false);
-        }}
-      >
-        <div className="container">
-          <ul>
-            {NAV.map((n) => (
-              <li key={n.to}>
-                <NavLink to={n.to}>{n.label}</NavLink>
-              </li>
-            ))}
-            {user ? (
-              <>
-                <li>
-                  <NavLink to="/transactions">Activity</NavLink>
-                </li>
-                <li>
-                  <NavLink to="/account">Account</NavLink>
-                </li>
-              </>
-            ) : null}
-          </ul>
-          <div className="mobile-nav__actions">
-            <Link className="btn btn--lg" to="/exchange">
-              Start an exchange
-            </Link>
-            {!user ? (
-              <Link className="btn btn--secondary btn--lg" to="/signin">
-                Sign in
-              </Link>
-            ) : null}
-          </div>
-        </div>
-      </nav>
     </header>
   );
 }

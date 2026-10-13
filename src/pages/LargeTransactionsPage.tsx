@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { ChoiceSelect } from '@/components/ChoiceSelect';
 import { AssetNetworkFields } from '@/components/ExchangeInputs';
 import { ErrorSummary, Field } from '@/components/Field';
 import { MockBadge, Notice, PageHeader } from '@/components/ui';
@@ -257,16 +258,16 @@ export function LargeTransactionsPage() {
                   </Field>
                   <Field label="Timing" id="lt-timing">
                     {(p) => (
-                      <select
-                        className="select"
-                        {...p}
+                      <ChoiceSelect
+                        field={p}
                         value={timing}
-                        onChange={(e) => setTiming(e.target.value as LargeTransactionRequest['timing'])}
-                      >
-                        <option value="this_week">This week</option>
-                        <option value="this_month">This month</option>
-                        <option value="exploring">Just exploring</option>
-                      </select>
+                        onChange={setTiming}
+                        choices={[
+                          { value: 'this_week', label: 'This week' },
+                          { value: 'this_month', label: 'This month' },
+                          { value: 'exploring', label: 'Just exploring' },
+                        ]}
+                      />
                     )}
                   </Field>
                   <Field

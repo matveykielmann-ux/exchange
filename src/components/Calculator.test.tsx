@@ -31,9 +31,15 @@ describe('<Calculator />', () => {
   it('switches network options with the asset and validates the amount', async () => {
     const user = userEvent.setup();
     renderCalc();
-    await user.selectOptions(screen.getByLabelText('Asset'), 'USDC');
-    const network = screen.getByLabelText('Network');
-    expect([...(network as HTMLSelectElement).options].map((o) => o.value)).toEqual(['ethereum', 'solana', 'base']);
+    await user.click(screen.getByLabelText('Asset'));
+    await user.click(screen.getByRole('option', { name: /USDC/ }));
+    await user.click(screen.getByLabelText('Network'));
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      expect.stringMatching(/^Ethereum/),
+      expect.stringMatching(/^Solana/),
+      expect.stringMatching(/^Base/),
+    ]);
+    await user.keyboard('{Escape}');
     const amount = screen.getByLabelText('Amount to sell');
     await user.clear(amount);
     await user.type(amount, '1.234');
@@ -41,9 +47,11 @@ describe('<Calculator />', () => {
     expect(amount).toHaveAttribute('aria-invalid', 'true');
   });
 
-  it('lists cash by courier as not offered', () => {
+  it('lists cash by courier as not offered', async () => {
+    const user = userEvent.setup();
     renderCalc();
+    await user.click(screen.getByLabelText('Receive by'));
     const option = screen.getByRole('option', { name: /Cash by courier — not offered/ });
-    expect(option).toBeDisabled();
+    expect(option).toHaveAttribute('aria-disabled', 'true');
   });
 });

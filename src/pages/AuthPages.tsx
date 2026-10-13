@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { REGEXP_ONLY_DIGITS } from 'input-otp';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Checkbox } from '@/components/Checkbox';
 import { ErrorSummary, Field } from '@/components/Field';
 import { errorMessage } from '@/lib/errors';
@@ -130,16 +132,22 @@ export function SignInPage() {
           <form className="stack" onSubmit={submitCode} noValidate>
             <Field label="Verification code" id="signin-code" error={errors['signin-code']} hint="Preview code: 000000">
               {(p) => (
-                <input
-                  className="input tabular"
+                <InputOTP
                   {...p}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
                   maxLength={6}
+                  pattern={REGEXP_ONLY_DIGITS}
+                  autoComplete="one-time-code"
                   value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                  onChange={setCode}
                   autoFocus
-                />
+                  containerClassName="otp"
+                >
+                  <InputOTPGroup>
+                    {[0, 1, 2, 3, 4, 5].map((i) => (
+                      <InputOTPSlot key={i} index={i} className="otp__slot" aria-invalid={p['aria-invalid']} />
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
               )}
             </Field>
             {serverError ? <Notice tone="danger" title={serverError} role="alert" /> : null}

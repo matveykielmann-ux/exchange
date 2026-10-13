@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { formatUsd } from '@/domain/money';
 import { PRICING_POLICY } from '@/domain/quote';
 
@@ -125,13 +126,13 @@ export const FAQ: FaqItem[] = [
 
 export function FaqList({ items }: { items: FaqItem[] }) {
   return (
-    <div className="faq">
+    <Accordion type="multiple" className="faq">
       {items.map((item) => (
-        <details key={item.q}>
-          <summary>{item.q}</summary>
-          <div className="faq__answer">{item.a}</div>
-        </details>
+        <AccordionItem key={item.q} value={item.q} className="faq__item">
+          <AccordionTrigger className="faq__question">{item.q}</AccordionTrigger>
+          <AccordionContent className="faq__answer">{item.a}</AccordionContent>
+        </AccordionItem>
       ))}
-    </div>
+    </Accordion>
   );
 }

@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AmountField, AssetNetworkFields, QuoteIssues } from '@/components/ExchangeInputs';
+import { QuoteSkeleton } from '@/components/QuoteSkeleton';
 import { Field } from '@/components/Field';
 import { Icon } from '@/components/Icon';
 import { QuoteBreakdown } from '@/components/QuoteBreakdown';
@@ -416,8 +417,10 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
                 <QuoteBreakdown quote={locked.quote} loading={loading} />
                 <QuoteIssues issues={locked.issues} asset={locked.quote.asset} />
               </>
+            ) : quoteState.status === 'error' ? (
+              <p className="muted">{quoteState.message}</p>
             ) : (
-              <p className="muted">{quoteState.status === 'error' ? quoteState.message : 'Getting a quote…'}</p>
+              <QuoteSkeleton rows={5} />
             )}
             <div aria-live="assertive">
               {expired ? (
@@ -564,6 +567,8 @@ export function ExchangePage() {
               <div className="panel__body">
                 {data ? (
                   <QuoteBreakdown quote={data.quote} loading={state.status === 'loading'} />
+                ) : state.status === 'loading' ? (
+                  <QuoteSkeleton rows={5} />
                 ) : (
                   <p className="muted small">Enter an amount to see the breakdown.</p>
                 )}
