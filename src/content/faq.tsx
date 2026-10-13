@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { formatUsd } from '@/domain/money';
 import { PRICING_POLICY } from '@/domain/quote';
 
@@ -15,8 +16,8 @@ export const FAQ: FaqItem[] = [
     q: 'Is this a live exchange?',
     a: (
       <p>
-        No. This is a preview. Prices, quotes, verification and transactions are simulated, and no real funds can be sent or received. See
-        the <Link to="/legal#preview">preview disclosure</Link>.
+        No. This is a demo. Prices, quotes, verification and transactions are simulated, and no real funds can be sent or received. See the{' '}
+        <Link to="/legal#preview">demo disclosure</Link>.
       </p>
     ),
   },
@@ -116,8 +117,8 @@ export const FAQ: FaqItem[] = [
     q: 'Why do I need to verify my identity?',
     a: (
       <p>
-        US rules require exchanges to verify customers and screen transactions. In this preview, verification is simulated and no documents
-        are collected.
+        US rules require exchanges to verify customers and screen transactions. In this demo, verification is simulated and no documents are
+        collected.
       </p>
     ),
   },
@@ -125,13 +126,13 @@ export const FAQ: FaqItem[] = [
 
 export function FaqList({ items }: { items: FaqItem[] }) {
   return (
-    <div className="faq">
+    <Accordion type="multiple" className="faq">
       {items.map((item) => (
-        <details key={item.q}>
-          <summary>{item.q}</summary>
-          <div className="faq__answer">{item.a}</div>
-        </details>
+        <AccordionItem key={item.q} value={item.q} className="faq__item">
+          <AccordionTrigger className="faq__question">{item.q}</AccordionTrigger>
+          <AccordionContent className="faq__answer">{item.a}</AccordionContent>
+        </AccordionItem>
       ))}
-    </div>
+    </Accordion>
   );
 }

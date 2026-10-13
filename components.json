@@ -5,7 +5,7 @@
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": "src/styles/components.css",
+    "css": "src/styles/shadcn.css",
     "baseColor": "neutral",
     "cssVariables": true,
     "prefix": ""
@@ -15,9 +15,11 @@
     "ui": "@/components/ui",
     "lib": "@/lib",
     "utils": "@/lib/utils",
-    "hooks": "@/state"
+    "hooks": "@/hooks"
   },
   "registries": {
-    "@react-bits": "https://reactbits.dev/r/{name}.json"
-  }
+    "@react-bits": "https://reactbits.dev/r/{name}.json",
+    "@spaceui": "https://www.spaceui.one/r/{name}.json"
+  },
+  "iconLibrary": "lucide"
 }

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Calculator } from '@/components/Calculator';
+import { HeroArt } from '@/components/HeroArt';
 import { Icon } from '@/components/Icon';
 import { QuoteBreakdown } from '@/components/QuoteBreakdown';
 import { AssetMark, MockBadge } from '@/components/ui';
@@ -34,14 +35,88 @@ export function HomePage() {
       <section className="hero">
         <div className="container hero__grid">
           <div className="hero__copy">
-            <p className="eyebrow">Crypto to US dollars</p>
-            <h1 className="display-xl">
-              Sell crypto. See every cent <em>before</em> you confirm.
+            <p className="hero-pill">
+              <span className="hero-pill__dot" aria-hidden="true" />
+              Crypto to US dollars
+            </p>
+            <h1 className="display-xl hero__title">
+              Sell crypto.
+              <br />
+              Get dollars.
+              <br />
+              <em>Every fee shown.</em>
+              <br />
+              <em>Before you confirm.</em>
             </h1>
             <p className="lead">
-              Send BTC, ETH, USDT or USDC and receive US dollars in your bank account. Your quote lists the reference price, our spread and
-              the payout fee as separate lines, along with exactly what you will receive.
+              Send BTC, ETH, USDT or USDC and receive US dollars in your bank account, with the reference price, our spread and the payout
+              fee listed as separate lines.
             </p>
+            <div className="row hero__ctas">
+              <Link className="btn btn--lg" to="/exchange">
+                Start an exchange <Icon name="arrowUpRight" width={18} height={18} />
+              </Link>
+              <Link className="btn btn--lg btn--secondary" to="/how-it-works">
+                <span className="play-dot" aria-hidden="true">
+                  <Icon name="play" width={14} height={14} />
+                </span>
+                How it works
+              </Link>
+            </div>
+          </div>
+          <div className="hero__art">
+            <HeroArt />
+          </div>
+        </div>
+        <div className="container">
+          <ul className="stat-row" aria-label="At a glance">
+            <li className="stat">
+              <span className="stat__icon">
+                <Icon name="layers" />
+              </span>
+              <span>
+                <strong>{ASSET_ORDER.length} assets</strong>
+                <span>{ASSET_ORDER.join(', ')}</span>
+              </span>
+            </li>
+            <li className="stat">
+              <span className="stat__icon">
+                <Icon name="globe" />
+              </span>
+              <span>
+                <strong>{Object.keys(NETWORKS).length} networks</strong>
+                <span>Chosen together with the asset</span>
+              </span>
+            </li>
+            <li className="stat">
+              <span className="stat__icon">
+                <Icon name="lock" />
+              </span>
+              <span>
+                <strong>{formatUsd(PRICING_POLICY.retailMaximumCents, { whole: true })}</strong>
+                <span>Per online exchange</span>
+              </span>
+            </li>
+            <li className="stat">
+              <span className="stat__icon">
+                <Icon name="bank" />
+              </span>
+              <span>
+                <strong>$0 ACH fee</strong>
+                <span>{PAYOUT_METHODS.ach.timingEstimate}</span>
+              </span>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="section" aria-labelledby="quote-title">
+        <div className="container quote-band">
+          <div className="section-head">
+            <p className="eyebrow">Get a quote</p>
+            <h2 id="quote-title" className="display-m">
+              See exactly what you will receive.
+            </h2>
             <ul className="check-list">
               <li>
                 <Icon name="check" /> One quote and one status page, from deposit to payout
@@ -53,14 +128,6 @@ export function HomePage() {
                 <Icon name="check" /> A dedicated desk for {formatUsd(PRICING_POLICY.retailMaximumCents, { whole: true })}+
               </li>
             </ul>
-            <div className="row hero__ctas">
-              <Link className="btn btn--lg" to="/exchange">
-                Start an exchange
-              </Link>
-              <Link className="btn btn--lg btn--secondary" to="/fees">
-                See the fee schedule
-              </Link>
-            </div>
           </div>
           <div className="hero__calc">
             <Calculator />
@@ -167,7 +234,7 @@ export function HomePage() {
           <div className="table-wrap">
             <table className="data-table data-table--stack">
               <caption>
-                Confirmation counts are preview policy values. <MockBadge label="Mock policy" />
+                Confirmation counts are demo policy values. <MockBadge label="Demo policy" />
               </caption>
               <thead>
                 <tr>
@@ -281,7 +348,7 @@ export function HomePage() {
               Designed for regulated operation.
             </h2>
             <p className="lead">
-              These controls are built into the product design. In this preview they are simulated. None of them is a claim about a live
+              These controls are built into the product design. In this demo they are simulated. None of them is a claim about a live
               service.
             </p>
           </div>

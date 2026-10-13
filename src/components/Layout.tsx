@@ -1,9 +1,12 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { BRAND } from '@/config/brand';
+import { useTheme } from '@/lib/theme';
 import { useUser } from '@/state/auth';
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Icon } from './Icon';
 import { Logo } from './Logo';
+import { PriceTape } from './PriceTape';
 
 const NAV = [
   { to: '/exchange', label: 'Sell crypto' },
@@ -16,14 +19,24 @@ const NAV = [
 
 function PreviewBanner() {
   return (
-    <div className="preview-banner" role="region" aria-label="Preview notice">
+    <div className="preview-banner" role="region" aria-label="Demo notice">
       <div className="container">
         <span>
-          <strong>Preview environment.</strong> Prices, quotes, verification and transactions are simulated. No real funds move.
+          <strong>Demo.</strong> Prices, quotes, verification and transactions are simulated. No real funds move.
         </span>
-        <Link to="/legal#preview">What this means</Link>
+        <Link to="/legal#preview">About the demo</Link>
       </div>
     </div>
+  );
+}
+
+function ThemeToggle() {
+  const [theme, setTheme] = useTheme();
+  const next = theme === 'dark' ? 'light' : 'dark';
+  return (
+    <button type="button" className="btn btn--ghost theme-toggle" aria-label={`Switch to ${next} theme`} onClick={() => setTheme(next)}>
+      <Icon name={theme === 'dark' ? 'sun' : 'moon'} width={18} height={18} />
+    </button>
   );
 }
 
@@ -45,6 +58,7 @@ function SiteHeader() {
           ))}
         </nav>
         <div className="header-actions">
+          <ThemeToggle />
           {user ? (
             <>
               <Link className="btn btn--secondary hide-on-compact" to="/account">
@@ -56,60 +70,58 @@ function SiteHeader() {
               Sign in
             </Link>
           )}
-          <Link className="btn hide-on-compact" to="/exchange">
-            Start an exchange
+          <Link className="btn btn--dark hide-on-compact" to="/exchange">
+            Start an exchange <Icon name="arrowUpRight" width={16} height={16} />
           </Link>
-          <button
-            type="button"
-            className="btn btn--secondary menu-button"
-            aria-expanded={open}
-            aria-controls="mobile-nav"
-            onClick={() => setOpen((o) => !o)}
-          >
-            <Icon name={open ? 'x' : 'menu'} width={18} height={18} />
-            Menu
-          </button>
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <button type="button" className="btn btn--secondary menu-button">
+                <Icon name="menu" width={18} height={18} />
+                Menu
+              </button>
+            </SheetTrigger>
+            <SheetContent
+              side="right"
+              className="mobile-sheet"
+              aria-describedby={undefined}
+              onClick={(e) => {
+                if ((e.target as HTMLElement).closest('a')) setOpen(false);
+              }}
+            >
+              <SheetTitle className="mobile-sheet__title">Menu</SheetTitle>
+              <nav className="mobile-nav" aria-label="Mobile">
+                <ul>
+                  {NAV.map((n) => (
+                    <li key={n.to}>
+                      <NavLink to={n.to}>{n.label}</NavLink>
+                    </li>
+                  ))}
+                  {user ? (
+                    <>
+                      <li>
+                        <NavLink to="/transactions">Activity</NavLink>
+                      </li>
+                      <li>
+                        <NavLink to="/account">Account</NavLink>
+                      </li>
+                    </>
+                  ) : null}
+                </ul>
+                <div className="mobile-nav__actions">
+                  <Link className="btn btn--lg" to="/exchange">
+                    Start an exchange
+                  </Link>
+                  {!user ? (
+                    <Link className="btn btn--secondary btn--lg" to="/signin">
+                      Sign in
+                    </Link>
+                  ) : null}
+                </div>
+              </nav>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
-      <nav
-        id="mobile-nav"
-        className="mobile-nav"
-        data-open={open}
-        aria-label="Mobile"
-        onClick={(e) => {
-          if ((e.target as HTMLElement).closest('a')) setOpen(false);
-        }}
-      >
-        <div className="container">
-          <ul>
-            {NAV.map((n) => (
-              <li key={n.to}>
-                <NavLink to={n.to}>{n.label}</NavLink>
-              </li>
-            ))}
-            {user ? (
-              <>
-                <li>
-                  <NavLink to="/transactions">Activity</NavLink>
-                </li>
-                <li>
-                  <NavLink to="/account">Account</NavLink>
-                </li>
-              </>
-            ) : null}
-          </ul>
-          <div className="mobile-nav__actions">
-            <Link className="btn btn--lg" to="/exchange">
-              Start an exchange
-            </Link>
-            {!user ? (
-              <Link className="btn btn--secondary btn--lg" to="/signin">
-                Sign in
-              </Link>
-            ) : null}
-          </div>
-        </div>
-      </nav>
     </header>
   );
 }
@@ -124,7 +136,7 @@ function SiteFooter() {
               <Logo />
             </Link>
             <p className="muted" style={{ maxWidth: '34ch' }}>
-              A preview of a crypto-to-USD exchange for US customers. Every figure on this site is simulated.
+              A demo of a crypto-to-USD exchange for US customers. Every figure on this site is simulated.
             </p>
           </div>
           <div>
@@ -165,7 +177,7 @@ function SiteFooter() {
             <h2>Legal</h2>
             <ul>
               <li>
-                <Link to="/legal#preview">Preview disclosure</Link>
+                <Link to="/legal#preview">Demo disclosure</Link>
               </li>
               <li>
                 <Link to="/legal#licensing">Licensing status</Link>
@@ -223,8 +235,12 @@ function useRouteFocus() {
   }, [location.pathname, location.hash]);
 }
 
+/** Routes that open with the live price strip. */
+const TAPE_ROUTES = new Set(['/exchange']);
+
 export function Layout() {
   useRouteFocus();
+  const { pathname } = useLocation();
   return (
     <>
       <a className="skip-link" href="#main">
@@ -232,6 +248,11 @@ export function Layout() {
       </a>
       <PreviewBanner />
       <SiteHeader />
+      {TAPE_ROUTES.has(pathname) ? (
+        <div className="container tape-wrap">
+          <PriceTape />
+        </div>
+      ) : null}
       <main id="main">
         <Suspense
           fallback={

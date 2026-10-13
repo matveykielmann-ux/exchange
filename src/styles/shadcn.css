@@ -1,0 +1,124 @@
+/*
+ * Tailwind v4 + shadcn/ui theme, mapped onto our design tokens (tokens.css).
+ *
+ * - No preflight: only the theme and utilities layers are imported, so existing pages keep their look.
+ * - Layer order is declared in tokens.css. Unlayered app CSS (components.css, pages.css) beats every
+ *   Tailwind utility; utilities beat the element defaults in base.css (@layer base).
+ * - shadcn variables below point at our tokens: primary is navy, ring/accent is emerald.
+ *   Both themes follow tokens.css.
+ */
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --animate-caret-blink: caret-blink 1.1s ease-out infinite;
+
+  @keyframes caret-blink {
+    0%,
+    70%,
+    100% {
+      opacity: 1;
+    }
+    20%,
+    50% {
+      opacity: 0;
+    }
+  }
+}
+
+:root {
+  --radius: var(--r-control);
+  --background: var(--canvas);
+  --foreground: var(--ink-900);
+  --card: var(--surface);
+  --card-foreground: var(--ink-900);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink-900);
+  --primary: var(--cta-bg);
+  --primary-foreground: var(--cta-fg);
+  --secondary: var(--surface-sunken);
+  --secondary-foreground: var(--ink-900);
+  --muted: var(--surface-sunken);
+  --muted-foreground: var(--ink-500);
+  --accent: var(--brand-tint);
+  --accent-foreground: var(--brand-700);
+  --destructive: var(--danger);
+  --border: var(--line);
+  --input: var(--line-strong);
+  --ring: var(--brand-700);
+  --chart-1: var(--ink-900);
+  --chart-2: var(--brand-600);
+  --chart-3: var(--info);
+  --chart-4: var(--warn);
+  --chart-5: var(--ink-400);
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--ink-700);
+  --sidebar-primary: var(--cta-bg);
+  --sidebar-primary-foreground: var(--cta-fg);
+  --sidebar-accent: var(--brand-tint);
+  --sidebar-accent-foreground: var(--brand-700);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--brand-700);
+}
+
+/*
+ * The slice of Tailwind's preflight that shadcn components rely on, scoped to their parts
+ * (they carry data-slot) so the rest of the app keeps its own element styles.
+ */
+@layer base {
+  [data-slot],
+  [data-slot] * {
+    border: 0 solid var(--border);
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+  button[data-slot],
+  [data-slot] button {
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+    cursor: pointer;
+  }
+  [data-slot] h1,
+  [data-slot] h2,
+  [data-slot] h3 {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+}

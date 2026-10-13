@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { StatusTone } from '@/domain/transaction';
 import { Icon, type IconName } from './Icon';
 
-export function MockBadge({ label = 'Mock' }: { label?: string }) {
+export function MockBadge({ label = 'Demo' }: { label?: string }) {
   return (
     <span className="badge badge--mock" title="Simulated data — not a real price, quote or transaction">
       {label}

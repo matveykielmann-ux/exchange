@@ -1,6 +1,9 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AmountField, AssetNetworkFields, QuoteIssues } from '@/components/ExchangeInputs';
+import { HoldButton } from '@/components/HoldButton';
+import { QuoteSkeleton } from '@/components/QuoteSkeleton';
+import { RateRing } from '@/components/RateRing';
 import { Field } from '@/components/Field';
 import { Icon } from '@/components/Icon';
 import { QuoteBreakdown } from '@/components/QuoteBreakdown';
@@ -20,7 +23,7 @@ import { useServices } from '@/state/services';
 import { quoteData, useQuote, type QuoteState } from '@/state/useQuote';
 import { useDestinations } from '@/state/useDestinations';
 import { Checkbox } from '@/components/Checkbox';
-import { Countdown, TimerBar } from '@/components/Countdown';
+import { Countdown } from '@/components/Countdown';
 import { useExpired } from '@/lib/useExpired';
 import { canConfirmExchange } from '@/domain/identity';
 
@@ -187,7 +190,7 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
             Sign in
           </Link>
           <Link className="btn btn--lg btn--secondary" to="/signup" state={{ from: '/exchange' }}>
-            Create a preview account
+            Create a demo account
           </Link>
         </div>
         <div className="flow__actions">
@@ -255,7 +258,7 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
       {draft.payoutMethod === 'instant_debit' ? (
         usable.length === 0 ? (
           <div className="stack">
-            <Notice tone="neutral" title="Card payouts use a simulated card in this preview">
+            <Notice tone="neutral" title="Card payouts use a simulated card in this demo">
               <p>
                 Real card entry requires a PCI DSS-compliant tokenization provider, which is not integrated. We never ask for a card number
                 here.
@@ -370,13 +373,13 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
       <div className="flow__main">
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <h2 className="flow__step-title">Review and confirm</h2>
-          <MockBadge label="Mock quote" />
+          <MockBadge label="Demo quote" />
         </div>
 
         {!verified ? (
           <Notice tone="info" title="Verify your identity to confirm">
             <p>
-              US rules require identity verification before an exchange. In this preview, verification is simulated and no documents are
+              US rules require identity verification before an exchange. In this demo, verification is simulated and no documents are
               collected.
             </p>
             <div>
@@ -403,21 +406,24 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
           <div className="panel__head">
             <h3 id="locked-title">Your quote</h3>
             {locked && !expired ? (
-              <span className="small">
-                <Icon name="clock" width={14} height={14} style={{ display: 'inline', verticalAlign: '-2px' }} />{' '}
-                <Countdown to={locked.quote.expiresAt} prefix="Expires in" ended="Expired" />
+              <span className="small rate-hold">
+                <RateRing from={locked.quote.createdAt} to={locked.quote.expiresAt} />
+                <span>
+                  Rate held · <Countdown to={locked.quote.expiresAt} prefix="Expires in" ended="Expired" />
+                </span>
               </span>
             ) : null}
           </div>
-          {locked && !expired ? <TimerBar from={locked.quote.createdAt} to={locked.quote.expiresAt} /> : null}
           <div className="panel__body stack">
             {locked ? (
               <>
                 <QuoteBreakdown quote={locked.quote} loading={loading} />
                 <QuoteIssues issues={locked.issues} asset={locked.quote.asset} />
               </>
+            ) : quoteState.status === 'error' ? (
+              <p className="muted">{quoteState.message}</p>
             ) : (
-              <p className="muted">{quoteState.status === 'error' ? quoteState.message : 'Getting a quote…'}</p>
+              <QuoteSkeleton rows={5} />
             )}
             <div aria-live="assertive">
               {expired ? (
@@ -442,7 +448,7 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
           </Checkbox>
           <Checkbox id="ack-risk" checked={ackRisk} onChange={setAckRisk}>
             I understand blockchain transactions can't be reversed, and that nobody from this service will ever ask me to send crypto on
-            their behalf. I understand this is a preview and no real funds will move.
+            their behalf. I understand this is a demo and no real funds will move.
           </Checkbox>
         </fieldset>
 
@@ -452,9 +458,9 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
           <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
             <Icon name="arrowLeft" width={18} height={18} /> Back
           </button>
-          <button type="button" className="btn btn--lg" disabled={!canConfirm} onClick={confirm}>
+          <HoldButton disabled={!canConfirm} onConfirm={confirm}>
             {submitting ? 'Confirming…' : 'Confirm exchange'}
-          </button>
+          </HoldButton>
         </div>
         {!canConfirm && locked && !expired ? (
           <p className="small muted" style={{ textAlign: 'right' }}>
@@ -559,11 +565,13 @@ export function ExchangePage() {
             <div className="panel flow__aside--hide-mobile">
               <div className="panel__head">
                 <h2 className="title">Indicative quote</h2>
-                <MockBadge label="Mock pricing" />
+                <MockBadge label="Demo pricing" />
               </div>
               <div className="panel__body">
                 {data ? (
                   <QuoteBreakdown quote={data.quote} loading={state.status === 'loading'} />
+                ) : state.status === 'loading' ? (
+                  <QuoteSkeleton rows={5} />
                 ) : (
                   <p className="muted small">Enter an amount to see the breakdown.</p>
                 )}

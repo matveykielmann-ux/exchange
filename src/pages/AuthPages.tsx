@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { REGEXP_ONLY_DIGITS } from 'input-otp';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Checkbox } from '@/components/Checkbox';
 import { ErrorSummary, Field } from '@/components/Field';
 import { errorMessage } from '@/lib/errors';
@@ -19,7 +21,7 @@ function useReturnTo(): string {
 
 function PreviewAuthNotice() {
   return (
-    <Notice tone="warn" title="Preview accounts are simulated">
+    <Notice tone="warn" title="Demo accounts are simulated">
       <p>
         Accounts exist only in this browser. Passwords are checked for length and then discarded, never stored. Don't reuse a real password.
       </p>
@@ -122,24 +124,30 @@ export function SignInPage() {
             <p className="small">
               New here?{' '}
               <Link to="/signup" state={{ from: returnTo }}>
-                Create a preview account
+                Create a demo account
               </Link>
             </p>
           </form>
         ) : (
           <form className="stack" onSubmit={submitCode} noValidate>
-            <Field label="Verification code" id="signin-code" error={errors['signin-code']} hint="Preview code: 000000">
+            <Field label="Verification code" id="signin-code" error={errors['signin-code']} hint="Demo code: 000000">
               {(p) => (
-                <input
-                  className="input tabular"
+                <InputOTP
                   {...p}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
                   maxLength={6}
+                  pattern={REGEXP_ONLY_DIGITS}
+                  autoComplete="one-time-code"
                   value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                  onChange={setCode}
                   autoFocus
-                />
+                  containerClassName="otp"
+                >
+                  <InputOTPGroup>
+                    {[0, 1, 2, 3, 4, 5].map((i) => (
+                      <InputOTPSlot key={i} index={i} className="otp__slot" aria-invalid={p['aria-invalid']} />
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
               )}
             </Field>
             {serverError ? <Notice tone="danger" title={serverError} role="alert" /> : null}
@@ -185,7 +193,7 @@ export function SignUpPage() {
     if (n) next['signup-name'] = n;
     if (em) next['signup-email'] = em;
     if (pw) next['signup-password'] = pw;
-    if (!agree) next['signup-agree'] = 'Confirm you understand this is a preview.';
+    if (!agree) next['signup-agree'] = 'Confirm you understand this is a demo.';
     setErrors(next);
     setServerError(null);
     if (Object.keys(next).length) return;
@@ -232,7 +240,7 @@ export function SignUpPage() {
             )}
           </Field>
           <Checkbox id="signup-agree" checked={agree} onChange={setAgree} error={errors['signup-agree']}>
-            I understand this is a preview with simulated data, and I've read the <Link to="/legal#terms">terms</Link> and{' '}
+            I understand this is a demo with simulated data, and I've read the <Link to="/legal#terms">terms</Link> and{' '}
             <Link to="/legal#privacy">privacy notice</Link>.
           </Checkbox>
           {serverError ? <Notice tone="danger" title={serverError} role="alert" /> : null}

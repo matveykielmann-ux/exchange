@@ -4,6 +4,7 @@ import { formatUsd } from '@/domain/money';
 import type { QuoteIssue } from '@/domain/quote';
 import { validateCryptoAmount } from '@/domain/validation';
 import { formatAsset } from '@/lib/format';
+import { ChoiceSelect } from './ChoiceSelect';
 import { Field } from './Field';
 import { Notice } from './ui';
 
@@ -25,20 +26,25 @@ export function AssetNetworkFields({
     <div className="form-grid">
       <Field label="Asset" id={`${idPrefix}-asset`}>
         {(p) => (
-          <select
-            className="select"
-            {...p}
+          <ChoiceSelect
+            field={p}
             value={asset}
-            onChange={(e) => {
-              if (isAssetCode(e.target.value)) onAsset(e.target.value);
+            onChange={(v) => {
+              if (isAssetCode(v)) onAsset(v);
             }}
-          >
-            {ASSET_ORDER.map((code) => (
-              <option key={code} value={code}>
-                {code} · {ASSETS[code].name}
-              </option>
-            ))}
-          </select>
+            choices={ASSET_ORDER.map((code) => ({
+              value: code,
+              label: (
+                <>
+                  <span className="asset-mark" aria-hidden="true">
+                    {code.slice(0, 1)}
+                  </span>
+                  {code} · {ASSETS[code].name}
+                </>
+              ),
+              detail: `${ASSETS[code].networks.length} network${ASSETS[code].networks.length > 1 ? 's' : ''}`,
+            }))}
+          />
         )}
       </Field>
       <Field
@@ -52,13 +58,16 @@ export function AssetNetworkFields({
       >
         {(p) =>
           networks.length > 1 ? (
-            <select className="select" {...p} value={network} onChange={(e) => onNetwork(e.target.value as NetworkId)}>
-              {networks.map((n) => (
-                <option key={n.network} value={n.network}>
-                  {networkLabel(asset, n.network)}
-                </option>
-              ))}
-            </select>
+            <ChoiceSelect
+              field={p}
+              value={network}
+              onChange={onNetwork}
+              choices={networks.map((n) => ({
+                value: n.network,
+                label: networkLabel(asset, n.network),
+                detail: `${NETWORKS[n.network].confirmationsRequired} confirmations required`,
+              }))}
+            />
           ) : (
             <input className="input" {...p} value={networkLabel(asset, network)} readOnly />
           )

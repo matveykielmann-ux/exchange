@@ -20,9 +20,9 @@ export function TransactionsPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Account" title="Activity" lead="Every exchange on this preview account, newest first.">
+      <PageHeader eyebrow="Account" title="Activity" lead="Every exchange on this demo account, newest first.">
         <div className="row">
-          <MockBadge label="Mock data" />
+          <MockBadge label="Demo data" />
         </div>
       </PageHeader>
       <div className="container section--tight">

@@ -10,6 +10,8 @@ import { AxeBuilder } from '@axe-core/playwright';
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:5173';
 const OUT = process.env.QA_OUT ?? 'qa-output';
+// QA_SCHEME=dark runs every check with the OS set to dark mode (the app follows it).
+const SCHEME = process.env.QA_SCHEME === 'dark' ? 'dark' : 'light';
 const WIDTHS = [1440, 1024, 768, 390];
 const HEIGHT = { 1440: 900, 1024: 768, 768: 1024, 390: 844 };
 const PAGES = (
@@ -88,7 +90,7 @@ async function axe(page, where) {
 async function scanPages(browser) {
   for (const width of WIDTHS) {
     await mkdir(`${OUT}/${width}`, { recursive: true });
-    const context = await browser.newContext({ viewport: { width, height: HEIGHT[width] }, reducedMotion: 'reduce' });
+    const context = await browser.newContext({ viewport: { width, height: HEIGHT[width] }, reducedMotion: 'reduce', colorScheme: SCHEME });
     for (const route of PAGES) {
       const page = await context.newPage();
       const where = `${route} @${width}`;
@@ -111,7 +113,7 @@ async function scanPages(browser) {
 }
 
 async function keyboardChecks(browser) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: SCHEME });
   const page = await context.newPage();
   await page.goto(BASE_URL + '/', { waitUntil: 'networkidle' });
   await page.keyboard.press('Tab');
@@ -126,18 +128,30 @@ async function keyboardChecks(browser) {
   if (!ring || ring === 'none') fail('keyboard', 'focused button has no visible focus ring');
   // Mobile menu toggles with keyboard and exposes aria-expanded.
   await page.setViewportSize({ width: 390, height: 844 });
-  const menu = page.getByRole('button', { name: 'Menu' });
+  // The menu is a modal sheet: while open, the page behind it (trigger included) is hidden from
+  // assistive tech, so hold the trigger by CSS rather than by role.
+  const menu = page.locator('.menu-button');
   await menu.focus();
   await page.keyboard.press('Enter');
   if ((await menu.getAttribute('aria-expanded')) !== 'true') fail('keyboard', 'mobile menu did not open with Enter');
+  const sheet = page.getByRole('dialog', { name: 'Menu' });
+  try {
+    await sheet.waitFor({ timeout: 3000 });
+  } catch {
+    fail('keyboard', 'mobile menu sheet is not exposed as a dialog named "Menu"');
+  }
   await page.screenshot({ path: `${OUT}/390/_menu-open.png` });
+  await page.keyboard.press('Escape');
+  await sheet.waitFor({ state: 'detached', timeout: 3000 }).catch(() => fail('keyboard', 'Escape did not close the mobile menu'));
+  const back = await page.evaluate(() => document.activeElement?.classList.contains('menu-button'));
+  if (!back) fail('keyboard', 'focus did not return to the Menu button after closing');
   await context.close();
 }
 
 async function flow(browser, width) {
   const dir = `${OUT}/flow`;
   await mkdir(dir, { recursive: true });
-  const context = await browser.newContext({ viewport: { width, height: HEIGHT[width] }, reducedMotion: 'reduce' });
+  const context = await browser.newContext({ viewport: { width, height: HEIGHT[width] }, reducedMotion: 'reduce', colorScheme: SCHEME });
   const page = await context.newPage();
   const where = `flow @${width}`;
   const sink = { consoleErrors: [], pageErrors: [], failedRequests: [] };
@@ -167,8 +181,11 @@ async function flow(browser, width) {
 
   // Step 1: amount — below minimum, then above retail max, then valid
   await page.goto(BASE_URL + '/exchange', { waitUntil: 'networkidle' });
-  await page.getByLabel('Asset').selectOption('USDT');
-  await page.getByLabel('Network').selectOption('tron');
+  // Asset and network are shadcn Selects: open the trigger, then pick the option.
+  await page.getByLabel('Asset').click();
+  await page.getByRole('option', { name: /^USDT/ }).click();
+  await page.getByLabel('Network').click();
+  await page.getByRole('option', { name: /^Tron/ }).click();
   const amount = page.getByLabel('Amount to sell');
   await amount.fill('10');
   await expectText('Minimum is $50.00', 'below minimum');
@@ -208,7 +225,7 @@ async function flow(browser, width) {
 
   // Step 4: review — verification gate, acknowledgements, confirm
   await expectText('Verify your identity to confirm', 'kyc gate');
-  const confirm = page.getByRole('button', { name: 'Confirm exchange' });
+  const confirm = page.getByRole('button', { name: /^Confirm exchange/ });
   if (!(await confirm.isDisabled())) fail(where, 'confirm must be disabled before verification');
   await page.getByRole('button', { name: 'Run simulated verification' }).click();
   await expectText('Expires in', 'quote countdown');
@@ -216,18 +233,27 @@ async function flow(browser, width) {
   await boxes.nth(0).check();
   await boxes.nth(1).check();
   await shot('06-review');
+  // Hold-to-confirm: a quick click must not submit; a one-second hold does.
   await confirm.click();
+  await page.waitForTimeout(400);
+  if (!page.url().includes('/exchange')) fail(where, 'a quick click submitted the exchange without a hold');
+  await confirm.hover();
+  await page.mouse.down();
+  await page.waitForTimeout(1300);
+  await page.mouse.up();
   await page.waitForURL('**/transactions/tx_*');
   await expectText('MOCK-USDT-TRON-', 'placeholder deposit address');
   await shot('07-awaiting-deposit');
 
-  // Advance through the state machine
-  const advance = page.getByRole('button', { name: /^Advance/ });
-  for (let i = 0; i < 8 && (await advance.count()); i++) {
-    await advance.click();
-    await page.waitForTimeout(500);
-    if (i === 1) await shot('08-confirming');
-  }
+  // One manual step, then let the demo play the rest of the happy path.
+  await page.getByRole('button', { name: /^Next step/ }).click();
+  await page.waitForTimeout(500);
+  await page.getByRole('button', { name: /^Next step/ }).click();
+  await page.waitForTimeout(500);
+  await shot('08-confirming');
+  await page.getByRole('button', { name: /Play to payout/ }).click();
+  await page.locator('main h1', { hasText: /^Completed$/ }).waitFor({ timeout: 20000 });
+  await page.waitForTimeout(400);
   await expectText('Payout sent. Reference MOCK-PAYOUT-', 'completed log entry');
   await shot('09-completed');
   const heading = await page.locator('main h1').textContent();

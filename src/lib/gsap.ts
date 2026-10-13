@@ -2,10 +2,12 @@
  * Single GSAP setup module: import `gsap` / `useGSAP` from here (not from
  * "gsap" directly) so every plugin is registered exactly once before use.
  *
- * Motion rules (docs/design-spec.md §7): 120–200ms opacity/transform only,
- * no animated or counting money figures, and nothing animates when the user
- * prefers reduced motion (use `gsap.matchMedia()` with
- * "(prefers-reduced-motion: no-preference)").
+ * For shared UI components prefer the lean `@/lib/motion`.
+ *
+ * Motion rules (docs/design-spec.md §7): short opacity/transform moves
+ * (≤0.5s) that explain a change, never counting money up from zero, and
+ * nothing animates when the user prefers reduced motion (use
+ * `gsap.matchMedia()` with "(prefers-reduced-motion: no-preference)").
  */
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';

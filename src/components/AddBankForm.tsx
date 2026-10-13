@@ -42,7 +42,7 @@ export function AddBankForm({ onAdded }: { onAdded: (d: PayoutDestinationRecord)
       <div className="panel__body stack">
         <Notice tone="warn" title="Don't enter real bank details">
           <p>
-            This is a preview. Use a test routing number such as <span className="mono">011000015</span>. Only the last four digits of the
+            This is a demo. Use a test routing number such as <span className="mono">011000015</span>. Only the last four digits of the
             account number are kept.
           </p>
         </Notice>

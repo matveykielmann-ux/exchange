@@ -13,6 +13,7 @@ The app is a React + Vite SPA with mock services only. This skill runs the bundl
 pnpm qa:visual                      # starts `vite` on :5173 if nothing is listening, then runs
 BASE_URL=http://localhost:4173 pnpm qa:visual   # against `pnpm build && pnpm preview`
 QA_PAGES=/,/fees pnpm qa:visual    # subset of routes
+QA_SCHEME=dark QA_OUT=qa-output-dark pnpm qa:visual   # same checks in the dark theme
 ```
 
 Outputs go to `qa-output/` (git-ignored):

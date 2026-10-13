@@ -3,14 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Preview of a US crypto-to-USD exchange. Simulated prices and transactions only — no real funds move." />
-    <meta name="theme-color" content="#FAF8F4" />
+    <meta name="description" content="Demo of a US crypto-to-USD exchange. Simulated prices and transactions only — no real funds move." />
+    <meta name="theme-color" content="#FAF8F4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#08111F" media="(prefers-color-scheme: dark)" />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <meta property="og:title" content="Settlewell — preview" />
-    <meta property="og:description" content="Preview of a crypto-to-USD exchange. Simulated data only." />
+    <meta property="og:title" content="Settlewell — demo" />
+    <meta property="og:description" content="Demo of a crypto-to-USD exchange. Simulated data only." />
     <meta property="og:image" content="/og-image.png" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      try {
+        var t = localStorage.getItem('settlewell.theme');
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
     <title>Settlewell — Sell crypto for US dollars</title>
   </head>
   <body>

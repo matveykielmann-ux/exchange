@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { ChoiceSelect } from '@/components/ChoiceSelect';
 import { AssetNetworkFields } from '@/components/ExchangeInputs';
 import { ErrorSummary, Field } from '@/components/Field';
 import { MockBadge, Notice, PageHeader } from '@/components/ui';
@@ -78,7 +79,7 @@ export function LargeTransactionsPage() {
           <div className="section-head">
             <p className="eyebrow">How it works</p>
             <h2 className="display-m">What to expect</h2>
-            <p>No turnaround time is promised in this preview. A live desk would publish its hours and response targets.</p>
+            <p>No turnaround time is promised in this demo. A live desk would publish its hours and response targets.</p>
           </div>
           <ol className="steps-row" style={{ gridTemplateColumns: '1fr' }}>
             <li>
@@ -118,7 +119,7 @@ export function LargeTransactionsPage() {
           <div className="table-wrap">
             <table className="data-table">
               <caption>
-                Indicative only, not an offer. <MockBadge label="Mock policy" />
+                Indicative only, not an offer. <MockBadge label="Demo policy" />
               </caption>
               <thead>
                 <tr>
@@ -167,7 +168,7 @@ export function LargeTransactionsPage() {
                   Reference <span className="mono">{reference}</span>
                 </p>
                 <Notice tone="warn" title="Nobody will contact you">
-                  <p>This is a preview. The request was saved in this browser only. There is no desk staff behind this form yet.</p>
+                  <p>This is a demo. The request was saved in this browser only. There is no desk staff behind this form yet.</p>
                 </Notice>
                 <div>
                   <button type="button" className="btn btn--secondary" onClick={() => setReference(null)}>
@@ -257,16 +258,16 @@ export function LargeTransactionsPage() {
                   </Field>
                   <Field label="Timing" id="lt-timing">
                     {(p) => (
-                      <select
-                        className="select"
-                        {...p}
+                      <ChoiceSelect
+                        field={p}
                         value={timing}
-                        onChange={(e) => setTiming(e.target.value as LargeTransactionRequest['timing'])}
-                      >
-                        <option value="this_week">This week</option>
-                        <option value="this_month">This month</option>
-                        <option value="exploring">Just exploring</option>
-                      </select>
+                        onChange={setTiming}
+                        choices={[
+                          { value: 'this_week', label: 'This week' },
+                          { value: 'this_month', label: 'This month' },
+                          { value: 'exploring', label: 'Just exploring' },
+                        ]}
+                      />
                     )}
                   </Field>
                   <Field
@@ -284,7 +285,7 @@ export function LargeTransactionsPage() {
                 <button className="btn btn--lg" type="submit" disabled={busy}>
                   {busy ? 'Sending…' : 'Request a quote'}
                 </button>
-                <p className="small muted">Preview: the request is stored in this browser only and is not sent to anyone.</p>
+                <p className="small muted">Demo: the request is stored in this browser only and is not sent to anyone.</p>
               </div>
             </form>
           )}
