@@ -3,7 +3,16 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
 import { MockBadge, StatusBadge } from '@/components/ui';
 import { formatUsd } from '@/domain/money';
-import { isOrderStatus, ORDER_STATUS_LABEL, ORDER_STATUSES, orderStatusLabel, orderTone } from '@/domain/order';
+import {
+  isOrderStatus,
+  ORDER_STAGE_LABEL,
+  ORDER_STAGES,
+  ORDER_STATUS_LABEL,
+  ORDER_STATUSES,
+  orderStatusLabel,
+  orderTone,
+  type OrderStage,
+} from '@/domain/order';
 import { PAYOUT_METHODS, PAYOUT_ORDER, type PayoutMethodId } from '@/domain/payout';
 import { formatAsset, formatDateTime } from '@/lib/format';
 import type { QueueQuery } from '@/services/adminTypes';
@@ -24,10 +33,12 @@ const PRESETS: { label: string; params: Record<string, string> }[] = [
 
 function readQuery(p: URLSearchParams): QueueQuery {
   const status = (p.get('status') ?? '').split(',').filter(isOrderStatus);
+  const stage = (p.get('stage') ?? '').split(',').filter((x): x is OrderStage => (ORDER_STAGES as readonly string[]).includes(x));
   const method = p.get('payoutMethod');
   return {
     q: p.get('q') ?? '',
     status,
+    stage,
     payoutMethod: method && Object.hasOwn(PAYOUT_METHODS, method) ? (method as PayoutMethodId) : '',
     review: p.get('review') === 'open' ? 'open' : 'any',
     assigned: p.get('assigned') === 'me' ? 'me' : p.get('assigned') === 'unassigned' ? 'unassigned' : 'any',
@@ -72,6 +83,23 @@ export function QueuePage() {
         <MockBadge label="Sandbox data" />
       </AdminHead>
 
+      <div className="chip-row" role="group" aria-label="Pipeline stage">
+        <button type="button" className="chip" aria-pressed={!query.stage?.length} onClick={() => set({ stage: null })}>
+          All stages
+        </button>
+        {ORDER_STAGES.map((st) => (
+          <button
+            key={st}
+            type="button"
+            className="chip"
+            aria-pressed={query.stage?.length === 1 && query.stage[0] === st}
+            onClick={() => set({ stage: st })}
+          >
+            {ORDER_STAGE_LABEL[st]}
+          </button>
+        ))}
+      </div>
+
       <div className="chip-row" role="group" aria-label="Saved views">
         {PRESETS.map((p) => {
           const keys = [...params.keys()].filter((k) => k !== 'page');
@@ -101,7 +129,7 @@ export function QueuePage() {
               className="input"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="ARC-…, email, name, tx hash"
+              placeholder="CBX-…, email, name, tx hash"
             />
             <button type="submit" className="btn btn--secondary" aria-label="Search">
               <Icon name="search" width={18} height={18} />
@@ -214,6 +242,7 @@ export function QueuePage() {
               <thead>
                 <tr>
                   <th scope="col">Reference</th>
+                  <th scope="col">Stage</th>
                   <th scope="col">Status</th>
                   <th scope="col">Priority</th>
                   <th scope="col">Customer</th>
@@ -236,6 +265,9 @@ export function QueuePage() {
                       </Link>
                       {o.source === 'sandbox' ? <MockBadge label="SBX" force /> : null}
                     </th>
+                    <td>
+                      <span className={`badge ${o.onHold ? 'badge--warn' : 'badge--info'}`}>{ORDER_STAGE_LABEL[o.stage]}</span>
+                    </td>
                     <td>
                       <StatusBadge tone={orderTone(o.status)}>{orderStatusLabel(o.status, o.direction)}</StatusBadge>
                       {o.direction === 'buy' ? <span className="small muted block">Buy · cash collection</span> : null}
@@ -263,7 +295,7 @@ export function QueuePage() {
                 ))}
                 {data.items.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="muted">
+                    <td colSpan={9} className="muted">
                       No orders match these filters.
                     </td>
                   </tr>

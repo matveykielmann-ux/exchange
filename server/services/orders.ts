@@ -863,6 +863,7 @@ export function listCustomerOrders(ctx: AppContext, userId: string, page: number
       source: o.source,
       direction: o.direction,
       status: o.status,
+      stage: orderStage(o.status, o.on_hold === 1),
       asset: o.asset,
       network: o.network,
       amountAtomic: o.amount_atomic,

@@ -145,8 +145,8 @@ export function HomePage() {
               Every charge on its own line.
             </h2>
             <p className="lead">
-              We list the exchange rate and the payout fee separately, so you can check the math yourself. How the commission
-              is defined is set out in Section 6 of the <Link to="/legal/fees">Service Rules</Link>.
+              We list the exchange rate and the payout fee separately, so you can check the math yourself. How the commission is defined is
+              set out in Section 6 of the <Link to="/legal/fees">Service Rules</Link>.
             </p>
           </div>
           <div className="anatomy__grid">

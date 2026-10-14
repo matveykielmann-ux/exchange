@@ -5,6 +5,7 @@ import { AddCourierForm } from '@/components/AddCourierForm';
 import { FEATURE_FLAGS } from '@/config/runtime';
 import { Field } from '@/components/Field';
 import { Icon } from '@/components/Icon';
+import { NotificationItem } from '@/components/NotificationItem';
 import { MockBadge, Notice, PageHeader, StatusBadge } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { US_STATE_NAMES, US_STATES, type UsStateCode } from '@/domain/usStates';
@@ -12,12 +13,12 @@ import { countryName, countryOptions } from '@/domain/residence';
 import { validatePassword } from '@/domain/validation';
 import { errorMessage, isNotConfigured } from '@/lib/errors';
 import { describeDestination, destinationLabel, formatDateTime } from '@/lib/format';
-import type { Acceptance, KycStatus, Notification, SessionInfo, User } from '@/services/types';
+import type { Acceptance, KycStatus, SessionInfo, User } from '@/services/types';
 import { useDestinations } from '@/state/useDestinations';
 import { useUser } from '@/state/auth';
 import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
-import { useLiveEvents } from '@/state/useLive';
+import { useNotifications } from '@/state/useNotifications';
 
 const KYC: Record<KycStatus, { label: string; tone: 'neutral' | 'success' | 'info' | 'warn' | 'danger'; body: string }> = {
   unverified: {
@@ -578,37 +579,37 @@ function summarizeAgent(ua: string): string {
 }
 
 function NotificationsSection() {
-  const { account } = useServices();
-  const [list, setList] = useState<Notification[] | null>(null);
-  const load = useCallback(() => {
-    account
-      .notifications()
-      .then(setList)
-      .catch(() => setList([]));
-  }, [account]);
-  useEffect(load, [load]);
-  useLiveEvents((e) => {
-    if (e.type === 'notification.created') load();
-  });
+  const { list, unread, markRead } = useNotifications();
   return (
-    <Section id="notifications" title="Notifications" aside={<MockBadge label="Sandbox: not emailed" />}>
+    <Section
+      id="notifications"
+      title="Notifications"
+      aside={
+        <div className="row" style={{ gap: 8 }}>
+          {unread > 0 ? <span className="badge badge--info">{unread} unread</span> : null}
+          <MockBadge label="Sandbox: not emailed" />
+        </div>
+      }
+    >
       {list === null ? (
         <p className="muted">Loading…</p>
       ) : list.length === 0 ? (
         <p className="muted">No notifications yet.</p>
       ) : (
-        <ul className="dest-list">
-          {list.slice(0, 20).map((n) => (
-            <li key={n.id}>
-              <span>
-                <span className="tx-list__title">{n.subject}</span>
-                <span className="small muted" style={{ display: 'block' }}>
-                  {formatDateTime(n.createdAt)}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
+        <>
+          {unread > 0 ? (
+            <div>
+              <button type="button" className="btn btn--ghost" onClick={() => void markRead()}>
+                <Icon name="check" width={16} height={16} /> Mark all as read
+              </button>
+            </div>
+          ) : null}
+          <ul className="notice-list">
+            {list.slice(0, 30).map((n) => (
+              <NotificationItem key={n.id} n={n} onOpen={() => (n.readAt ? undefined : void markRead([n.id]))} />
+            ))}
+          </ul>
+        </>
       )}
     </Section>
   );

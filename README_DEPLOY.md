@@ -68,12 +68,14 @@ curl -fsS https://$ARCVALE_DOMAIN/api/health
 curl -fsS https://$ARCVALE_DOMAIN/api/ready           # 503 lists anything not ready
 ```
 
-Create the first owner account. In production it prints a one-time authenticator secret:
+Create the first owner account (the master account). Staff accounts are created only this way or by an owner in the admin panel; public sign-up always creates customers. In production it prints a one-time authenticator secret:
 
 ```bash
 docker compose --env-file .env.production exec app \
   node --disable-warning=ExperimentalWarning dist-server/cli.js create-user --email you@yourdomain --role owner --name "Your Name"
 ```
+
+The owner and staff sign in at `/admin/login`, which refuses customer accounts. The CRM is at `/admin`: orders by pipeline stage (New, Awaiting Payment, Payment Review, Processing, Completed, On Hold, Rejected, Cancelled, Refund Review), order details with history, notes, messages to the customer and the notifications they were sent.
 
 Sandbox only: `... dist-server/cli.js seed` creates demo staff and customer accounts (password `sandbox-pass-2026`) and orders in several states. It refuses to run in production mode.
 

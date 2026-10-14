@@ -4,6 +4,7 @@ import { BRAND, SUPPORT } from '@/config/brand';
 import { TelegramLink } from './SupportContact';
 import { useTheme } from '@/lib/theme';
 import { isStaff, useUser } from '@/state/auth';
+import { useNotifications } from '@/state/useNotifications';
 import { useConfig } from '@/state/config';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Icon } from './Icon';
@@ -73,6 +74,25 @@ function ThemeToggle() {
   );
 }
 
+/** Unread notices for the signed-in customer; opens the notifications section of the account page. */
+function NotificationBell() {
+  const { unread } = useNotifications();
+  return (
+    <Link
+      className="btn btn--ghost header-bell"
+      to="/account#notifications"
+      aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+    >
+      <Icon name="bell" width={18} height={18} />
+      {unread > 0 ? (
+        <span className="header-bell__count tabular" aria-hidden="true">
+          {unread > 99 ? '99+' : unread}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
 function SiteHeader() {
   const user = useUser();
   const [open, setOpen] = useState(false);
@@ -94,6 +114,7 @@ function SiteHeader() {
           <ThemeToggle />
           {user ? (
             <>
+              <NotificationBell />
               {isStaff(user) ? (
                 <Link className="btn btn--ghost hide-on-compact" to="/admin">
                   <Icon name="grid" width={18} height={18} /> Admin

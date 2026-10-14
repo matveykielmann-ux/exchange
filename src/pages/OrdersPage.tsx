@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { AssetMark, MockBadge, Notice, PageHeader, StatusBadge } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { formatUsd } from '@/domain/money';
-import { orderStatusLabel, orderTone } from '@/domain/order';
+import { ORDER_STAGE_LABEL, orderStatusLabel, orderTone } from '@/domain/order';
 import { errorMessage } from '@/lib/errors';
 import { formatAsset, formatDateTime } from '@/lib/format';
 import type { OrderSummary, Page } from '@/services/types';
@@ -74,6 +74,7 @@ export function OrdersPage() {
                         <span className="muted small mono">{o.reference}</span>
                       </span>
                       <span className="row small muted" style={{ gap: 8 }}>
+                        <span className="badge badge--info">{ORDER_STAGE_LABEL[o.stage]}</span>{' '}
                         <StatusBadge tone={orderTone(o.status)}>{orderStatusLabel(o.status, o.direction)}</StatusBadge>
                         <span>{formatDateTime(o.createdAt)}</span>
                       </span>

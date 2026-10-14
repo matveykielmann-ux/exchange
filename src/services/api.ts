@@ -215,6 +215,7 @@ export async function createApiServices(base = ''): Promise<Services> {
           `/api/admin/orders${qs({
             q: q.q,
             status: q.status,
+            stage: q.stage,
             payoutMethod: q.payoutMethod,
             review: q.review === 'open' ? 'open' : undefined,
             assigned: q.assigned === 'any' ? undefined : q.assigned,
@@ -343,7 +344,8 @@ export async function createApiServices(base = ''): Promise<Services> {
       addCard: (label) => http.post('/api/me/destinations/card', { label }),
       addCourierAddress: (input) => http.post('/api/me/destinations/courier', input),
       removeDestination: (id) => http.delete(`/api/me/destinations/${encodeURIComponent(id)}`),
-      notifications: async () => (await http.get<J>('/api/me/notifications')).notifications,
+      notifications: () => http.get('/api/me/notifications'),
+      markNotificationsRead: async (ids) => (await http.post<J>('/api/me/notifications/read', ids ? { ids } : {})).unread,
       acceptances: async () => (await http.get<J>('/api/me/legal')).acceptances,
     },
     orders: {

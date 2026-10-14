@@ -525,8 +525,8 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
         </section>
 
         <p className="small muted">
-          The exchange rate, payout fee, minimum, quote validity and deposit window shown here are the conditions of this exchange. Under clause
-          4.24 of the <Link to="/legal/terms#clause-4-24">Service Rules</Link>, continuing with this Exchange Request signifies your
+          The exchange rate, payout fee, minimum, quote validity and deposit window shown here are the conditions of this exchange. Under
+          clause 4.24 of the <Link to="/legal/terms#clause-4-24">Service Rules</Link>, continuing with this Exchange Request signifies your
           agreement with them. Submitting it is acceptance of the public offer (Section 3).
         </p>
         <fieldset className="stack" style={{ border: 0, padding: 0, margin: 0 }}>

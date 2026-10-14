@@ -65,8 +65,13 @@ function CodeInput({
   );
 }
 
-export function SignInPage() {
-  useDocumentTitle('Sign in');
+/**
+ * Customer sign-in, and the staff entrance (`staff`): the master account and
+ * team sign in at /admin/login, which the server refuses for customer
+ * accounts. Staff accounts are never created by public sign-up.
+ */
+export function SignInPage({ staff = false }: { staff?: boolean }) {
+  useDocumentTitle(staff ? 'Staff sign-in' : 'Sign in');
   const { auth } = useServices();
   const navigate = useNavigate();
   const returnTo = useReturnTo('');
@@ -78,7 +83,10 @@ export function SignInPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const done = (role: Parameters<typeof isStaff>[0]) => navigate(returnTo || (isStaff(role) ? '/admin' : '/account'), { replace: true });
+  const done = (role: Parameters<typeof isStaff>[0]) =>
+    navigate(staff ? (returnTo.startsWith('/admin') ? returnTo : '/admin') : returnTo || (isStaff(role) ? '/admin' : '/account'), {
+      replace: true,
+    });
 
   async function submitCredentials(e: FormEvent) {
     e.preventDefault();
@@ -91,7 +99,7 @@ export function SignInPage() {
     if (Object.keys(next).length) return;
     setBusy(true);
     try {
-      const r = await auth.signIn({ email, password });
+      const r = await auth.signIn({ email, password, ...(staff ? { staffOnly: true } : {}) });
       setPassword('');
       if (r.mfaRequired) setChallenge(r.challengeId);
       else done(r.user);
@@ -125,13 +133,15 @@ export function SignInPage() {
     <div className="container auth">
       <div className="auth__panel stack stack--lg">
         <div className="stack">
-          <h1 className="display-l">{challenge ? 'Two-step sign-in' : 'Sign in'}</h1>
+          <h1 className="display-l">{challenge ? 'Two-step sign-in' : staff ? 'Master account' : 'Sign in'}</h1>
           <p className="muted">
             {challenge
               ? 'Enter the 6-digit code from your authenticator app.'
-              : returnTo.startsWith('/exchange')
-                ? 'Sign in or create an account to exchange. Your amount and choices are kept.'
-                : 'Welcome back.'}
+              : staff
+                ? 'Sign-in for the owner and staff of CryptoBit Exchange. Customer accounts cannot sign in here.'
+                : returnTo.startsWith('/exchange')
+                  ? 'Sign in or create an account to exchange. Your amount and choices are kept.'
+                  : 'Welcome back.'}
           </p>
         </div>
         <SandboxAccountsNotice />
@@ -167,12 +177,18 @@ export function SignInPage() {
               {busy ? 'Checking…' : 'Sign in'}
             </button>
             <div className="row" style={{ justifyContent: 'space-between' }}>
-              <p className="small">
-                New here?{' '}
-                <Link to="/signup" state={{ from: returnTo || undefined }}>
-                  Create an account
+              {staff ? (
+                <Link className="small" to="/signin">
+                  Customer sign-in
                 </Link>
-              </p>
+              ) : (
+                <p className="small">
+                  New here?{' '}
+                  <Link to="/signup" state={{ from: returnTo || undefined }}>
+                    Create an account
+                  </Link>
+                </p>
+              )}
               <Link className="small" to="/reset-password">
                 Forgot your password?
               </Link>

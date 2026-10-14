@@ -9,7 +9,7 @@
  */
 import type { AssetCode, NetworkId } from '@/domain/assets';
 import type { AtomicAmount, Cents, Micros } from '@/domain/money';
-import type { OrderEventType, OrderStatus, OrderStep } from '@/domain/order';
+import type { OrderEventType, OrderStage, OrderStatus, OrderStep } from '@/domain/order';
 import type { PayoutMethodId } from '@/domain/payout';
 import type { CourierDeliveryInput, CourierWindow } from '@/domain/courier';
 import type { ExchangeDirection, Quote, QuoteIssue } from '@/domain/quote';
@@ -153,6 +153,10 @@ export interface OrderView {
   /** sell: crypto → USD. buy: cash collected by courier → crypto. */
   direction: ExchangeDirection;
   status: OrderStatus;
+  /** Pipeline stage derived on the server from the status and the hold flag. */
+  stage: OrderStage;
+  /** An operator has put the order on hold. */
+  onHold: boolean;
   version: number;
   asset: AssetCode;
   network: NetworkId;
@@ -210,6 +214,7 @@ export interface OrderSummary {
   source: 'sandbox' | 'live';
   direction: ExchangeDirection;
   status: OrderStatus;
+  stage: OrderStage;
   asset: AssetCode;
   network: NetworkId;
   amountAtomic: AtomicAmount;
@@ -235,6 +240,16 @@ export interface Notification {
   body: string;
   status: string;
   createdAt: number;
+  /** The order this notice is about, when there is one. */
+  orderId: string | null;
+  /** The values the English text was built from, for showing it in another language. */
+  vars: Record<string, string>;
+  readAt: number | null;
+}
+
+export interface NotificationList {
+  notifications: Notification[];
+  unread: number;
 }
 
 export interface SessionInfo {
@@ -316,7 +331,8 @@ export interface AuthApi {
     notInRestrictedTerritory: boolean;
     accepted: { slug: string; version: string }[];
   }): Promise<User>;
-  signIn(input: { email: string; password: string }): Promise<SignInResult>;
+  /** `staffOnly` is the staff entrance: the server refuses customer accounts. */
+  signIn(input: { email: string; password: string; staffOnly?: boolean }): Promise<SignInResult>;
   verifyMfa(input: { challengeId: string; code: string }): Promise<User>;
   signOut(): Promise<void>;
   requestPasswordReset(email: string): Promise<{ sandboxResetUrl?: string }>;
@@ -356,7 +372,9 @@ export interface AccountApi {
   addCard(label: string): Promise<Destination>;
   addCourierAddress(input: CourierDeliveryInput): Promise<Destination>;
   removeDestination(id: string): Promise<void>;
-  notifications(): Promise<Notification[]>;
+  notifications(): Promise<NotificationList>;
+  /** Marks the given notifications (all when omitted) as read; returns the new unread count. */
+  markNotificationsRead(ids?: string[]): Promise<number>;
   acceptances(): Promise<Acceptance[]>;
 }
 

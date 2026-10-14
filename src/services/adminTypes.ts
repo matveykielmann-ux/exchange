@@ -1,7 +1,7 @@
 /** Admin workspace API types. Every figure and record comes from the server; nothing here is computed in the browser. */
 import type { AssetCode, NetworkId } from '@/domain/assets';
 import type { AtomicAmount, Cents } from '@/domain/money';
-import type { OrderStatus } from '@/domain/order';
+import type { OrderStage, OrderStatus } from '@/domain/order';
 import type { PayoutMethodId } from '@/domain/payout';
 import type {
   AppMode,
@@ -40,6 +40,8 @@ export interface QueueItem {
   source: 'sandbox' | 'live';
   direction: 'sell' | 'buy';
   status: OrderStatus;
+  stage: OrderStage;
+  onHold: boolean;
   priority: 'high' | 'medium' | 'low';
   customer: { id: string; email: string; name: string };
   asset: AssetCode;
@@ -56,6 +58,7 @@ export interface QueueItem {
 export interface QueueQuery {
   q?: string;
   status?: OrderStatus[];
+  stage?: OrderStage[];
   payoutMethod?: PayoutMethodId | '';
   review?: 'open' | 'any';
   assigned?: 'me' | 'unassigned' | 'any';
@@ -76,7 +79,10 @@ export type OrderActionKey =
   | 'authorize_payout'
   | 'retry_payout'
   | 'refund'
-  | 'resubmit_refund';
+  | 'resubmit_refund'
+  | 'message'
+  | 'hold'
+  | 'release_hold';
 
 export interface ActionAvailability {
   action: OrderActionKey;
@@ -114,6 +120,8 @@ export interface AdminOrderDetail {
   /** Courier orders only. Masked for support staff. */
   courierDelivery: CourierDeliveryView | null;
   notes: { id: string; body: string; createdAt: number; author: { id: string; email: string } }[];
+  /** Every notice sent to the customer about this order (in-account and email record). */
+  notifications: import('./types').Notification[];
   reviews: {
     id: string;
     status: string;

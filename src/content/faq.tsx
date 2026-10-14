@@ -126,11 +126,7 @@ export const FAQ: FaqItem[] = [
   {
     group: 'Payouts',
     q: 'What is the largest amount I can sell online?',
-    a: (
-      <p>
-        There is no maximum. The minimum is {formatUsd(PRICING_POLICY.minimumCents)}. Any order may be reviewed before payout.
-      </p>
-    ),
+    a: <p>There is no maximum. The minimum is {formatUsd(PRICING_POLICY.minimumCents)}. Any order may be reviewed before payout.</p>,
   },
   {
     group: 'Accounts & safety',

@@ -3,7 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import { EventLog, StatusRail } from '@/components/TransactionProgress';
 import { MockBadge, Notice, StatusBadge } from '@/components/ui';
 import { formatUsd } from '@/domain/money';
-import { orderStatusLabel, orderTone } from '@/domain/order';
+import { ORDER_STAGE_LABEL, orderStatusLabel, orderTone } from '@/domain/order';
+import { StageTrack } from '@/components/StageTrack';
 import { errorMessage } from '@/lib/errors';
 import { destinationLabel, formatAsset, formatDateTime, formatPriceMicros } from '@/lib/format';
 import { COURIER_WINDOW_LABELS } from '@/domain/courier';
@@ -15,7 +16,7 @@ import { useLiveEvents } from '@/state/useLive';
 import { AdminHead, LoadError, ReasonForm } from './shared';
 import { shortId, useLoad } from './lib';
 
-const DANGER: ReadonlySet<OrderActionKey> = new Set(['reject', 'refund']);
+const DANGER: ReadonlySet<OrderActionKey> = new Set(['reject', 'refund', 'hold']);
 
 function ActionPanel({ detail, onDone }: { detail: AdminOrderDetail; onDone(): void }) {
   const { admin } = useServices();
@@ -101,6 +102,16 @@ function ActionPanel({ detail, onDone }: { detail: AdminOrderDetail; onDone(): v
                       </button>
                     </div>
                   </form>
+                ) : a.action === 'message' ? (
+                  <ReasonForm
+                    id="message-customer"
+                    label="Message to the customer (sent to their support messages, with a notification)"
+                    submitLabel="Send message"
+                    minLength={2}
+                    maxLength={4000}
+                    onSubmit={(message) => act('message', { message })}
+                    onCancel={() => setOpen(null)}
+                  />
                 ) : a.action === 'request_info' ? (
                   <ReasonForm
                     id="request-info"
@@ -312,6 +323,7 @@ export function OrderDetailPage() {
         title={
           <>
             <span className="mono">{o.reference}</span>{' '}
+            <span className={`badge ${o.onHold ? 'badge--warn' : 'badge--info'}`}>{ORDER_STAGE_LABEL[o.stage]}</span>{' '}
             <StatusBadge tone={orderTone(o.status)}>{orderStatusLabel(o.status, o.direction)}</StatusBadge>{' '}
             <span className="badge badge--neutral">{o.direction === 'buy' ? 'Buy · cash → crypto' : 'Sell · crypto → USD'}</span>
           </>
@@ -320,6 +332,14 @@ export function OrderDetailPage() {
       >
         {o.source === 'sandbox' ? <MockBadge label="Sandbox order" force /> : null}
       </AdminHead>
+
+      <StageTrack stage={o.stage} label="Pipeline stage" />
+
+      {o.onHold ? (
+        <Notice tone="warn" title="On hold">
+          <p>Nothing moves this order toward a payout until the hold is released. Provider reports are still recorded.</p>
+        </Notice>
+      ) : null}
 
       {o.reviewReason ? (
         <Notice tone="warn" title="Review reason">
@@ -601,6 +621,41 @@ export function OrderDetailPage() {
               </div>
             </section>
           ) : null}
+
+          <section className="panel" aria-labelledby="ntf-title">
+            <div className="panel__head">
+              <h2 id="ntf-title">Customer notifications</h2>
+              {o.source === 'sandbox' ? <MockBadge label="Sandbox: not emailed" force /> : null}
+            </div>
+            <div className="panel__body">
+              {data.notifications.length ? (
+                <div className="table-wrap" tabIndex={0} role="region" aria-label="Customer notifications">
+                  <table className="data-table admin-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">When</th>
+                        <th scope="col">Notice</th>
+                        <th scope="col">Delivery</th>
+                        <th scope="col">Read</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.notifications.map((n) => (
+                        <tr key={n.id}>
+                          <td className="tabular small">{formatDateTime(n.createdAt)}</td>
+                          <td className="small">{n.subject}</td>
+                          <td className="small">{n.status.replace(/_/g, ' ')}</td>
+                          <td className="tabular small">{n.readAt ? formatDateTime(n.readAt) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="small muted">No notices sent for this order yet.</p>
+              )}
+            </div>
+          </section>
 
           <section className="panel" aria-labelledby="audit-title">
             <div className="panel__head">

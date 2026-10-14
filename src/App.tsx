@@ -16,6 +16,7 @@ const OrdersPage = named(() => import('./pages/OrdersPage'), 'OrdersPage');
 const AccountPage = named(() => import('./pages/AccountPage'), 'AccountPage');
 const SignInPage = named(() => import('./pages/AuthPages'), 'SignInPage');
 const SignUpPage = named(() => import('./pages/AuthPages'), 'SignUpPage');
+const StaffSignInPage = lazy(() => import('./pages/AuthPages').then((m) => ({ default: () => <m.SignInPage staff /> })));
 const ResetRequestPage = named(() => import('./pages/AuthPages'), 'ResetRequestPage');
 const ResetConfirmPage = named(() => import('./pages/AuthPages'), 'ResetConfirmPage');
 const SupportPage = named(() => import('./pages/SupportPage'), 'SupportPage');
@@ -55,7 +56,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
 function RequireStaff({ children }: { children: ReactNode }) {
   const user = useUser();
   const location = useLocation();
-  if (!user) return <Navigate to="/signin" replace state={{ from: location.pathname + location.search }} />;
+  if (!user) return <Navigate to="/admin/login" replace state={{ from: location.pathname + location.search }} />;
   if (!isStaff(user)) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
@@ -89,6 +90,7 @@ export function AppRoutes() {
         <Route path="sandbox" element={<AdminSandbox />} />
       </Route>
       <Route element={<Layout />}>
+        <Route path="admin/login" element={<StaffSignInPage />} />
         <Route index element={<HomePage />} />
         {/* Exchanges need an account (owner decision, 2026-10-14). The server also requires a session for firm quotes and orders. */}
         <Route path="exchange" element={auth(<ExchangePage />)} />

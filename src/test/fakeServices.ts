@@ -82,7 +82,8 @@ export function createFakeServices(overrides: Partial<Services> = {}): Services 
       addCard: unused,
       addCourierAddress: unused,
       removeDestination: unused,
-      notifications: async () => [],
+      notifications: async () => ({ notifications: [], unread: 0 }),
+      markNotificationsRead: async () => 0,
       acceptances: async () => [],
     },
     orders: {

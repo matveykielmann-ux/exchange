@@ -3,7 +3,9 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { Countdown } from '@/components/Countdown';
 import { Icon } from '@/components/Icon';
 import { SupportContact, TelegramLink } from '@/components/SupportContact';
-import { EventLog, OrderProgressBar, StatusRail } from '@/components/TransactionProgress';
+import { AcceptedBanner } from '@/components/AcceptedBanner';
+import { StageTrack } from '@/components/StageTrack';
+import { EventLog, StatusRail } from '@/components/TransactionProgress';
 import { LiveIndicator } from '@/components/chat/Chat';
 import { MockBadge, Notice, StatusBadge } from '@/components/ui';
 import { ASSETS, NETWORKS, networkLabel } from '@/domain/assets';
@@ -790,27 +792,35 @@ export function OrderPage() {
             <LiveIndicator state={live} />
           </div>
         </div>
-        <OrderProgressBar steps={steps} />
+        <StageTrack stage={order.stage} />
+        {order.onHold ? (
+          <Notice tone="warn" title="Your order is on hold">
+            <p>Our team is checking it. Nothing moves until the hold is released; we will message you if we need anything.</p>
+          </Notice>
+        ) : null}
       </div>
 
-      {justCreated && order.status === 'awaiting_deposit' ? (
-        <div style={{ marginBottom: 24 }}>
-          <Notice tone="info" title={`Order ${order.reference} placed`} role="status">
-            <p>
-              {buy
-                ? 'Your rate is held for the cash amount shown. The courier will call to confirm the collection time.'
-                : 'Your rate is held for a deposit of exactly the quoted amount that arrives in the window below.'}
-              {sandboxOrder
-                ? buy
-                  ? ' This is a sandbox order: no courier will come and no crypto will be sent.'
-                  : ' This is a sandbox order: the deposit address is a placeholder. Do not send funds to it.'
-                : ''}
-            </p>
-          </Notice>
+      {justCreated ? (
+        <div className="stack" style={{ marginBottom: 24 }}>
+          <AcceptedBanner reference={order.reference} detailsId="order-details" />
+          {order.status === 'awaiting_deposit' ? (
+            <Notice tone="info" title={`Order ${order.reference} placed`}>
+              <p>
+                {buy
+                  ? 'Your rate is held for the cash amount shown. The courier will call to confirm the collection time.'
+                  : 'Your rate is held for a deposit of exactly the quoted amount that arrives in the window below.'}
+                {sandboxOrder
+                  ? buy
+                    ? ' This is a sandbox order: no courier will come and no crypto will be sent.'
+                    : ' This is a sandbox order: the deposit address is a placeholder. Do not send funds to it.'
+                  : ''}
+              </p>
+            </Notice>
+          ) : null}
         </div>
       ) : null}
 
-      <div className="flow__grid">
+      <div className="flow__grid" id="order-details">
         <div className="flow__main">
           {order.status === 'completed' ? <SuccessPanel order={order} animate={sawIncomplete} /> : null}
 

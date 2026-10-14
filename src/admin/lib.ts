@@ -39,7 +39,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   support: 'Support',
   reviewer: 'Reviewer',
   admin: 'Admin',
-  owner: 'Owner',
+  owner: 'Master (owner)',
 };
 
 export function minutes(n: number | null): string {
