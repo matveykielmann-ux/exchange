@@ -9,7 +9,7 @@ import { headingRanks, parseMarkdown, type MdBlock } from '@/content/legal/markd
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { useIsSandbox } from '@/state/config';
 import { NotFoundPage } from './ContentPages';
-import { t } from '@/i18n';
+import { getLang, t } from '@/i18n';
 
 const fill = (text: string) =>
   text
@@ -89,6 +89,7 @@ export function LegalIndexPage() {
         )}
       />
       <div className="container section--tight stack stack--lg" style={{ maxWidth: 'calc(960px + 2 * var(--gutter))' }}>
+        <EnglishOnlyNotice />
         <PendingReviewNotice sandbox={sandbox} />
         <ul className="legal-index">
           {LEGAL_DOCUMENTS.map((d) => (
@@ -109,6 +110,12 @@ export function LegalIndexPage() {
       </div>
     </>
   );
+}
+
+/** Legal documents are not translated: in Russian the interface says so, and the English text stays binding. */
+function EnglishOnlyNotice() {
+  if (getLang() !== 'ru') return null;
+  return <Notice tone="info" title={t('Legal documents are published in English. The English text is the binding version.')} />;
 }
 
 function PendingReviewNotice({ sandbox, doc }: { sandbox: boolean; doc?: LegalDocument }) {
@@ -208,6 +215,7 @@ export function LegalDocumentPage() {
           </Link>
         </nav>
         <article className={blocks ? 'prose prose--legal-md' : 'prose'}>
+          <EnglishOnlyNotice />
           <PendingReviewNotice sandbox={sandbox} doc={doc} />
           <ReviewNotes doc={doc} sandbox={sandbox} />
           {blocks ? <LegalMarkdown blocks={blocks} label={doc.title} /> : null}

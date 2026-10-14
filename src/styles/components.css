@@ -168,6 +168,10 @@ main {
     font-size: 0.875rem;
     letter-spacing: 0.06em;
   }
+  /* The language switch moves into the menu sheet. */
+  .header-actions .hide-on-phone {
+    display: none;
+  }
   /* Icon-only menu button; the label stays available to screen readers. */
   .site-header .menu-button {
     padding-inline: var(--s-3);
@@ -217,6 +221,17 @@ main {
   display: none;
 }
 
+/* .is-compact: set by the header when the full navigation doesn't fit (longer labels, more buttons when signed in). */
+.site-header.is-compact .primary-nav,
+.site-header.is-compact .header-actions .hide-on-compact {
+  display: none;
+}
+.site-header.is-compact .menu-button {
+  display: inline-flex;
+}
+.site-header.is-compact .site-header__inner {
+  justify-content: space-between;
+}
 @media (max-width: 1180px) {
   .primary-nav,
   .header-actions .hide-on-compact {
@@ -1848,4 +1863,8 @@ main {
 .lang-switch button:focus-visible {
   outline: 2px solid var(--brand-600);
   outline-offset: 1px;
+}
+
+.mobile-nav__lang {
+  align-self: flex-start;
 }

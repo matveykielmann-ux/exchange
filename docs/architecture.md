@@ -70,6 +70,9 @@ Rules:
 - Quotes are stored server-side when issued and snapshotted onto the order. Snapshots cannot change. A quote is single-use and expires.
 - Late or mismatched deposits are never paid at the locked rate. They go to review or refund.
 - Orders at or above the review threshold, and any screening flag, go to `compliance_review` before payout.
+- **Hold.** A reviewer or above can put an open order on hold (`HOLD_PLACED`) and release it (`HOLD_RELEASED`), each with a reason. The status does not change; `orders.on_hold` is set and the events in `BLOCKED_WHILE_ON_HOLD` (screening clearance, review approval, payout authorization, submission and retry) are refused. Provider reports are still recorded; a deposit confirmed during a hold is screened when the hold is released.
+- **Stages.** For the CRM and the customer summary, each status belongs to one stage (`orderStage` in `src/domain/order.ts`): New, Awaiting Payment, Payment Review, Processing, Completed, On Hold (held, or a failed payout waiting on an operator), Rejected, Cancelled (also expired), Refund Review, Refunded. The detailed status stays the source of truth.
+- **Notices.** Every customer-visible status change, hold or release creates a `status_changed` notification unless the code raising the event sends its own notice. Notifications are linked to their order and have a read state; the account page and the header bell show them, and the CRM shows each order's notification history.
 
 ## Cash by courier
 
@@ -79,12 +82,17 @@ Courier delivery reuses the payout states: payout submitted means the courier is
 
 - Passwords are hashed with scrypt. Sessions are 256-bit random tokens in an `HttpOnly; SameSite=Lax` (and `Secure` over https) cookie. Only an HMAC of the token is stored. Sessions have a fixed lifetime (`SESSION_TTL_HOURS`) and are revoked on a password change or reset.
 - CSRF uses a per-session token sent back in `X-CSRF-Token`, plus an `Origin` check on every mutation. Only signature-authenticated webhooks are exempt.
+- Staff sign in at `/admin/login` (`staffOnly`), which refuses customer accounts with the same answer as a wrong password. The owner is the master account; staff accounts are created only by the CLI or an owner, never by public sign-up.
 - Roles: `customer < support < reviewer < admin < owner`. The router checks roles on every route, and the UI hides what the server would refuse. Admins can grant roles up to reviewer; only owners grant admin or owner. Production requires staff TOTP (`REQUIRE_STAFF_MFA`).
 - Rate limits: per-IP limits on auth, quotes, orders, chat, live events and webhooks. Accounts lock after 5 failed sign-ins.
 - Exchanging needs an account: `/exchange` is behind sign-in, and the server requires a session for firm quotes and orders.
 - Payout details (including courier addresses) and TOTP secrets are encrypted with AES-256-GCM. Card numbers are never accepted (provider tokens only) and CVV is never accepted. Staff views mask PII.
 - Errors come back as `{ error: { code, message } }` with safe messages. Stack traces are never sent. Logs are structured JSON without secrets.
 - The CSP is `script-src 'self'` with no third-party origins. The saved-theme bootstrap is a same-origin file (`public/theme-init.js`), so no inline script is needed.
+
+## Interface language
+
+EN (default) and RU. `src/i18n`: English source text is passed to `t()`, which looks it up in the Russian dictionary (`ru*.ts`, plus `RU_PATTERNS` for server texts with values) and falls back to English. The choice is stored in `localStorage` (`cryptobit.lang`) and on `<html lang>`; switching re-renders the app. Server messages, order-event texts and domain labels stay English on the server and are translated where they are shown; notifications are rebuilt from their template and stored values (`src/i18n/notifications.ts`). Legal documents are English only. `src/i18n/i18n.test.ts` fails when a string passed to `t()` has no Russian entry.
 
 ## Live updates and support chat
 

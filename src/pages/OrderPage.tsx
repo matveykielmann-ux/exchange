@@ -827,7 +827,8 @@ export function OrderPage() {
         ) : null}
       </div>
 
-      {justCreated ? (
+      {/* Shown after creation until the final screen takes over. */}
+      {justCreated && order.status !== 'completed' ? (
         <div className="stack" style={{ marginBottom: 24 }}>
           <AcceptedBanner reference={order.reference} detailsId="order-details" />
           {order.status === 'awaiting_deposit' ? (

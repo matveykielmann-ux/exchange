@@ -23,24 +23,17 @@ const BASE_URL = process.env.BASE_URL ?? `http://localhost:${PORT}`;
 const OUT = process.env.QA_OUT ?? 'qa-output';
 // QA_SCHEME=dark runs every check with the OS set to dark mode (the app follows it).
 const SCHEME = process.env.QA_SCHEME === 'dark' ? 'dark' : 'light';
+/** QA_LANG=ru scans every page in Russian (screenshots, overflow, axe); the English-text journeys run only in English. */
+const LANG = process.env.QA_LANG === 'ru' ? 'ru' : 'en';
 const WIDTHS = [1440, 1024, 768, 390];
 const HEIGHT = { 1440: 900, 1024: 768, 768: 1024, 390: 844 };
 const PAGES = (
   process.env.QA_PAGES ??
-  '/,/exchange,/large-transactions,/cash-delivery,/fees,/how-it-works,/security,/faq,/help,/legal,/legal/terms,/legal/privacy,/legal/kyc-aml,/legal/sanctions,/legal/risk,/legal/crypto-transactions,/legal/fees,/legal/refunds,/legal/complaints,/legal/cash-delivery,/legal/contact,/signin,/signup,/reset-password,/nope-404'
+  '/,/exchange,/cash-delivery,/fees,/how-it-works,/security,/faq,/help,/legal,/legal/terms,/legal/privacy,/legal/kyc-aml,/legal/sanctions,/legal/risk,/legal/crypto-transactions,/legal/fees,/legal/refunds,/legal/complaints,/legal/cash-delivery,/legal/contact,/signin,/signup,/reset-password,/admin/login,/nope-404'
 )
   .split(',')
   .filter(Boolean);
-const ADMIN_PAGES = [
-  '/admin',
-  '/admin/orders',
-  '/admin/inbox',
-  '/admin/desk',
-  '/admin/audit',
-  '/admin/users',
-  '/admin/system',
-  '/admin/sandbox',
-];
+const ADMIN_PAGES = ['/admin', '/admin/orders', '/admin/inbox', '/admin/audit', '/admin/users', '/admin/system', '/admin/sandbox'];
 const STAFF_PASSWORD = 'sandbox-pass-2026';
 const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
@@ -192,9 +185,10 @@ async function go(page, url) {
 
 async function signIn(page, email, password = STAFF_PASSWORD) {
   await go(page, BASE_URL + '/signin');
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(password);
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  // By field id, so it works in either interface language.
+  await page.locator('#signin-email').fill(email);
+  await page.locator('#signin-password').fill(password);
+  await page.locator('form button[type="submit"]').click();
   await page.waitForURL((u) => !u.pathname.startsWith('/signin'));
 }
 
@@ -223,9 +217,11 @@ async function scanPages(browser) {
     await mkdir(`${OUT}/${width}`, { recursive: true });
     const options = { viewport: { width, height: HEIGHT[width] }, reducedMotion: 'reduce', colorScheme: SCHEME };
     const context = await browser.newContext(options);
+    if (LANG === 'ru') await context.addInitScript(() => localStorage.setItem('cryptobit.lang', 'ru'));
     await scan(context, PAGES, width, 'main');
     await context.close();
     const staff = await browser.newContext(options);
+    if (LANG === 'ru') await staff.addInitScript(() => localStorage.setItem('cryptobit.lang', 'ru'));
     const page = await staff.newPage();
     await signIn(page, 'admin@arcvale.test');
     await page.close();
@@ -674,13 +670,15 @@ const browser = await chromium.launch();
 try {
   if (!process.env.QA_JOURNEY) {
     await scanPages(browser);
-    await keyboardChecks(browser);
+    if (LANG === 'en') await keyboardChecks(browser);
   }
-  if (process.env.QA_JOURNEY !== 'buy') {
+  if (LANG === 'ru') {
+    // Journeys select controls by their English text.
+  } else if (process.env.QA_JOURNEY !== 'buy') {
     await journey(browser, 1440);
     await journey(browser, 390);
   }
-  if (process.env.QA_JOURNEY !== 'sell') {
+  if (LANG === 'en' && process.env.QA_JOURNEY !== 'sell') {
     await buyJourney(browser, 1440, server);
     await buyJourney(browser, 390, server);
   }

@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { BRAND, SUPPORT } from '@/config/brand';
 import { TelegramLink } from './SupportContact';
@@ -100,13 +100,39 @@ function NotificationBell() {
   );
 }
 
+/**
+ * Collapses the header into the menu button whenever the full navigation does
+ * not fit on one line. Labels differ in length between languages and between
+ * signed-in roles, so this measures instead of relying on a fixed breakpoint
+ * (the CSS breakpoint still applies first on narrow screens).
+ */
+function useCompactHeader(inner: RefObject<HTMLDivElement | null>, key: string) {
+  // Keyed by who is signed in: a different set of buttons is measured afresh.
+  const [state, setState] = useState({ key, compact: false, needed: 0 });
+  const compact = state.key === key && state.compact;
+  useLayoutEffect(() => {
+    const el = inner.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    // The observer reports once on observe, then on every size change.
+    const ro = new ResizeObserver(() => {
+      if (!compact && el.scrollWidth > el.clientWidth + 1) setState({ key, compact: true, needed: el.scrollWidth });
+      else if (compact && el.clientWidth >= state.needed) setState({ key, compact: false, needed: 0 });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [inner, compact, key, state.needed]);
+  return compact;
+}
+
 function SiteHeader() {
   const user = useUser();
   const [open, setOpen] = useState(false);
+  const inner = useRef<HTMLDivElement>(null);
+  const compact = useCompactHeader(inner, `${user?.id ?? ''}|${user?.role ?? ''}`);
 
   return (
-    <header className="site-header">
-      <div className="container site-header__inner">
+    <header className={`site-header${compact ? ' is-compact' : ''}`}>
+      <div className="container site-header__inner" ref={inner}>
         <Link to="/" className="brand" aria-label={`${BRAND.name} home`}>
           <Logo />
         </Link>
@@ -118,14 +144,15 @@ function SiteHeader() {
           ))}
         </nav>
         <div className="header-actions">
-          <LanguageSwitch />
+          <LanguageSwitch className="hide-on-phone" />
           <ThemeToggle />
           {user ? (
             <>
               <NotificationBell />
               {isStaff(user) ? (
-                <Link className="btn btn--ghost hide-on-compact" to="/admin">
-                  <Icon name="grid" width={18} height={18} /> {t('Admin')}
+                <Link className="btn btn--ghost hide-on-compact" to="/admin" title={t('Admin workspace')}>
+                  <Icon name="grid" width={18} height={18} />
+                  <span className="visually-hidden">{t('Admin workspace')}</span>
                 </Link>
               ) : null}
               <Link className="btn btn--ghost hide-on-compact" to="/orders">
@@ -186,6 +213,7 @@ function SiteHeader() {
                   ) : null}
                 </ul>
                 <div className="mobile-nav__actions">
+                  <LanguageSwitch className="mobile-nav__lang" />
                   <Link className="btn btn--lg" to="/exchange">
                     {t('Start an exchange')}
                   </Link>

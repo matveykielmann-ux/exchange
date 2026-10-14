@@ -279,7 +279,7 @@ export function QueuePage() {
                       ) : null}
                     </td>
                     <td>
-                      <span className={`badge badge--${PRIORITY_TONE[o.priority]}`}>{o.priority}</span>
+                      <span className={`badge badge--${PRIORITY_TONE[o.priority]}`}>{t(o.priority)}</span>
                     </td>
                     <td>
                       {o.customer.name || '—'}
