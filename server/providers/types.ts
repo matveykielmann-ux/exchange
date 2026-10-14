@@ -86,9 +86,19 @@ export interface RefundRequest {
   amountAtomic: bigint;
   idempotencyKey: string;
 }
+/** Buy orders: crypto sent from custody to the customer's wallet. Settlement arrives as payout.* webhooks from custody. */
+export interface CryptoTransferRequest {
+  orderId: string;
+  asset: AssetCode;
+  network: NetworkId;
+  address: string;
+  amountAtomic: bigint;
+  idempotencyKey: string;
+}
 export interface CustodyProvider extends Provider {
   createDepositInstructions(req: DepositInstructionsRequest): Promise<DepositInstructions>;
   requestRefund(req: RefundRequest): Promise<{ providerRef: string }>;
+  sendCrypto(req: CryptoTransferRequest): Promise<{ providerRef: string }>;
 }
 
 /* ---------- Identity verification ---------- */
@@ -159,8 +169,19 @@ export interface CardTokenizer {
 
 /* ---------- Cash delivery by courier ---------- */
 /** A cash payout is a payout whose destination is a courier delivery; results arrive as payout.* webhooks. */
+export interface CashCollectionRequest {
+  orderId: string;
+  amountCents: bigint;
+  /** The courier collects only from the verified account holder, after an ID check. */
+  destination: Extract<PayoutDestinationDetails, { kind: 'courier' }>;
+  idempotencyKey: string;
+}
 export interface CashProvider extends PayoutProvider {
   checkAvailability(zip: string): Promise<{ available: boolean; reason: string }>;
+  /** Buy orders: the courier collects cash; the result arrives as deposit.* webhooks from cash. */
+  scheduleCollection(req: CashCollectionRequest): Promise<{ providerRef: string }>;
+  /** Buy orders: returns collected cash; completion arrives as refund.completed from cash. */
+  requestCashReturn(req: CashCollectionRequest): Promise<{ providerRef: string }>;
 }
 
 /* ---------- Email ---------- */
@@ -206,13 +227,19 @@ export type ProviderEvent =
       data: { providerRef: string; status: VerificationStatus; detail?: string };
     };
 
+/**
+ * Which source may send each event type. For deposit.* and refund.completed the
+ * order's direction narrows it further: custody for a sell (crypto in), cash
+ * for a buy (cash collected by courier). payout.* must match the provider the
+ * payout instruction went to (custody sends the crypto of a buy).
+ */
 export const WEBHOOK_EVENT_SOURCES: Record<ProviderEvent['type'], readonly WebhookSource[]> = {
-  'deposit.observed': ['custody'],
+  'deposit.observed': ['custody', 'cash'],
   'deposit.confirmations': ['custody'],
-  'deposit.confirmed': ['custody'],
-  'refund.completed': ['custody'],
-  'payout.processing': ['bankPayout', 'cardPayout', 'cash'],
-  'payout.completed': ['bankPayout', 'cardPayout', 'cash'],
-  'payout.failed': ['bankPayout', 'cardPayout', 'cash'],
+  'deposit.confirmed': ['custody', 'cash'],
+  'refund.completed': ['custody', 'cash'],
+  'payout.processing': ['bankPayout', 'cardPayout', 'cash', 'custody'],
+  'payout.completed': ['bankPayout', 'cardPayout', 'cash', 'custody'],
+  'payout.failed': ['bankPayout', 'cardPayout', 'cash', 'custody'],
   'verification.updated': ['identity'],
 };

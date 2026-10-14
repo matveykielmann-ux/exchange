@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AmountField, AssetNetworkFields, QuoteIssues } from '@/components/ExchangeInputs';
 import { HoldButton } from '@/components/HoldButton';
 import { QuoteSkeleton } from '@/components/QuoteSkeleton';
@@ -24,6 +24,9 @@ import { useServices } from '@/state/services';
 import { quoteData, useQuote, type QuoteState } from '@/state/useQuote';
 import { useDestinations } from '@/state/useDestinations';
 import { Checkbox } from '@/components/Checkbox';
+import { KycNotice } from '@/components/KycNotice';
+import { SupportContact } from '@/components/SupportContact';
+import { BuyFlow } from './BuyFlow';
 import { Countdown } from '@/components/Countdown';
 import { useExpired } from '@/lib/useExpired';
 import { clientId } from '@/services/http';
@@ -411,29 +414,6 @@ function useFirmQuote(draft: ExchangeDraft) {
   };
 }
 
-const KYC_COPY: Record<string, { tone: 'info' | 'warn' | 'danger'; title: string; body: string }> = {
-  unverified: {
-    tone: 'info',
-    title: 'Verify your identity to confirm',
-    body: 'US rules require identity verification before an exchange. It takes a few minutes and is needed once.',
-  },
-  pending: {
-    tone: 'info',
-    title: 'Verification in progress',
-    body: 'We will update this page when the result arrives. You can keep this page open.',
-  },
-  needs_info: {
-    tone: 'warn',
-    title: 'We need more information',
-    body: 'Our team will contact you in your support messages. You can confirm the exchange once verification is complete.',
-  },
-  rejected: {
-    tone: 'danger',
-    title: 'We can’t verify your identity',
-    body: 'We can’t offer exchanges on this account. Contact support if you think this is a mistake.',
-  },
-};
-
 function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraft }) {
   const services = useServices();
   const config = useConfig();
@@ -447,8 +427,6 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
   const orderDocs = config.legal.filter((d) => d.acceptance === 'order');
   const [ackNetwork, setAckNetwork] = useState(false);
   const [ackDocs, setAckDocs] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [verifyError, setVerifyError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // One idempotency key per firm quote: a retried confirm can't create a second order.
@@ -491,20 +469,6 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
     }
   }
 
-  async function verify() {
-    setVerifying(true);
-    setVerifyError(null);
-    try {
-      const r = await services.account.startVerification();
-      if (r.hostedUrl) window.location.assign(r.hostedUrl);
-    } catch (e) {
-      setVerifyError(isNotConfigured(e) ? 'Identity verification is not available yet: the provider is not connected.' : errorMessage(e));
-    } finally {
-      setVerifying(false);
-    }
-  }
-
-  const kycCopy = KYC_COPY[kyc];
   return (
     <div className="flow__grid">
       <div className="flow__main">
@@ -513,35 +477,7 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
           <MockBadge label="Sandbox quote" />
         </div>
 
-        {!verified && kycCopy ? (
-          <Notice tone={kycCopy.tone} title={kycCopy.title}>
-            <p>{kycCopy.body}</p>
-            {config.mode === 'sandbox' && kyc === 'unverified' ? (
-              <p className="small">
-                Sandbox: verification is decided by test rules. A name containing “Review” needs more information, “Reject” is rejected, and
-                any other name is approved. <MockBadge />
-              </p>
-            ) : null}
-            {kyc === 'unverified' ? (
-              <div>
-                <button type="button" className="btn btn--secondary" disabled={verifying} onClick={verify}>
-                  {verifying ? 'Starting…' : 'Verify my identity'}
-                </button>
-              </div>
-            ) : kyc === 'needs_info' || kyc === 'rejected' ? (
-              <div>
-                <Link to="/support" className="btn btn--secondary">
-                  Open support messages
-                </Link>
-              </div>
-            ) : null}
-            {verifyError ? (
-              <p className="field__error" role="alert">
-                {verifyError}
-              </p>
-            ) : null}
-          </Notice>
-        ) : null}
+        <KycNotice />
 
         <section className="panel" aria-labelledby="locked-title">
           <div className="panel__head">
@@ -588,6 +524,11 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
           </div>
         </section>
 
+        <p className="small muted">
+          The spread, payout fee, minimum, quote validity and deposit window shown here are the conditions of this exchange. Under clause
+          4.24 of the <Link to="/legal/terms#clause-4-24">Service Rules</Link>, continuing with this Exchange Request signifies your
+          agreement with them. Submitting it is acceptance of the public offer (Section 3).
+        </p>
         <fieldset className="stack" style={{ border: 0, padding: 0, margin: 0 }}>
           <legend className="visually-hidden">Acknowledgements</legend>
           <Checkbox id="ack-network" checked={ackNetwork} onChange={setAckNetwork}>
@@ -657,14 +598,49 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
             </dl>
           </div>
         </div>
+        <SupportContact />
       </aside>
     </div>
   );
 }
 
 /* ---------------- Page ---------------- */
+
+/** Sell (crypto → USD) or buy (cash → crypto). The choice lives in the URL so a refresh or a shared link keeps it. */
+function DirectionSwitch({ value, onChange }: { value: 'sell' | 'buy'; onChange: (v: 'sell' | 'buy') => void }) {
+  return (
+    <div className="segmented direction-switch" role="group" aria-label="Exchange direction">
+      <button type="button" aria-pressed={value === 'sell'} onClick={() => onChange('sell')}>
+        Sell crypto for USD
+      </button>
+      <button type="button" aria-pressed={value === 'buy'} onClick={() => onChange('buy')}>
+        Buy crypto with cash
+      </button>
+    </div>
+  );
+}
+
 export function ExchangePage() {
-  useDocumentTitle('Sell crypto');
+  const [params, setParams] = useSearchParams();
+  const direction = params.get('direction') === 'buy' ? 'buy' : 'sell';
+  useDocumentTitle(direction === 'buy' ? 'Buy crypto with cash' : 'Sell crypto');
+  const header = (
+    <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
+      <div className="stack" style={{ gap: 6 }}>
+        <p className="eyebrow">{direction === 'buy' ? 'Buy crypto with US dollar cash' : 'Sell crypto for USD'}</p>
+        <h1 className="display-l">Exchange</h1>
+      </div>
+      <DirectionSwitch value={direction} onChange={(d) => setParams(d === 'buy' ? { direction: 'buy' } : {}, { replace: true })} />
+    </div>
+  );
+  return (
+    <div className="container flow" key={direction}>
+      {direction === 'buy' ? <BuyFlow header={header} /> : <SellFlow header={header} />}
+    </div>
+  );
+}
+
+function SellFlow({ header }: { header: ReactNode }) {
   const { draft, update } = useDraft();
   const user = useUser();
   const parsed = parseAssetAmount(draft.amount, draft.asset);
@@ -691,23 +667,18 @@ export function ExchangePage() {
   };
 
   return (
-    <div className="container flow">
+    <>
       <div className="flow__head">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <div className="stack" style={{ gap: 6 }}>
-            <p className="eyebrow">Sell crypto for USD</p>
-            <h1 className="display-l">Exchange</h1>
-          </div>
-        </div>
+        {header}
         <Stepper current={step} />
       </div>
       {step === 4 ? (
-        <div ref={headingRef}>
+        <div ref={headingRef} className="flow__step" key="step-4">
           <ReviewStep onBack={() => go(3)} draft={draft} />
         </div>
       ) : (
         <div className="flow__grid">
-          <div ref={headingRef}>
+          <div ref={headingRef} className="flow__step" key={`step-${step}`}>
             {step === 1 && <AmountStep state={state} onNext={() => go(2)} />}
             {step === 2 && <PayoutStep grossCents={data?.quote.grossCents ?? null} onBack={() => go(1)} onNext={() => go(3)} />}
             {step === 3 && <DetailsStep onBack={() => go(2)} onNext={() => go(4)} />}
@@ -740,6 +711,11 @@ export function ExchangePage() {
           </aside>
         </div>
       )}
-    </div>
+      {step < 4 ? (
+        <div className="flow__support">
+          <SupportContact />
+        </div>
+      ) : null}
+    </>
   );
 }

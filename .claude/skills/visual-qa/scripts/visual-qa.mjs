@@ -6,8 +6,10 @@
  * Starts the built Arcvale server (dist/ + dist-server/, run `pnpm build`
  * first) in sandbox mode on a throwaway database, seeds it, then checks
  * every customer and admin page and runs the end-to-end sandbox journey:
- * customer order → simulated deposit → admin payout authorization →
- * simulated provider completion → support chat both ways.
+ * customer order → tx hash submitted for review → sandbox autopilot
+ * (signed deposit events) → admin payout authorization → autopilot
+ * completion → success screen → support chat both ways; and the buy journey
+ * (cash → crypto) with a demo ID upload, across a server restart.
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -25,7 +27,7 @@ const WIDTHS = [1440, 1024, 768, 390];
 const HEIGHT = { 1440: 900, 1024: 768, 768: 1024, 390: 844 };
 const PAGES = (
   process.env.QA_PAGES ??
-  '/,/exchange,/large-transactions,/cash-delivery,/fees,/how-it-works,/security,/faq,/help,/legal,/legal/terms,/signin,/signup,/reset-password,/nope-404'
+  '/,/exchange,/large-transactions,/cash-delivery,/fees,/how-it-works,/security,/faq,/help,/legal,/legal/terms,/legal/privacy,/legal/kyc-aml,/legal/sanctions,/legal/risk,/legal/crypto-transactions,/legal/fees,/legal/refunds,/legal/complaints,/legal/cash-delivery,/legal/contact,/signin,/signup,/reset-password,/nope-404'
 )
   .split(',')
   .filter(Boolean);
@@ -56,6 +58,30 @@ async function reachable(url) {
   }
 }
 
+let serverEnv = null;
+
+function startServer(env) {
+  return spawn('node', ['--disable-warning=ExperimentalWarning', 'dist-server/main.js'], { env, stdio: 'ignore', detached: true });
+}
+
+async function waitForServer() {
+  for (let i = 0; i < 60; i++) {
+    await new Promise((r) => setTimeout(r, 250));
+    if (await reachable(`${BASE_URL}/api/health`)) return true;
+  }
+  return false;
+}
+
+/** Stops and starts the QA server on the same database: progress must survive. Returns false when the server is external. */
+async function restartServer(server) {
+  if (!server) return false;
+  process.kill(-server.child.pid);
+  for (let i = 0; i < 40 && (await reachable(`${BASE_URL}/api/health`)); i++) await new Promise((r) => setTimeout(r, 250));
+  server.child = startServer(serverEnv);
+  if (!(await waitForServer())) throw new Error('Server did not come back after restart');
+  return true;
+}
+
 async function ensureServer() {
   if (process.env.BASE_URL) return null;
   const dir = await mkdtemp(path.join(tmpdir(), 'arcvale-qa-'));
@@ -70,13 +96,42 @@ async function ensureServer() {
   };
   const seed = spawnSync('node', ['--disable-warning=ExperimentalWarning', 'dist-server/cli.js', 'seed'], { env, encoding: 'utf8' });
   if (seed.status !== 0) throw new Error(`Seeding failed: ${seed.stderr || seed.stdout}`);
-  const child = spawn('node', ['--disable-warning=ExperimentalWarning', 'dist-server/main.js'], { env, stdio: 'ignore', detached: true });
-  for (let i = 0; i < 60; i++) {
-    await new Promise((r) => setTimeout(r, 250));
-    if (await reachable(`${BASE_URL}/api/health`)) return { child, dir };
-  }
+  serverEnv = env;
+  const child = startServer(env);
+  if (await waitForServer()) return { child, dir };
   child.kill();
   throw new Error(`Server did not start at ${BASE_URL}`);
+}
+
+/** Every Telegram support link opens the official account in a new tab without opener access. */
+async function checkTelegram(page, where, label) {
+  const links = page.locator('a[href="https://t.me/cryptocurrency_1exchange"]');
+  const n = await links.count();
+  if (!n) return fail(where, `no Telegram support link (${label})`);
+  for (let i = 0; i < n; i++) {
+    const a = links.nth(i);
+    if ((await a.getAttribute('target')) !== '_blank' || !/noopener/.test((await a.getAttribute('rel')) ?? ''))
+      fail(where, `Telegram link ${i} must open in a new tab with rel=noopener (${label})`);
+  }
+}
+
+/** Waits for the order page heading to read `text`, reloading as a fallback (the live stream normally updates it). */
+async function waitForHeading(page, text, where, timeout = 30_000) {
+  const end = Date.now() + timeout;
+  while (Date.now() < end) {
+    const h = (
+      await page
+        .locator('main h1')
+        .first()
+        .textContent()
+        .catch(() => '')
+    )?.trim();
+    if (typeof text === 'string' ? h === text : text.test(h ?? '')) return true;
+    await page.waitForTimeout(1000);
+    if (Date.now() > end - timeout / 2) await page.reload({ waitUntil: 'load' }).catch(() => undefined);
+  }
+  fail(where, `heading never became "${text}"`);
+  return false;
 }
 
 function instrument(page, where, sink) {
@@ -252,9 +307,11 @@ async function journey(browser, width) {
   await shot(page, '01-signup-errors');
   await page.getByLabel('Full legal name').fill('Jordan Rivera');
   await page.getByLabel('Email').fill(`qa${width}-${Date.now()}@example.test`);
+  await page.getByLabel('Country of residence').selectOption('US');
   await page.getByLabel('State of residence').selectOption('TX');
   await page.getByLabel('Password').fill('correct-horse-battery');
-  await page.getByRole('checkbox').check();
+  await page.locator('#signup-territory').check();
+  await page.locator('#signup-agree').check();
   await page.getByRole('button', { name: 'Create account' }).click();
   await page.waitForURL('**/account');
   await page.getByText('Identity verification').first().waitFor();
@@ -275,6 +332,7 @@ async function journey(browser, width) {
   await shot(page, '02-amount-large');
   await amount.fill('2500');
   await page.waitForTimeout(600);
+  await checkTelegram(page, where, 'exchange form');
   await shot(page, '03-amount');
   await page.getByRole('button', { name: /Continue to payout/ }).click();
   step(2, 'amount quoted');
@@ -349,19 +407,26 @@ async function journey(browser, width) {
   const orderUrl = page.url();
   step(6, 'order placed');
 
-  // 7. "I've sent it" is recorded but does not move the order.
-  await page.getByRole('button', { name: 'I’ve sent it' }).click();
-  await page.getByRole('button', { name: 'Let us know' }).click();
-  await expectText(page, 'You told us you sent it', 'customer report recorded');
-  if ((await page.locator('main h1').textContent())?.trim() !== 'Awaiting deposit') fail(where, '"I sent it" must not change the status');
-  step(7, 'customer report is not proof');
+  // 7. The customer submits the transaction hash for review: format checked, recorded, not proof of a deposit.
+  await page.getByLabel('Transaction hash (TXID)').fill('abc123');
+  await page.getByRole('button', { name: 'Submit for review' }).click();
+  await expectText(page, "doesn't look like a transaction hash on Ethereum", 'tx hash format error next to the field');
+  await page.getByLabel('Transaction hash (TXID)').fill('0x' + 'ab'.repeat(32));
+  await page.getByRole('button', { name: 'Submit for review' }).click();
+  await expectText(page, 'Transaction hash submitted for review', 'tx hash recorded');
+  await expectText(page, 'it does not confirm a deposit', 'hash is not verification');
+  await checkTelegram(page, where, 'order page');
+  await shot(page, '07b-hash-submitted');
+  step(7, 'tx hash submitted for review, not proof');
 
-  // 8–9. Sandbox deposit monitor: deposit observed, then final confirmations (signed webhooks).
-  await page.getByRole('button', { name: 'Deposit the exact amount' }).click();
-  await page.locator('main h1', { hasText: /Confirming on-chain|Deposit observed/ }).waitFor({ timeout: 8000 });
+  // 8–9. Sandbox autopilot: signed deposit events move the order (no manual buttons), survives a reload.
+  await page.reload({ waitUntil: 'load' });
+  await expectText(page, 'Sandbox autopilot', 'autopilot notice replaces manual controls');
+  if (await page.getByRole('button', { name: 'Deposit the exact amount' }).count())
+    fail(where, 'manual controls must hide under the autopilot');
+  await waitForHeading(page, /Deposit observed|Confirming on-chain|Deposit confirmed|Ready for payout/, where);
   await shot(page, '08-confirming');
-  await page.getByRole('button', { name: 'Reach final confirmations' }).click();
-  await page.locator('main h1', { hasText: 'Ready for payout' }).waitFor({ timeout: 8000 });
+  await waitForHeading(page, 'Ready for payout', where, 60_000);
   await shot(page, '09-ready-for-payout');
   step(8, 'deposit observed');
   step(9, 'deposit confirmed, ready for payout');
@@ -398,8 +463,8 @@ async function journey(browser, width) {
   await admin.locator('h1', { hasText: 'Payout submitted' }).waitFor({ timeout: 8000 });
   await shot(admin, '13-admin-payout-submitted');
   if ((await admin.getByText('Payout completed', { exact: true }).count()) > 0) fail(where, 'admin click must not complete a payout');
-  await admin.getByRole('button', { name: 'Provider: payout completed' }).click();
-  await admin.locator('h1', { hasText: 'Completed' }).waitFor({ timeout: 8000 });
+  // The sandbox payout provider reports processing, then completion, through signed webhooks (autopilot).
+  await waitForHeading(admin, /Completed/, `${where} (admin)`, 60_000);
   await shot(admin, '14-admin-completed');
   step(11, 'operator signed in');
   step(12, 'order found in queue');
@@ -426,6 +491,9 @@ async function journey(browser, width) {
   // 16. Customer sees the completed order, the reply (live), and not the internal note.
   await go(page, orderUrl);
   await page.locator('main h1', { hasText: /^Completed$/ }).waitFor({ timeout: 8000 });
+  await expectText(page, 'Completed (demo)', 'success screen badge');
+  await expectText(page, 'Next steps', 'success screen next steps');
+  await checkTelegram(page, where, 'success screen');
   await shot(page, '16-completed');
   await go(page, `${BASE_URL}/support`);
   await page
@@ -448,13 +516,174 @@ async function journey(browser, width) {
   await context.close();
 }
 
+/**
+ * Buy journey (cash → crypto): a customer outside the US signs up, buys USDT
+ * with cash collected by courier, uploads a demo ID, the server restarts
+ * mid-order, the autopilot and an operator finish it, and the success screen
+ * shows the final demo amounts.
+ */
+async function buyJourney(browser, width, server) {
+  const dir = `${OUT}/flow`;
+  await mkdir(dir, { recursive: true });
+  const options = { viewport: { width, height: HEIGHT[width] }, reducedMotion: 'reduce', colorScheme: SCHEME };
+  const context = await browser.newContext(options);
+  const page = await context.newPage();
+  const where = `buy journey @${width}`;
+  const sink = { consoleErrors: [], pageErrors: [], failedRequests: [] };
+  const flush = instrument(page, where, sink);
+  const shot = (p, name) => p.screenshot({ path: `${dir}/${width}-buy-${name}.png`, fullPage: true });
+  const step = (n, label) => report.flow.push({ width, buy: true, step: n, label });
+  const expectText = async (p, text, label, timeout = 8000) => {
+    try {
+      await p.getByText(text, { exact: false }).first().waitFor({ timeout });
+    } catch {
+      fail(where, `expected "${text}" (${label})`);
+    }
+  };
+
+  await go(page, BASE_URL + '/signup');
+  await page.getByLabel('Full legal name').fill('Mira Hoffmann');
+  await page.getByLabel('Email').fill(`buy${width}-${Date.now()}@example.test`);
+  await page.getByLabel('Country of residence').selectOption('DE');
+  if (await page.getByLabel('State of residence').count()) fail(where, 'the US state field must hide outside the US');
+  await page.getByLabel('Password').fill('correct-horse-battery');
+  await page.locator('#signup-agree').check();
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expectText(page, 'Confirm that you do not live in one of the listed territories', 'clause 8.5 confirmation required');
+  await page.locator('#signup-territory').check();
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await page.waitForURL('**/account');
+  step(1, 'non-US customer signed up with the clause 8.5 confirmation');
+
+  await go(page, BASE_URL + '/exchange');
+  await page.getByRole('button', { name: 'Buy crypto with cash' }).click();
+  await page.waitForURL('**/exchange?direction=buy');
+  const cash = page.getByLabel('Cash you pay (USD)');
+  await cash.fill('10');
+  await expectText(page, 'Minimum is $50.00', 'buy minimum');
+  await cash.fill('400');
+  await expectText(page, 'Cash collection isn’t available for this amount', 'courier minimum');
+  await cash.fill('1000');
+  // The quote has arrived when Continue enables (the breakdown panel is hidden on narrow screens).
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('button[type=submit]')].some((b) => b.textContent.trim().startsWith('Continue') && !b.disabled),
+  );
+  await checkTelegram(page, where, 'buy form');
+  await shot(page, '01-amount');
+  await page.reload({ waitUntil: 'load' });
+  if ((await page.getByLabel('Cash you pay (USD)').inputValue()) !== '1000') fail(where, 'buy draft lost on refresh');
+  await page.getByRole('button', { name: /^Continue/ }).click();
+  step(2, 'buy quote shown; draft survives refresh');
+
+  await expectText(page, 'Where should the courier collect the cash?', 'collection step');
+  await page.getByLabel('Street address').fill('500 Congress Avenue');
+  await page.getByLabel('City').fill('Austin');
+  await page.getByLabel('State', { exact: true }).selectOption('TX');
+  await page.getByLabel('ZIP code').fill('78701');
+  await page.getByLabel('Phone for the courier').fill('(512) 555-0199');
+  await page.getByRole('button', { name: 'Save collection address' }).click();
+  await expectText(page, 'Courier to Austin, TX 78701', 'saved collection address');
+  const wallet = page.getByLabel(/wallet address/);
+  await wallet.fill('0x52908400098527886E0F7030069857D2E4169EE7');
+  await wallet.blur();
+  await expectText(page, "doesn't look like a Tron address", 'wallet validated next to the field');
+  await wallet.fill('TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE');
+  await shot(page, '02-details');
+  await page.getByRole('button', { name: /Review quote/ }).click();
+  step(3, 'collection address and wallet entered');
+
+  await page.getByRole('button', { name: 'Verify my identity' }).click();
+  await expectText(page, 'Expires in', 'firm buy quote');
+  await page.locator('#ack-cash').check();
+  await page.locator('#ack-buy-docs').check();
+  await shot(page, '03-review');
+  const confirm = page.getByRole('button', { name: /^Confirm exchange/ });
+  await confirm.hover();
+  await page.mouse.down();
+  await page.waitForTimeout(1300);
+  await page.mouse.up();
+  await page.waitForURL('**/orders/ord_*');
+  await waitForHeading(page, 'Awaiting cash collection', where);
+  const reference = (await page.locator('.eyebrow .mono').first().textContent())?.trim();
+  if (!/^CBX-/.test(reference ?? '')) fail(where, `unexpected order reference "${reference}"`);
+  await expectText(page, 'no courier will come', 'sandbox labelled');
+  await shot(page, '04-order');
+  step(4, `order ${reference} placed`);
+
+  // Demo ID upload: wrong type refused next to the field, then a PNG is checked and discarded.
+  await page.locator('#id-file').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
+  await page.getByRole('button', { name: 'Upload ID' }).click();
+  await expectText(page, 'Upload a JPEG, PNG or PDF file.', 'file type validated');
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(256, 7)]);
+  await page.locator('#id-file').setInputFiles({ name: 'test-id.png', mimeType: 'image/png', buffer: png });
+  await page.getByRole('button', { name: 'Upload ID' }).click();
+  await expectText(page, 'checked and discarded', 'upload recorded');
+  await shot(page, '05-id-uploaded');
+  step(5, 'demo ID uploaded');
+
+  // Server restart: the order, its status and the autopilot carry on.
+  const restarted = await restartServer(server);
+  await page.reload({ waitUntil: 'load' });
+  await expectText(page, reference ?? 'CBX-', 'order survives a server restart', 15_000);
+  step(6, restarted ? 'server restarted; order intact' : 'external server: restart skipped');
+
+  await waitForHeading(page, 'Ready to send crypto', where, 60_000);
+  await checkTelegram(page, where, 'buy processing');
+  await shot(page, '06-ready');
+  step(7, 'cash collected and verified by signed cash events');
+
+  const staffCtx = await browser.newContext(options);
+  const admin = await staffCtx.newPage();
+  const adminSink = { consoleErrors: [], pageErrors: [], failedRequests: [] };
+  const adminFlush = instrument(admin, `${where} (admin)`, adminSink);
+  await signIn(admin, 'admin@arcvale.test');
+  await admin.waitForURL('**/admin');
+  const orderId = page.url().split('/').pop();
+  await go(admin, `${BASE_URL}/admin/orders/${orderId}`);
+  await expectText(admin, 'Buy · cash → crypto', 'admin sees the direction');
+  await expectText(admin, 'test-id.png', 'admin sees the uploaded ID record');
+  await admin.getByRole('button', { name: 'Authorize payout' }).click();
+  await admin.locator('#reason-authorize_payout').fill('Cash counted and verified; sending USDT.');
+  await admin.getByRole('button', { name: 'Authorize payout' }).last().click();
+  await waitForHeading(admin, /Payout submitted|Crypto transfer|Completed/, `${where} (admin)`);
+  await shot(admin, '07-admin');
+  step(8, 'operator authorized the crypto transfer');
+
+  await waitForHeading(page, 'Completed', where, 60_000);
+  await expectText(page, 'Exchange completed', 'buy success screen');
+  await expectText(page, 'Completed (demo)', 'demo badge');
+  await expectText(page, 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE', 'receive address on the success screen');
+  await expectText(page, 'nothing was collected, sent or broadcast', 'no real-transfer claim');
+  await checkTelegram(page, where, 'buy success');
+  await shot(page, '08-completed');
+  await go(page, `${BASE_URL}/orders`);
+  await expectText(page, 'Buy ', 'order list shows the direction');
+  const ov = await overflow(page);
+  if (ov) fail(where, `orders overflow ${ov.scrollWidth}px`);
+  step(9, 'success screen with final demo amounts');
+
+  flush();
+  adminFlush();
+  report.flow.push({ width, buy: true, ...sink, admin: adminSink });
+  await staffCtx.close();
+  await context.close();
+}
+
 const server = await ensureServer();
 const browser = await chromium.launch();
 try {
-  await scanPages(browser);
-  await keyboardChecks(browser);
-  await journey(browser, 1440);
-  await journey(browser, 390);
+  if (!process.env.QA_JOURNEY) {
+    await scanPages(browser);
+    await keyboardChecks(browser);
+  }
+  if (process.env.QA_JOURNEY !== 'buy') {
+    await journey(browser, 1440);
+    await journey(browser, 390);
+  }
+  if (process.env.QA_JOURNEY !== 'sell') {
+    await buyJourney(browser, 1440, server);
+    await buyJourney(browser, 390, server);
+  }
 } catch (e) {
   fail('runner', e instanceof Error ? e.stack : String(e));
 } finally {

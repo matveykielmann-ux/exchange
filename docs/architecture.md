@@ -65,7 +65,7 @@ Rules:
 
 - `applyOrderEvent` in `server/services/orders.ts` is the **only** way an order changes. It checks the table in `src/domain/order.ts` and `EVENT_ACTORS` (who may raise each event), bumps a version for optimistic concurrency, appends an `order_events` row (the timeline is built from these), and writes the audit log, all in one transaction.
 - **Only providers** can move money states: deposit observed, confirmed, payout processing, completed or failed, and refund completed. Their events arrive as signed, de-duplicated webhooks (`server/services/webhooks.ts`). In sandbox mode the simulator signs its events and goes through the same function.
-- "I've sent it" from the customer is recorded but changes nothing about the deposit. The browser never confirms a deposit. A staff click never completes a payout: authorize-payout only submits the instruction.
+- A transaction hash the customer submits is format-checked and recorded for review but changes nothing about the deposit. The browser never confirms a deposit. A staff click never completes a payout: authorize-payout only submits the instruction.
 - Every staff action requires a reason (minimum length enforced) and writes an audit event. The audit log is append-only and hash-chained (`verify-audit`).
 - Quotes are stored server-side when issued and snapshotted onto the order. Snapshots cannot change. A quote is single-use and expires.
 - Late or mismatched deposits are never paid at the locked rate. They go to review or refund.

@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { AssetMark, MockBadge, Notice, PageHeader, StatusBadge } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { formatUsd } from '@/domain/money';
-import { ORDER_STATUS_LABEL, orderTone } from '@/domain/order';
+import { orderStatusLabel, orderTone } from '@/domain/order';
 import { errorMessage } from '@/lib/errors';
 import { formatAsset, formatDateTime } from '@/lib/format';
 import type { OrderSummary, Page } from '@/services/types';
@@ -70,14 +70,26 @@ export function OrdersPage() {
                     <AssetMark code={o.asset} />
                     <span className="stack" style={{ gap: 4 }}>
                       <span className="tx-list__title">
-                        Sell {formatAsset(o.amountAtomic, o.asset)} <span className="muted small mono">{o.reference}</span>
+                        {o.direction === 'buy' ? 'Buy' : 'Sell'} {formatAsset(o.amountAtomic, o.asset)}{' '}
+                        <span className="muted small mono">{o.reference}</span>
                       </span>
                       <span className="row small muted" style={{ gap: 8 }}>
-                        <StatusBadge tone={orderTone(o.status)}>{ORDER_STATUS_LABEL[o.status]}</StatusBadge>
+                        <StatusBadge tone={orderTone(o.status)}>{orderStatusLabel(o.status, o.direction)}</StatusBadge>
                         <span>{formatDateTime(o.createdAt)}</span>
                       </span>
                     </span>
-                    <span className="tx-list__amount">{formatUsd(o.netCents)}</span>
+                    <span className="tx-list__amount">
+                      {o.direction === 'buy' ? (
+                        <>
+                          {formatUsd(o.grossCents)}
+                          <span className="small muted" style={{ display: 'block' }}>
+                            cash
+                          </span>
+                        </>
+                      ) : (
+                        formatUsd(o.netCents)
+                      )}
+                    </span>
                   </Link>
                 </li>
               ))}

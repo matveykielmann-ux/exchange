@@ -17,8 +17,8 @@ export const FAQ: FaqItem[] = [
     a: (
       <p>
         Not yet. Exchanges open only once our payment, custody and verification providers are connected and approved. Until then, the
-        sandbox simulates prices, verification and transactions, and no real funds can be sent or received. See the{' '}
-        <Link to="/legal/terms">Terms of Service</Link>.
+        sandbox simulates prices, verification and transactions, and no real funds can be sent or received. The{' '}
+        <Link to="/legal/terms">Service Rules</Link> set out the terms that will apply to every Exchange Request.
       </p>
     ),
   },
@@ -63,15 +63,44 @@ export const FAQ: FaqItem[] = [
     q: 'What happens if I send on the wrong network?',
     a: (
       <p>
-        Funds sent on a network other than the one shown may be lost or take a long time to recover. Always match the network on the deposit
-        screen to the network your wallet uses to send.
+        Always match the network on the deposit screen to the network your wallet uses to send. Under clause 9.9 of the{' '}
+        <Link to="/legal/terms#clause-9-9">Service Rules</Link>, the possibility of a refund for crypto assets sent to the wrong network is
+        determined on a case-by-case basis, and the Service reserves the right to refuse it.
       </p>
     ),
   },
   {
     group: 'Deposits',
     q: 'Why do you need a refund address?',
-    a: <p>If an exchange can't be completed, for example after a failed review, we return the crypto to the refund address you provide.</p>,
+    a: (
+      <p>
+        If an exchange can't be completed, for example after a failed review, the crypto is returned to the refund address you provide.
+        Returns follow Section 9 of the <Link to="/legal/refunds">Service Rules</Link>, including the return fees in clauses 9.7 and 9.8.
+      </p>
+    ),
+  },
+  {
+    group: 'Deposits',
+    q: 'How many confirmations does a deposit need?',
+    a: (
+      <p>
+        Section 5 of the <Link to="/legal/terms#5-rules-for-rate-fixation">Service Rules</Link> sets 4 confirmations for BTC, and 21 for ETH
+        and for USDT and USDC on TRC-20, ERC-20 and BEP-20. The count for your network is shown when you choose it.
+      </p>
+    ),
+  },
+  {
+    group: 'Deposits',
+    q: 'Can I cancel after I have sent my crypto?',
+    a: (
+      <p>
+        Clause 4.11 of the Service Rules lets you cancel an Exchange Request before the transaction is completed, except as provided in
+        Sections 8 and 13. Contact support with your order reference. If you cancel after sending funds and before the exchange is
+        completed, the return is made with retention of direct return costs and possible Company losses, up to 5% of the exchanged amount
+        (clause 9.2). Returns are processed within 72 hours of the request, except as provided in Sections 8 and 13. See the{' '}
+        <Link to="/legal/refunds">refund policy</Link>.
+      </p>
+    ),
   },
   {
     group: 'Payouts',
@@ -99,9 +128,9 @@ export const FAQ: FaqItem[] = [
     q: 'What is the largest amount I can sell online?',
     a: (
       <p>
-        There is no maximum. The minimum is {formatUsd(PRICING_POLICY.minimumCents)}. Orders of{' '}
-        {formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })} or more go to a manual review before payout, and you can also ask
-        the <Link to="/large-transactions">large-transaction desk</Link> for an individual price.
+        There is no maximum. The minimum is {formatUsd(PRICING_POLICY.minimumCents)}. Any order may be reviewed before payout, and for{' '}
+        {formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })} or more you can also ask the{' '}
+        <Link to="/large-transactions">large-transaction desk</Link> for an individual price.
       </p>
     ),
   },
@@ -111,7 +140,8 @@ export const FAQ: FaqItem[] = [
     a: (
       <p>
         No. We will never call, text or message you asking you to send crypto, share a code, or move money "to keep it safe". That is a
-        scam. Stop and contact your bank or local law enforcement.
+        scam. Stop and contact your bank or local law enforcement. Only contacts listed on the website are official (clause 4.21 of the{' '}
+        <Link to="/legal/terms#clause-4-21">Service Rules</Link>).
       </p>
     ),
   },
@@ -120,8 +150,10 @@ export const FAQ: FaqItem[] = [
     q: 'Why do I need to verify my identity?',
     a: (
       <p>
-        US rules require exchanges to verify customers and screen transactions. We use an identity-verification provider for this. In the
-        sandbox, verification is simulated and no documents are collected.
+        Under Section 8 of the <Link to="/legal/kyc-aml">Service Rules</Link>, we verify identity to ensure Service security and comply with
+        anti-money laundering (AML) and counter-terrorism financing (CTF) laws, and we may request additional documents for a specific
+        transaction if it is classified as high-risk. We use an identity-verification provider for this. In the sandbox, verification is
+        simulated and no documents are collected.
       </p>
     ),
   },

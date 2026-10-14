@@ -1,5 +1,5 @@
 import type { LegalDocument } from './types';
-import { TERMS_OF_SERVICE } from './terms';
+import { SERVICE_RULES } from './terms';
 import { PRIVACY_POLICY } from './privacy';
 import { ELECTRONIC_COMMUNICATIONS_CONSENT } from './e-sign';
 import { COOKIE_POLICY } from './cookies';
@@ -18,7 +18,7 @@ export type { LegalBlock, LegalDocument, LegalSection } from './types';
 
 /** Every legal document, in display order. */
 export const LEGAL_DOCUMENTS: LegalDocument[] = [
-  TERMS_OF_SERVICE,
+  SERVICE_RULES,
   PRIVACY_POLICY,
   ELECTRONIC_COMMUNICATIONS_CONSENT,
   COOKIE_POLICY,

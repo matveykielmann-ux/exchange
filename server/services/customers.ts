@@ -23,11 +23,13 @@ import { isUsable } from '../providers/registry';
 import { ProviderError, ProviderNotConfiguredError, type PayoutDestinationDetails, type VerificationStatus } from '../providers/types';
 import { audit } from './audit';
 import { notify } from './notifications';
+import { residenceError } from '@/domain/residence';
 
 export interface ProfileRow {
   user_id: string;
   full_name: string;
   phone: string | null;
+  country_of_residence: string | null;
   state_of_residence: string | null;
   kyc_status: 'unverified' | 'pending' | 'verified' | 'needs_info' | 'rejected';
   kyc_level: 'none' | 'basic' | 'enhanced';
@@ -57,6 +59,7 @@ export function profileView(ctx: AppContext, userId: string) {
     totpEnabled: u.totp_enabled === 1,
     fullName: p.full_name,
     phone: p.phone,
+    countryOfResidence: p.country_of_residence,
     stateOfResidence: p.state_of_residence,
     verification: { status: p.kyc_status, level: p.kyc_level },
   };
@@ -66,20 +69,23 @@ export function updateProfile(
   ctx: AppContext,
   actor: Actor,
   userId: string,
-  patch: { fullName?: string; phone?: string | null; stateOfResidence?: string | null },
+  patch: { fullName?: string; phone?: string | null; countryOfResidence?: string | null; stateOfResidence?: string | null },
 ) {
   const p = getProfile(ctx, userId);
+  const country = patch.countryOfResidence === undefined ? p.country_of_residence : patch.countryOfResidence;
+  const state = country === 'US' ? (patch.stateOfResidence === undefined ? p.state_of_residence : patch.stateOfResidence) : null;
+  if (country) {
+    const residence = residenceError(country, state);
+    if (residence) throw badRequest(residence, { field: 'stateOfResidence' });
+  }
   // A verified legal name can only change through re-verification.
   if (patch.fullName !== undefined && patch.fullName !== p.full_name && p.kyc_status === 'verified')
     throw conflict('Your name is verified. Contact support to change it.', 'name_locked');
   ctx.db.tx(() => {
-    ctx.db.run('UPDATE customer_profiles SET full_name = ?, phone = ?, state_of_residence = ?, updated_at = ? WHERE user_id = ?', [
-      patch.fullName ?? p.full_name,
-      patch.phone === undefined ? p.phone : patch.phone,
-      patch.stateOfResidence === undefined ? p.state_of_residence : patch.stateOfResidence,
-      ctx.clock.now(),
-      userId,
-    ]);
+    ctx.db.run(
+      'UPDATE customer_profiles SET full_name = ?, phone = ?, country_of_residence = ?, state_of_residence = ?, updated_at = ? WHERE user_id = ?',
+      [patch.fullName ?? p.full_name, patch.phone === undefined ? p.phone : patch.phone, country, state, ctx.clock.now(), userId],
+    );
     audit(ctx, actor, { action: 'profile.updated', targetType: 'user', targetId: userId, data: { fields: Object.keys(patch) } });
   });
 }
@@ -132,7 +138,8 @@ export async function startVerification(ctx: AppContext, actor: Actor, userId: s
   const p = getProfile(ctx, userId);
   if (p.kyc_status === 'verified') throw conflict('Your identity is already verified.');
   if (p.kyc_status === 'pending') throw conflict('Your verification is in progress.');
-  if (!p.state_of_residence) throw badRequest('Add your US state of residence first.', { field: 'stateOfResidence' });
+  const residence = residenceError(p.country_of_residence ?? '', p.state_of_residence);
+  if (residence) throw badRequest(`${residence} Add it on your account page first.`, { field: 'countryOfResidence' });
   if (!isUsable(ctx.providers.identity.info()) || !isUsable(ctx.providers.screening.info())) throw notConfigured('Identity verification');
   const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [userId])!.email;
   const id = newId('kyc');

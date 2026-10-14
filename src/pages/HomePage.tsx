@@ -1,3 +1,4 @@
+import { useIsSandbox } from '@/state/config';
 import { Link } from 'react-router-dom';
 import { Calculator } from '@/components/Calculator';
 import { HeroArt } from '@/components/HeroArt';
@@ -33,6 +34,7 @@ const STEPS = [
 
 export function HomePage() {
   useDocumentTitle('');
+  const sandbox = useIsSandbox();
   return (
     <>
       <section className="hero">
@@ -143,11 +145,11 @@ export function HomePage() {
           <div className="section-head">
             <p className="eyebrow">Quote anatomy</p>
             <h2 id="anatomy-title" className="display-m">
-              Nothing folded into the price.
+              Every charge on its own line.
             </h2>
             <p className="lead">
-              Many services build their margin into the rate they show you. We list the reference price, the spread and the payout fee
-              separately, so you can check the math yourself.
+              We list the reference price, the spread and the payout fee separately, so you can check the math yourself. How the commission
+              is defined is set out in Section 6 of the <Link to="/legal/fees">Service Rules</Link>.
             </p>
           </div>
           <div className="anatomy__grid">
@@ -237,7 +239,7 @@ export function HomePage() {
           <div className="table-wrap" tabIndex={0} role="region" aria-label="Comparison">
             <table className="data-table data-table--stack">
               <caption>
-                Confirmation counts are current policy values. <MockBadge label="Sandbox policy" />
+                Confirmation counts follow Section 5 of the Service Rules where it sets them. <MockBadge label="Sandbox policy" />
               </caption>
               <thead>
                 <tr>
@@ -351,15 +353,16 @@ export function HomePage() {
               Designed for regulated operation.
             </h2>
             <p className="lead">
-              These controls run on our server for every order. In the sandbox, the providers behind them are simulated. None of them is a
-              claim of licensing or insurance.
+              These controls run on our server for every order.
+              {sandbox ? ' In the sandbox, the providers behind them are simulated.' : ''} None of them is a claim of licensing or
+              insurance.
             </p>
           </div>
           <ul className="pillars">
             <li>
               <Icon name="user" />
               <h3>Identity verification</h3>
-              <p>Customers verify their identity before their first exchange. Large transactions need enhanced checks.</p>
+              <p>Customers verify their identity before their first exchange. High-risk transactions may need additional documents.</p>
             </li>
             <li>
               <Icon name="shield" />
@@ -394,7 +397,7 @@ export function HomePage() {
           <FaqList
             items={FAQ.filter((f) =>
               [
-                'Is this a live exchange?',
+                'Can I exchange real funds today?',
                 'How is my payout calculated?',
                 'What happens if I send on the wrong network?',
                 'Will anyone from your team ask me to send crypto?',

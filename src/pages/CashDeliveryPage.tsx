@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Field } from '@/components/Field';
+import { RulesQuote } from '@/components/LegalMarkdown';
 import { MockBadge, Notice, PageHeader, StatusBadge } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { FEATURE_FLAGS } from '@/config/runtime';
@@ -19,6 +20,10 @@ const STEPS = [
     'After your deposit is final and any review is complete, the courier calls to confirm the time and brings the cash.',
   ],
   ['ID check at the door', 'Show a government-issued photo ID that matches your verified account. The cash is not left with anyone else.'],
+  [
+    'Photograph and count',
+    'Before counting, photograph the cash as delivered, indoors, then send the photos and your count within 24 hours, as clause 4.10 of the Service Rules requires.',
+  ],
 ] as const;
 
 export function CashDeliveryPage() {
@@ -78,6 +83,18 @@ export function CashDeliveryPage() {
               </div>
             ))}
           </dl>
+        </div>
+      </section>
+      <section className="section">
+        <div className="container two-col">
+          <div className="section-head">
+            <p className="eyebrow">Service Rules</p>
+            <h2 className="display-m">When you receive the cash</h2>
+            <p>
+              These safety rules apply to every cash handoff. They are quoted from the <Link to="/legal/terms">Service Rules</Link>.
+            </p>
+          </div>
+          <RulesQuote refs={['4.10', '4.23']} />
         </div>
       </section>
       <section className="section">

@@ -40,6 +40,11 @@ export interface AppConfig {
     webhookSecret: string;
     /** Return sign-in and reset codes in API responses so QA can run without an inbox. Sandbox only. */
     exposeCodes: boolean;
+    /**
+     * Demo autopilot: once a customer submits a transaction hash (sell) or the ID for a cash handover (buy),
+     * the sandbox simulators move the order one step every this many milliseconds. 0 turns it off.
+     */
+    autopilotStepMs: number;
   };
   providers: {
     rates: ProviderCredentials | null;
@@ -169,6 +174,10 @@ export function loadConfig(env: Env = process.env): AppConfig {
     else confirmations[network.trim()] = n;
   }
 
+  const autopilotStepMs = Number(env.SANDBOX_AUTOPILOT_STEP_MS ?? 3000);
+  if (!Number.isInteger(autopilotStepMs) || autopilotStepMs < 0 || autopilotStepMs > 600_000)
+    problems.push('SANDBOX_AUTOPILOT_STEP_MS must be a whole number of milliseconds between 0 and 600000.');
+
   const sandboxWebhookSecret = env.SANDBOX_WEBHOOK_SECRET || (production ? '' : randomBytes(32).toString('hex'));
 
   const email = provider(env, 'EMAIL_PROVIDER', problems, { webhook: false });
@@ -195,6 +204,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
       confirmations,
       webhookSecret: sandboxWebhookSecret,
       exposeCodes: !production && bool(env.SANDBOX_EXPOSE_CODES, true),
+      autopilotStepMs: production ? 0 : autopilotStepMs,
     },
     providers: {
       rates: provider(env, 'RATES_PROVIDER', problems, { webhook: false }),
@@ -223,6 +233,8 @@ export function testConfig(overrides: Partial<AppConfig> = {}, env: Env = {}): A
     DATABASE_PATH: ':memory:',
     SERVE_STATIC: 'false',
     SANDBOX_WEBHOOK_SECRET: 'test-webhook-secret-test-webhook-secret',
+    // Tests drive the demo autopilot explicitly (sandboxAutopilotTick), never on a timer.
+    SANDBOX_AUTOPILOT_STEP_MS: '0',
     ...env,
   });
   return { ...base, databasePath: ':memory:', ...overrides };

@@ -1,6 +1,6 @@
 ---
 name: visual-qa
-description: Build-and-run Playwright visual QA for this repo against the real API server in sandbox mode — full-page screenshots of public and admin pages at 1440/1024/768/390px, console errors, failed requests, horizontal overflow, axe WCAG 2.2 AA scans, keyboard checks and the 16-step sandbox journey (customer signs up and sells, deposit simulated by signed webhooks, admin authorizes payout, support chat, completed). Use this whenever you change UI, styles, copy or flow logic in this repo, before committing, or when asked to screenshot, QA, test responsiveness or check accessibility — even if the user only says "check it looks right".
+description: Build-and-run Playwright visual QA for this repo against the real API server in sandbox mode — full-page screenshots of public and admin pages at 1440/1024/768/390px, console errors, failed requests, horizontal overflow, axe WCAG 2.2 AA scans, keyboard checks and the 16-step sell journey (customer signs up and sells, submits a tx hash, sandbox autopilot sends signed webhooks, admin authorizes payout, support chat, success screen) and the buy journey (cash → crypto with a demo ID upload, across a server restart). Use this whenever you change UI, styles, copy or flow logic in this repo, before committing, or when asked to screenshot, QA, test responsiveness or check accessibility — even if the user only says "check it looks right".
 ---
 
 # Visual QA for Arcvale

@@ -1,3 +1,4 @@
+import { SupportContact } from '@/components/SupportContact';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
@@ -11,6 +12,7 @@ import { formatBps, formatUsd } from '@/domain/money';
 import { describeFee, PAYOUT_METHODS, PAYOUT_ORDER } from '@/domain/payout';
 import { calculateQuote, PRICING_POLICY } from '@/domain/quote';
 import { QuoteBreakdown } from '@/components/QuoteBreakdown';
+import { RulesQuote } from '@/components/LegalMarkdown';
 
 function WithToc({ toc, children }: { toc: Array<[string, string]>; children: ReactNode }) {
   return (
@@ -70,13 +72,15 @@ export function HowItWorksPage() {
         </p>
         <h2 id="deposit">5. Send your crypto</h2>
         <p>
-          Send exactly the amount shown to the deposit address shown, on the network shown. We wait for a set number of network
-          confirmations, then screen the transaction.
+          Send exactly the amount shown to the deposit address shown, on the network shown. We wait for the required number of network
+          confirmations, then screen the transaction. Clause 4.22 of the <Link to="/legal/terms#clause-4-22">Service Rules</Link> asks you
+          to provide confirmation of the transfer: a screenshot showing the time, the wallet address, the amount and the TXID or blockchain
+          link. You can give the transaction hash on the order page.
         </p>
         <div className="table-wrap" tabIndex={0} role="region" aria-label="Deposit steps">
           <table className="data-table data-table--stack">
             <caption>
-              Confirmation policy <MockBadge label="Sandbox policy" />
+              Required confirmations <MockBadge label="Sandbox policy" />
             </caption>
             <thead>
               <tr>
@@ -100,6 +104,10 @@ export function HowItWorksPage() {
             </tbody>
           </table>
         </div>
+        <p className="small muted">
+          Bitcoin, Ethereum and Tron follow the table in Section 5 of the Service Rules. The Rules set no count for Solana or Base; the
+          counts shown for them are set by {BRAND.name}.
+        </p>
         <h2 id="payout-sent">6. Receive dollars</h2>
         <p>
           Once the deposit is final and any review is complete, we send the payout. Every step is time-stamped on the status page. If
@@ -135,7 +143,7 @@ export function FeesPage() {
       <PageHeader
         eyebrow="Fees"
         title="Two charges, both on the quote."
-        lead="An exchange spread and a payout fee. Both appear as separate lines, in dollars, before you confirm."
+        lead="An exchange spread and a payout fee. Both appear as separate lines, in dollars, before you confirm. Return fees apply only if funds have to be returned."
       >
         <div className="row">
           <MockBadge label="Sandbox fee schedule" />
@@ -146,7 +154,9 @@ export function FeesPage() {
           ['spread', 'Exchange spread'],
           ['payout', 'Payout fees'],
           ['network', 'Network fees'],
+          ['returns', 'Return fees'],
           ['limits', 'Limits'],
+          ['commission', 'Commission formula'],
           ['example', 'Worked example'],
         ]}
       >
@@ -227,15 +237,26 @@ export function FeesPage() {
           Your wallet or exchange charges a network fee to send crypto. We don't receive it and it isn't part of your quote. You receive the
           amount on the quote as long as the full quoted amount arrives.
         </p>
+        <h2 id="returns">Return fees</h2>
+        <p>
+          If funds have to be returned, the Service Rules allow these charges. They are not part of the quote. The full rules for returns
+          are in the <Link to="/legal/refunds">refund policy</Link>.
+        </p>
+        <RulesQuote refs={['9.2', '9.7', '9.8']} />
         <h2 id="limits">Limits</h2>
         <ul>
           <li>Minimum sale: {formatUsd(PRICING_POLICY.minimumCents)} in value.</li>
           <li>No maximum per transaction, for every payout method.</li>
           <li>
-            Orders of {formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })} or more get a manual review before payout. The{' '}
-            <Link to="/large-transactions">large-transaction desk</Link> can also price them individually.
+            Any order may be held for review before payout. For {formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })} or more, the{' '}
+            <Link to="/large-transactions">large-transaction desk</Link> can also price an order individually.
           </li>
         </ul>
+        <h2 id="commission">Commission formula</h2>
+        <p>
+          The spread and payout fee above are how the commission appears in your quote. The Service Rules define the commission as follows:
+        </p>
+        <RulesQuote refs={['6']} />
         <h2 id="example">Worked example</h2>
         <p>
           Selling 0.10 BTC at an illustrative reference price of {formatUsd(FEES_EXAMPLE.referencePriceMicros / 10_000n)}, paid by bank
@@ -330,6 +351,10 @@ export function SecurityPage() {
           </p>
         </Notice>
         <ul>
+          <li>
+            Only contacts listed on this website are official (clause 4.21 of the <Link to="/legal/terms#clause-4-21">Service Rules</Link>
+            ).
+          </li>
           <li>Be wary of anyone who contacts you first and creates urgency.</li>
           <li>Don't send crypto to pay a debt, a fine, a "security fee" or for a romance or investment opportunity.</li>
           <li>
@@ -389,9 +414,9 @@ export function HelpPage() {
     },
     {
       title: 'I sent the wrong amount',
-      body: 'A different amount puts the order on hold for review. Our team will contact you about a new quote or a refund to your refund address.',
-      to: '/faq',
-      link: 'Read the FAQ',
+      body: 'A different amount puts the order on hold for review, and our team will contact you in your support messages. Clause 4.12 of the Service Rules covers recalculation and returns.',
+      to: '/legal/refunds#not-completed',
+      link: 'Read the refund policy',
     },
     {
       title: 'My quote expired',
@@ -430,13 +455,11 @@ export function HelpPage() {
             ))}
           </ul>
           <div style={{ marginTop: 64, maxWidth: 720 }}>
-            <Notice tone="neutral" title="Contacting support">
-              <p>
-                Signed in? <Link to="/support">Send us a message</Link> and link it to an order if it's about one; replies appear in your
-                account. You can also write to <span className="mono">{BRAND.supportEmail}</span>. Never share your password, codes, private
-                keys or seed phrase with anyone, including us.
-              </p>
-            </Notice>
+            <SupportContact title="Contacting support">
+              Message us on Telegram, or, signed in, <Link to="/support">send us a message</Link> and link it to an order if it's about one;
+              replies appear in your account. You can also write to <span className="mono">{BRAND.supportEmail}</span>. Never share your
+              password, codes, private keys or seed phrase with anyone, including us.
+            </SupportContact>
           </div>
         </div>
       </section>

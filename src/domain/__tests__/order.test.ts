@@ -3,6 +3,7 @@ import {
   InvalidOrderTransitionError,
   ORDER_STATUSES,
   allowedOrderEvents,
+  orderStatusLabel,
   orderSteps,
   postDepositEvent,
   transition,
@@ -109,5 +110,22 @@ describe('order state machine', () => {
     );
     expect(steps.find((s) => s.key === 'deposit')?.state).toBe('done');
     expect(steps.some((s) => s.key === 'paid' && s.state === 'done')).toBe(false);
+  });
+});
+
+describe('buy orders', () => {
+  it('use cash-and-crypto words for the same statuses and steps', () => {
+    expect(orderStatusLabel('awaiting_deposit', 'buy')).toBe('Awaiting cash collection');
+    expect(orderStatusLabel('awaiting_deposit')).toBe('Awaiting deposit');
+    expect(orderStatusLabel('completed', 'buy')).toBe('Completed');
+    const steps = orderSteps('awaiting_deposit', [], { count: 0, required: 1 }, 'buy');
+    expect(steps.map((s) => s.label)).toEqual([
+      'Request created',
+      'Cash collected',
+      'Cash counted and verified',
+      'Crypto transfer submitted',
+      'Completed',
+    ]);
+    expect(steps[1]!.state).toBe('current');
   });
 });

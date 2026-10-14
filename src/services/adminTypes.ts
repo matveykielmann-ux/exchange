@@ -38,6 +38,7 @@ export interface QueueItem {
   id: string;
   reference: string;
   source: 'sandbox' | 'live';
+  direction: 'sell' | 'buy';
   status: OrderStatus;
   priority: 'high' | 'medium' | 'low';
   customer: { id: string; email: string; name: string };

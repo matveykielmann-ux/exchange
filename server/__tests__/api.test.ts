@@ -11,6 +11,7 @@ import { totpCode } from '../lib/crypto';
 import { signWebhook } from '../providers/signature';
 import { createAccount } from '../services/auth';
 import { SANDBOX_PASSWORD, TEST_ETH_ADDRESS } from '../scenarios';
+import { deliver, sandboxAutopilotTick } from '../services/sandbox';
 import { testApp, type Json } from './helpers';
 
 const docs = (kind: 'signup' | 'order') =>
@@ -68,7 +69,9 @@ async function customer(c: Client, email: string, fullName = 'Alex Morgan') {
     email,
     password: SANDBOX_PASSWORD,
     fullName,
+    countryOfResidence: 'US',
     stateOfResidence: 'NY',
+    notInRestrictedTerritory: true,
     accepted: docs('signup'),
   });
   expect(r.status).toBe(201);
@@ -126,7 +129,9 @@ describe('API', () => {
       email: 'a@example.test',
       password: SANDBOX_PASSWORD,
       fullName: 'A B',
+      countryOfResidence: 'US',
       stateOfResidence: 'NY',
+      notInRestrictedTerritory: true,
       accepted: [],
     });
     expect(missing.status).toBe(422);
@@ -138,7 +143,9 @@ describe('API', () => {
         email: 'a@example.test',
         password: SANDBOX_PASSWORD,
         fullName: 'A B',
+        countryOfResidence: 'US',
         stateOfResidence: 'NY',
+        notInRestrictedTerritory: true,
         accepted: docs('signup'),
       }),
     });
@@ -200,8 +207,12 @@ describe('API', () => {
     expect((await c.post('/api/orders', { ...body, refundAddress: '0x' + '1'.repeat(40) }, { 'idempotency-key': key })).status).toBe(422);
     expect(env.ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM orders')!.n).toBe(1);
 
-    // "I sent it" is recorded but proves nothing.
-    expect((await c.post(`/api/orders/${id}/report-sent`, { txHash: null })).body.status).toBe('awaiting_deposit');
+    // A submitted tx hash is recorded for review but proves nothing. It must be shaped like a hash for the network.
+    expect((await c.post(`/api/orders/${id}/report-sent`, { txHash: null })).status).toBe(400);
+    expect((await c.post(`/api/orders/${id}/report-sent`, { txHash: 'abc123' })).body.error.details.field).toBe('txHash');
+    const sent = await c.post(`/api/orders/${id}/report-sent`, { txHash: '0x' + 'ab'.repeat(32) });
+    expect(sent.body.status).toBe('awaiting_deposit');
+    expect(sent.body.deposit.customerReportedSentAt).toBeTypeOf('number');
 
     // The browser cannot confirm a deposit: no such customer route exists beyond the sandbox simulator.
     expect((await c.post(`/api/orders/${id}/confirm`, {})).status).toBe(404);
@@ -307,6 +318,139 @@ describe('API', () => {
 
     // Once the order is finished the address can be removed.
     expect((await c.req('DELETE', `/api/me/destinations/${saved.body.id}`)).status).toBe(204);
+  });
+
+  it('buys crypto with cash: buy quote, courier collection, ID upload, autopilot via signed cash and custody webhooks', async () => {
+    const c = env.client();
+    await customer(c, 'buyer@example.test');
+    const tomorrow = new Date(env.ctx.clock.now() + 86_400_000).toISOString().slice(0, 10);
+    const dest = await c.post('/api/me/destinations/courier', {
+      phone: '(212) 555-0142',
+      line1: '200 Example Street',
+      line2: '',
+      city: 'New York',
+      state: 'NY',
+      zip: '10001',
+      window: 'any',
+      preferredDate: tomorrow,
+      instructions: '',
+    });
+    expect(dest.status).toBe(201);
+
+    const indicative = await c.get('/api/quotes/indicative?direction=buy&asset=USDT&network=tron&cashCents=100000');
+    expect(indicative.status).toBe(200);
+    expect(indicative.body.quote).toMatchObject({ direction: 'buy', grossCents: '100000', payoutMethod: 'courier_cash' });
+    expect(BigInt(indicative.body.quote.amountAtomic)).toBeGreaterThan(0n);
+    expect(indicative.body.issues).toEqual([]);
+
+    const q = await c.post('/api/quotes', { direction: 'buy', asset: 'USDT', network: 'tron', cashCents: '100000' });
+    expect(q.status).toBe(201);
+    const wallet = 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE';
+    const body = { quoteId: q.body.quote.id, destinationId: dest.body.id, receiveAddress: wallet, accepted: docs('order') };
+    // The receiving wallet must be valid for the network.
+    const badWallet = await c.post('/api/orders', { ...body, receiveAddress: TEST_ETH_ADDRESS }, { 'idempotency-key': 'buy-order-bad' });
+    expect(badWallet.status).toBe(400);
+    expect(badWallet.body.error.details.field).toBe('receiveAddress');
+    const o = await c.post('/api/orders', body, { 'idempotency-key': 'buy-order-1' });
+    expect(o.status).toBe(201);
+    expect(o.body).toMatchObject({ direction: 'buy', status: 'awaiting_deposit', refundAddress: null, receiveAddress: wallet });
+    expect(o.body.reference).toMatch(/^CBX-/);
+    expect(o.body.deposit.address).toBeNull();
+    const id = o.body.id as string;
+    // A retried confirm returns the same order.
+    expect((await c.post('/api/orders', body, { 'idempotency-key': 'buy-order-1' })).body.id).toBe(id);
+    expect(env.ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM orders WHERE direction = 'buy'")!.n).toBe(1);
+
+    // A buy has no transaction hash to submit.
+    expect((await c.post(`/api/orders/${id}/report-sent`, { txHash: 'ab'.repeat(32) })).status).toBe(409);
+
+    // ID upload: the declared type must match the bytes; the file is checked, fingerprinted and discarded.
+    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(64, 1)]).toString('base64');
+    const upload = (contentType: string, dataBase64: string) =>
+      c.post(`/api/orders/${id}/documents`, { kind: 'id_document', fileName: '../id photo.png', contentType, dataBase64 });
+    expect((await upload('application/pdf', png)).status).toBe(415);
+    expect((await upload('image/png', 'not base64!')).status).toBe(400);
+    expect((await upload('image/gif', png)).status).toBe(400);
+    const up = await upload('image/png', png);
+    expect(up.status).toBe(201);
+    expect(up.body.documents).toHaveLength(1);
+    expect(up.body.documents[0]).toMatchObject({ fileName: 'id photo.png', contentType: 'image/png', stored: false, sizeBytes: 72 });
+
+    // Deposit events for a buy must come from the cash provider, not custody.
+    const wrong = deliver(env.ctx, 'custody', {
+      id: 'sbx_wrong_1',
+      type: 'deposit.observed',
+      data: { orderId: id, txHash: 'x', amountAtomic: '100000', confirmations: 0 },
+    });
+    expect(wrong.status).toBe('rejected');
+
+    // The demo autopilot moves the order one signed event at a time once the ID is uploaded; operators still decide.
+    (env.ctx.config.sandbox as { autopilotStepMs: number }).autopilotStepMs = 3000;
+    const tick = () => {
+      env.clock.advance(3001);
+      return sandboxAutopilotTick(env.ctx);
+    };
+    const status = async () => (await c.get(`/api/orders/${id}`)).body.status;
+    expect(sandboxAutopilotTick(env.ctx)).toBe(0); // not due yet
+    expect(tick()).toBe(1);
+    expect(await status()).toBe('deposit_observed');
+    tick();
+    expect(await status()).toBe('ready_for_payout');
+    expect(tick()).toBe(0); // waits for an operator
+
+    const admin = await staff(env.app, env.base, 'admin');
+    const detail = (await admin.get(`/api/admin/orders/${id}`)).body.order;
+    expect(detail).toMatchObject({ direction: 'buy', receiveAddress: wallet });
+    expect(detail.documents).toHaveLength(1);
+    expect((await admin.post(`/api/admin/orders/${id}/authorize-payout`, { reason: 'Cash verified; sending crypto.' })).body.status).toBe(
+      'payout_submitted',
+    );
+    expect(
+      env.ctx.db.get<{ provider: string; method: string }>('SELECT provider, method FROM payout_instructions WHERE order_id = ?', [id]),
+    ).toMatchObject({ provider: 'custody', method: 'crypto_transfer' });
+    tick();
+    expect(await status()).toBe('payout_processing');
+    tick();
+    const done = (await c.get(`/api/orders/${id}`)).body;
+    expect(done.status).toBe('completed');
+    expect(done.steps.every((s: { state: string }) => s.state === 'done')).toBe(true);
+    const sources = env.ctx.db
+      .all<{ provider: string; event_type: string }>("SELECT provider, event_type FROM provider_webhook_events WHERE status = 'processed'")
+      .map((r) => `${r.provider}:${r.event_type}`);
+    expect(sources).toEqual(
+      expect.arrayContaining(['cash:deposit.observed', 'cash:deposit.confirmed', 'custody:payout.processing', 'custody:payout.completed']),
+    );
+    const audit = await admin.get(`/api/admin/audit?targetId=${id}`);
+    expect(audit.body.items.map((a: { action: string }) => a.action)).toEqual(
+      expect.arrayContaining(['order.document_uploaded', 'order.payout_authorized']),
+    );
+  });
+
+  it('asks for the country of residence and the clause 8.5 confirmation at sign-up', async () => {
+    const c = env.client();
+    const base = { password: SANDBOX_PASSWORD, fullName: 'Kim Lee', accepted: docs('signup') };
+    const r1 = await c.post('/api/auth/signup', {
+      ...base,
+      email: 'r1@example.test',
+      countryOfResidence: 'DE',
+      notInRestrictedTerritory: false,
+    });
+    expect(r1.status).toBe(400);
+    const r2 = await c.post('/api/auth/signup', {
+      ...base,
+      email: 'r2@example.test',
+      countryOfResidence: 'US',
+      notInRestrictedTerritory: true,
+    });
+    expect(r2.status).toBe(400); // a US resident also gives a state
+    const ok = await c.post('/api/auth/signup', {
+      ...base,
+      email: 'r3@example.test',
+      countryOfResidence: 'DE',
+      notInRestrictedTerritory: true,
+    });
+    expect(ok.status).toBe(201);
+    expect((await c.get('/api/me')).body).toMatchObject({ countryOfResidence: 'DE', stateOfResidence: null });
   });
 
   it('isolates customers from each other', async () => {

@@ -3,9 +3,9 @@ import type { LegalDocument } from './types';
 export const COMPLAINTS_POLICY: LegalDocument = {
   slug: 'complaints',
   title: 'Complaints and Support Policy',
-  version: '1.0.0',
+  version: '2.0.0',
   effectiveDate: null,
-  lastUpdated: '2026-10-13',
+  lastUpdated: '2026-10-14',
   summary: 'This policy explains how to get help from {{brand}}, how to make a complaint, and what happens after you do.',
   acceptance: null,
   sections: [
@@ -81,12 +81,17 @@ export const COMPLAINTS_POLICY: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'If you are not satisfied with our response, you may contact the financial regulator in your state or the Consumer Financial Protection Bureau (consumerfinance.gov). Disputes are otherwise handled as described in the Terms of Service.',
+          text: 'Disputes are settled as Section 16 of the Service Rules provides:',
+        },
+        { type: 'rules', refs: ['16'] },
+        {
+          type: 'p',
+          text: 'Under Section 11 of the Service Rules, filing complaints with payment system operators about the Service’s actions without first contacting the Company’s support is one of the cases in which the Company may restrict access to the Service or refuse service.',
         },
         {
           type: 'review',
           id: 'LR-05',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Any state-mandated consumer disclosures that must appear in these Terms, the Risk Disclosure, receipts or complaint notices (for example 23 NYCRR Part 200 disclosures in New York, California DFAL disclosures, and state regulator contact details for complaints).]',
+          text: '[OWNER/COUNSEL INPUT REQUIRED: Any state-mandated consumer disclosures that must appear in the Service Rules, the Risk Disclosure, receipts or complaint notices (for example 23 NYCRR Part 200 disclosures in New York, California DFAL disclosures, and state regulator contact details for complaints).]',
         },
       ],
     },

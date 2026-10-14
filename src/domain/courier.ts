@@ -17,6 +17,12 @@ export const COURIER_WINDOW_LABELS: Record<CourierWindow, string> = {
   any: 'Any time, 9 am to 8 pm',
 };
 
+/**
+ * Buy orders (cash → crypto): how long the quoted rate is held for the courier
+ * to collect the cash. Placeholder [OWNER INPUT REQUIRED], like the courier fee.
+ */
+export const CASH_COLLECTION_WINDOW_MS = 72 * 3_600_000;
+
 /** How far ahead a preferred delivery date may be. */
 export const COURIER_MAX_DAYS_AHEAD = 30;
 

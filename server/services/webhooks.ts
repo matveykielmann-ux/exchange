@@ -18,6 +18,7 @@ import { applyVerificationResult } from './customers';
 import { notify } from './notifications';
 import { afterDepositConfirmed, applyOrderEvent, getOrderRow } from './orders';
 import { formatUsd } from '@/domain/money';
+import { formatAssetPlain } from './format';
 
 export type WebhookOutcome = { status: 'processed' | 'duplicate' | 'rejected'; eventId: string; error?: string };
 
@@ -59,10 +60,19 @@ function emailOf(ctx: AppContext, userId: string) {
   return ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [userId])!.email;
 }
 
+/** Deposits and refunds of a sell come from custody; the cash collected for a buy (and its return) from the cash provider. */
+function orderForSource(ctx: AppContext, source: WebhookSource, orderId: unknown) {
+  const order = getOrderRow(ctx, str(orderId, 'orderId'));
+  const expected: WebhookSource = order.direction === 'buy' ? 'cash' : 'custody';
+  if (source !== expected)
+    throw new ApiError(400, 'invalid_input', `This event for a ${order.direction} order is not accepted from ${source}.`);
+  return order;
+}
+
 function applyEvent(ctx: AppContext, source: WebhookSource, e: ProviderEvent, actor: Actor) {
   switch (e.type) {
     case 'deposit.observed': {
-      const order = getOrderRow(ctx, str(e.data.orderId, 'orderId'));
+      const order = orderForSource(ctx, source, e.data.orderId);
       const amount = str(e.data.amountAtomic, 'amountAtomic');
       if (!/^\d{1,40}$/.test(amount)) throw new ApiError(400, 'invalid_input', 'Event amount is invalid.');
       const confirmations = count(e.data.confirmations);
@@ -81,19 +91,19 @@ function applyEvent(ctx: AppContext, source: WebhookSource, e: ProviderEvent, ac
     case 'deposit.confirmations':
       applyOrderEvent(
         ctx,
-        str(e.data.orderId, 'orderId'),
+        orderForSource(ctx, source, e.data.orderId).id,
         { type: 'CONFIRMATIONS_UPDATED', confirmations: count(e.data.confirmations) },
         actor,
       );
       return;
     case 'deposit.confirmed': {
-      const id = str(e.data.orderId, 'orderId');
+      const id = orderForSource(ctx, source, e.data.orderId).id;
       applyOrderEvent(ctx, id, { type: 'DEPOSIT_CONFIRMED', confirmations: count(e.data.confirmations) }, actor);
       afterDepositConfirmed(ctx, id);
       return;
     }
     case 'refund.completed': {
-      const id = str(e.data.orderId, 'orderId');
+      const id = orderForSource(ctx, source, e.data.orderId).id;
       const txHash = str(e.data.txHash, 'txHash');
       const o = applyOrderEvent(ctx, id, { type: 'REFUND_COMPLETED', txHash }, actor);
       ctx.db.run("UPDATE refunds SET status = 'completed', tx_hash = ?, updated_at = ? WHERE order_id = ?", [txHash, ctx.clock.now(), id]);
@@ -129,12 +139,22 @@ function applyEvent(ctx: AppContext, source: WebhookSource, e: ProviderEvent, ac
         pi.id,
       ]);
       if (e.type === 'payout.completed')
-        notify(ctx, {
-          userId: o.user_id,
-          to: emailOf(ctx, o.user_id),
-          template: 'order_completed',
-          vars: { reference: o.reference, amount: formatUsd(BigInt(o.net_cents)) },
-        });
+        notify(
+          ctx,
+          o.direction === 'buy'
+            ? {
+                userId: o.user_id,
+                to: emailOf(ctx, o.user_id),
+                template: 'buy_completed',
+                vars: { reference: o.reference, amount: formatAssetPlain(BigInt(o.amount_atomic), o.asset) },
+              }
+            : {
+                userId: o.user_id,
+                to: emailOf(ctx, o.user_id),
+                template: 'order_completed',
+                vars: { reference: o.reference, amount: formatUsd(BigInt(o.net_cents)) },
+              },
+        );
       if (e.type === 'payout.failed')
         notify(ctx, { userId: o.user_id, to: emailOf(ctx, o.user_id), template: 'order_failed', vars: { reference: o.reference } });
       return;

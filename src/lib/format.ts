@@ -36,6 +36,8 @@ export const formatTime = (ms: number) => time.format(ms);
 
 export function formatCountdown(ms: number): string {
   const total = Math.max(0, Math.ceil(ms / 1000));
+  // Long windows (a courier collection) read as hours and minutes, not thousands of minutes.
+  if (total >= 3600) return `${Math.floor(total / 3600)} h ${Math.floor((total % 3600) / 60)} min`;
   const m = Math.floor(total / 60);
   const s = total % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;

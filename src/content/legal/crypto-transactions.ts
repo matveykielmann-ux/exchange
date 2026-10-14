@@ -3,11 +3,11 @@ import type { LegalDocument } from './types';
 export const CRYPTO_TRANSACTIONS_DISCLOSURE: LegalDocument = {
   slug: 'crypto-transactions',
   title: 'Cryptocurrency Transaction and Irreversibility Disclosure',
-  version: '1.0.0',
+  version: '2.0.0',
   effectiveDate: null,
-  lastUpdated: '2026-10-13',
+  lastUpdated: '2026-10-14',
   summary:
-    'Your deposit is paid at the locked rate only if you send exactly the quoted amount, on the stated network, to the address we give you, within the deposit window, and blockchain transactions cannot be reversed.',
+    'How a sale works on this site, what the Service Rules require when you send crypto, what happens if a deposit is late, different or on the wrong network, and why blockchain transactions cannot be reversed.',
   acceptance: 'order',
   sections: [
     {
@@ -32,7 +32,7 @@ export const CRYPTO_TRANSACTIONS_DISCLOSURE: LegalDocument = {
       id: 'conforming-deposit',
       heading: 'What counts as a conforming deposit',
       blocks: [
-        { type: 'p', text: 'To be paid at the locked rate, your deposit must meet all of these conditions:' },
+        { type: 'p', text: 'On this site, a deposit is paid at the locked rate only if it meets all of these conditions:' },
         {
           type: 'list',
           items: [
@@ -51,7 +51,15 @@ export const CRYPTO_TRANSACTIONS_DISCLOSURE: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'A deposit is received only when our systems have observed it on the blockchain and it has reached the number of network confirmations we require for that network. Until then its status is pending. A transaction hash, a screenshot from your wallet, or a message that you have sent funds does not prove that a deposit has been received, and we cannot act on it.',
+          text: 'On this site, a deposit is treated as received when our systems have observed it on the blockchain and it has reached the number of network confirmations required for that network, shown when you choose the network. Until then its status is pending. The required confirmations are set by Section 5 of the Service Rules:',
+        },
+        { type: 'rules', refs: ['5'] },
+        { type: 'p', text: 'The Service Rules also require proof of sending:' },
+        { type: 'rules', refs: ['4.22'] },
+        {
+          type: 'review',
+          id: 'LR-35',
+          text: '[CONFLICT WITH SITE BEHAVIOR: the order page accepts only an optional transaction hash; there is no way to upload the screenshot clause 4.22 requires, and the order moves forward only when deposit monitoring observes the transaction.]',
         },
         {
           type: 'p',
@@ -59,8 +67,8 @@ export const CRYPTO_TRANSACTIONS_DISCLOSURE: LegalDocument = {
         },
         {
           type: 'review',
-          id: 'LR-07',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Required number of network confirmations for each supported asset and network, whether these are published in the Service or in this document, and whether the deposit window is measured to the first observation of the transaction or to the required confirmations.]',
+          id: 'LR-38',
+          text: '[OWNER INPUT REQUIRED: Section 5 sets no confirmation count for USDC on Solana or Base, which this site accepts, and lists BEP-20, which this site does not accept. The site uses 32 (Solana) and 12 (Base) confirmations until the owner sets them.]',
         },
       ],
     },
@@ -70,16 +78,13 @@ export const CRYPTO_TRANSACTIONS_DISCLOSURE: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'If your deposit arrives after the deposit window, is for a different amount than quoted, or is sent on a different supported network, it will not be paid at the locked rate. We will review it and, if it is eligible to be returned, send it back in the same asset to the refund address on your order, less the network fees for the return transaction.',
+          text: 'On this site, a deposit that arrives after the deposit window, is for a different amount than quoted, or is sent on a different network is not paid at the locked rate and is held for review. The Service Rules provide:',
         },
+        { type: 'rules', refs: ['4.14', '4.12', '9.9', '9.10'] },
         {
           type: 'review',
-          id: 'LR-08',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Policy for non-conforming deposits (late, wrong amount, wrong supported network): whether a new quote at the current rate may be offered as an alternative to return; any handling fee beyond network fees; the minimum amount worth returning when network fees exceed the deposit; and the target review timeframe.]',
-        },
-        {
-          type: 'p',
-          text: 'If you send an asset or use a network that we do not support for the deposit address, we may be technically unable to access or return it, and it may be permanently lost.',
+          id: 'LR-37',
+          text: '[CONFLICT WITH SITE BEHAVIOR: clause 4.12 provides for recalculation to the amount actually received; the system does not recalculate and holds any differing deposit for review and return.]',
         },
       ],
     },
@@ -99,8 +104,9 @@ export const CRYPTO_TRANSACTIONS_DISCLOSURE: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'Blockchain transactions are final. Once broadcast, neither you nor {{brand}} can cancel, reverse or change them. We cannot recover assets sent to the wrong address, sent on an unsupported network, or sent to a scammer. Always confirm the asset, network, address and amount before you send.',
+          text: 'Blockchain transactions are final. Once broadcast, neither you nor {{brand}} can cancel, reverse or change them. We cannot recover assets sent to the wrong address or sent to a scammer. Always confirm the asset, network, address and amount before you send.',
         },
+        { type: 'rules', refs: ['4.19'] },
       ],
     },
     {
@@ -109,7 +115,7 @@ export const CRYPTO_TRANSACTIONS_DISCLOSURE: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'Sending a digital asset requires a network fee (sometimes called a gas or miner fee), which you pay to the blockchain network through your wallet, not to {{brand}}. Network fees for a return of your deposit are deducted from the amount returned.',
+          text: 'Sending a digital asset requires a network fee (sometimes called a gas or miner fee), which you pay to the blockchain network through your wallet, not to {{brand}}. Fees for returning a deposit are set by clauses 9.7 and 9.8 of the Service Rules, quoted in the Cancellation, Rejection and Refund Policy.',
         },
       ],
     },
@@ -119,7 +125,7 @@ export const CRYPTO_TRANSACTIONS_DISCLOSURE: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'We screen deposits and the addresses they come from. A deposit may be held for review if, for example, it is linked to sanctioned parties, stolen funds, scams or other illicit activity. We may ask you for information about the source of the funds. If we cannot complete a review, we may decline the order and return the deposit, or, where the law requires, block or report it.',
+          text: 'We screen deposits and the addresses they come from. A deposit may be held for review if, for example, it is linked to sanctioned parties, stolen funds, scams or other illicit activity. We may ask you for information about the source of the funds. Reviews, document requests and frozen funds are governed by clause 8.2 of the Service Rules, quoted in the Identity Verification and AML/KYC Notice.',
         },
       ],
     },

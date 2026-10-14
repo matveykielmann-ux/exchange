@@ -3,9 +3,9 @@ import type { LegalDocument } from './types';
 export const ELECTRONIC_COMMUNICATIONS_CONSENT: LegalDocument = {
   slug: 'e-sign',
   title: 'Electronic Communications Consent',
-  version: '1.0.0',
+  version: '1.0.1',
   effectiveDate: null,
-  lastUpdated: '2026-10-13',
+  lastUpdated: '2026-10-14',
   summary:
     'By agreeing to this consent, you allow {{brand}} to provide agreements, disclosures, receipts and notices to you electronically instead of on paper.',
   acceptance: 'signup',
@@ -21,7 +21,7 @@ export const ELECTRONIC_COMMUNICATIONS_CONSENT: LegalDocument = {
         {
           type: 'list',
           items: [
-            'the Terms of Service, Privacy Policy and other legal documents, and any changes to them;',
+            'the Service Rules, Privacy Policy and other legal documents, and any changes to them;',
             'quotes, order confirmations, receipts and transaction statuses;',
             'disclosures we are required by law to give you, including fee, risk and privacy disclosures;',
             'notices about your account, verification requests, compliance reviews, rejected or returned deposits and payouts; and',
@@ -31,6 +31,11 @@ export const ELECTRONIC_COMMUNICATIONS_CONSENT: LegalDocument = {
         {
           type: 'p',
           text: 'You also agree that clicking a button or checking a box to accept a document or confirm an order is your electronic signature and has the same effect as a handwritten signature.',
+        },
+        {
+          type: 'review',
+          id: 'LR-46',
+          text: '[OWNER/COUNSEL INPUT REQUIRED: This consent refers to the US E-SIGN Act, while the Service Rules are governed by the laws of the Republic of Panama (Section 16). Confirm which electronic-signature and electronic-communications law the consent should rely on.]',
         },
       ],
     },

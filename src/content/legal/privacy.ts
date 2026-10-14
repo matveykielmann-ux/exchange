@@ -3,9 +3,9 @@ import type { LegalDocument } from './types';
 export const PRIVACY_POLICY: LegalDocument = {
   slug: 'privacy',
   title: 'Privacy Policy',
-  version: '1.0.0',
+  version: '2.1.0',
   effectiveDate: null,
-  lastUpdated: '2026-10-13',
+  lastUpdated: '2026-10-14',
   summary:
     'This policy explains what personal information {{brand}} collects, why we collect it, who we share it with, how long we keep it and the choices you have.',
   acceptance: 'signup',
@@ -16,12 +16,14 @@ export const PRIVACY_POLICY: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'This Privacy Policy applies to personal information that the company operating {{brand}} ("we", "us" or "our") collects through the {{brand}} website, applications, support channels and related services (the "Service"). It applies to visitors, applicants and customers in the United States.',
+          text: 'This Privacy Policy applies to personal information that CryptoBit Exchange, a company incorporated under the laws of the Republic of Panama, registration number No. 155778934, operating under the brand {{brand}} ("we", "us" or "our"), collects through the {{brand}} website, applications, support channels and related services (the "Service"). It applies to visitors, applicants and customers.',
         },
+        { type: 'p', text: 'Section 15 of the Service Rules provides:' },
+        { type: 'rules', refs: ['15'] },
         {
           type: 'review',
-          id: 'LR-01',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Registered legal name and state of formation of the operating entity, which must be named as the contracting party in the Terms, as the business responsible for personal information in the Privacy Policy, and under Regulatory status on the Contact page.]',
+          id: 'LR-40',
+          text: '[OWNER INPUT REQUIRED: The Service Rules link to a detailed privacy policy at /en/privacy-policy, which has not been supplied; that link currently opens this page. This page describes the data the site actually collects and has been limited to the uses and disclosures Section 15 allows. Replace or confirm it once the owner supplies the policy.]',
         },
         {
           type: 'p',
@@ -75,7 +77,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       id: 'how-we-use-information',
       heading: 'How we use information',
       blocks: [
-        { type: 'p', text: 'We use personal information to:' },
+        { type: 'p', text: 'We use personal information solely to fulfil our obligations under the Service Rules, which means to:' },
         {
           type: 'list',
           items: [
@@ -84,9 +86,8 @@ export const PRIVACY_POLICY: LegalDocument = {
             'provide quotes, process orders, confirm deposits, send payouts and return deposits where required;',
             'detect, investigate and prevent fraud, scams, money laundering, sanctions violations and security incidents;',
             'meet our legal and regulatory obligations, including recordkeeping, reporting and responding to lawful requests;',
-            'communicate with you about your account, orders, legal documents and support requests;',
-            'maintain, debug and improve the Service; and',
-            'establish, exercise or defend legal claims.',
+            'communicate with you about your account, orders, legal documents and support requests; and',
+            'keep the Service working and secure.',
           ],
         },
         {
@@ -101,17 +102,14 @@ export const PRIVACY_POLICY: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'We do not sell your personal information. We share it only as described below.',
+          text: 'We do not sell your personal information. We disclose it to third parties only as required by law or as necessary to fulfil our obligations, as described below.',
         },
         {
           type: 'list',
           items: [
             'Service providers who act on our behalf under contract, including providers of identity verification, sanctions screening, blockchain analytics, payout processing (ACH, wire and debit card), email delivery, customer support tools, and cloud hosting and security. They may use the information only to provide services to us, except where the law requires them to keep it.',
             'Banks and payment networks, to the extent needed to send your payout.',
-            'Government authorities, regulators and law enforcement, when the law requires it, including reports we are required to file, or in response to valid legal process.',
-            'Professional advisers, such as lawyers, auditors and examiners, under duties of confidentiality.',
-            'A successor organization, if we are involved in a merger, acquisition, financing or sale of assets, subject to this policy.',
-            'Others, with your direction or consent.',
+            'Government authorities, regulators and law enforcement, when the law requires it, including reports we are required to file, or in response to valid legal process. Clause 4.3 of the Service Rules also allows transaction information to be provided to law enforcement agencies, payment system administrations, and victims of unlawful acts proven by court decisions.',
           ],
         },
         {
@@ -127,7 +125,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'We keep personal information for as long as your account is open and afterwards for as long as required by law, for example the Bank Secrecy Act recordkeeping rules that apply to identity and transaction records, and for as long as reasonably needed to resolve disputes, enforce our agreements and protect against fraud. When we no longer need information, we delete or de-identify it.',
+          text: 'We keep personal information for as long as your account is open and afterwards for as long as applicable law requires for identity and transaction records, and for as long as reasonably needed to resolve disputes, enforce our agreements and protect against fraud. When we no longer need information, we delete or de-identify it.',
         },
         {
           type: 'p',
@@ -136,7 +134,7 @@ export const PRIVACY_POLICY: LegalDocument = {
         {
           type: 'review',
           id: 'LR-21',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Retention schedule for each category of personal information (account, identity verification, transaction, payout, device/security, support chat, notifications, legal acceptances), including confirmation of the Bank Secrecy Act recordkeeping period (generally five years) and any longer state requirements.]',
+          text: '[OWNER/COUNSEL INPUT REQUIRED: Retention schedule for each category of personal information (account, identity verification, transaction, payout, device/security, support chat, notifications, legal acceptances) under the law that applies to the operator, a company incorporated in the Republic of Panama.]',
         },
       ],
     },
@@ -160,7 +158,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'The Service is intended for residents of the United States. Some of our service providers may process information in other countries, subject to contractual protections.',
+          text: 'The Service is not limited to residents of the United States, and is not offered in the countries and regions listed in clause 8.5 of the Service Rules. Some of our service providers may process information in other countries, subject to contractual protections.',
         },
         {
           type: 'review',
@@ -188,12 +186,12 @@ export const PRIVACY_POLICY: LegalDocument = {
         },
         {
           type: 'p',
-          text: 'Depending on where you live, you may have additional rights under state privacy laws. Information we collect and share in connection with providing financial services may be governed by the federal Gramm-Leach-Bliley Act rather than by certain state privacy laws.',
+          text: 'Depending on where you live, you may have additional rights under the data-protection laws that apply to you.',
         },
         {
           type: 'review',
           id: 'LR-23',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Whether the operator is a "financial institution" under the Gramm-Leach-Bliley Act (and so must deliver a GLBA privacy notice, possibly in the model form, and an opt-out where required); and which state comprehensive privacy laws apply (for example California CCPA/CPRA, including the GLBA data exemption and the required "notice at collection", rights, metrics and "Do Not Sell or Share" disclosures).]',
+          text: '[OWNER/COUNSEL INPUT REQUIRED: Which data-protection laws apply to a Panama company serving US residents, including Panama’s personal data protection law; whether the operator is a "financial institution" under the Gramm-Leach-Bliley Act (and so must deliver a GLBA privacy notice, possibly in the model form, and an opt-out where required); and which state comprehensive privacy laws apply (for example California CCPA/CPRA, including the GLBA data exemption and the required "notice at collection", rights, metrics and "Do Not Sell or Share" disclosures).]',
         },
       ],
     },
@@ -218,7 +216,7 @@ export const PRIVACY_POLICY: LegalDocument = {
         {
           type: 'review',
           id: 'LR-16',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Minimum advance-notice period for material changes to these Terms and the Privacy Policy, and whether continued use without re-acceptance is sufficient for any category of change.]',
+          text: '[OWNER/COUNSEL INPUT REQUIRED: Minimum advance-notice period for material changes to the Privacy Policy (Section 17 of the Service Rules makes changes to the Rules effective on publication), and whether continued use without re-acceptance is sufficient for any category of change.]',
         },
       ],
     },

@@ -20,8 +20,20 @@ import { Notice } from './ui';
 
 const DAY = 86_400_000;
 
-/** Collects the delivery address and contact details for a cash payout by courier. */
-export function AddCourierForm({ onAdded, onCancel }: { onAdded: (d: Destination) => void; onCancel?: () => void }) {
+/**
+ * Collects the address and contact details for a courier visit: a cash
+ * delivery (sell) or a cash collection (buy). The saved destination is the same.
+ */
+export function AddCourierForm({
+  onAdded,
+  onCancel,
+  purpose = 'delivery',
+}: {
+  onAdded: (d: Destination) => void;
+  onCancel?: () => void;
+  purpose?: 'delivery' | 'collection';
+}) {
+  const word = purpose === 'collection' ? 'collection' : 'delivery';
   const { account } = useServices();
   const user = useUser();
   const sandbox = useConfig().mode === 'sandbox';
@@ -168,7 +180,7 @@ export function AddCourierForm({ onAdded, onCancel }: { onAdded: (d: Destination
               />
             )}
           </Field>
-          <Field label="Delivery window" id="courier-window" error={errors.window}>
+          <Field label={purpose === 'collection' ? 'Collection window' : 'Delivery window'} id="courier-window" error={errors.window}>
             {(p) => (
               <select className="select" {...p} value={input.window} onChange={(e) => set('window', e.target.value as CourierWindow)}>
                 {COURIER_WINDOWS.map((w) => (
@@ -216,11 +228,11 @@ export function AddCourierForm({ onAdded, onCancel }: { onAdded: (d: Destination
             )}
           </Field>
         </div>
-        <p className="small muted">The date and window are a preference. The courier confirms the delivery time with you by phone.</p>
+        <p className="small muted">The date and window are a preference. The courier confirms the {word} time with you by phone.</p>
         {serverError ? <Notice tone={serverError.notConfigured ? 'warn' : 'danger'} title={serverError.message} role="alert" /> : null}
         <div className="row">
           <button type="button" className="btn btn--secondary" onClick={submit} disabled={busy}>
-            {busy ? 'Checking the area…' : 'Save delivery address'}
+            {busy ? 'Checking the area…' : `Save ${word} address`}
           </button>
           {onCancel ? (
             <button type="button" className="btn btn--ghost" onClick={onCancel}>

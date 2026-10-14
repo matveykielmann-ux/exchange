@@ -3,16 +3,33 @@ import type { LegalDocument } from './types';
 export const FEE_DISCLOSURE: LegalDocument = {
   slug: 'fees',
   title: 'Fee and Exchange-Rate Disclosure',
-  version: '1.1.0',
+  version: '2.0.0',
   effectiveDate: null,
   lastUpdated: '2026-10-14',
   summary:
-    'You pay {{brand}} a spread on the reference price and a payout fee that depends on how you are paid, and every amount is itemized in your quote before you confirm.',
+    'How the {{brand}} commission is defined in the Service Rules, how it appears in your quote as a spread and a payout fee, and which return fees the Service Rules allow.',
   acceptance: 'order',
   sections: [
     {
+      id: 'commission',
+      heading: 'The commission in the Service Rules',
+      blocks: [{ type: 'rules', refs: ['6', '2'] }],
+    },
+    {
+      id: 'rates',
+      heading: 'How rates are determined',
+      blocks: [
+        { type: 'rules', refs: ['5'] },
+        {
+          type: 'review',
+          id: 'LR-34',
+          text: '[CONFLICT WITH SITE BEHAVIOR: this site locks a quote for 60 seconds and holds its rate for a deposit that arrives within 30 minutes, rather than fixing the rate when the required confirmations arrive during working hours. See LEGAL_REVIEW.md.]',
+        },
+      ],
+    },
+    {
       id: 'how-pricing-works',
-      heading: 'How your price is calculated',
+      heading: 'What your quote shows',
       blocks: [
         { type: 'p', text: 'Every quote shows these lines, in US dollars, before you confirm:' },
         {
@@ -28,6 +45,11 @@ export const FEE_DISCLOSURE: LegalDocument = {
           type: 'p',
           text: 'The difference between the reference price and the rate you receive is a cost to you and revenue to {{brand}}. Prices from other providers may be higher or lower than ours.',
         },
+        {
+          type: 'p',
+          text: 'The spread, payout fee, minimum amount, quote validity and deposit window that apply to your order are shown when you create it. Clause 4.24 of the Service Rules provides:',
+        },
+        { type: 'rules', refs: ['4.24'] },
       ],
     },
     {
@@ -65,8 +87,9 @@ export const FEE_DISCLOSURE: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'A locked quote is valid for a limited time, currently 60 seconds, and must be refreshed if it expires. When you confirm an order, the rate, spread, payout fee and net payout in the accepted quote apply to that order, provided that you send a conforming deposit within the deposit window, currently 30 minutes. A deposit that is late, for a different amount or on a different network is not paid at the locked rate; see the Cancellation, Rejection and Refund Policy.',
+          text: 'A locked quote is valid for a limited time, currently 60 seconds, and must be refreshed if it expires. When you confirm an order, the rate, spread, payout fee and net payout in the accepted quote apply to that order, provided that you send the quoted amount within the deposit window, currently 30 minutes. If the amount received differs, or funds arrive after the window, the Service Rules provide:',
         },
+        { type: 'rules', refs: ['4.12', '4.14'] },
         {
           type: 'p',
           text: 'We may change our fee schedules and spread tiers at any time by updating the Fees page. A change does not affect an order you have already confirmed.',
@@ -84,24 +107,25 @@ export const FEE_DISCLOSURE: LegalDocument = {
       ],
     },
     {
+      id: 'return-fees',
+      heading: 'Return fees',
+      blocks: [{ type: 'rules', refs: ['9.2', '9.7', '9.8'] }],
+    },
+    {
+      id: 'additional-conditions',
+      heading: 'Rates for additional conditions',
+      blocks: [{ type: 'rules', refs: ['4.23'] }],
+    },
+    {
       id: 'fees-not-charged-by-us',
-      heading: 'Fees we do not charge',
+      heading: 'Fees charged by others',
       blocks: [
         {
           type: 'list',
           items: [
-            'Network fees: you pay a network fee to the blockchain network when you send your deposit. This fee is not paid to {{brand}} and is not included in your quote. If a deposit is returned, network fees for the return are deducted from the returned amount.',
+            'Network fees: you pay a network fee to the blockchain network when you send your deposit. This fee is not paid to {{brand}} and is not included in your quote.',
             'Bank and card fees: your bank or card issuer may charge fees to receive a wire or other payment. These are set by them and are not included in your quote.',
           ],
-        },
-        {
-          type: 'p',
-          text: 'Apart from the spread and payout fee shown in your quote, {{brand}} does not charge fees for using the Service.',
-        },
-        {
-          type: 'review',
-          id: 'LR-08',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Policy for non-conforming deposits (late, wrong amount, wrong supported network): whether a new quote at the current rate may be offered as an alternative to return; any handling fee beyond network fees; the minimum amount worth returning when network fees exceed the deposit; and the target review timeframe.]',
         },
       ],
     },
@@ -116,7 +140,7 @@ export const FEE_DISCLOSURE: LegalDocument = {
         {
           type: 'review',
           id: 'LR-05',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Any state-mandated consumer disclosures that must appear in these Terms, the Risk Disclosure, receipts or complaint notices (for example 23 NYCRR Part 200 disclosures in New York, California DFAL disclosures, and state regulator contact details for complaints).]',
+          text: '[OWNER/COUNSEL INPUT REQUIRED: Any state-mandated consumer disclosures that must appear in the Service Rules, the Risk Disclosure, receipts or complaint notices (for example 23 NYCRR Part 200 disclosures in New York, California DFAL disclosures, and state regulator contact details for complaints).]',
         },
       ],
     },

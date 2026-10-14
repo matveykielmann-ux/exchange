@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { REGEXP_ONLY_DIGITS } from 'input-otp';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
@@ -8,6 +8,7 @@ import { errorMessage } from '@/lib/errors';
 import { MockBadge, Notice } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { US_STATE_NAMES, US_STATES } from '@/domain/usStates';
+import { countryOptions, RESTRICTED_TERRITORIES } from '@/domain/residence';
 import { validateEmail, validatePassword, validateRequired } from '@/domain/validation';
 import { ApiError } from '@/services/http';
 import { isStaff } from '@/state/auth';
@@ -212,8 +213,11 @@ export function SignUpPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [country, setCountry] = useState('');
   const [state, setState] = useState('');
+  const [notRestricted, setNotRestricted] = useState(false);
   const [agree, setAgree] = useState(false);
+  const countries = useMemo(() => countryOptions(), []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -227,7 +231,9 @@ export function SignUpPage() {
     if (n) next['signup-name'] = n;
     if (em) next['signup-email'] = em;
     if (pw) next['signup-password'] = pw;
-    if (!state) next['signup-state'] = 'Choose the state where you live.';
+    if (!country) next['signup-country'] = 'Choose the country where you live.';
+    else if (country === 'US' && !state) next['signup-state'] = 'Choose the state where you live.';
+    if (!notRestricted) next['signup-territory'] = 'Confirm that you do not live in one of the listed territories.';
     if (!agree) next['signup-agree'] = 'Accept the terms to create an account.';
     setErrors(next);
     setServerError(null);
@@ -238,7 +244,9 @@ export function SignUpPage() {
         email,
         password,
         fullName: name,
-        stateOfResidence: state,
+        countryOfResidence: country,
+        stateOfResidence: country === 'US' ? state : null,
+        notInRestrictedTerritory: notRestricted,
         accepted: signupDocs.map((d) => ({ slug: d.slug, version: d.version })),
       });
       setPassword('');
@@ -249,7 +257,9 @@ export function SignUpPage() {
         email: 'signup-email',
         password: 'signup-password',
         fullName: 'signup-name',
+        countryOfResidence: 'signup-country',
         stateOfResidence: 'signup-state',
+        notInRestrictedTerritory: 'signup-territory',
       };
       if (field && map[field]) setErrors({ [map[field]]: errorMessage(err) });
       else setServerError(errorMessage(err));
@@ -278,18 +288,32 @@ export function SignUpPage() {
               <input className="input" {...p} type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             )}
           </Field>
-          <Field label="State of residence" id="signup-state" error={errors['signup-state']}>
+          <Field label="Country of residence" id="signup-country" error={errors['signup-country']}>
             {(p) => (
-              <select className="select" {...p} autoComplete="address-level1" value={state} onChange={(e) => setState(e.target.value)}>
-                <option value="">Choose a state</option>
-                {US_STATES.map((s) => (
-                  <option key={s} value={s}>
-                    {US_STATE_NAMES[s]}
+              <select className="select" {...p} autoComplete="country" value={country} onChange={(e) => setCountry(e.target.value)}>
+                <option value="">Choose a country</option>
+                {countries.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name}
                   </option>
                 ))}
               </select>
             )}
           </Field>
+          {country === 'US' ? (
+            <Field label="State of residence" id="signup-state" error={errors['signup-state']}>
+              {(p) => (
+                <select className="select" {...p} autoComplete="address-level1" value={state} onChange={(e) => setState(e.target.value)}>
+                  <option value="">Choose a state</option>
+                  {US_STATES.map((s) => (
+                    <option key={s} value={s}>
+                      {US_STATE_NAMES[s]}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+          ) : null}
           <Field
             label="Password"
             id="signup-password"
@@ -307,6 +331,13 @@ export function SignUpPage() {
               />
             )}
           </Field>
+          <Checkbox id="signup-territory" checked={notRestricted} onChange={setNotRestricted} error={errors['signup-territory']}>
+            I am not a citizen or resident of, and do not live in, any territory listed in clause 8.5 of the{' '}
+            <Link to="/legal/terms#clause-8-5" target="_blank">
+              Service Rules
+            </Link>
+            : {RESTRICTED_TERRITORIES.join('; ')}.
+          </Checkbox>
           <Checkbox id="signup-agree" checked={agree} onChange={setAgree} error={errors['signup-agree']}>
             I agree to the{' '}
             {signupDocs.map((d, i) => (
@@ -319,6 +350,13 @@ export function SignUpPage() {
             ))}
             , including receiving documents electronically.
           </Checkbox>
+          <p className="small muted">
+            Under the{' '}
+            <Link to="/legal/terms" target="_blank">
+              Service Rules
+            </Link>
+            , using the Service confirms your agreement with them. You also accept them with each Exchange Request.
+          </p>
           {serverError ? <Notice tone="danger" title={serverError} role="alert" /> : null}
           <button className="btn btn--lg btn--block" type="submit" disabled={busy}>
             {busy ? 'Creating…' : 'Create account'}

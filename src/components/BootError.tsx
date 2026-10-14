@@ -1,3 +1,4 @@
+import { BRAND } from '@/config/brand';
 import { errorMessage } from '@/lib/errors';
 import { Logo } from './Logo';
 
@@ -9,7 +10,7 @@ export function BootError({ error }: { error: unknown }) {
         <div className="brand">
           <Logo />
         </div>
-        <h1 className="display-l">We can't reach Arcvale right now</h1>
+        <h1 className="display-l">We can't reach {BRAND.name} right now</h1>
         <p className="lead">{errorMessage(error)}</p>
         <p className="muted">Nothing has changed with any request you made. Reload the page in a moment.</p>
         <div>

@@ -5,6 +5,7 @@
  * - production with an email provider: queued → sent / failed.
  * - production without one: not_configured. Nothing pretends it was sent.
  */
+import { BRAND } from '@/config/brand';
 import type { AppContext } from '../context';
 import { newId } from '../lib/clock';
 import { isUsable } from '../providers/registry';
@@ -13,6 +14,10 @@ export type Template =
   | 'welcome'
   | 'password_reset'
   | 'order_created'
+  | 'buy_order_created'
+  | 'buy_transfer_submitted'
+  | 'buy_completed'
+  | 'buy_cash_verified'
   | 'deposit_confirmed'
   | 'info_requested'
   | 'payout_submitted'
@@ -27,16 +32,32 @@ type Vars = Record<string, string>;
 
 const TEMPLATES: Record<Template, (v: Vars) => { subject: string; body: string }> = {
   welcome: (v) => ({
-    subject: 'Welcome to Arcvale',
-    body: `Hi ${v.name},\n\nYour Arcvale account is ready. Verify your identity from your account page before your first exchange.\n\nIf you did not create this account, contact support.`,
+    subject: `Welcome to ${BRAND.name}`,
+    body: `Hi ${v.name},\n\nYour ${BRAND.name} account is ready. Verify your identity from your account page before your first exchange.\n\nIf you did not create this account, contact support.`,
   }),
   password_reset: (v) => ({
-    subject: 'Reset your Arcvale password',
+    subject: `Reset your ${BRAND.name} password`,
     body: `Use this link within 30 minutes to choose a new password:\n\n${v.url}\n\nIf you did not ask for this, you can ignore this email. Your password has not changed.`,
   }),
   order_created: (v) => ({
     subject: `Order ${v.reference}: send your deposit`,
     body: `We created order ${v.reference}. Send exactly ${v.amount} on ${v.network} before ${v.deadline}. Check the deposit address on the order page; never send to an address from an email.`,
+  }),
+  buy_order_created: (v) => ({
+    subject: `Order ${v.reference}: cash collection requested`,
+    body: `We created order ${v.reference} and asked the courier to collect ${v.cash} in cash before ${v.deadline}. The courier collects the cash only from you, after checking your ID. Follow the order on the order page.`,
+  }),
+  buy_transfer_submitted: (v) => ({
+    subject: `Order ${v.reference}: crypto transfer submitted`,
+    body: `Your transfer of ${v.amount} for order ${v.reference} was submitted to the custody provider. Timing is an estimate, not a guarantee.`,
+  }),
+  buy_completed: (v) => ({
+    subject: `Order ${v.reference}: completed`,
+    body: `The custody provider reports your transfer of ${v.amount} for order ${v.reference} as completed.`,
+  }),
+  buy_cash_verified: (v) => ({
+    subject: `Order ${v.reference}: cash counted`,
+    body: `The cash collected for order ${v.reference} was counted and matches the quote. We will update you when your crypto transfer is submitted.`,
   }),
   deposit_confirmed: (v) => ({
     subject: `Order ${v.reference}: deposit confirmed`,
@@ -60,7 +81,7 @@ const TEMPLATES: Record<Template, (v: Vars) => { subject: string; body: string }
   }),
   refund_started: (v) => ({
     subject: `Order ${v.reference}: refund started`,
-    body: `We started returning your deposit for order ${v.reference} to your refund address. Network fees may be deducted.`,
+    body: `We started returning your deposit for order ${v.reference} to your refund address. Return fees under Section 9 of the Service Rules may be deducted.`,
   }),
   refund_completed: (v) => ({
     subject: `Order ${v.reference}: refund sent`,

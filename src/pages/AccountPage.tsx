@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AddBankForm } from '@/components/AddBankForm';
 import { AddCourierForm } from '@/components/AddCourierForm';
@@ -8,6 +8,7 @@ import { Icon } from '@/components/Icon';
 import { MockBadge, Notice, PageHeader, StatusBadge } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { US_STATE_NAMES, US_STATES, type UsStateCode } from '@/domain/usStates';
+import { countryName, countryOptions } from '@/domain/residence';
 import { validatePassword } from '@/domain/validation';
 import { errorMessage, isNotConfigured } from '@/lib/errors';
 import { describeDestination, destinationLabel, formatDateTime } from '@/lib/format';
@@ -55,7 +56,9 @@ function ProfileSection({ user }: { user: User }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user.fullName);
   const [phone, setPhone] = useState(user.phone ?? '');
+  const [country, setCountry] = useState(user.countryOfResidence ?? (user.stateOfResidence ? 'US' : ''));
   const [state, setState] = useState(user.stateOfResidence ?? '');
+  const countries = useMemo(() => countryOptions(), []);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const locked = user.verification.status === 'verified' || user.verification.status === 'pending';
@@ -68,7 +71,8 @@ function ProfileSection({ user }: { user: User }) {
       await account.updateProfile({
         ...(locked ? {} : { fullName: name.trim() }),
         phone: phone.trim() || null,
-        stateOfResidence: state || null,
+        countryOfResidence: country || null,
+        stateOfResidence: country === 'US' ? state || null : null,
       });
       setEditing(false);
     } catch (err) {
@@ -98,18 +102,32 @@ function ProfileSection({ user }: { user: User }) {
                 <input className="input" {...p} type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
               )}
             </Field>
-            <Field label="State of residence" id="pf-state">
+            <Field label="Country of residence" id="pf-country">
               {(p) => (
-                <select className="select" {...p} value={state} onChange={(e) => setState(e.target.value)}>
-                  <option value="">Choose a state</option>
-                  {US_STATES.map((s) => (
-                    <option key={s} value={s}>
-                      {US_STATE_NAMES[s]}
+                <select className="select" {...p} autoComplete="country" value={country} onChange={(e) => setCountry(e.target.value)}>
+                  <option value="">Choose a country</option>
+                  {countries.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.name}
                     </option>
                   ))}
                 </select>
               )}
             </Field>
+            {country === 'US' ? (
+              <Field label="State of residence" id="pf-state">
+                {(p) => (
+                  <select className="select" {...p} value={state} onChange={(e) => setState(e.target.value)}>
+                    <option value="">Choose a state</option>
+                    {US_STATES.map((s) => (
+                      <option key={s} value={s}>
+                        {US_STATE_NAMES[s]}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </Field>
+            ) : null}
           </div>
           {error ? <Notice tone="danger" title={error} role="alert" /> : null}
           <div className="row">
@@ -137,11 +155,15 @@ function ProfileSection({ user }: { user: User }) {
               <dd>{user.phone ?? 'Not added'}</dd>
             </div>
             <div>
-              <dt>State</dt>
-              <dd>
-                {user.stateOfResidence ? (US_STATE_NAMES[user.stateOfResidence as UsStateCode] ?? user.stateOfResidence) : 'Not added'}
-              </dd>
+              <dt>Country</dt>
+              <dd>{user.countryOfResidence ? countryName(user.countryOfResidence) : 'Not added'}</dd>
             </div>
+            {user.stateOfResidence ? (
+              <div>
+                <dt>State</dt>
+                <dd>{US_STATE_NAMES[user.stateOfResidence as UsStateCode] ?? user.stateOfResidence}</dd>
+              </div>
+            ) : null}
           </dl>
           <div>
             <button type="button" className="btn btn--secondary" onClick={() => setEditing(true)}>
@@ -667,7 +689,7 @@ export function AccountPage() {
             <Link to="/support">Support messages</Link>
           </nav>
           <div className="stack stack--lg">
-            <ProfileSection key={`${user.fullName}|${user.phone}|${user.stateOfResidence}`} user={user} />
+            <ProfileSection key={`${user.fullName}|${user.phone}|${user.countryOfResidence}|${user.stateOfResidence}`} user={user} />
             <VerificationSection user={user} />
             <PayoutSection />
             <Section id="security" title="Security">

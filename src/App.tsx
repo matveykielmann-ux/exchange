@@ -104,6 +104,9 @@ export function AppRoutes() {
         <Route path="help" element={<HelpPage />} />
         <Route path="legal" element={<LegalIndexPage />} />
         <Route path="legal/:slug" element={<LegalDocumentPage />} />
+        {/* Paths the Service Rules link to (Sections 8 and 15); they open the matching existing pages. */}
+        <Route path="en/kyc-aml-policy" element={<Navigate to="/legal/kyc-aml" replace />} />
+        <Route path="en/privacy-policy" element={<Navigate to="/legal/privacy" replace />} />
         <Route path="signin" element={<SignInPage />} />
         <Route path="signup" element={<SignUpPage />} />
         <Route path="reset-password" element={<ResetRequestPage />} />

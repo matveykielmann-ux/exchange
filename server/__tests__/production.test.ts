@@ -141,7 +141,9 @@ describe('production mode without credentials', () => {
       email: 'real@example.com',
       password: SANDBOX_PASSWORD,
       fullName: 'Real Person',
+      countryOfResidence: 'US',
       stateOfResidence: 'NY',
+      notInRestrictedTerritory: true,
       accepted: LEGAL_DOCUMENTS.filter((d) => d.acceptance === 'signup').map((d) => ({ slug: d.slug, version: d.version })),
     });
     expect(signup.status).toBe(201);

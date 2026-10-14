@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { EventLog, StatusRail } from '@/components/TransactionProgress';
 import { MockBadge, Notice, StatusBadge } from '@/components/ui';
 import { formatUsd } from '@/domain/money';
-import { ORDER_STATUS_LABEL, orderTone } from '@/domain/order';
+import { orderStatusLabel, orderTone } from '@/domain/order';
 import { errorMessage } from '@/lib/errors';
 import { destinationLabel, formatAsset, formatDateTime, formatPriceMicros } from '@/lib/format';
 import { COURIER_WINDOW_LABELS } from '@/domain/courier';
@@ -311,7 +311,9 @@ export function OrderDetailPage() {
       <AdminHead
         title={
           <>
-            <span className="mono">{o.reference}</span> <StatusBadge tone={orderTone(o.status)}>{ORDER_STATUS_LABEL[o.status]}</StatusBadge>
+            <span className="mono">{o.reference}</span>{' '}
+            <StatusBadge tone={orderTone(o.status)}>{orderStatusLabel(o.status, o.direction)}</StatusBadge>{' '}
+            <span className="badge badge--neutral">{o.direction === 'buy' ? 'Buy · cash → crypto' : 'Sell · crypto → USD'}</span>
           </>
         }
         lead={`Created ${formatDateTime(o.createdAt)} · updated ${formatDateTime(o.updatedAt)} · version ${o.version}`}
@@ -334,7 +336,7 @@ export function OrderDetailPage() {
             <div className="panel__body">
               <dl className="dl dl--cols">
                 <div>
-                  <dt>Selling</dt>
+                  <dt>{o.direction === 'buy' ? 'Buying' : 'Selling'}</dt>
                   <dd className="tabular">
                     {formatAsset(o.amountAtomic, o.asset)} on {o.networkLabel}
                   </dd>
@@ -344,7 +346,7 @@ export function OrderDetailPage() {
                   <dd className="tabular">{formatPriceMicros(o.quote.referencePriceMicros, o.asset)}</dd>
                 </div>
                 <div>
-                  <dt>Gross</dt>
+                  <dt>{o.direction === 'buy' ? 'Cash to collect' : 'Gross'}</dt>
                   <dd className="tabular">{formatUsd(o.quote.grossCents)}</dd>
                 </div>
                 <div>
@@ -354,26 +356,28 @@ export function OrderDetailPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt>Payout fee</dt>
+                  <dt>{o.direction === 'buy' ? 'Courier fee' : 'Payout fee'}</dt>
                   <dd className="tabular">{formatUsd(o.quote.payoutFeeCents)}</dd>
                 </div>
                 <div>
-                  <dt>Net payout</dt>
+                  <dt>{o.direction === 'buy' ? 'Converted to crypto' : 'Net payout'}</dt>
                   <dd className="tabular">
                     <strong>{formatUsd(o.quote.netCents)}</strong>
                   </dd>
                 </div>
                 <div>
-                  <dt>Payout to</dt>
-                  <dd>
-                    {o.payout.methodName} · {destinationLabel(o.payout.label, o.payout.last4)}
+                  <dt>{o.direction === 'buy' ? 'Crypto to' : 'Payout to'}</dt>
+                  <dd className={o.direction === 'buy' ? 'mono small' : undefined}>
+                    {o.direction === 'buy'
+                      ? o.receiveAddress
+                      : `${o.payout.methodName} · ${destinationLabel(o.payout.label, o.payout.last4)}`}
                   </dd>
                 </div>
                 {data.courierDelivery ? (
                   <div>
-                    <dt>Courier delivery</dt>
+                    <dt>{o.direction === 'buy' ? 'Courier collection' : 'Courier delivery'}</dt>
                     <dd>
-                      Hand only to {data.courierDelivery.recipient} after a photo ID check
+                      {o.direction === 'buy' ? 'Collect only from' : 'Hand only to'} {data.courierDelivery.recipient} after a photo ID check
                       <br />
                       <span className="small">
                         {data.courierDelivery.line1}
@@ -425,8 +429,10 @@ export function OrderDetailPage() {
                 </div>
                 {o.deposit.amountAtomic !== null ? (
                   <div>
-                    <dt>Amount received</dt>
-                    <dd className="tabular">{formatAsset(o.deposit.amountAtomic, o.asset)}</dd>
+                    <dt>{o.direction === 'buy' ? 'Cash counted' : 'Amount received'}</dt>
+                    <dd className="tabular">
+                      {o.direction === 'buy' ? formatUsd(o.deposit.amountAtomic) : formatAsset(o.deposit.amountAtomic, o.asset)}
+                    </dd>
                   </div>
                 ) : null}
                 {o.deposit.exception ? (
@@ -436,15 +442,47 @@ export function OrderDetailPage() {
                   </div>
                 ) : null}
                 <div>
-                  <dt>Customer said sent</dt>
+                  <dt>{o.direction === 'buy' ? 'ID uploaded' : 'Customer tx hash'}</dt>
                   <dd>
-                    {o.deposit.customerReportedSentAt ? `${formatDateTime(o.deposit.customerReportedSentAt)} (not proof of deposit)` : '—'}
+                    {o.direction === 'buy' ? (
+                      o.documents.length ? (
+                        <ul className="doc-list small">
+                          {o.documents.map((d) => (
+                            <li key={d.id}>
+                              <span>
+                                {d.fileName} · {d.contentType} · {Math.max(1, Math.round(d.sizeBytes / 1024))} KB ·{' '}
+                                {formatDateTime(d.createdAt)}
+                                <span className="mono muted" style={{ display: 'block' }}>
+                                  sha256 {d.sha256.slice(0, 16)}… {d.stored ? '' : '(sandbox: file checked and discarded)'}
+                                </span>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        '—'
+                      )
+                    ) : o.deposit.customerReportedSentAt ? (
+                      <>
+                        <span className="mono small" style={{ overflowWrap: 'anywhere' }}>
+                          {o.deposit.customerTxHash ?? 'no hash'}
+                        </span>
+                        <br />
+                        <span className="small muted">
+                          Submitted {formatDateTime(o.deposit.customerReportedSentAt)}; format checked only, not proof of deposit
+                        </span>
+                      </>
+                    ) : (
+                      '—'
+                    )}
                   </dd>
                 </div>
-                <div>
-                  <dt>Refund address</dt>
-                  <dd className="mono small">{o.refundAddress}</dd>
-                </div>
+                {o.direction === 'buy' ? null : (
+                  <div>
+                    <dt>Refund address</dt>
+                    <dd className="mono small">{o.refundAddress}</dd>
+                  </div>
+                )}
               </dl>
             </div>
           </section>
