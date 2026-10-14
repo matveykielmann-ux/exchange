@@ -92,8 +92,9 @@ export function LargeTransactionsPage() {
               <span className="steps-row__num">02</span>
               <h3>Enhanced verification</h3>
               <p>
-                Identity verification for you, or for the business and its beneficial owners, plus source-of-funds documentation. Each
-                request is reviewed individually and may be declined.
+                Identity verification for you, or for the business and its beneficial owners, plus Proof of Funds and Source of Funds
+                documents under Section 8 of the <Link to="/legal/kyc-aml">Service Rules</Link>. Each request is reviewed individually and
+                may be declined.
               </p>
             </li>
             <li>

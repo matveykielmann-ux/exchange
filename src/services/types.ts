@@ -1,5 +1,5 @@
 /**
- * The browser's view of the Arcvale API. Pages depend only on these
+ * The browser's view of the exchange API. Pages depend only on these
  * interfaces, reached through `useServices()`; the implementation in
  * `./api.ts` talks to the server over HTTP. Every business rule, price,
  * status and outcome comes from the server: the browser only displays it.

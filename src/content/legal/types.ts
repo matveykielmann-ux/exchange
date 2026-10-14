@@ -11,7 +11,13 @@ export type LegalBlock =
    * sandbox mode; omitted from production pages. `id` matches an entry in
    * LEGAL_REVIEW.md (e.g. "LR-07").
    */
-  | { type: 'review'; id: string; text: string };
+  | { type: 'review'; id: string; text: string }
+  /**
+   * Clauses ("4.11") or whole sections ("6") of the Service Rules, quoted word
+   * for word from the supplied document at render time, so a page can never
+   * drift from the Rules it quotes.
+   */
+  | { type: 'rules'; refs: string[] };
 
 export interface LegalSection {
   id: string;
@@ -33,4 +39,15 @@ export interface LegalDocument {
   /** Whether customers must accept this document (sign-up or order confirmation). */
   acceptance: 'signup' | 'order' | null;
   sections: LegalSection[];
+  /**
+   * The full text of a document the owner supplied as Markdown. When set, the
+   * page renders this text verbatim (see ./markdown.ts) instead of `sections`.
+   */
+  markdown?: string;
+  /**
+   * Reviewer notes about a supplied document, such as conflicts between its
+   * text and the Service's actual behavior. Shown in sandbox mode only, never
+   * inside the document text. `id` matches an entry in LEGAL_REVIEW.md.
+   */
+  reviewNotes?: { id: string; text: string }[];
 }

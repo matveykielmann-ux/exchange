@@ -11,10 +11,12 @@ export interface StateLicense {
 }
 
 export const LEGAL_ENTITY = {
-  brandName: 'Arcvale',
-  /** Registered legal name of the operating company. */
-  legalName: null as string | null,
-  stateOfFormation: null as string | null,
+  brandName: 'CryptoBit Exchange',
+  /** Registered legal name of the operating company (Service Rules, preamble). */
+  legalName: 'CryptoBit Exchange' as string | null,
+  /** Jurisdiction of incorporation (Service Rules, preamble). */
+  jurisdiction: 'Republic of Panama' as string | null,
+  registrationNumber: 'No. 155778934' as string | null,
   registeredAddress: null as string | null,
   mailingAddress: null as string | null,
   /** FinCEN MSB registration number, if registered. */
@@ -26,10 +28,10 @@ export const LEGAL_ENTITY = {
   privacyEmail: null as string | null,
   supportPhone: null as string | null,
   supportHours: null as string | null,
-  /** State whose law governs the Terms. */
-  governingLawState: null as string | null,
-  /** Dispute-resolution forum or arbitration administrator, if any. */
-  disputeForum: null as string | null,
+  /** Law that governs the Service Rules (Section 16). */
+  governingLaw: 'the laws of the Republic of Panama' as string | null,
+  /** Dispute resolution (Section 16): negotiations, then the competent court of the Republic of Panama after 60 calendar days. */
+  disputeForum: 'the competent court of the Republic of Panama' as string | null,
   /** US states and territories where the service is offered. Null = not yet determined. */
   servedStates: null as string[] | null,
 } as const;

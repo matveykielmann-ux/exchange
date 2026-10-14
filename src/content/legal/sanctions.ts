@@ -3,84 +3,71 @@ import type { LegalDocument } from './types';
 export const SANCTIONS_NOTICE: LegalDocument = {
   slug: 'sanctions',
   title: 'Sanctions and Restricted-Jurisdiction Notice',
-  version: '1.0.0',
+  version: '2.0.0',
   effectiveDate: null,
-  lastUpdated: '2026-10-13',
+  lastUpdated: '2026-10-14',
   summary:
-    '{{brand}} complies with US sanctions laws, is available only in the US states where we offer it, and cannot be used by sanctioned persons or from restricted jurisdictions.',
+    'The countries and regions the Service Rules exclude, the ban on tools that conceal identity or location, and what happens to funds affected by sanctions.',
   acceptance: null,
   sections: [
     {
-      id: 'sanctions-compliance',
-      heading: 'Sanctions compliance',
-      blocks: [
-        {
-          type: 'p',
-          text: "We comply with the economic and trade sanctions administered by the US Department of the Treasury's Office of Foreign Assets Control (OFAC) and other applicable US sanctions laws. These laws prohibit us from dealing with sanctioned persons, entities and jurisdictions, and with property in which they have an interest.",
-        },
-      ],
-    },
-    {
-      id: 'who-cannot-use',
-      heading: 'Who cannot use the Service',
-      blocks: [
-        { type: 'p', text: 'You may not use the Service if you are:' },
-        {
-          type: 'list',
-          items: [
-            "named on, or owned or controlled by a person named on, OFAC's Specially Designated Nationals and Blocked Persons List or any other US sanctions or restricted-party list;",
-            'located in, organized in or ordinarily resident in a country or region subject to comprehensive US sanctions; or',
-            'acting on behalf of any such person.',
-          ],
-        },
-      ],
-    },
-    {
       id: 'restricted-jurisdictions',
-      heading: 'Where the Service is available',
+      heading: 'Restricted countries and regions',
+      blocks: [{ type: 'rules', refs: ['8.5'] }],
+    },
+    {
+      id: 'where-available',
+      heading: 'Where this site currently operates',
       blocks: [
         {
           type: 'p',
-          text: 'The Service is available only to residents of the US states and territories where we offer it. Residents of other states, and anyone located outside the United States, may not use the Service. We may check your location using your address, identity documents and IP address.',
+          text: 'Sign-up on this site currently asks for a US state of residence, and payouts are made to US bank accounts and US debit cards or, where cash delivery is offered, to US addresses.',
         },
         {
           type: 'review',
-          id: 'LR-02',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: The list of US states and territories in which the Service will be offered at launch, and any states expressly excluded (for example New York or California pending licensing). Must match the server-side geo-restriction.]',
-        },
-        {
-          type: 'p',
-          text: 'You may not use a VPN, proxy or any other tool to disguise your location or to access the Service from a place where it is not available.',
-        },
-        {
-          type: 'review',
-          id: 'LR-28',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: The list of comprehensively sanctioned and other restricted jurisdictions (and whether to name them on this page), the IP-geolocation and VPN-detection controls to be applied, and the treatment of customers who travel outside the United States.]',
+          id: 'LR-41',
+          text: '[OWNER INPUT REQUIRED: The Service Rules restrict only the territories in clause 8.5, while this site serves US residents only. Confirm which countries and states the Service is offered in, and whether the US-only sign-up stays.]',
         },
       ],
     },
     {
-      id: 'blockchain-addresses',
-      heading: 'Blockchain address screening',
+      id: 'location',
+      heading: 'Concealing identity or location',
       blocks: [
         {
           type: 'p',
-          text: 'We screen blockchain addresses that send deposits to us and the refund addresses you give us. We will not accept deposits from, or send returns to, addresses that are identified on a sanctions list or that we determine are associated with sanctioned persons or other illicit activity.',
+          text: 'You may not use a VPN, proxy or any other tool to disguise your location or to access the Service from a place where it is not available. Section 11 of the Service Rules provides:',
+        },
+        { type: 'rules', refs: ['11'] },
+      ],
+    },
+    {
+      id: 'screening',
+      heading: 'Sanctions screening',
+      blocks: [
+        {
+          type: 'p',
+          text: 'We screen customers, deposits and blockchain addresses, including the addresses that send deposits to us and the refund addresses you give us. We will not accept deposits from, or send returns to, addresses that are identified on a sanctions list or that we determine are associated with sanctioned persons or other illicit activity.',
+        },
+        {
+          type: 'review',
+          id: 'LR-44',
+          text: '[OWNER/COUNSEL INPUT REQUIRED: The Service Rules do not name specific sanctions regimes or lists. Confirm which sanctions lists the operator screens against, and whether this page should name them, given that the site serves US residents.]',
         },
       ],
     },
     {
-      id: 'what-happens',
+      id: 'sanctions-concern',
       heading: 'What happens if there is a sanctions concern',
       blocks: [
         {
           type: 'p',
-          text: 'If a customer, deposit or address raises a sanctions concern, we will hold the order for review. If the law requires, we will block or reject the funds and report them to the government, and we may be unable to return them to you or to tell you why. We may also close the account.',
+          text: 'If a customer, deposit or address raises a sanctions concern, we will hold the order for review, and clause 8.2 of the Service Rules applies. Under that clause, funds frozen due to sanctions-related restrictions may remain blocked until such restrictions are lifted. We may also close the account.',
         },
       ],
     },
     {
-      id: 'your-representations',
+      id: 'representations',
       heading: 'Your representations',
       blocks: [
         {

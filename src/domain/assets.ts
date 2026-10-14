@@ -1,7 +1,8 @@
 /**
- * Supported assets and networks. Confirmation counts and minimums are MOCK
- * POLICY values for the preview — production thresholds must be set by the
- * risk and compliance owners for each chain.
+ * Supported assets and networks. Confirmation counts follow the table in
+ * Section 5 of the Service Rules (BTC 4; ETH, USDT and USDC 21). The Rules set
+ * no count for Solana or Base, so those keep the earlier sandbox values until
+ * the owner sets them (LEGAL_REVIEW.md, LR-38).
  */
 import { parseDecimal, type ParseResult } from './money';
 
@@ -12,7 +13,7 @@ export type AssetClass = 'volatile' | 'stable';
 export interface Network {
   id: NetworkId;
   name: string;
-  /** Mock confirmation policy before the deposit counts as final. */
+  /** Confirmations before the deposit counts as final (Service Rules, Section 5). */
   confirmationsRequired: number;
   /** Plain-language estimate shown to customers. Always an estimate. */
   typicalConfirmationTime: string;
@@ -44,23 +45,23 @@ export const NETWORKS: Record<NetworkId, Network> = {
   bitcoin: {
     id: 'bitcoin',
     name: 'Bitcoin',
-    confirmationsRequired: 2,
-    typicalConfirmationTime: 'about 20–60 minutes',
+    confirmationsRequired: 4,
+    typicalConfirmationTime: 'about 40–80 minutes',
     addressPattern: /^(bc1[02-9ac-hj-np-z]{11,71}|[13][1-9A-HJ-NP-Za-km-z]{25,34})$/,
     addressExample: 'bc1q…',
   },
   ethereum: {
     id: 'ethereum',
     name: 'Ethereum',
-    confirmationsRequired: 12,
-    typicalConfirmationTime: 'about 3–5 minutes',
+    confirmationsRequired: 21,
+    typicalConfirmationTime: 'about 4–6 minutes',
     addressPattern: /^0x[0-9a-fA-F]{40}$/,
     addressExample: '0x…',
   },
   tron: {
     id: 'tron',
     name: 'Tron',
-    confirmationsRequired: 20,
+    confirmationsRequired: 21,
     typicalConfirmationTime: 'about 1–3 minutes',
     addressPattern: /^T[1-9A-HJ-NP-Za-km-z]{33}$/,
     addressExample: 'T…',

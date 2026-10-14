@@ -319,6 +319,13 @@ export function SignUpPage() {
             ))}
             , including receiving documents electronically.
           </Checkbox>
+          <p className="small muted">
+            Under the{' '}
+            <Link to="/legal/terms" target="_blank">
+              Service Rules
+            </Link>
+            , using the Service confirms your agreement with them. You also accept them with each Exchange Request.
+          </p>
           {serverError ? <Notice tone="danger" title={serverError} role="alert" /> : null}
           <button className="btn btn--lg btn--block" type="submit" disabled={busy}>
             {busy ? 'Creating…' : 'Create account'}

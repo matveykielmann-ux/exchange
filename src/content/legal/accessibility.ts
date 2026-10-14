@@ -3,9 +3,9 @@ import type { LegalDocument } from './types';
 export const ACCESSIBILITY_STATEMENT: LegalDocument = {
   slug: 'accessibility',
   title: 'Accessibility Statement',
-  version: '1.0.0',
+  version: '1.0.1',
   effectiveDate: null,
-  lastUpdated: '2026-10-13',
+  lastUpdated: '2026-10-14',
   summary:
     '{{brand}} aims to make the Service usable by everyone and targets conformance with the Web Content Accessibility Guidelines (WCAG) 2.2 at level AA.',
   acceptance: null,
@@ -56,7 +56,7 @@ export const ACCESSIBILITY_STATEMENT: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'If you have difficulty using any part of the Service, or need a document such as our Terms or a receipt in an alternative format, contact us through the support chat or at {{supportEmail}}. Tell us what you were trying to do and what assistive technology you use, if any, and we will work with you to provide the information or complete the task another way.',
+          text: 'If you have difficulty using any part of the Service, or need a document such as our Service Rules or a receipt in an alternative format, contact us through the support chat or at {{supportEmail}}. Tell us what you were trying to do and what assistive technology you use, if any, and we will work with you to provide the information or complete the task another way.',
         },
       ],
     },

@@ -1,8 +1,10 @@
-import { Fragment, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Fragment, useEffect, useMemo, type ReactNode } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { LegalMarkdown, RulesQuote } from '@/components/LegalMarkdown';
 import { Notice, PageHeader } from '@/components/ui';
 import { BRAND } from '@/config/brand';
 import { getLegalDocument, LEGAL_DOCUMENTS, type LegalBlock, type LegalDocument } from '@/content/legal';
+import { headingRanks, parseMarkdown, type MdBlock } from '@/content/legal/markdown';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { useIsSandbox } from '@/state/config';
 import { NotFoundPage } from './ContentPages';
@@ -15,6 +17,36 @@ const ACCEPTANCE_LABEL: Record<NonNullable<LegalDocument['acceptance']>, string>
 };
 
 const hasReviewItems = (doc: LegalDocument) => doc.sections.some((s) => s.blocks.some((b) => b.type === 'review'));
+
+/** Table-of-contents entries for a Markdown document: its second heading level (the first is the document title). */
+function markdownToc(blocks: MdBlock[]) {
+  const level = headingRanks(blocks)[1];
+  return blocks.flatMap((b) => (b.type === 'heading' && b.level === level ? [{ id: b.id, heading: b.text }] : []));
+}
+
+/**
+ * Reviewer notes on a supplied document (for example where its text and the
+ * Service's behavior differ). Sandbox only, collapsed, and kept outside the
+ * document text so the document itself is shown exactly as supplied.
+ */
+function ReviewNotes({ doc, sandbox }: { doc: LegalDocument; sandbox: boolean }) {
+  if (!sandbox || !doc.reviewNotes?.length) return null;
+  return (
+    <details className="legal-notes">
+      <summary>
+        Reviewer notes: {doc.reviewNotes.length} points where this document and the current site differ or details are missing (shown in the
+        sandbox only)
+      </summary>
+      <ul>
+        {doc.reviewNotes.map((n) => (
+          <li key={n.id} className="legal-review">
+            <span className="legal-review__id">{n.id}</span> {n.text}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
 
 function formatIsoDate(iso: string) {
   const [y, m, d] = iso.split('-').map(Number);
@@ -80,6 +112,8 @@ function Block({ block, sandbox }: { block: LegalBlock; sandbox: boolean }): Rea
       const items = block.items.map((t, i) => <li key={i}>{fill(t)}</li>);
       return block.ordered ? <ol>{items}</ol> : <ul>{items}</ul>;
     }
+    case 'rules':
+      return <RulesQuote refs={block.refs} />;
     case 'review':
       // Unresolved facts are shown to reviewers in the sandbox only; production pages omit them.
       return sandbox ? (
@@ -96,7 +130,14 @@ export function LegalDocumentPage() {
   const doc = getLegalDocument(slug);
   useDocumentTitle(doc?.title ?? 'Legal');
   const sandbox = useIsSandbox();
+  const blocks = useMemo(() => (doc?.markdown ? parseMarkdown(doc.markdown) : null), [doc]);
+  const { hash } = useLocation();
+  // Links such as "/legal/terms#clause-4-11" can arrive before this lazily loaded page has rendered; scroll once it has.
+  useEffect(() => {
+    if (hash) document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView();
+  }, [hash, doc]);
   if (!doc) return <NotFoundPage />;
+  const toc = blocks ? markdownToc(blocks) : doc.sections.map((s) => ({ id: s.id, heading: s.heading }));
   return (
     <>
       <PageHeader eyebrow="Legal" title={doc.title} lead={fill(doc.summary)}>
@@ -122,7 +163,7 @@ export function LegalDocumentPage() {
       <div className="container content-grid">
         <nav className="toc" aria-label="On this page">
           <p className="eyebrow">On this page</p>
-          {doc.sections.map((s) => (
+          {toc.map((s) => (
             <a key={s.id} href={`#${s.id}`}>
               {s.heading}
             </a>
@@ -131,8 +172,10 @@ export function LegalDocumentPage() {
             All legal documents
           </Link>
         </nav>
-        <article className="prose">
+        <article className={blocks ? 'prose prose--legal-md' : 'prose'}>
           <PendingReviewNotice sandbox={sandbox} doc={doc} />
+          <ReviewNotes doc={doc} sandbox={sandbox} />
+          {blocks ? <LegalMarkdown blocks={blocks} label={doc.title} /> : null}
           {doc.sections.map((s) => (
             <Fragment key={s.id}>
               <h2 id={s.id}>{s.heading}</h2>

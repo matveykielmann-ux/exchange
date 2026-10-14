@@ -1,5 +1,5 @@
 /**
- * Thin fetch wrapper for the Arcvale API: same-origin cookies, JSON bodies,
+ * Thin fetch wrapper for the exchange API: same-origin cookies, JSON bodies,
  * the per-session CSRF token on every state-changing request, and typed
  * errors that carry the server's code and message. The browser never decides
  * whether something succeeded; it reports what the server said.

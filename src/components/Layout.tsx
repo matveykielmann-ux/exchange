@@ -20,8 +20,9 @@ const NAV = [
 ];
 
 const LEGAL_LINKS = [
-  { slug: 'terms', label: 'Terms of Service' },
+  { slug: 'terms', label: 'Service Rules (public offer)' },
   { slug: 'privacy', label: 'Privacy Policy' },
+  { slug: 'kyc-aml', label: 'AML/KYC Notice' },
   { slug: 'risk', label: 'Risk Disclosure' },
   { slug: 'fees', label: 'Fees and exchange rates' },
   { slug: 'refunds', label: 'Cancellations and refunds' },
@@ -42,7 +43,7 @@ function ModeBanner() {
           <span>
             <strong>Sandbox.</strong> Prices, deposits, verification and payouts are simulated. No real funds move.
           </span>
-          <Link to="/legal/terms">About this service</Link>
+          <Link to="/security#status">About the sandbox</Link>
         </div>
       </div>
     );
@@ -117,7 +118,7 @@ function SiteHeader() {
             <SheetTrigger asChild>
               <button type="button" className="btn btn--secondary menu-button">
                 <Icon name="menu" width={18} height={18} />
-                Menu
+                <span className="menu-button__label">Menu</span>
               </button>
             </SheetTrigger>
             <SheetContent
@@ -240,8 +241,12 @@ function SiteFooter() {
         </div>
         <div className="footer-legal">
           <p>
-            {BRAND.name} is a product in development and is not a bank. Its regulatory status is described under{' '}
-            <Link to="/legal/contact">Contact and notices</Link>. Nothing on this site is an offer to buy or sell any asset.
+            CryptoBit Exchange, a company incorporated under the laws of the Republic of Panama, registration number No. 155778934,
+            operating under the brand {BRAND.name}. It is not a bank. Every Exchange Request is governed by the{' '}
+            <Link to="/legal/terms">Service Rules</Link>.
+            {config.mode === 'sandbox'
+              ? ' This is the sandbox: its prices and exchange conditions are simulated and are not an offer to buy or sell any asset.'
+              : null}
           </p>
           <p>
             Crypto assets are not legal tender, are not FDIC or SIPC insured, and can lose value. Blockchain transactions generally cannot

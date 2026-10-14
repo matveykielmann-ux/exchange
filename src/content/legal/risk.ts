@@ -3,9 +3,9 @@ import type { LegalDocument } from './types';
 export const RISK_DISCLOSURE: LegalDocument = {
   slug: 'risk',
   title: 'Risk Disclosure',
-  version: '1.0.0',
+  version: '2.0.0',
   effectiveDate: null,
-  lastUpdated: '2026-10-13',
+  lastUpdated: '2026-10-14',
   summary:
     'Selling digital assets carries real risks, including price changes, irreversible blockchain transactions, scams and the absence of government deposit insurance, and you should understand them before you place an order.',
   acceptance: 'order',
@@ -25,7 +25,7 @@ export const RISK_DISCLOSURE: LegalDocument = {
         {
           type: 'review',
           id: 'LR-05',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Any state-mandated consumer disclosures that must appear in these Terms, the Risk Disclosure, receipts or complaint notices (for example 23 NYCRR Part 200 disclosures in New York, California DFAL disclosures, and state regulator contact details for complaints).]',
+          text: '[OWNER/COUNSEL INPUT REQUIRED: Any state-mandated consumer disclosures that must appear in the Service Rules, the Risk Disclosure, receipts or complaint notices (for example 23 NYCRR Part 200 disclosures in New York, California DFAL disclosures, and state regulator contact details for complaints).]',
         },
       ],
     },
@@ -95,6 +95,7 @@ export const RISK_DISCLOSURE: LegalDocument = {
           type: 'p',
           text: 'We may hold, question or decline an order if we believe you may be the victim of a scam. Once proceeds have been paid out to you and you send them on, we cannot recover them.',
         },
+        { type: 'rules', refs: ['4.21'] },
       ],
     },
     {
@@ -107,8 +108,9 @@ export const RISK_DISCLOSURE: LegalDocument = {
         },
         {
           type: 'p',
-          text: 'Like any online service, {{brand}} can be affected by outages, cyberattacks or failures at our service providers, which could delay or prevent an order from completing.',
+          text: 'Like any online service, {{brand}} can be affected by outages, cyberattacks or failures at our service providers, which could delay or prevent an order from completing. The Service Rules provide:',
         },
+        { type: 'rules', refs: ['4.15', '4.20', '12', '13'] },
       ],
     },
     {
@@ -117,8 +119,9 @@ export const RISK_DISCLOSURE: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'Selling digital assets may be a taxable event. You are responsible for determining and paying any taxes you owe. We may be required to report information about your transactions to tax authorities. Consult a tax professional about your situation.',
+          text: 'Selling digital assets may be a taxable event. Consult a tax professional about your situation. Section 10 of the Service Rules provides:',
         },
+        { type: 'rules', refs: ['10'] },
       ],
     },
   ],

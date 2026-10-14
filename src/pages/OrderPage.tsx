@@ -189,15 +189,18 @@ function StatusNotice({ order }: { order: OrderView }) {
     case 'failed':
       return (
         <Notice tone="danger" title="The payout didn’t go through">
-          <p>Our team has been alerted and will retry or contact you. Your funds are not lost.</p>
+          <p>
+            Our team has been alerted and will retry or contact you. If the exchange cannot be completed, clause 4.2 of the{' '}
+            <Link to="/legal/terms#clause-4-2">Service Rules</Link> governs the return of funds.
+          </p>
         </Notice>
       );
     case 'refund_pending':
       return (
         <Notice tone="warn" title="Refund in progress">
           <p>
-            We are returning your {order.asset} on-chain to the refund address you gave. See the{' '}
-            <Link to="/legal/refunds">refund policy</Link> for details.
+            We are returning your {order.asset} on-chain to the refund address you gave. Return fees and timeframes are set by Section 9 of
+            the Service Rules; see the <Link to="/legal/refunds">refund policy</Link>.
           </p>
         </Notice>
       );
@@ -212,7 +215,9 @@ function StatusNotice({ order }: { order: OrderView }) {
         <Notice tone="neutral" title="The deposit window closed">
           <p>
             No deposit was seen in time, so this order expired. If you sent funds after the window closed,{' '}
-            <Link to="/support">contact support</Link>; late deposits are reviewed and refunded.
+            <Link to="/support">contact support</Link>. Under clause 4.14 of the <Link to="/legal/terms#clause-4-14">Service Rules</Link>,
+            such funds are transferred back with the related commission fees deducted, and if you ask to proceed with the exchange instead,
+            the rate and terms may be changed.
           </p>
         </Notice>
       );
@@ -220,8 +225,8 @@ function StatusNotice({ order }: { order: OrderView }) {
       return (
         <Notice tone="neutral" title="We couldn’t accept this order">
           <p>
-            If you already sent funds, they will be refunded to your refund address. <Link to="/support">Contact support</Link> with any
-            questions.
+            If you already sent funds, their return is handled under Sections 8 and 9 of the <Link to="/legal/refunds">Service Rules</Link>.{' '}
+            <Link to="/support">Contact support</Link> with any questions.
           </p>
         </Notice>
       );
@@ -426,7 +431,8 @@ export function OrderPage() {
                 Cancel this order
               </button>
               <p className="small muted" style={{ marginTop: 8 }}>
-                Only before you send funds.
+                Only before you send funds. Already sent them? You can still ask support to cancel before the exchange is completed (clause
+                4.11 of the <Link to="/legal/refunds#after-you-send">Service Rules</Link>); return costs under clause 9.2 apply.
               </p>
             </div>
           ) : null}

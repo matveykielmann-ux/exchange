@@ -3,7 +3,7 @@ import type { LegalDocument } from './types';
 export const CASH_DELIVERY_TERMS: LegalDocument = {
   slug: 'cash-delivery',
   title: 'Cash Delivery Terms',
-  version: '2.0.0',
+  version: '2.1.0',
   effectiveDate: null,
   lastUpdated: '2026-10-14',
   summary:
@@ -58,6 +58,19 @@ export const CASH_DELIVERY_TERMS: LegalDocument = {
           type: 'p',
           text: 'The courier may refuse or end a handoff if the ID does not match, if they are concerned for safety or about coercion, or if the location is not safe. A failed delivery is shown on your order, and support will arrange another attempt or a bank payout.',
         },
+        { type: 'rules', refs: ['4.5'] },
+      ],
+    },
+    {
+      id: 'receiving-cash',
+      heading: 'When you receive the cash',
+      blocks: [
+        { type: 'rules', refs: ['4.10'] },
+        {
+          type: 'review',
+          id: 'LR-47',
+          text: '[NOT YET SUPPORTED: the site has no way to upload the photos and count confirmation clause 4.10 requires; support messages accept text only. Cash delivery stays switched off until docs/compliance-readiness.md section 6 is signed off.]',
+        },
       ],
     },
     {
@@ -82,6 +95,7 @@ export const CASH_DELIVERY_TERMS: LegalDocument = {
           type: 'p',
           text: 'A flat delivery fee applies to each cash delivery. It is shown in your quote before you confirm the order, and the amount handed to you is the amount in your receipt.',
         },
+        { type: 'rules', refs: ['4.23'] },
         {
           type: 'review',
           id: 'LR-30',

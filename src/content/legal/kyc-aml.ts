@@ -3,60 +3,36 @@ import type { LegalDocument } from './types';
 export const KYC_AML_NOTICE: LegalDocument = {
   slug: 'kyc-aml',
   title: 'Identity Verification and AML/KYC Notice',
-  version: '1.0.0',
+  version: '2.0.0',
   effectiveDate: null,
-  lastUpdated: '2026-10-13',
+  lastUpdated: '2026-10-14',
   summary:
-    'To prevent fraud, money laundering and sanctions violations, {{brand}} verifies the identity of every customer and reviews transactions, and may ask you for more information at any time.',
+    'How {{brand}} verifies identity and checks transactions under the KYC and AML/CTF provisions of the Service Rules, which are quoted here word for word.',
   acceptance: null,
   sections: [
     {
-      id: 'why-we-verify',
-      heading: 'Why we verify your identity',
+      id: 'about',
+      heading: 'About this notice',
       blocks: [
         {
           type: 'p',
-          text: 'Businesses that exchange digital assets for US dollars are expected to know who their customers are and to watch for financial crime under US anti-money-laundering (AML) and sanctions laws, including the Bank Secrecy Act. Verifying your identity also helps protect you from someone opening an account or selling assets in your name.',
-        },
-        {
-          type: 'p',
-          text: 'You must complete identity verification before you can place an order.',
-        },
-      ],
-    },
-    {
-      id: 'what-we-may-ask-for',
-      heading: 'What we may ask for',
-      blocks: [
-        {
-          type: 'list',
-          items: [
-            'your full legal name, date of birth and residential address;',
-            "a valid government-issued photo ID, such as a driver's license, state ID or passport;",
-            'your Social Security number or Individual Taxpayer Identification Number (ITIN);',
-            'a selfie or short video so that it can be compared with your ID photo;',
-            'information and documents about the source of your funds or of the digital assets you are selling, such as exchange statements or wallet records; and',
-            'information about the purpose of a transaction or your relationship to a sending wallet.',
-          ],
-        },
-        {
-          type: 'p',
-          text: 'We may ask for more information than others, and at different times, depending on your verification level, the size and pattern of your orders, and our risk assessment. Large-transaction requests always receive additional review, which can include enhanced due diligence on the source of funds.',
+          text: 'This notice quotes the identity-verification (KYC) and AML/CTF provisions of the {{brand}} Service Rules and explains how they apply to an order placed on this site. The Service Rules link to a detailed AML/CTF policy at /en/kyc-aml-policy; that link currently opens this notice.',
         },
         {
           type: 'review',
-          id: 'LR-27',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Verification tiers (to be set by the compliance officer), the documents and checks required at each tier, transaction limits per tier, and the triggers for enhanced due diligence, consistent with the written AML program.]',
+          id: 'LR-40',
+          text: '[OWNER INPUT REQUIRED: The detailed AML/CTF Policy that Section 8 of the Service Rules refers to has not been supplied. It must not be written from assumptions; publish it here or at /en/kyc-aml-policy once the owner provides it.]',
         },
       ],
     },
     {
-      id: 'verification-provider',
-      heading: 'Who performs verification',
+      id: 'verification',
+      heading: 'Identity verification',
       blocks: [
+        { type: 'rules', refs: ['8.1', '4.4', '4.5'] },
         {
           type: 'p',
-          text: 'Identity verification is performed by a third-party identity-verification provider on our behalf. You submit your ID and selfie directly to the provider through the Service. The provider checks the authenticity of your documents, compares your selfie with your ID, and checks your details against third-party data sources. It returns a result and a reference to us; we keep your verification status and the information we are required to keep.',
+          text: 'On this site, you must complete identity verification before you can confirm an order. Identity verification is performed by a third-party identity-verification provider on our behalf. You submit your ID and selfie directly to the provider through the Service. The provider checks the authenticity of your documents, compares your selfie with your ID, and checks your details against third-party data sources. It returns a result and a reference to us; we keep your verification status and the information we are required to keep.',
         },
         {
           type: 'review',
@@ -66,32 +42,37 @@ export const KYC_AML_NOTICE: LegalDocument = {
         {
           type: 'review',
           id: 'LR-19',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Whether the selfie and ID comparison creates biometric identifiers or information under state laws (for example Illinois BIPA, Texas CUBI, Washington) and, if so, the required written notice, consent, retention schedule and destruction policy, and whether the identity-verification provider or the operator is responsible.]',
+          text: '[OWNER/COUNSEL INPUT REQUIRED: Whether the selfie and ID comparison creates biometric data under the laws that apply to customers of the Service and, if so, the required notice, consent, retention schedule and destruction policy, and whether the identity-verification provider or the operator is responsible.]',
         },
       ],
     },
     {
-      id: 'screening-and-monitoring',
-      heading: 'Screening and monitoring',
+      id: 'monitoring',
+      heading: 'Transaction monitoring and AML checks',
       blocks: [
+        { type: 'rules', refs: ['8.2'] },
         {
           type: 'p',
-          text: 'We screen customers against US government sanctions lists and other restricted-party lists, and we screen blockchain addresses, including the addresses deposits come from and your refund address, using blockchain-analytics tools. We monitor orders for unusual activity, such as patterns that suggest structuring, scams or the movement of illicit funds.',
+          text: 'On this site, the addresses deposits come from and the refund address you give us are screened, and an order may be held for review at any stage. During a review the order does not proceed until the review is complete. If funds are returned, Section 9 of the Service Rules applies, including the return fees in clauses 9.7 and 9.8.',
         },
       ],
     },
     {
-      id: 'holds-and-decisions',
-      heading: 'Holds, requests and decisions',
+      id: 'completion',
+      heading: 'When an exchange can be completed',
+      blocks: [{ type: 'rules', refs: ['8.4'] }],
+    },
+    {
+      id: 'returns',
+      heading: 'Returns after an AML check',
+      blocks: [{ type: 'rules', refs: ['8.3'] }],
+    },
+    {
+      id: 'restricted',
+      heading: 'Restricted countries and regions',
       blocks: [
-        {
-          type: 'p',
-          text: 'An order may be held for compliance review. During a review we may request more information, and the order will not proceed until the review is complete. After review, we may approve the order, reject it and return your deposit to your refund address less network fees, or, where the law requires, block or report the funds.',
-        },
-        {
-          type: 'p',
-          text: 'We may be legally prohibited from explaining the reason for a review or decision. If you do not provide requested information within the time we specify, we may reject the order.',
-        },
+        { type: 'rules', refs: ['8.5'] },
+        { type: 'p', text: 'The Sanctions and Restricted-Jurisdiction Notice explains how this applies on this site.' },
       ],
     },
     {
@@ -110,6 +91,7 @@ export const KYC_AML_NOTICE: LegalDocument = {
           type: 'p',
           text: 'Providing false information or documents may lead to the closure of your account and may be reported to authorities.',
         },
+        { type: 'rules', refs: ['4.1', '4.3'] },
       ],
     },
     {
@@ -118,12 +100,12 @@ export const KYC_AML_NOTICE: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'We keep identity and transaction records for as long as required by law, for example under the Bank Secrecy Act recordkeeping rules, including after your account is closed. Our Privacy Policy explains how we use and protect this information.',
+          text: 'We keep identity and transaction records for as long as applicable law requires, including after your account is closed. Our Privacy Policy explains how we use and protect this information.',
         },
         {
           type: 'review',
           id: 'LR-21',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Retention schedule for each category of personal information (account, identity verification, transaction, payout, device/security, support chat, notifications, legal acceptances), including confirmation of the Bank Secrecy Act recordkeeping period (generally five years) and any longer state requirements.]',
+          text: '[OWNER/COUNSEL INPUT REQUIRED: Retention schedule for each category of personal information (account, identity verification, transaction, payout, device/security, support chat, notifications, legal acceptances) under the law that applies to the operator, a company incorporated in the Republic of Panama.]',
         },
       ],
     },

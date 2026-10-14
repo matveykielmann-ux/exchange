@@ -25,7 +25,7 @@ const WIDTHS = [1440, 1024, 768, 390];
 const HEIGHT = { 1440: 900, 1024: 768, 768: 1024, 390: 844 };
 const PAGES = (
   process.env.QA_PAGES ??
-  '/,/exchange,/large-transactions,/cash-delivery,/fees,/how-it-works,/security,/faq,/help,/legal,/legal/terms,/signin,/signup,/reset-password,/nope-404'
+  '/,/exchange,/large-transactions,/cash-delivery,/fees,/how-it-works,/security,/faq,/help,/legal,/legal/terms,/legal/privacy,/legal/kyc-aml,/legal/sanctions,/legal/risk,/legal/crypto-transactions,/legal/fees,/legal/refunds,/legal/complaints,/legal/cash-delivery,/legal/contact,/signin,/signup,/reset-password,/nope-404'
 )
   .split(',')
   .filter(Boolean);

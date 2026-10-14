@@ -8,6 +8,7 @@
  * - Brute force: per-IP route limits plus per-account lockout after 5 failures.
  */
 import { validateEmail, validatePassword } from '@/domain/validation';
+import { BRAND } from '@/config/brand';
 import { LEGAL_DOCUMENTS } from '@/content/legal';
 import type { Actor, AppContext } from '../context';
 import { ApiError, badRequest, conflict } from '../http/errors';
@@ -370,8 +371,8 @@ export function beginTotpEnrollment(ctx: AppContext, auth: AuthContext): { secre
     ctx.clock.now(),
     auth.userId,
   ]);
-  const label = encodeURIComponent(`Arcvale:${auth.email}`);
-  return { secret, otpauthUrl: `otpauth://totp/${label}?secret=${secret}&issuer=Arcvale&digits=6&period=30` };
+  const label = encodeURIComponent(`${BRAND.name}:${auth.email}`);
+  return { secret, otpauthUrl: `otpauth://totp/${label}?secret=${secret}&issuer=${encodeURIComponent(BRAND.name)}&digits=6&period=30` };
 }
 
 export function confirmTotpEnrollment(ctx: AppContext, auth: AuthContext, code: string, ip: string | null) {

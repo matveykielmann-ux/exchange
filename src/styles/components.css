@@ -147,8 +147,39 @@ main {
   color: var(--ink-900);
 }
 .brand svg {
+  flex-shrink: 0;
   width: 28px;
   height: 28px;
+}
+.brand span {
+  white-space: nowrap;
+}
+@media (max-width: 559px) {
+  /* "CryptoBit Exchange" is twice the length of the earlier name; keep it on one line beside the header buttons. */
+  .site-header__inner {
+    gap: var(--s-2);
+  }
+  .header-actions {
+    flex-shrink: 0;
+    gap: var(--s-2);
+  }
+  .brand {
+    gap: 8px;
+    font-size: 0.875rem;
+    letter-spacing: 0.06em;
+  }
+  /* Icon-only menu button; the label stays available to screen readers. */
+  .site-header .menu-button {
+    padding-inline: var(--s-3);
+  }
+  .menu-button__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 .primary-nav {
   display: flex;

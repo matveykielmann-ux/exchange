@@ -287,7 +287,7 @@ const orderRejected: Resolver = (s, e) => {
     status: fundsHeld ? 'refund_pending' : 'rejected',
     patch: {},
     detail: fundsHeld
-      ? 'We could not complete this exchange. Your deposit will be returned to your refund address, less network fees.'
+      ? 'We could not complete this exchange. Your deposit will be returned to your refund address under Section 9 of the Service Rules, which sets the return fees.'
       : 'We could not accept this exchange request.',
     visibility: 'customer',
   };

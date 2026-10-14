@@ -5,6 +5,7 @@
  * - production with an email provider: queued → sent / failed.
  * - production without one: not_configured. Nothing pretends it was sent.
  */
+import { BRAND } from '@/config/brand';
 import type { AppContext } from '../context';
 import { newId } from '../lib/clock';
 import { isUsable } from '../providers/registry';
@@ -27,11 +28,11 @@ type Vars = Record<string, string>;
 
 const TEMPLATES: Record<Template, (v: Vars) => { subject: string; body: string }> = {
   welcome: (v) => ({
-    subject: 'Welcome to Arcvale',
-    body: `Hi ${v.name},\n\nYour Arcvale account is ready. Verify your identity from your account page before your first exchange.\n\nIf you did not create this account, contact support.`,
+    subject: `Welcome to ${BRAND.name}`,
+    body: `Hi ${v.name},\n\nYour ${BRAND.name} account is ready. Verify your identity from your account page before your first exchange.\n\nIf you did not create this account, contact support.`,
   }),
   password_reset: (v) => ({
-    subject: 'Reset your Arcvale password',
+    subject: `Reset your ${BRAND.name} password`,
     body: `Use this link within 30 minutes to choose a new password:\n\n${v.url}\n\nIf you did not ask for this, you can ignore this email. Your password has not changed.`,
   }),
   order_created: (v) => ({
@@ -60,7 +61,7 @@ const TEMPLATES: Record<Template, (v: Vars) => { subject: string; body: string }
   }),
   refund_started: (v) => ({
     subject: `Order ${v.reference}: refund started`,
-    body: `We started returning your deposit for order ${v.reference} to your refund address. Network fees may be deducted.`,
+    body: `We started returning your deposit for order ${v.reference} to your refund address. Return fees under Section 9 of the Service Rules may be deducted.`,
   }),
   refund_completed: (v) => ({
     subject: `Order ${v.reference}: refund sent`,

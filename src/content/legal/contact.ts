@@ -3,13 +3,39 @@ import type { LegalDocument } from './types';
 export const CONTACT_AND_NOTICES: LegalDocument = {
   slug: 'contact',
   title: 'Contact and Legal Notices',
-  version: '1.0.0',
+  version: '2.0.0',
   effectiveDate: null,
-  lastUpdated: '2026-10-13',
-  summary:
-    'How to contact {{brand}} for support, complaints, privacy requests and formal legal notices, and where our regulatory information will be published.',
+  lastUpdated: '2026-10-14',
+  summary: 'Who operates {{brand}}, which contacts are official, and how to reach us for support, complaints, privacy requests and claims.',
   acceptance: null,
   sections: [
+    {
+      id: 'company',
+      heading: 'The company',
+      blocks: [
+        {
+          type: 'p',
+          text: 'The Service is provided by CryptoBit Exchange, a company incorporated under the laws of the Republic of Panama, registration number No. 155778934, operating under the brand {{brand}}, as stated in the Service Rules.',
+        },
+        {
+          type: 'review',
+          id: 'LR-18',
+          text: '[OWNER/COUNSEL INPUT REQUIRED: Registered office address and mailing address of the Panama company for legal notices and service of process. They are not stated in the Service Rules.]',
+        },
+      ],
+    },
+    {
+      id: 'official-contacts',
+      heading: 'Official contacts',
+      blocks: [
+        { type: 'rules', refs: ['4.21'] },
+        {
+          type: 'review',
+          id: 'LR-39',
+          text: '[OWNER INPUT REQUIRED: The official contacts clause 4.21 refers to (email, Telegram username, social networks and messengers) and the Service working hours (clause 4.20 and Section 5). Until they are supplied, the only contact shown is the placeholder support email.]',
+        },
+      ],
+    },
     {
       id: 'support',
       heading: 'Customer support',
@@ -46,27 +72,17 @@ export const CONTACT_AND_NOTICES: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'Formal legal notices to {{brand}}, including notices of dispute under the Terms of Service, should be sent in writing. Until a postal address is published on this page, send them by email to {{supportEmail}} with "Legal notice" in the subject line. We send notices to you at the email address on your account.',
-        },
-        {
-          type: 'review',
-          id: 'LR-18',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Registered address and mailing address for legal notices and service of process.]',
+          text: 'Formal legal notices to {{brand}}, including claims under Section 16 of the Service Rules, should be sent in writing. Until a postal address is published on this page, send them by email to {{supportEmail}} with "Legal notice" in the subject line. We send notices to you at the email address on your account.',
         },
       ],
     },
     {
       id: 'regulatory-status',
-      heading: 'Regulatory status',
+      heading: 'Registrations and licenses',
       blocks: [
         {
           type: 'p',
-          text: 'Information about the company that operates {{brand}}, and about its federal registrations and state licenses, will be published on this page once it has been confirmed. Where a registration or license is required to serve residents of a particular state, we will offer the Service in that state only once it is in place.',
-        },
-        {
-          type: 'review',
-          id: 'LR-01',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Registered legal name and state of formation of the operating entity, which must be named as the contracting party in the Terms, as the business responsible for personal information in the Privacy Policy, and under Regulatory status on the Contact page.]',
+          text: 'The Service Rules do not state any registration or license of the company, and this site makes no claim to one.',
         },
         {
           type: 'review',
@@ -87,16 +103,17 @@ export const CONTACT_AND_NOTICES: LegalDocument = {
     },
     {
       id: 'brand',
-      heading: 'Trademarks',
+      heading: 'Intellectual property',
       blocks: [
+        { type: 'rules', refs: ['14'] },
         {
           type: 'p',
-          text: '{{brand}} and the {{brand}} logo are trademarks used by the company that operates the Service. Other names and marks belong to their respective owners, and their mention does not imply any affiliation or endorsement.',
+          text: 'Other names and marks belong to their respective owners, and their mention does not imply any affiliation or endorsement.',
         },
         {
           type: 'review',
           id: 'LR-12',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Trademark clearance and ownership of the "Arcvale" name and logo, and the entity that owns them.]',
+          text: '[OWNER/COUNSEL INPUT REQUIRED: Trademark clearance and ownership of the "CryptoBit Exchange" name and logo, and the entity that owns them.]',
         },
       ],
     },

@@ -415,7 +415,7 @@ const KYC_COPY: Record<string, { tone: 'info' | 'warn' | 'danger'; title: string
   unverified: {
     tone: 'info',
     title: 'Verify your identity to confirm',
-    body: 'US rules require identity verification before an exchange. It takes a few minutes and is needed once.',
+    body: 'Identity verification is required before an exchange (Service Rules, Section 8). It takes a few minutes. Additional documents may be requested for a transaction classified as high-risk.',
   },
   pending: {
     tone: 'info',
@@ -588,6 +588,11 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
           </div>
         </section>
 
+        <p className="small muted">
+          The spread, payout fee, minimum, quote validity and deposit window shown here are the conditions of this exchange. Under clause
+          4.24 of the <Link to="/legal/terms#clause-4-24">Service Rules</Link>, continuing with this Exchange Request signifies your
+          agreement with them. Submitting it is acceptance of the public offer (Section 3).
+        </p>
         <fieldset className="stack" style={{ border: 0, padding: 0, margin: 0 }}>
           <legend className="visually-hidden">Acknowledgements</legend>
           <Checkbox id="ack-network" checked={ackNetwork} onChange={setAckNetwork}>

@@ -12,6 +12,7 @@
  *   verify-audit            Verify the audit log hash chain.
  */
 import { existsSync } from 'node:fs';
+import { BRAND } from '@/config/brand';
 import { createInterface } from 'node:readline/promises';
 import { createApp } from './app';
 import { ConfigError, loadConfig, type AppConfig } from './config';
@@ -109,7 +110,9 @@ const commands: Record<string, () => Promise<void> | void> = {
       out(`Created ${role} ${email} (${id}).`);
       if (totpSecret) {
         out('Staff sign-in requires an authenticator app. Add this secret now; it is not shown again:');
-        out(`  otpauth://totp/Arcvale:${encodeURIComponent(email)}?secret=${totpSecret}&issuer=Arcvale&digits=6&period=30`);
+        out(
+          `  otpauth://totp/${encodeURIComponent(`${BRAND.name}:${email}`)}?secret=${totpSecret}&issuer=${encodeURIComponent(BRAND.name)}&digits=6&period=30`,
+        );
       }
     } finally {
       await app.close();

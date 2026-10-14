@@ -836,6 +836,14 @@
   color: var(--ink-900);
   text-decoration: underline;
 }
+@media (min-width: 901px) {
+  /* Long documents (the Service Rules have 18 sections) keep their contents list scrollable beside the text. */
+  .toc {
+    max-height: calc(100vh - 136px);
+    overflow-y: auto;
+    padding-right: var(--s-2);
+  }
+}
 @media (max-width: 900px) {
   .content-grid {
     grid-template-columns: 1fr;
@@ -846,4 +854,62 @@
     padding-bottom: var(--s-4);
     border-bottom: 1px solid var(--line);
   }
+}
+
+/* Legal documents supplied as Markdown (src/content/legal/markdown.ts) */
+.prose--legal-md {
+  overflow-wrap: break-word;
+}
+.prose--legal-md .legal-md__title {
+  font-size: 1.75rem;
+  margin-top: var(--s-2);
+  scroll-margin-top: 110px;
+}
+.prose--legal-md .legal-md__heading {
+  font-size: 1.375rem;
+  margin-top: var(--s-8);
+  scroll-margin-top: 110px;
+}
+.prose--legal-md p[id] {
+  scroll-margin-top: 110px;
+}
+.prose--legal-md .legal-md__table {
+  max-width: 560px;
+}
+.prose--legal-md .legal-md__table td,
+.prose--legal-md .legal-md__table th {
+  font-variant-numeric: tabular-nums;
+}
+/* A clause of the Service Rules quoted word for word on another page */
+.rules-quote {
+  margin: 0;
+  border-left: 3px solid var(--line-strong);
+  padding: var(--s-1) 0 var(--s-1) var(--s-4);
+  display: grid;
+  gap: var(--s-2);
+}
+.rules-quote blockquote {
+  margin: 0;
+  display: grid;
+  gap: var(--s-3);
+}
+.rules-quote figcaption {
+  font-size: var(--fs-small);
+  color: var(--ink-500);
+}
+.legal-notes {
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  padding: var(--s-3) var(--s-4);
+  font-size: var(--fs-small);
+}
+.legal-notes summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+.legal-notes ul {
+  list-style: none;
+  padding: 0;
+  margin: var(--s-3) 0 0;
 }
