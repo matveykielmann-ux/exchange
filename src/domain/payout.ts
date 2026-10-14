@@ -21,9 +21,8 @@ export interface PayoutMethod {
   summary: string;
   timingEstimate: string;
   fee: FeeSchedule;
-  /** Minimum and maximum gross USD value the method accepts. */
+  /** Minimum gross USD value the method accepts. There is no maximum (owner decision, 2026-10-14). */
   minCents: Cents;
-  maxCents: Cents;
   availability: Availability;
 }
 
@@ -35,7 +34,6 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
     timingEstimate: 'Estimated 1–3 business days',
     fee: { kind: 'none' },
     minCents: 50_00n,
-    maxCents: 25_000_00n,
     availability: { available: true },
   },
   wire: {
@@ -45,7 +43,6 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
     timingEstimate: 'Estimated same or next business day',
     fee: { kind: 'flat', cents: 25_00n },
     minCents: 1_000_00n,
-    maxCents: 25_000_00n,
     availability: { available: true },
   },
   instant_debit: {
@@ -55,22 +52,21 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
     timingEstimate: 'Estimated within 30 minutes; can take longer',
     fee: { kind: 'percent', bps: 150, minCents: 1_00n, maxCents: 25_00n },
     minCents: 50_00n,
-    maxCents: 5_000_00n,
     availability: { available: true },
   },
   courier_cash: {
     id: 'courier_cash',
     name: 'Cash by courier',
-    summary: 'In-person cash handoff by an insured courier.',
-    timingEstimate: 'Not offered',
-    fee: { kind: 'none' },
-    minCents: 0n,
-    maxCents: 0n,
+    summary: 'US dollars in cash, handed to you at your address after an ID check.',
+    timingEstimate: 'Estimated 1–2 business days after your deposit is final',
+    // Placeholder fee and minimum [OWNER INPUT REQUIRED].
+    fee: { kind: 'flat', cents: 35_00n },
+    minCents: 500_00n,
     availability: FEATURE_FLAGS.courierCashDelivery
       ? { available: true }
       : {
           available: false,
-          reason: 'Not offered. Requires verified licensing, cash-reporting controls, an insured carrier and local legal review.',
+          reason: 'Not offered. Requires verified licensing, cash-reporting controls, a contracted carrier and local legal review.',
         },
   },
 };
@@ -109,8 +105,6 @@ export type PayoutEligibility = { eligible: true } | { eligible: false; reason: 
 export function payoutEligibility(method: PayoutMethod, grossCents: Cents): PayoutEligibility {
   if (!method.availability.available) return { eligible: false, reason: method.availability.reason };
   if (grossCents < method.minCents) return { eligible: false, reason: `Requires at least ${formatUsd(method.minCents, { whole: true })}.` };
-  if (grossCents > method.maxCents)
-    return { eligible: false, reason: `Limit is ${formatUsd(method.maxCents, { whole: true })} per transaction.` };
   return { eligible: true };
 }
 

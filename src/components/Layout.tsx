@@ -2,11 +2,13 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { BRAND } from '@/config/brand';
 import { useTheme } from '@/lib/theme';
-import { useUser } from '@/state/auth';
+import { isStaff, useUser } from '@/state/auth';
+import { useConfig } from '@/state/config';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Icon } from './Icon';
 import { Logo } from './Logo';
 import { PriceTape } from './PriceTape';
+import { SupportLauncher } from './SupportWidget';
 
 const NAV = [
   { to: '/exchange', label: 'Sell crypto' },
@@ -17,17 +19,47 @@ const NAV = [
   { to: '/help', label: 'Help' },
 ];
 
-function PreviewBanner() {
-  return (
-    <div className="preview-banner" role="region" aria-label="Demo notice">
-      <div className="container">
-        <span>
-          <strong>Demo.</strong> Prices, quotes, verification and transactions are simulated. No real funds move.
-        </span>
-        <Link to="/legal#preview">About the demo</Link>
+const LEGAL_LINKS = [
+  { slug: 'terms', label: 'Terms of Service' },
+  { slug: 'privacy', label: 'Privacy Policy' },
+  { slug: 'risk', label: 'Risk Disclosure' },
+  { slug: 'fees', label: 'Fees and exchange rates' },
+  { slug: 'refunds', label: 'Cancellations and refunds' },
+  { slug: 'contact', label: 'Contact and notices' },
+];
+
+/**
+ * Says plainly what this site can and cannot do right now, based on the
+ * server's mode: in sandbox everything is simulated; in production with real
+ * money disabled, no exchange can be placed.
+ */
+function ModeBanner() {
+  const config = useConfig();
+  if (config.mode === 'sandbox') {
+    return (
+      <div className="preview-banner" role="region" aria-label="Sandbox notice">
+        <div className="container">
+          <span>
+            <strong>Sandbox.</strong> Prices, deposits, verification and payouts are simulated. No real funds move.
+          </span>
+          <Link to="/legal/terms">About this service</Link>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+  if (!config.realMoneyEnabled) {
+    return (
+      <div className="preview-banner" role="region" aria-label="Service notice">
+        <div className="container">
+          <span>
+            <strong>Not yet accepting exchanges.</strong> Payment and verification providers are still being set up.
+          </span>
+          <Link to="/help">Contact us</Link>
+        </div>
+      </div>
+    );
+  }
+  return null;
 }
 
 function ThemeToggle() {
@@ -61,6 +93,14 @@ function SiteHeader() {
           <ThemeToggle />
           {user ? (
             <>
+              {isStaff(user) ? (
+                <Link className="btn btn--ghost hide-on-compact" to="/admin">
+                  <Icon name="grid" width={18} height={18} /> Admin
+                </Link>
+              ) : null}
+              <Link className="btn btn--ghost hide-on-compact" to="/orders">
+                Orders
+              </Link>
               <Link className="btn btn--secondary hide-on-compact" to="/account">
                 <Icon name="user" width={18} height={18} /> Account
               </Link>
@@ -99,11 +139,19 @@ function SiteHeader() {
                   {user ? (
                     <>
                       <li>
-                        <NavLink to="/transactions">Activity</NavLink>
+                        <NavLink to="/orders">Orders</NavLink>
+                      </li>
+                      <li>
+                        <NavLink to="/support">Support messages</NavLink>
                       </li>
                       <li>
                         <NavLink to="/account">Account</NavLink>
                       </li>
+                      {isStaff(user) ? (
+                        <li>
+                          <NavLink to="/admin">Admin workspace</NavLink>
+                        </li>
+                      ) : null}
                     </>
                   ) : null}
                 </ul>
@@ -127,6 +175,7 @@ function SiteHeader() {
 }
 
 function SiteFooter() {
+  const config = useConfig();
   return (
     <footer className="site-footer">
       <div className="container">
@@ -136,7 +185,9 @@ function SiteFooter() {
               <Logo />
             </Link>
             <p className="muted" style={{ maxWidth: '34ch' }}>
-              A demo of a crypto-to-USD exchange for US customers. Every figure on this site is simulated.
+              {config.mode === 'sandbox'
+                ? 'Sell crypto for US dollars. This is the sandbox: every price, deposit and payout is simulated.'
+                : 'Sell crypto for US dollars, paid to a US bank account or debit card.'}
             </p>
           </div>
           <div>
@@ -169,35 +220,28 @@ function SiteFooter() {
                 <Link to="/faq">FAQ</Link>
               </li>
               <li>
-                <Link to="/help">Help</Link>
+                <Link to="/help">Help and support</Link>
               </li>
             </ul>
           </div>
           <div>
             <h2>Legal</h2>
             <ul>
+              {LEGAL_LINKS.map((l) => (
+                <li key={l.slug}>
+                  <Link to={`/legal/${l.slug}`}>{l.label}</Link>
+                </li>
+              ))}
               <li>
-                <Link to="/legal#preview">Demo disclosure</Link>
-              </li>
-              <li>
-                <Link to="/legal#licensing">Licensing status</Link>
-              </li>
-              <li>
-                <Link to="/legal#risk">Risk disclosures</Link>
-              </li>
-              <li>
-                <Link to="/legal#privacy">Privacy</Link>
-              </li>
-              <li>
-                <Link to="/legal#terms">Terms</Link>
+                <Link to="/legal">All legal documents</Link>
               </li>
             </ul>
           </div>
         </div>
         <div className="footer-legal">
           <p>
-            {BRAND.name} is a working name for a product in development. It is not a bank, holds no money transmitter or virtual currency
-            licenses, and does not offer exchange services to the public. Nothing on this site is an offer to buy or sell any asset.
+            {BRAND.name} is a product in development and is not a bank. Its regulatory status is described under{' '}
+            <Link to="/legal/contact">Contact and notices</Link>. Nothing on this site is an offer to buy or sell any asset.
           </p>
           <p>
             Crypto assets are not legal tender, are not FDIC or SIPC insured, and can lose value. Blockchain transactions generally cannot
@@ -246,7 +290,7 @@ export function Layout() {
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <PreviewBanner />
+      <ModeBanner />
       <SiteHeader />
       {TAPE_ROUTES.has(pathname) ? (
         <div className="container tape-wrap">
@@ -265,6 +309,7 @@ export function Layout() {
         </Suspense>
       </main>
       <SiteFooter />
+      <SupportLauncher />
     </>
   );
 }

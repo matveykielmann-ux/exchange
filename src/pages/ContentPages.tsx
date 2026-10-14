@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
 import { MockBadge, Notice, PageHeader } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
+import { useConfig } from '@/state/config';
 import { BRAND } from '@/config/brand';
 import { FAQ, FaqList, type FaqItem } from '@/content/faq';
 import { NETWORKS } from '@/domain/assets';
@@ -72,10 +73,10 @@ export function HowItWorksPage() {
           Send exactly the amount shown to the deposit address shown, on the network shown. We wait for a set number of network
           confirmations, then screen the transaction.
         </p>
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0} role="region" aria-label="Deposit steps">
           <table className="data-table data-table--stack">
             <caption>
-              Confirmation policy <MockBadge label="Demo policy" />
+              Confirmation policy <MockBadge label="Sandbox policy" />
             </caption>
             <thead>
               <tr>
@@ -137,7 +138,7 @@ export function FeesPage() {
         lead="An exchange spread and a payout fee. Both appear as separate lines, in dollars, before you confirm."
       >
         <div className="row">
-          <MockBadge label="Demo fee schedule" />
+          <MockBadge label="Sandbox fee schedule" />
         </div>
       </PageHeader>
       <WithToc
@@ -149,15 +150,18 @@ export function FeesPage() {
           ['example', 'Worked example'],
         ]}
       >
-        <Notice tone="warn" title="Demo schedule">
-          <p>These values are placeholders for the demo. A live fee schedule would be set and approved before launch.</p>
+        <Notice tone="warn" title="Draft schedule">
+          <p>
+            These values are the current draft schedule and will be confirmed before launch. Whatever applies to your sale is shown on the
+            quote, line by line, before you confirm.
+          </p>
         </Notice>
         <h2 id="spread">Exchange spread</h2>
         <p>
           The spread is a percentage of the value of your crypto at the reference price. It is smaller for larger amounts and for
           stablecoins.
         </p>
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0} role="region" aria-label="Spread schedule">
           <table className="data-table">
             <thead>
               <tr>
@@ -177,14 +181,12 @@ export function FeesPage() {
                 <td className="num">{formatBps(stb[0].bps)}</td>
               </tr>
               <tr>
-                <th scope="row">
-                  {formatUsd(vol[0].upToCents!, { whole: true })} to {formatUsd(PRICING_POLICY.retailMaximumCents, { whole: true })}
-                </th>
+                <th scope="row">{formatUsd(vol[0].upToCents!, { whole: true })} and over</th>
                 <td className="num">{formatBps(vol[1].bps)}</td>
                 <td className="num">{formatBps(stb[1].bps)}</td>
               </tr>
               <tr>
-                <th scope="row">Large-transaction desk</th>
+                <th scope="row">Large-transaction desk (optional)</th>
                 <td className="num">Quoted per request</td>
                 <td className="num">Quoted per request</td>
               </tr>
@@ -192,14 +194,14 @@ export function FeesPage() {
           </table>
         </div>
         <h2 id="payout">Payout fees</h2>
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0} role="region" aria-label="Payout fees">
           <table className="data-table data-table--stack">
             <thead>
               <tr>
                 <th scope="col">Method</th>
                 <th scope="col">Fee</th>
                 <th scope="col">Estimated timing</th>
-                <th scope="col">Per transaction</th>
+                <th scope="col">Minimum</th>
               </tr>
             </thead>
             <tbody>
@@ -211,8 +213,8 @@ export function FeesPage() {
                     <th scope="row">{m.name}</th>
                     <td data-label="Fee">{off ? 'Not offered' : describeFee(m.fee)}</td>
                     <td data-label="Timing">{m.timingEstimate}</td>
-                    <td data-label="Limits" className="tabular">
-                      {off ? '—' : `${formatUsd(m.minCents)} – ${formatUsd(m.maxCents)}`}
+                    <td data-label="Minimum" className="tabular">
+                      {off ? '—' : `${formatUsd(m.minCents)}, no maximum`}
                     </td>
                   </tr>
                 );
@@ -228,9 +230,10 @@ export function FeesPage() {
         <h2 id="limits">Limits</h2>
         <ul>
           <li>Minimum sale: {formatUsd(PRICING_POLICY.minimumCents)} in value.</li>
+          <li>No maximum per transaction, for every payout method.</li>
           <li>
-            Online maximum: {formatUsd(PRICING_POLICY.retailMaximumCents)} per transaction. Above that, use the{' '}
-            <Link to="/large-transactions">large-transaction desk</Link>.
+            Orders of {formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })} or more get a manual review before payout. The{' '}
+            <Link to="/large-transactions">large-transaction desk</Link> can also price them individually.
           </li>
         </ul>
         <h2 id="example">Worked example</h2>
@@ -249,6 +252,29 @@ export function FeesPage() {
 }
 
 /* ---------------- Security ---------------- */
+function SecurityStatus() {
+  const config = useConfig();
+  if (config.mode === 'sandbox')
+    return (
+      <Notice tone="warn" title="This is the sandbox">
+        <p>
+          Identity verification, screening, deposits and payouts are simulated by test providers. The controls below run for real on the
+          server; the outcomes they act on are simulated.
+        </p>
+      </Notice>
+    );
+  const missing = config.providers.filter((p) => p.state !== 'configured');
+  return (
+    <Notice tone={missing.length ? 'warn' : 'info'} title={missing.length ? 'Some providers are not connected yet' : 'Providers connected'}>
+      {missing.length ? (
+        <p>Not yet connected: {missing.map((p) => p.label).join(', ')}. Orders that need them can't be placed until they are.</p>
+      ) : (
+        <p>Every provider this service relies on is configured.</p>
+      )}
+    </Notice>
+  );
+}
+
 export function SecurityPage() {
   useDocumentTitle('Security');
   return (
@@ -256,11 +282,11 @@ export function SecurityPage() {
       <PageHeader
         eyebrow="Security"
         title="How the product protects you."
-        lead="What is designed in, what is simulated in this demo, and how to protect yourself from scams."
+        lead="How accounts, data and transactions are protected, what is still being set up, and how to protect yourself from scams."
       />
       <WithToc
         toc={[
-          ['preview-status', 'Demo status'],
+          ['status', 'Current status'],
           ['account', 'Your account'],
           ['data', 'Your data'],
           ['transactions', 'Transactions'],
@@ -268,29 +294,33 @@ export function SecurityPage() {
           ['report', 'Report an issue'],
         ]}
       >
-        <h2 id="preview-status">Demo status</h2>
-        <Notice tone="warn" title="Controls in this demo are simulated">
-          <p>
-            No identity provider, screening provider, custodian or bank is connected. The descriptions below explain how the product is
-            designed, not what a live service guarantees.
-          </p>
-        </Notice>
+        <h2 id="status">Current status</h2>
+        <SecurityStatus />
         <h2 id="account">Your account</h2>
         <ul>
-          <li>Two-step sign-in on every new session.</li>
-          <li>Sessions expire automatically after 12 hours.</li>
-          <li>Payout destinations are stored as the last four digits only. Card numbers are never collected by this site.</li>
+          <li>Passwords are stored only as salted, slow hashes. Repeated failed sign-ins lock the account for a short time.</li>
+          <li>Sessions are held on our server and referenced by a secure, HTTP-only cookie. They expire after 12 hours.</li>
+          <li>
+            You can add an authenticator app for two-step sign-in, see your active sessions and sign out the others from your account.
+          </li>
+          <li>Changing your password signs out every other session.</li>
         </ul>
         <h2 id="data">Your data</h2>
         <ul>
-          <li>The demo keeps data only in your browser's local storage. Clearing site data removes it.</li>
+          <li>Bank account details are encrypted in our database and shown back only as the last four digits.</li>
+          <li>Card numbers are never typed into this site, and security codes (CVV) are never collected or stored.</li>
+          <li>Staff see masked contact details by default, and every staff action on an order is recorded in an append-only audit log.</li>
           <li>No analytics, advertising or third-party scripts are loaded. Fonts are served from this site.</li>
         </ul>
         <h2 id="transactions">Transactions</h2>
         <ul>
           <li>Each exchange moves through a fixed sequence of states. A payout can't be sent before the deposit is final.</li>
-          <li>Quotes are re-checked against their inputs when you confirm, and expired quotes are refused.</li>
-          <li>Refund addresses are screened before an exchange is accepted (simulated here).</li>
+          <li>Quotes are stored when issued, can be used once, and are refused after they expire.</li>
+          <li>A deposit counts only when our blockchain monitoring reports it. Saying "I sent it" doesn't move an order forward.</li>
+          <li>Refund addresses are screened before an exchange is accepted.</li>
+          <li>
+            Payouts above the review threshold, or with any exception, need a person on our team to approve them, with a recorded reason.
+          </li>
         </ul>
         <h2 id="scams">Protect yourself from scams</h2>
         <Notice tone="danger" title="We will never ask you to send crypto">
@@ -318,8 +348,8 @@ export function SecurityPage() {
         </ul>
         <h2 id="report">Report a security issue</h2>
         <p>
-          A live service would publish a vulnerability disclosure policy and a dedicated contact here. The demo contact,{' '}
-          <span className="mono">{BRAND.supportEmail}</span>, is a placeholder and is not monitored.
+          Send details to <span className="mono">{BRAND.supportEmail}</span> or through <Link to="/support">support messages</Link>. A
+          vulnerability disclosure policy will be published here before launch.
         </p>
       </WithToc>
     </>
@@ -359,7 +389,7 @@ export function HelpPage() {
     },
     {
       title: 'I sent the wrong amount',
-      body: 'A different amount needs a new quote. On a live service, support would offer a re-quote or a refund to your refund address.',
+      body: 'A different amount puts the order on hold for review. Our team will contact you about a new quote or a refund to your refund address.',
       to: '/faq',
       link: 'Read the FAQ',
     },
@@ -375,7 +405,7 @@ export function HelpPage() {
     { title: 'Fees and limits', body: 'The full schedule, with a worked example.', to: '/fees', link: 'See fees' },
     {
       title: 'Large amounts',
-      body: `Selling ${formatUsd(PRICING_POLICY.retailMaximumCents)} or more goes through the desk.`,
+      body: `Selling ${formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })} or more? The desk can price it individually.`,
       to: '/large-transactions',
       link: 'Large transactions',
     },
@@ -383,7 +413,7 @@ export function HelpPage() {
   ];
   return (
     <>
-      <PageHeader eyebrow="Help" title="How can we help?" lead="Answers to common problems. Live support isn't available in this demo." />
+      <PageHeader eyebrow="Help" title="How can we help?" lead="Answers to common problems, and a direct line to our support team." />
       <section className="section--tight">
         <div className="container">
           <ul className="pillars" style={{ rowGap: 48 }}>
@@ -402,94 +432,14 @@ export function HelpPage() {
           <div style={{ marginTop: 64, maxWidth: 720 }}>
             <Notice tone="neutral" title="Contacting support">
               <p>
-                A live service would offer secure in-account messaging. The address <span className="mono">{BRAND.supportEmail}</span> is a
-                placeholder and is not monitored. Never share your password, codes, private keys or seed phrase with anyone.
+                Signed in? <Link to="/support">Send us a message</Link> and link it to an order if it's about one; replies appear in your
+                account. You can also write to <span className="mono">{BRAND.supportEmail}</span>. Never share your password, codes, private
+                keys or seed phrase with anyone, including us.
               </p>
             </Notice>
           </div>
         </div>
       </section>
-    </>
-  );
-}
-
-/* ---------------- Legal ---------------- */
-export function LegalPage() {
-  useDocumentTitle('Legal');
-  return (
-    <>
-      <PageHeader
-        eyebrow="Legal"
-        title="Legal information."
-        lead="Plain-language disclosures for this demo. They are drafts, not legal advice, and must be replaced by counsel-approved documents before any launch."
-      />
-      <WithToc
-        toc={[
-          ['preview', 'Demo disclosure'],
-          ['licensing', 'Licensing status'],
-          ['risk', 'Risk disclosures'],
-          ['privacy', 'Privacy'],
-          ['terms', 'Terms of use'],
-        ]}
-      >
-        <h2 id="preview">Demo disclosure</h2>
-        <p>
-          This website is a product demo. Prices, quotes, fees, identity verification, screening results, deposit addresses, transactions,
-          receipts and payout references are <strong>simulated</strong>. No cryptocurrency or US dollars can be sent, received, held or
-          exchanged through it. Deposit addresses are deliberately invalid placeholders.
-        </p>
-        <h2 id="licensing">Licensing and regulatory status</h2>
-        <dl className="dl">
-          <div>
-            <dt>Operating entity</dt>
-            <dd>{BRAND.legalEntity ?? 'None formed or verified'}</dd>
-          </div>
-          <div>
-            <dt>FinCEN MSB registration</dt>
-            <dd>None</dd>
-          </div>
-          <div>
-            <dt>State money transmitter licenses</dt>
-            <dd>None</dd>
-          </div>
-          <div>
-            <dt>NMLS ID</dt>
-            <dd>None</dd>
-          </div>
-          <div>
-            <dt>Banking or payout partners</dt>
-            <dd>None</dd>
-          </div>
-        </dl>
-        <p>
-          {BRAND.name} is not a bank. Nothing here is FDIC- or SIPC-insured, and no insurance of any kind is offered. No relationship with
-          any bank, payment network, custodian or courier exists. Real-money operation would require, at minimum, FinCEN registration, state
-          licensing where required, an anti-money-laundering program, sanctions screening and contracted providers.
-        </p>
-        <h2 id="risk">Risk disclosures</h2>
-        <ul>
-          <li>Crypto assets are not legal tender and are not backed by any government.</li>
-          <li>Crypto assets are not protected by FDIC or SIPC insurance.</li>
-          <li>Prices can change rapidly and you may lose value between quoting and settlement, within the limits of a locked quote.</li>
-          <li>Blockchain transactions generally cannot be reversed. Funds sent to the wrong address or network may be lost permanently.</li>
-          <li>Stablecoins can lose their peg to the US dollar.</li>
-          <li>Payout timing depends on networks, reviews and banks, and is never guaranteed.</li>
-          <li>Scammers use crypto because it is hard to reverse. Never send crypto at someone else's direction.</li>
-        </ul>
-        <h2 id="privacy">Privacy</h2>
-        <p>
-          The demo stores what you enter (name, email, payout destination nicknames and the last four digits, refund addresses and simulated
-          transactions) in your browser's local storage on this device only. Nothing is sent to a server. Passwords are not stored. No
-          cookies, analytics or third-party trackers are used. Clear this site's data in your browser to remove everything.
-        </p>
-        <h2 id="terms">Terms of use (demo)</h2>
-        <ol>
-          <li>The demo is provided for demonstration and evaluation only, without warranty.</li>
-          <li>Nothing on the site is an offer, solicitation or recommendation to buy or sell any asset.</li>
-          <li>Don't enter real bank details, identity documents, private keys or seed phrases.</li>
-          <li>Simulated figures must not be relied on for any financial decision.</li>
-        </ol>
-      </WithToc>
     </>
   );
 }

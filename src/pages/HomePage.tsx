@@ -23,7 +23,10 @@ const EXAMPLE = calculateQuote({
 
 const STEPS = [
   { title: 'Get a quote', body: 'Pick the asset and network, enter an amount, and see the full breakdown before anything else.' },
-  { title: 'Choose your payout', body: 'Bank transfer, wire or debit card. Each option shows its fee and estimated timing.' },
+  {
+    title: 'Choose your payout',
+    body: 'Bank transfer, wire, debit card or cash by courier. Each option shows its fee and estimated timing.',
+  },
   { title: 'Send your crypto', body: 'Confirm, then send to the deposit address shown, on the network shown, before the window closes.' },
   { title: 'Receive dollars', body: 'Track confirmations and your payout on one status page. Every step is time-stamped.' },
 ];
@@ -93,8 +96,8 @@ export function HomePage() {
                 <Icon name="lock" />
               </span>
               <span>
-                <strong>{formatUsd(PRICING_POLICY.retailMaximumCents, { whole: true })}</strong>
-                <span>Per online exchange</span>
+                <strong>No maximum</strong>
+                <span>From {formatUsd(PRICING_POLICY.minimumCents, { whole: true })} per exchange</span>
               </span>
             </li>
             <li className="stat">
@@ -125,7 +128,7 @@ export function HomePage() {
                 <Icon name="check" /> Network chosen with the asset, with clear warnings
               </li>
               <li>
-                <Icon name="check" /> A dedicated desk for {formatUsd(PRICING_POLICY.retailMaximumCents, { whole: true })}+
+                <Icon name="check" /> An optional desk for {formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })}+
               </li>
             </ul>
           </div>
@@ -231,10 +234,10 @@ export function HomePage() {
               are sent where they can be received.
             </p>
           </div>
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Comparison">
             <table className="data-table data-table--stack">
               <caption>
-                Confirmation counts are demo policy values. <MockBadge label="Demo policy" />
+                Confirmation counts are current policy values. <MockBadge label="Sandbox policy" />
               </caption>
               <thead>
                 <tr>
@@ -320,11 +323,11 @@ export function HomePage() {
           <div className="stack">
             <p className="eyebrow eyebrow--on-dark">Large transactions</p>
             <h2 id="large-title" className="display-m">
-              Selling {formatUsd(PRICING_POLICY.retailMaximumCents, { whole: true })} or more?
+              Selling {formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })} or more?
             </h2>
             <p className="lead">
-              Large amounts go through a desk rather than the online flow. You get enhanced verification, a negotiated price, and a wire to
-              your bank account.
+              There is no maximum online. For large amounts you can also use the desk: enhanced verification, an individually negotiated
+              price, and a wire to your bank account.
             </p>
           </div>
           <div className="stack band__aside">
@@ -348,8 +351,8 @@ export function HomePage() {
               Designed for regulated operation.
             </h2>
             <p className="lead">
-              These controls are built into the product design. In this demo they are simulated. None of them is a claim about a live
-              service.
+              These controls run on our server for every order. In the sandbox, the providers behind them are simulated. None of them is a
+              claim of licensing or insurance.
             </p>
           </div>
           <ul className="pillars">

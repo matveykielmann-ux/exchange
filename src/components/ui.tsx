@@ -1,10 +1,18 @@
 import type { ReactNode } from 'react';
-import type { StatusTone } from '@/domain/transaction';
+import type { OrderTone as StatusTone } from '@/domain/order';
+import { useIsSandbox } from '@/state/config';
 import { Icon, type IconName } from './Icon';
 
-export function MockBadge({ label = 'Demo' }: { label?: string }) {
+/**
+ * Marks simulated data. Rendered whenever the server runs in sandbox mode (or
+ * when `force` says this record itself is simulated), so a sandbox price,
+ * quote, receipt or status can never be mistaken for a real one.
+ */
+export function MockBadge({ label = 'Sandbox', force = false }: { label?: string; force?: boolean }) {
+  const sandbox = useIsSandbox();
+  if (!sandbox && !force) return null;
   return (
-    <span className="badge badge--mock" title="Simulated data — not a real price, quote or transaction">
+    <span className="badge badge--mock" title="Simulated sandbox data: not a real price, quote, deposit or payout">
       {label}
     </span>
   );

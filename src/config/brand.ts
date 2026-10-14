@@ -1,9 +1,8 @@
 /**
- * Brand constants. "Settlewell" is a placeholder working name that has not been
- * through trademark clearance — replace it here before any public use.
+ * Brand constants. "Arcvale" is the client's chosen name; trademark clearance
+ * is an open item in LEGAL_REVIEW.md. Legal-entity facts live in src/config/legal.ts.
  */
 export const BRAND = {
-  name: 'Settlewell',
-  legalEntity: null as string | null, // No operating entity has been formed or verified.
-  supportEmail: 'support@example.com', // RFC 2606 reserved domain — not a real inbox.
+  name: 'Arcvale',
+  supportEmail: 'support@example.com', // RFC 2606 reserved domain until the owner provides a real inbox (LEGAL_REVIEW.md).
 } as const;

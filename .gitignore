@@ -10,3 +10,9 @@ playwright-report
 .env
 .env.*
 !.env.example
+dist-server
+data
+*.db
+*.db-wal
+*.db-shm
+backups

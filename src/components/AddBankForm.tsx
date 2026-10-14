@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { validateAccountNumber, validateRoutingNumber } from '@/domain/validation';
 import { errorMessage } from '@/lib/errors';
-import { useUser } from '@/state/auth';
+import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
-import type { PayoutDestinationRecord } from '@/services/types';
+import type { Destination } from '@/services/types';
 import { Field } from './Field';
 import { Notice } from './ui';
 
-export function AddBankForm({ onAdded }: { onAdded: (d: PayoutDestinationRecord) => void }) {
-  const { payouts } = useServices();
-  const user = useUser();
+export function AddBankForm({ onAdded }: { onAdded: (d: Destination) => void }) {
+  const { account: accounts } = useServices();
+  const sandbox = useConfig().mode === 'sandbox';
+  const [accountType, setAccountType] = useState<'checking' | 'savings'>('checking');
   const [nickname, setNickname] = useState('');
   const [routing, setRouting] = useState('');
   const [account, setAccount] = useState('');
@@ -21,11 +22,11 @@ export function AddBankForm({ onAdded }: { onAdded: (d: PayoutDestinationRecord)
 
   async function submit() {
     setSubmitted(true);
-    if (validateRoutingNumber(routing) || validateAccountNumber(account) || !user) return;
+    if (validateRoutingNumber(routing) || validateAccountNumber(account)) return;
     setBusy(true);
     setServerError(null);
     try {
-      const d = await payouts.addBankAccount(user.email, { nickname, routingNumber: routing, accountNumber: account });
+      const d = await accounts.addBankAccount({ label: nickname.trim(), routingNumber: routing, accountNumber: account, accountType });
       // Drop full numbers from component state immediately.
       setRouting('');
       setAccount('');
@@ -40,12 +41,17 @@ export function AddBankForm({ onAdded }: { onAdded: (d: PayoutDestinationRecord)
   return (
     <div className="panel">
       <div className="panel__body stack">
-        <Notice tone="warn" title="Don't enter real bank details">
-          <p>
-            This is a demo. Use a test routing number such as <span className="mono">011000015</span>. Only the last four digits of the
-            account number are kept.
-          </p>
-        </Notice>
+        {sandbox ? (
+          <Notice tone="warn" title="Sandbox: don't enter real bank details">
+            <p>
+              Use a test routing number such as <span className="mono">011000015</span> and any account number of 4 to 17 digits.
+            </p>
+          </Notice>
+        ) : null}
+        <p className="small muted">
+          The account must be a US checking or savings account in your name. Numbers are encrypted when saved and shown back only as the
+          last four digits.
+        </p>
         <div className="form-grid">
           <Field label="Nickname" id="bank-nickname" hint="Optional, e.g. Checking" className="span-2">
             {(p) => (
@@ -57,6 +63,19 @@ export function AddBankForm({ onAdded }: { onAdded: (d: PayoutDestinationRecord)
                 maxLength={40}
                 autoComplete="off"
               />
+            )}
+          </Field>
+          <Field label="Account type" id="bank-type" className="span-2">
+            {(p) => (
+              <select
+                className="select"
+                {...p}
+                value={accountType}
+                onChange={(e) => setAccountType(e.target.value as 'checking' | 'savings')}
+              >
+                <option value="checking">Checking</option>
+                <option value="savings">Savings</option>
+              </select>
             )}
           </Field>
           <Field label="Routing number" id="bank-routing" error={routingError}>

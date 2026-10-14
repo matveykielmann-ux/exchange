@@ -1,25 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { PayoutDestinationRecord } from '@/services/types';
+import type { Destination } from '@/services/types';
 import { useUser } from './auth';
 import { useServices } from './services';
 
-/** The signed-in customer's saved payout destinations, with a reload function. */
+/** The signed-in customer's saved payout destinations (masked: label and last four only), with a reload function. */
 export function useDestinations() {
   const user = useUser();
-  const { payouts } = useServices();
-  const [list, setList] = useState<PayoutDestinationRecord[] | null>(null);
+  const { account } = useServices();
+  const [list, setList] = useState<Destination[] | null>(null);
   const [version, setVersion] = useState(0);
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    payouts
-      .listDestinations(user.email)
+    account
+      .destinations()
       .then((l) => !cancelled && setList(l))
       .catch(() => !cancelled && setList([]));
     return () => {
       cancelled = true;
     };
-  }, [payouts, user, version]);
+  }, [account, user, version]);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
   return { list, reload };
 }

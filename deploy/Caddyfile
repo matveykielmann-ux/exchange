@@ -1,0 +1,37 @@
+# HTTPS reverse proxy for Arcvale. Caddy obtains and renews certificates automatically.
+{
+	email {$ACME_EMAIL}
+}
+
+{$ARCVALE_DOMAIN} {
+	encode zstd gzip
+
+	# Reject oversized bodies before they reach the app (the app enforces its own smaller limits too).
+	request_body {
+		max_size 1MB
+	}
+
+	# Optional: keep a sandbox/staging instance private. Generate a hash with
+	#   docker compose exec caddy caddy hash-password
+	# then uncomment:
+	# basic_auth {
+	# 	reviewer <hash>
+	# }
+
+	reverse_proxy app:8787 {
+		# Server-sent events (/api/events) must stream without buffering.
+		flush_interval -1
+		health_uri /api/health
+		health_interval 30s
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

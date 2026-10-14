@@ -1,12 +1,11 @@
-import { resolveServiceMode } from '@/config/runtime';
-import { createMockServices } from './mock';
+import { createApiServices } from './api';
 import type { Services } from './types';
 
-/** Selects adapters by mode. Only mock adapters exist; other modes fail closed. */
-export function createServices(rawMode: string | undefined = import.meta.env.VITE_SERVICE_MODE): Services {
-  const mode = resolveServiceMode(rawMode);
-  switch (mode) {
-    case 'mock':
-      return createMockServices();
-  }
+/**
+ * Connects to the Arcvale API. The server decides the mode (sandbox or
+ * production) and every outcome; there is no browser-only fallback that
+ * could be mistaken for a live service.
+ */
+export function createServices(base = ''): Promise<Services> {
+  return createApiServices(base);
 }

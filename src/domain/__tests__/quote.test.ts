@@ -59,16 +59,18 @@ describe('calculateQuote', () => {
     expect(grossCentsFor('BTC', min - 1n, base.referencePriceMicros)).toBeLessThan(50_00n);
   });
 
-  it('routes amounts above the online maximum to the large-transaction desk', () => {
-    const { issues } = calculateQuote({ ...base, amountAtomic: 100_000_000n }); // 1 BTC = $68k
-    expect(issues).toEqual([{ code: 'above_retail_maximum', maximumCents: PRICING_POLICY.retailMaximumCents }]);
+  it('has no maximum: large amounts quote cleanly on every payout method', () => {
+    for (const payoutMethod of ['ach', 'wire', 'instant_debit', 'courier_cash'] as const) {
+      const { issues } = calculateQuote({ ...base, payoutMethod, amountAtomic: 1_000_000_000n }); // 10 BTC ≈ $684k
+      expect(issues).toEqual([]);
+    }
   });
 
-  it('flags payout methods that cannot take the amount, and the disabled courier', () => {
+  it('flags payout methods below their minimum', () => {
     expect(calculateQuote({ ...base, payoutMethod: 'wire', amountAtomic: 1_000_000n }).issues[0]).toMatchObject({
       code: 'payout_ineligible',
     });
-    expect(calculateQuote({ ...base, payoutMethod: 'courier_cash', amountAtomic: 1_000_000n }).issues[0]).toMatchObject({
+    expect(calculateQuote({ ...base, payoutMethod: 'courier_cash', amountAtomic: 100_000n }).issues[0]).toMatchObject({
       code: 'payout_ineligible',
     });
   });
@@ -94,7 +96,8 @@ describe('payout fees', () => {
     expect(payoutFeeCents(PAYOUT_METHODS.wire, 10_000_00n)).toBe(25_00n);
     expect(payoutFeeCents(PAYOUT_METHODS.ach, 10_000_00n)).toBe(0n);
   });
-  it('keeps courier cash delivery disabled', () => {
-    expect(PAYOUT_METHODS.courier_cash.availability.available).toBe(false);
+  it('offers courier cash delivery with a flat fee', () => {
+    expect(PAYOUT_METHODS.courier_cash.availability.available).toBe(true);
+    expect(payoutFeeCents(PAYOUT_METHODS.courier_cash, 2_000_00n)).toBe(35_00n);
   });
 });

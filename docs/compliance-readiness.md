@@ -12,9 +12,9 @@
 | NMLS record | **None** |
 | Bank, payout, custody, KYC, screening or courier contracts | **None** |
 | AML/BSA program, compliance officer, independent testing | **None** |
-| Real-money capability | **Disabled in code** (`REAL_MONEY_ENABLED = false`; only mock adapters exist; unknown service modes fail closed) |
+| Real-money capability | **Disabled in code** (`REAL_MONEY_ENABLED = false`; production adapters exist but report `NOT_CONFIGURED` without credentials and `DISABLED_BY_POLICY` for anything that moves money; unknown modes fail closed) |
 
-The site states all of this plainly: the sitewide preview banner, the footer, `/legal#licensing`, and MOCK badges on every price, quote, receipt and status.
+The site states all of this plainly: the sitewide sandbox banner, the footer, `/legal/contact` (licensing and registrations), and SANDBOX/MOCK badges on every simulated price, quote, receipt and status.
 
 ## Launch gate: all must be verified and signed off
 
@@ -53,8 +53,8 @@ The site states all of this plainly: the sitewide preview banner, the footer, `/
 - [ ] Scam and elder-fraud controls: friction for first-time large sales, cooling-off review, plain-language warnings *(research cites FTC and FinCEN alerts on crypto-ATM and impersonation scams; verify current figures before quoting)*.
 - [ ] **Advertising review.** No claims of licensing, insurance, FDIC coverage, guaranteed settlement times, "safest" or "no KYC". No testimonials, user counts or partner logos without substantiation. *Research cites FDIC Part 328 (deposit-insurance misrepresentation), FTC actions over "safer than a bank" claims, and the FTC's 2024 rule on fake reviews and testimonials.*
 
-### 6. Courier cash delivery: **remains disabled**
-The feature flag `FEATURE_FLAGS.courierCashDelivery = false`. The payout option is shown, disabled and explained, and the availability service returns "not available" everywhere. The research found **no US precedent** for a regulated exchange delivering cash to homes, and identified the highest AML and physical-safety exposure of any payout method. Enabling it requires all of the following:
+### 6. Courier cash delivery: **enabled in the product, real cash still blocked**
+On 2026-10-14 the owner enabled the feature (`FEATURE_FLAGS.courierCashDelivery = true`) everywhere. Customers can choose cash by courier, give a delivery address checked by ZIP with the carrier, and the order runs through the same state machine as other payouts. In sandbox mode a simulated carrier handles it. In production the cash adapter stays `NOT_CONFIGURED` without `CASH_PROVIDER_*` credentials and `DISABLED_BY_POLICY` while `REAL_MONEY_ENABLED = false`, so no real cash can be delivered. The research found **no US precedent** for a regulated exchange delivering cash to homes, and identified the highest AML and physical-safety exposure of any payout method. The owner also removed payout maximums on the same date, which leaves the "amount caps" item below open. Real cash deliveries require all of the following:
 - [ ] Licensing analysis confirming in-person cash disbursement is permitted for each service area.
 - [ ] CTR filing, aggregation across visits and agents, structuring detection, GTO compliance.
 - [ ] A contracted, licensed and bonded armored or courier carrier with all-risk insurance meeting state minimums *(research cites e.g. NY requirements; verify)*.
@@ -67,7 +67,7 @@ The feature flag `FEATURE_FLAGS.courierCashDelivery = false`. The payout option 
 - [ ] Server-side quotes (submit only `quoteId`), authenticated provider webhooks, idempotency, reconciliation, treasury and hedging controls.
 - [ ] Real authentication (OIDC, httpOnly cookies, WebAuthn/TOTP, rate limits), security headers and CSP, penetration test, incident response, vulnerability disclosure program.
 - [ ] Customer support and complaint channels; published hours and response targets (none are promised today).
-- [ ] Trademark clearance for the brand name (**"Settlewell" is a placeholder**).
+- [ ] Trademark clearance for the brand name (**"Arcvale" is a working name; it replaced the placeholder "Settlewell"**).
 
 ## Language rules for the preview (enforced in copy)
 
