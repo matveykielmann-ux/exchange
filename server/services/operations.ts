@@ -9,7 +9,7 @@
  * so by webhook. Nobody can click an order to "completed".
  */
 import { PAYOUT_METHODS } from '@/domain/payout';
-import type { OrderStatus } from '@/domain/order';
+import { HOLDABLE_STATUSES, type OrderStatus } from '@/domain/order';
 import { formatUsd } from '@/domain/money';
 import type { Actor, AppContext } from '../context';
 import { ApiError, badRequest, conflict, notConfigured, notFound } from '../http/errors';
@@ -19,7 +19,7 @@ import { ProviderError, ProviderNotConfiguredError, type PayoutProvider } from '
 import { audit } from './audit';
 import { payoutDetails } from './customers';
 import { notify } from './notifications';
-import { applyOrderEvent, getOrderRow, openReview, type OrderRow } from './orders';
+import { afterDepositConfirmed, applyOrderEvent, getOrderRow, openReview, type OrderRow } from './orders';
 import { postSystemMessage } from './support';
 import { formatAssetPlain } from './format';
 
@@ -359,6 +359,56 @@ export async function submitRefund(ctx: AppContext, actor: Actor, orderId: strin
   }
 }
 
+/** Pauses an order: nothing moves it toward a payout until the hold is released. The customer is told. */
+export function placeHold(ctx: AppContext, actor: Actor, orderId: string, reason: string) {
+  return applyOrderEvent(ctx, orderId, { type: 'HOLD_PLACED', reason: requireReason(reason) }, actor);
+}
+
+export function releaseHold(ctx: AppContext, actor: Actor, orderId: string, reason: string) {
+  const r = requireReason(reason);
+  return ctx.db.tx(() => {
+    applyOrderEvent(ctx, orderId, { type: 'HOLD_RELEASED', reason: r }, actor);
+    // A deposit confirmed during the hold now goes on to screening or review, as it would have.
+    return afterDepositConfirmed(ctx, orderId);
+  });
+}
+
+/**
+ * A message from the team to the customer about an order, in the order's
+ * support conversation (the same chat the customer already uses). The
+ * customer gets an in-account notice. `askForInfo` marks it as a request for
+ * more information; during compliance review that is also an order event.
+ */
+export function messageCustomer(ctx: AppContext, actor: Actor, orderId: string, message: string, { askForInfo = false } = {}) {
+  const body = message.trim();
+  if (body.length < 2) throw badRequest('Write a message for the customer.', { field: 'message' });
+  const o = getOrderRow(ctx, orderId);
+  if (askForInfo && o.status === 'compliance_review') return requestInfo(ctx, actor, orderId, body);
+  return ctx.db.tx(() => {
+    postSystemMessage(
+      ctx,
+      actor,
+      o.user_id,
+      orderId,
+      askForInfo ? `Information requested for order ${o.reference}` : `Order ${o.reference}`,
+      body,
+    );
+    notify(ctx, {
+      userId: o.user_id,
+      to: emailOf(ctx, o.user_id),
+      template: askForInfo ? 'info_requested' : 'staff_message',
+      orderId,
+      vars: { reference: o.reference },
+    });
+    audit(ctx, actor, {
+      action: askForInfo ? 'order.info_requested_message' : 'order.customer_messaged',
+      targetType: 'order',
+      targetId: orderId,
+    });
+    return o;
+  });
+}
+
 /** Explains, for the admin UI, which actions are available and why the others are not. */
 export function availableActions(ctx: AppContext, o: OrderRow, role: string) {
   const isReviewer = ['reviewer', 'admin', 'owner'].includes(role);
@@ -366,8 +416,10 @@ export function availableActions(ctx: AppContext, o: OrderRow, role: string) {
   const s: OrderStatus = o.status;
   const payout = payoutProvider(ctx, o).provider.info();
   const refund = ctx.db.get<{ status: string }>('SELECT status FROM refunds WHERE order_id = ?', [o.id]);
+  const held = o.on_hold === 1;
   const why = (ok: boolean, roleOk: boolean, roleName: string, stateMsg: string) =>
     ok && roleOk ? null : !roleOk ? `Requires the ${roleName} role.` : stateMsg;
+  const notHeld = (msg: string | null) => msg ?? (held ? 'The order is on hold. Release the hold first.' : null);
   const list = [
     { action: 'assign', label: 'Assign', unavailable: null },
     { action: 'note', label: 'Add internal note', unavailable: null },
@@ -384,18 +436,36 @@ export function availableActions(ctx: AppContext, o: OrderRow, role: string) {
     {
       action: 'request_info',
       label: 'Request information',
-      unavailable: why(s === 'compliance_review', isReviewer, 'reviewer', 'Only during compliance review.'),
+      unavailable: why(!['completed', 'refunded'].includes(s), true, 'support', 'Not possible on a closed order.'),
+    },
+    { action: 'message', label: 'Message the customer', unavailable: null },
+    {
+      action: 'hold',
+      label: 'Put on hold',
+      unavailable: why(
+        HOLDABLE_STATUSES.includes(s) && o.on_hold !== 1,
+        isReviewer,
+        'reviewer',
+        o.on_hold === 1 ? 'Already on hold.' : 'Not possible in the current state.',
+      ),
+    },
+    {
+      action: 'release_hold',
+      label: 'Release hold',
+      unavailable: why(o.on_hold === 1, isReviewer, 'reviewer', 'The order is not on hold.'),
     },
     {
       action: 'approve',
       label: 'Approve review',
-      unavailable: why(
-        s === 'compliance_review' && !o.deposit_exception,
-        isReviewer,
-        'reviewer',
-        o.deposit_exception
-          ? 'The deposit is an exception (late, wrong amount or closed order) and can only be refunded.'
-          : 'Only during compliance review.',
+      unavailable: notHeld(
+        why(
+          s === 'compliance_review' && !o.deposit_exception,
+          isReviewer,
+          'reviewer',
+          o.deposit_exception
+            ? 'The deposit is an exception (late, wrong amount or closed order) and can only be refunded.'
+            : 'Only during compliance review.',
+        ),
       ),
     },
     {
@@ -412,13 +482,13 @@ export function availableActions(ctx: AppContext, o: OrderRow, role: string) {
       action: 'authorize_payout',
       label: 'Authorize payout',
       unavailable:
-        why(s === 'ready_for_payout', isAdmin, 'admin', 'Only when the order is ready for payout.') ??
+        notHeld(why(s === 'ready_for_payout', isAdmin, 'admin', 'Only when the order is ready for payout.')) ??
         (isUsable(payout) ? null : `Payout provider is ${payout.state.replace(/_/g, ' ')}.`),
     },
     {
       action: 'retry_payout',
       label: 'Retry payout',
-      unavailable: why(s === 'failed' && !!o.deposit_tx_hash, isAdmin, 'admin', 'Only after a failed payout.'),
+      unavailable: notHeld(why(s === 'failed' && !!o.deposit_tx_hash, isAdmin, 'admin', 'Only after a failed payout.')),
     },
     {
       action: 'refund',

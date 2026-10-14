@@ -91,7 +91,9 @@ export type OrderEvent =
   | { type: 'PAYOUT_FAILED'; providerRef: string | null; reason: string }
   | { type: 'PAYOUT_RETRY_AUTHORIZED'; reason: string }
   | { type: 'REFUND_INITIATED'; reason: string }
-  | { type: 'REFUND_COMPLETED'; txHash: string };
+  | { type: 'REFUND_COMPLETED'; txHash: string }
+  | { type: 'HOLD_PLACED'; reason: string }
+  | { type: 'HOLD_RELEASED'; reason: string };
 
 export type OrderEventType = OrderEvent['type'];
 
@@ -115,6 +117,8 @@ export interface OrderMachineState {
   reviewReason: string | null;
   payoutProviderRef: string | null;
   refundTxHash: string | null;
+  /** An operator paused the order. Provider facts are still recorded; nothing moves money until the hold is released. */
+  onHold?: boolean;
 }
 
 export type OrderPatch = Partial<Omit<OrderMachineState, 'status' | 'quotedAmountAtomic' | 'depositDeadline' | 'confirmationsRequired'>>;
@@ -173,7 +177,22 @@ export const EVENT_ACTORS: Record<OrderEventType, readonly ActorType[]> = {
   PAYOUT_RETRY_AUTHORIZED: ['operator'],
   REFUND_INITIATED: ['operator'],
   REFUND_COMPLETED: ['provider'],
+  HOLD_PLACED: ['operator'],
+  HOLD_RELEASED: ['operator'],
 };
+
+/**
+ * Events refused while an order is on hold: everything a person or our own
+ * system would do to move it toward a payout. Provider reports (deposits,
+ * confirmations, payout results) are facts and are always recorded.
+ */
+export const BLOCKED_WHILE_ON_HOLD: ReadonlySet<OrderEventType> = new Set([
+  'SCREENING_CLEARED',
+  'REVIEW_APPROVED',
+  'PAYOUT_AUTHORIZED',
+  'PAYOUT_SUBMITTED',
+  'PAYOUT_RETRY_AUTHORIZED',
+]);
 
 type Resolver = (s: OrderMachineState, e: OrderEvent, now: number) => TransitionResult;
 
@@ -375,6 +394,40 @@ const payoutFailed: Resolver = (s, e) => {
   };
 };
 
+const holdPlaced: Resolver = (s, e) => {
+  if (s.onHold) throw new InvalidOrderTransitionError(s.status, e.type, 'This order is already on hold.');
+  if (!ev(e, 'HOLD_PLACED').reason.trim()) throw new InvalidOrderTransitionError(s.status, e.type, 'A hold needs a reason.');
+  return {
+    status: s.status,
+    patch: { onHold: true },
+    detail: 'Your order is on hold while our team checks it. We will contact you if we need anything.',
+    visibility: 'customer',
+  };
+};
+
+const holdReleased: Resolver = (s, e) => {
+  if (!s.onHold) throw new InvalidOrderTransitionError(s.status, e.type, 'This order is not on hold.');
+  return {
+    status: s.status,
+    patch: { onHold: false },
+    detail: 'The hold on your order was released. Processing continues.',
+    visibility: 'customer',
+  };
+};
+
+/** Statuses in which an operator may place or release a hold: open orders that have not paid out or closed. */
+export const HOLDABLE_STATUSES: readonly OrderStatus[] = [
+  'created',
+  'awaiting_deposit',
+  'deposit_observed',
+  'confirming',
+  'deposit_confirmed',
+  'compliance_review',
+  'ready_for_payout',
+  'failed',
+  'refund_pending',
+];
+
 /** status → event → resolver. Anything not listed is rejected. */
 const TABLE: Partial<Record<OrderStatus, Partial<Record<OrderEventType, Resolver>>>> = {
   created: {
@@ -486,6 +539,8 @@ const TABLE: Partial<Record<OrderStatus, Partial<Record<OrderEventType, Resolver
   },
 };
 
+for (const status of HOLDABLE_STATUSES) TABLE[status] = { ...TABLE[status], HOLD_PLACED: holdPlaced, HOLD_RELEASED: holdReleased };
+
 export function allowedOrderEvents(status: OrderStatus): OrderEventType[] {
   return Object.keys(TABLE[status] ?? {}) as OrderEventType[];
 }
@@ -499,6 +554,8 @@ export function transition(state: OrderMachineState, event: OrderEvent, actor: A
   if (!EVENT_ACTORS[event.type].includes(actor)) throw new ActorNotAllowedError(actor, event.type);
   const rule = TABLE[state.status]?.[event.type];
   if (!rule) throw new InvalidOrderTransitionError(state.status, event.type);
+  if (state.onHold && BLOCKED_WHILE_ON_HOLD.has(event.type))
+    throw new InvalidOrderTransitionError(state.status, event.type, 'This order is on hold. Release the hold first.');
   return rule(state, event, now);
 }
 
@@ -682,3 +739,70 @@ export function orderSteps(
   });
   return steps;
 }
+
+/* ---------- Stages ---------- */
+
+/**
+ * The owner-facing pipeline: each detailed status belongs to one stage. The
+ * detailed status stays the source of truth; a stage is only a grouping for
+ * the CRM, filters and the customer's summary.
+ */
+export type OrderStage =
+  | 'new'
+  | 'awaiting_payment'
+  | 'payment_review'
+  | 'processing'
+  | 'completed'
+  | 'on_hold'
+  | 'rejected'
+  | 'cancelled'
+  | 'refund_review'
+  | 'refunded';
+
+export const ORDER_STAGES: readonly OrderStage[] = [
+  'new',
+  'awaiting_payment',
+  'payment_review',
+  'processing',
+  'completed',
+  'on_hold',
+  'rejected',
+  'cancelled',
+  'refund_review',
+  'refunded',
+];
+
+/** The main path, in order, for progress indicators. */
+export const ORDER_STAGE_PATH: readonly OrderStage[] = ['new', 'awaiting_payment', 'payment_review', 'processing', 'completed'];
+
+export const STAGE_STATUSES: Record<Exclude<OrderStage, 'on_hold'>, readonly OrderStatus[]> = {
+  new: ['created'],
+  awaiting_payment: ['awaiting_deposit'],
+  payment_review: ['deposit_observed', 'confirming', 'deposit_confirmed', 'compliance_review'],
+  processing: ['ready_for_payout', 'payout_submitted', 'payout_processing'],
+  completed: ['completed'],
+  rejected: ['rejected'],
+  cancelled: ['cancelled', 'expired'],
+  refund_review: ['refund_pending'],
+  refunded: ['refunded'],
+};
+
+export function orderStage(status: OrderStatus, onHold = false): OrderStage {
+  // A failed payout waits on an operator decision (retry or refund), like a hold.
+  if (onHold || status === 'failed') return 'on_hold';
+  for (const [stage, statuses] of Object.entries(STAGE_STATUSES)) if (statuses.includes(status)) return stage as OrderStage;
+  return 'new';
+}
+
+export const ORDER_STAGE_LABEL: Record<OrderStage, string> = {
+  new: 'New',
+  awaiting_payment: 'Awaiting Payment',
+  payment_review: 'Payment Review',
+  processing: 'Processing',
+  completed: 'Completed',
+  on_hold: 'On Hold',
+  rejected: 'Rejected',
+  cancelled: 'Cancelled',
+  refund_review: 'Refund Review',
+  refunded: 'Refunded',
+};

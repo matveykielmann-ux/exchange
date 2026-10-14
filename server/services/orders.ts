@@ -12,6 +12,9 @@ import { isQuoteExpired, PRICING_POLICY, type ExchangeDirection, type Quote } fr
 import { canConfirmExchange } from '@/domain/identity';
 import {
   isPreviewDepositAddress,
+  ORDER_STAGE_LABEL,
+  orderStage,
+  orderStatusLabel,
   orderSteps,
   postDepositEvent,
   transition,
@@ -69,6 +72,8 @@ export interface OrderRow {
   refund_tx_hash: string | null;
   assigned_operator_id: string | null;
   customer_reported_sent_at: number | null;
+  /** 1 while an operator holds the order (migration 4). */
+  on_hold: number;
   created_at: number;
   updated_at: number;
   closed_at: number | null;
@@ -112,6 +117,7 @@ function machineState(o: OrderRow): OrderMachineState {
     reviewReason: o.review_reason,
     payoutProviderRef: o.payout_provider_ref,
     refundTxHash: o.refund_tx_hash,
+    onHold: o.on_hold === 1,
   };
 }
 
@@ -123,6 +129,7 @@ const PATCH_COLUMNS: Record<string, string> = {
   reviewReason: 'review_reason',
   payoutProviderRef: 'payout_provider_ref',
   refundTxHash: 'refund_tx_hash',
+  onHold: 'on_hold',
 };
 
 function eventData(event: OrderEvent): Record<string, unknown> {
@@ -169,6 +176,39 @@ function domainActor(actor: Actor): ActorType {
   return actor.type === 'sandbox' ? 'provider' : actor.type;
 }
 
+/** Events whose customer notice is sent by the code that raises them (with amounts or links), or that would only add noise. */
+const SPECIFIC_NOTICE: ReadonlySet<string> = new Set([
+  'DEPOSIT_INSTRUCTIONS_ISSUED',
+  'CONFIRMATIONS_UPDATED',
+  'DEPOSIT_CONFIRMED',
+  'CUSTOMER_CANCELLED',
+  'PAYOUT_SUBMITTED',
+  'PAYOUT_COMPLETED',
+  'PAYOUT_FAILED',
+  'REFUND_INITIATED',
+  'REFUND_COMPLETED',
+]);
+
+/** Tells the customer (in their account and by email) that their order moved to a new status or was held or released. */
+function notifyStatusChange(ctx: AppContext, o: OrderRow, detail: string) {
+  // A rejection with funds held starts a refund, whose own notice says so.
+  if (o.status === 'refund_pending') return;
+  const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [o.user_id])?.email;
+  if (!email) return;
+  notify(ctx, {
+    userId: o.user_id,
+    to: email,
+    template: 'status_changed',
+    orderId: o.id,
+    vars: {
+      reference: o.reference,
+      stage: ORDER_STAGE_LABEL[orderStage(o.status, o.on_hold === 1)],
+      status: orderStatusLabel(o.status, o.direction),
+      detail,
+    },
+  });
+}
+
 /**
  * The only way an order changes status. Validates the event with the domain
  * state machine, then writes status + event + audit atomically. Throws
@@ -204,7 +244,7 @@ export function applyOrderEvent(
       const col = PATCH_COLUMNS[k];
       if (!col) continue;
       sets.push(`${col} = :${col}`);
-      params[col] = typeof v === 'bigint' ? v.toString() : (v as string | number | null);
+      params[col] = typeof v === 'bigint' ? v.toString() : typeof v === 'boolean' ? (v ? 1 : 0) : (v as string | number | null);
     }
     if (CLOSED.has(result.status) && !CLOSED.has(order.status)) sets.push('closed_at = :now');
     if (event.type === 'CUSTOMER_REPORTED_SENT') sets.push('customer_reported_sent_at = :now');
@@ -227,6 +267,12 @@ export function applyOrderEvent(
       data: { from: order.status, to: result.status },
     });
     const updated = getOrderRow(ctx, orderId);
+    if (
+      result.visibility === 'customer' &&
+      (result.status !== order.status || 'onHold' in result.patch) &&
+      !SPECIFIC_NOTICE.has(event.type)
+    )
+      notifyStatusChange(ctx, updated, result.detail);
     ctx.db.afterCommit(() =>
       ctx.bus.publish([{ userId: updated.user_id }, { staff: true }], {
         type: 'order.updated',
@@ -639,7 +685,8 @@ export function expireOverdueOrders(ctx: AppContext): number {
 
 export function afterDepositConfirmed(ctx: AppContext, orderId: string) {
   const o = getOrderRow(ctx, orderId);
-  if (o.status !== 'deposit_confirmed') return o;
+  // A held order waits here; releasing the hold runs this step (see releaseHold).
+  if (o.status !== 'deposit_confirmed' || o.on_hold === 1) return o;
   const manual =
     BigInt(o.gross_cents) >= ctx.config.manualReviewThresholdCents && ctx.config.manualReviewThresholdCents > 0n
       ? `Amount at or above the manual review threshold (${formatUsd(ctx.config.manualReviewThresholdCents, { whole: true })}).`
@@ -710,6 +757,9 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
     source: o.source,
     direction: o.direction,
     status: o.status,
+    /** The owner-facing pipeline stage (New, Awaiting Payment, Payment Review, …). */
+    stage: orderStage(o.status, o.on_hold === 1),
+    onHold: o.on_hold === 1,
     version: o.version,
     asset: o.asset,
     network: o.network,

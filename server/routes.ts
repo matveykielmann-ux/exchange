@@ -5,7 +5,7 @@
  */
 import { ASSET_ORDER, NETWORKS, type AssetCode, type NetworkId } from '@/domain/assets';
 import { PAYOUT_ORDER, type PayoutMethodId } from '@/domain/payout';
-import { ORDER_STATUSES, type OrderStatus } from '@/domain/order';
+import { ORDER_STAGES, ORDER_STATUSES, type OrderStage, type OrderStatus } from '@/domain/order';
 import { PRICING_POLICY } from '@/domain/quote';
 import { COURIER_WINDOWS } from '@/domain/courier';
 import { formatUsd } from '@/domain/money';
@@ -24,7 +24,7 @@ import { audit } from './services/audit';
 import * as auth from './services/auth';
 import * as customers from './services/customers';
 import { withIdempotency } from './services/idempotency';
-import { listNotifications } from './services/notifications';
+import { listNotifications, markNotificationsRead, orderNotifications, unreadNotificationCount } from './services/notifications';
 import * as ops from './services/operations';
 import * as orders from './services/orders';
 import { firmQuote, indicativeQuote, referencePrice, type QuoteInput } from './services/quotes';
@@ -235,6 +235,7 @@ export function registerRoutes(r: Router, app: AppContext) {
         v.object({
           email: v.string({ max: 254, label: 'your email' }),
           password: v.string({ max: 200, trim: false, label: 'your password' }),
+          staffOnly: v.optional(v.bool()),
         }),
         ctx.body,
       );
@@ -422,7 +423,20 @@ export function registerRoutes(r: Router, app: AppContext) {
     },
     { auth: 'user' },
   );
-  r.get('/api/me/notifications', (ctx) => ({ body: { notifications: listNotifications(app, me(ctx)) } }), { auth: 'user' });
+  r.get(
+    '/api/me/notifications',
+    (ctx) => ({ body: { notifications: listNotifications(app, me(ctx)), unread: unreadNotificationCount(app, me(ctx)) } }),
+    { auth: 'user' },
+  );
+  r.post(
+    '/api/me/notifications/read',
+    (ctx) => {
+      const b = parse(v.object({ ids: v.optional(v.array(v.string({ max: 64 }), { max: 200 })) }), ctx.body);
+      markNotificationsRead(app, me(ctx), b.ids ?? null);
+      return { body: { unread: unreadNotificationCount(app, me(ctx)) } };
+    },
+    { auth: 'user' },
+  );
   r.get(
     '/api/me/legal',
     (ctx) => ({
@@ -657,10 +671,14 @@ function registerAdminRoutes(r: Router, app: AppContext) {
       const statuses = (q.get('status') ?? '').split(',').filter(Boolean);
       for (const s of statuses)
         if (!(ORDER_STATUSES as readonly string[]).includes(s)) throw new ApiError(400, 'invalid_input', `Unknown status ${s}.`);
+      const stages = (q.get('stage') ?? '').split(',').filter(Boolean) as OrderStage[];
+      for (const s of stages)
+        if (!(ORDER_STAGES as readonly string[]).includes(s)) throw new ApiError(400, 'invalid_input', `Unknown stage ${s}.`);
       const num = (k: string) => parse(v.optional(v.int({ min: 0 })), q.get(k) ?? undefined) ?? null;
       const f: admin.QueueFilter = {
         q: q.get('q')?.trim().slice(0, 120) || null,
         statuses: statuses as OrderStatus[],
+        stages,
         payoutMethod: q.get('payoutMethod') ? parse(methodV, q.get('payoutMethod')) : null,
         minNetCents: num('minNetCents'),
         maxNetCents: num('maxNetCents'),
@@ -713,6 +731,7 @@ function registerAdminRoutes(r: Router, app: AppContext) {
             [o.id, o.user_id],
           ),
           audit: admin.auditLog(app, { targetType: 'order', targetId: o.id, actorId: null, action: null, page: 1, pageSize: 100 }).items,
+          notifications: orderNotifications(app, o.id),
           actions: ops.availableActions(app, o, ctx.auth!.role),
           sandboxControls: app.config.mode === 'sandbox',
         },
@@ -739,14 +758,25 @@ function registerAdminRoutes(r: Router, app: AppContext) {
     ops.addNote(app, staffActor(ctx), id, parse(v.object({ body: v.string({ max: 4000, label: 'a note' }) }), ctx.body).body),
   );
   orderAction('flag', REVIEWER, (ctx, id) => ops.flagForReview(app, staffActor(ctx), id, parse(reasonV, ctx.body).reason));
-  orderAction('request-info', REVIEWER, (ctx, id) =>
-    ops.requestInfo(
+  orderAction('request-info', SUPPORT, (ctx, id) =>
+    ops.messageCustomer(
       app,
       staffActor(ctx),
       id,
       parse(v.object({ message: v.string({ min: 10, max: 2000, label: 'a question' }) }), ctx.body).message,
+      { askForInfo: true },
     ),
   );
+  orderAction('message', SUPPORT, (ctx, id) =>
+    ops.messageCustomer(
+      app,
+      staffActor(ctx),
+      id,
+      parse(v.object({ message: v.string({ min: 2, max: 4000, label: 'a message' }) }), ctx.body).message,
+    ),
+  );
+  orderAction('hold', REVIEWER, (ctx, id) => ops.placeHold(app, staffActor(ctx), id, parse(reasonV, ctx.body).reason));
+  orderAction('release-hold', REVIEWER, (ctx, id) => ops.releaseHold(app, staffActor(ctx), id, parse(reasonV, ctx.body).reason));
   orderAction('approve', REVIEWER, (ctx, id) => ops.approveReview(app, staffActor(ctx), id, parse(reasonV, ctx.body).reason));
   orderAction('reject', REVIEWER, (ctx, id) => ops.rejectOrder(app, staffActor(ctx), id, parse(reasonV, ctx.body).reason));
   orderAction('authorize-payout', ADMIN, (ctx, id) => ops.authorizePayout(app, staffActor(ctx), id, parse(reasonV, ctx.body).reason));

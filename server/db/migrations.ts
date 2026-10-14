@@ -490,4 +490,20 @@ CREATE INDEX order_documents_order ON order_documents(order_id);
 ${appendOnly('order_documents')}
 `,
   },
+  {
+    id: 4,
+    name: 'order_hold_notification_reads',
+    sql: `
+-- An operator can put an order on hold (see BLOCKED_WHILE_ON_HOLD in src/domain/order.ts). The status is unchanged.
+ALTER TABLE orders ADD COLUMN on_hold INTEGER NOT NULL DEFAULT 0 CHECK (on_hold IN (0,1));
+
+-- In-account notifications: read state, the order they belong to, and the values the text was built from.
+ALTER TABLE notifications ADD COLUMN read_at INTEGER;
+ALTER TABLE notifications ADD COLUMN order_id TEXT REFERENCES orders(id);
+ALTER TABLE notifications ADD COLUMN vars TEXT;
+UPDATE notifications SET read_at = created_at;
+CREATE INDEX notifications_order ON notifications(order_id, created_at);
+CREATE INDEX notifications_unread ON notifications(user_id, read_at);
+`,
+  },
 ];

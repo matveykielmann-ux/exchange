@@ -26,7 +26,9 @@ export type Template =
   | 'refund_started'
   | 'refund_completed'
   | 'support_reply'
-  | 'verification_updated';
+  | 'verification_updated'
+  | 'status_changed'
+  | 'staff_message';
 
 type Vars = Record<string, string>;
 
@@ -91,20 +93,37 @@ const TEMPLATES: Record<Template, (v: Vars) => { subject: string; body: string }
     subject: `New reply: ${v.subject}`,
     body: `Our support team replied to “${v.subject}”. Sign in to read and answer it.`,
   }),
+  status_changed: (v) => ({
+    subject: `Order ${v.reference}: ${v.stage}`,
+    body: `Your order ${v.reference} is now: ${v.status}. ${v.detail}`,
+  }),
+  staff_message: (v) => ({
+    subject: `Order ${v.reference}: message from our team`,
+    body: `Our team sent you a message about order ${v.reference}. Open your support messages to read and reply.`,
+  }),
   verification_updated: (v) => ({
     subject: 'Your identity verification was updated',
     body: `Your identity verification status is now: ${v.status}. Open your account page for details.`,
   }),
 };
 
-export function notify(ctx: AppContext, input: { userId: string | null; to: string; template: Template; vars: Vars }): string {
+export function notify(
+  ctx: AppContext,
+  input: { userId: string | null; to: string; template: Template; vars: Vars; orderId?: string | null },
+): string {
   const { subject, body } = TEMPLATES[input.template](input.vars);
   const id = newId('ntf');
   const info = ctx.providers.email.info();
   const status = info.state === 'sandbox' ? 'sandbox_captured' : isUsable(info) ? 'queued' : 'not_configured';
+  // Order notices are linked to their order, so the CRM can show each order's notification history.
+  const orderId =
+    input.orderId ??
+    (input.vars.reference
+      ? (ctx.db.get<{ id: string }>('SELECT id FROM orders WHERE reference = ?', [input.vars.reference])?.id ?? null)
+      : null);
   ctx.db.run(
-    'INSERT INTO notifications (id, user_id, channel, recipient, template, subject, body, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, input.userId, 'email', input.to, input.template, subject, body, status, ctx.clock.now()],
+    'INSERT INTO notifications (id, user_id, channel, recipient, template, subject, body, status, created_at, order_id, vars) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, input.userId, 'email', input.to, input.template, subject, body, status, ctx.clock.now(), orderId, JSON.stringify(input.vars)],
   );
   if (status === 'queued') ctx.db.afterCommit(() => void deliver(ctx, id));
   if (input.userId) {
@@ -137,18 +156,64 @@ async function deliver(ctx: AppContext, id: string) {
   }
 }
 
+type NotificationRow = {
+  id: string;
+  template: string;
+  subject: string;
+  body: string;
+  status: string;
+  created_at: number;
+  order_id: string | null;
+  vars: string | null;
+  read_at: number | null;
+};
+
+const notificationView = (n: NotificationRow & { reference?: string | null }) => ({
+  id: n.id,
+  template: n.template,
+  subject: n.subject,
+  body: n.body,
+  status: n.status,
+  createdAt: n.created_at,
+  orderId: n.order_id,
+  /** The values the text was built from, so the browser can show it in the customer's language. */
+  vars: n.vars ? (JSON.parse(n.vars) as Vars) : {},
+  readAt: n.read_at,
+});
+
+/** The customer's in-account notifications, newest first, with the unread count. */
 export function listNotifications(ctx: AppContext, userId: string, limit = 50) {
+  const rows = ctx.db.all<NotificationRow>(
+    "SELECT id, template, subject, body, status, created_at, order_id, vars, read_at FROM notifications WHERE user_id = ? AND template <> 'password_reset' ORDER BY created_at DESC LIMIT ?",
+    [userId, limit],
+  );
+  return rows.map(notificationView);
+}
+
+export function unreadNotificationCount(ctx: AppContext, userId: string): number {
+  return ctx.db.get<{ n: number }>(
+    "SELECT count(*) AS n FROM notifications WHERE user_id = ? AND read_at IS NULL AND template <> 'password_reset'",
+    [userId],
+  )!.n;
+}
+
+/** Marks the given notifications (or all of them) as read. Only the customer's own rows change. */
+export function markNotificationsRead(ctx: AppContext, userId: string, ids: string[] | null) {
+  const now = ctx.clock.now();
+  if (ids === null) {
+    ctx.db.run('UPDATE notifications SET read_at = ? WHERE user_id = ? AND read_at IS NULL', [now, userId]);
+    return;
+  }
+  for (const id of ids.slice(0, 200))
+    ctx.db.run('UPDATE notifications SET read_at = ? WHERE id = ? AND user_id = ? AND read_at IS NULL', [now, id, userId]);
+}
+
+/** Every notice sent about one order, for the CRM. */
+export function orderNotifications(ctx: AppContext, orderId: string) {
   return ctx.db
-    .all<{
-      id: string;
-      template: string;
-      subject: string;
-      body: string;
-      status: string;
-      created_at: number;
-    }>('SELECT id, template, subject, body, status, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?', [
-      userId,
-      limit,
-    ])
-    .map((n) => ({ id: n.id, template: n.template, subject: n.subject, body: n.body, status: n.status, createdAt: n.created_at }));
+    .all<NotificationRow>(
+      'SELECT id, template, subject, body, status, created_at, order_id, vars, read_at FROM notifications WHERE order_id = ? ORDER BY created_at',
+      [orderId],
+    )
+    .map(notificationView);
 }

@@ -223,7 +223,7 @@ export type SignInResult = { kind: 'session'; userId: string; grant: SessionGran
 
 export async function signIn(
   ctx: AppContext,
-  input: { email: string; password: string },
+  input: { email: string; password: string; staffOnly?: boolean },
   meta: { ip: string | null; userAgent: string | null },
 ): Promise<SignInResult> {
   const email = normalizeEmail(input.email);
@@ -238,8 +238,10 @@ export async function signIn(
     role: user?.role ?? null,
     ip: meta.ip,
   };
-  if (!user || !ok || user.status !== 'active') {
-    if (user) {
+  // The staff entrance (/admin/login) refuses customer accounts with the same answer as a wrong password, so it reveals nothing.
+  const portalOk = !input.staffOnly || (!!user && user.role !== 'customer');
+  if (!user || !ok || user.status !== 'active' || !portalOk) {
+    if (user && (!ok || user.status !== 'active')) {
       const failures = user.failed_logins + 1;
       ctx.db.run('UPDATE users SET failed_logins = ?, locked_until = ? WHERE id = ?', [
         failures,

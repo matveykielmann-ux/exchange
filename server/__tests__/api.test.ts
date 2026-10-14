@@ -254,6 +254,63 @@ describe('API', () => {
     ).toBe(true);
   });
 
+  it('runs the master CRM: staff-only sign-in, stages, hold, messages and customer notifications', async () => {
+    const c = env.client();
+    const { bankId } = await customer(c, 'crm@example.test');
+    const { o } = await order(c, bankId);
+    const id = o.body.id as string;
+    expect(o.body.stage).toBe('awaiting_payment');
+
+    // The staff entrance refuses customer accounts with the same answer as a wrong password.
+    const asStaff = await env.client().post('/api/auth/signin', { email: 'crm@example.test', password: SANDBOX_PASSWORD, staffOnly: true });
+    expect(asStaff.status).toBe(401);
+    expect(asStaff.body.error.code).toBe('invalid_credentials');
+    await createAccount(env.app.ctx, { email: 'master@arcvale.test', password: SANDBOX_PASSWORD, role: 'owner', fullName: 'Master' });
+    const master = env.client();
+    expect(
+      (await master.post('/api/auth/signin', { email: 'master@arcvale.test', password: SANDBOX_PASSWORD, staffOnly: true })).status,
+    ).toBe(200);
+
+    const byStage = await master.get('/api/admin/orders?stage=awaiting_payment');
+    expect(byStage.body.items.map((x: { id: string }) => x.id)).toContain(id);
+    expect((await master.get('/api/admin/orders?stage=bogus')).status).toBe(400);
+
+    // Hold: recorded as an event, shown as a stage, and it blocks payout progress until released.
+    expect((await master.post(`/api/admin/orders/${id}/hold`, { reason: 'Checking the customer' })).body.onHold).toBe(true);
+    expect((await master.get('/api/admin/orders?stage=on_hold')).body.items[0].id).toBe(id);
+    expect((await c.post(`/api/sandbox/orders/${id}/deposit`, { scenario: 'exact' })).body.order.status).toBe('deposit_observed');
+    const confirmed = await c.post(`/api/sandbox/orders/${id}/confirmations`, { toFinal: true });
+    // The deposit is a provider fact and is recorded; clearing it for payout waits for the hold to be released.
+    expect(confirmed.body.order.status).toBe('deposit_confirmed');
+    expect((await c.get(`/api/orders/${id}`)).body.stage).toBe('on_hold');
+    expect((await master.post(`/api/admin/orders/${id}/hold`, { reason: 'Again' })).status).toBe(409);
+    expect((await master.post(`/api/admin/orders/${id}/authorize-payout`, { reason: 'Too early' })).status).toBe(409);
+    const released = await master.post(`/api/admin/orders/${id}/release-hold`, { reason: 'Checks done' });
+    expect(released.body.onHold).toBe(false);
+    expect(released.body.status).toBe('ready_for_payout');
+
+    // Messages go to the order's conversation, and the customer is notified in their account.
+    expect((await master.post(`/api/admin/orders/${id}/message`, { message: 'Hello from the team' })).status).toBe(200);
+    expect((await master.post(`/api/admin/orders/${id}/request-info`, { message: 'Please confirm the source of funds.' })).status).toBe(
+      200,
+    );
+    const convs = await c.get('/api/support/conversations');
+    expect(convs.body.conversations.some((x: { order: { id: string } | null }) => x.order?.id === id)).toBe(true);
+
+    const n = await c.get('/api/me/notifications');
+    const templates = n.body.notifications.map((x: { template: string }) => x.template);
+    expect(templates).toEqual(expect.arrayContaining(['status_changed', 'staff_message', 'info_requested']));
+    expect(n.body.unread).toBeGreaterThan(0);
+    expect(n.body.notifications.find((x: { template: string }) => x.template === 'status_changed').orderId).toBe(id);
+    expect((await c.post('/api/me/notifications/read', {})).body.unread).toBe(0);
+
+    const detail = await master.get(`/api/admin/orders/${id}`);
+    expect(detail.body.order.stage).toBe('processing');
+    expect(detail.body.notifications.length).toBeGreaterThan(2);
+    const events = detail.body.order.events.map((e: { type: string }) => e.type);
+    expect(events).toEqual(expect.arrayContaining(['HOLD_PLACED', 'HOLD_RELEASED']));
+  });
+
   it('delivers cash by courier: validated address, carrier area check, masked staff view, signed courier webhooks', async () => {
     const c = env.client();
     await customer(c, 'courier@example.test');

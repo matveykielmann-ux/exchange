@@ -3,6 +3,7 @@ import {
   InvalidOrderTransitionError,
   ORDER_STATUSES,
   allowedOrderEvents,
+  orderStage,
   orderStatusLabel,
   orderSteps,
   postDepositEvent,
@@ -127,5 +128,36 @@ describe('buy orders', () => {
       'Completed',
     ]);
     expect(steps[1]!.state).toBe('current');
+  });
+});
+
+describe('hold and stages', () => {
+  it('holds an order without changing its status and blocks progress toward payout until released', () => {
+    const held = transition(base({ status: 'compliance_review' }), { type: 'HOLD_PLACED', reason: 'Check' }, 'operator', NOW);
+    expect(held.status).toBe('compliance_review');
+    expect(held.patch).toEqual({ onHold: true });
+    const state = base({ status: 'compliance_review', onHold: true });
+    expect(() => transition(state, { type: 'REVIEW_APPROVED', reason: 'ok' }, 'operator', NOW)).toThrow(/on hold/);
+    expect(() => transition(state, { type: 'HOLD_PLACED', reason: 'x' }, 'operator', NOW)).toThrow(InvalidOrderTransitionError);
+    // Rejection is still possible while held, and provider facts are never refused.
+    expect(transition(state, { type: 'ORDER_REJECTED', reason: 'No' }, 'operator', NOW).status).toBe('rejected');
+    expect(transition(base({ onHold: true }), observed, 'provider', NOW).status).toBe('deposit_observed');
+    expect(transition(state, { type: 'HOLD_RELEASED', reason: 'ok' }, 'operator', NOW).patch).toEqual({ onHold: false });
+    expect(() => transition(state, { type: 'HOLD_PLACED', reason: 'x' }, 'customer', NOW)).toThrow(ActorNotAllowedError);
+    expect(() => transition(base({ status: 'completed' }), { type: 'HOLD_PLACED', reason: 'x' }, 'operator', NOW)).toThrow();
+  });
+
+  it('maps every status to a pipeline stage', () => {
+    expect(orderStage('created')).toBe('new');
+    expect(orderStage('awaiting_deposit')).toBe('awaiting_payment');
+    expect(orderStage('confirming')).toBe('payment_review');
+    expect(orderStage('compliance_review')).toBe('payment_review');
+    expect(orderStage('payout_processing')).toBe('processing');
+    expect(orderStage('completed')).toBe('completed');
+    expect(orderStage('expired')).toBe('cancelled');
+    expect(orderStage('refund_pending')).toBe('refund_review');
+    expect(orderStage('failed')).toBe('on_hold');
+    expect(orderStage('ready_for_payout', true)).toBe('on_hold');
+    for (const s of ORDER_STATUSES) expect(orderStage(s)).toBeTruthy();
   });
 });

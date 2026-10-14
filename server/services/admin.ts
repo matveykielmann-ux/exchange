@@ -2,7 +2,7 @@
  * Admin read models: dashboard metrics, the request queue, users, audit log,
  * webhook log. Every figure is computed from database records at request time.
  */
-import { NEEDS_OPERATOR, ORDER_STATUSES, type OrderStatus } from '@/domain/order';
+import { NEEDS_OPERATOR, ORDER_STATUSES, orderStage, STAGE_STATUSES, type OrderStage, type OrderStatus } from '@/domain/order';
 import { REAL_MONEY_ENABLED, FEATURE_FLAGS } from '@/config/runtime';
 import type { Actor, AppContext } from '../context';
 import { badRequest, conflict, forbidden, notFound } from '../http/errors';
@@ -83,6 +83,8 @@ function overdueClause(now: number) {
 export interface QueueFilter {
   q: string | null;
   statuses: OrderStatus[];
+  /** Pipeline stages (New, Awaiting Payment, …); combined with OR, then AND-ed with `statuses`. */
+  stages: OrderStage[];
   payoutMethod: string | null;
   minNetCents: number | null;
   maxNetCents: number | null;
@@ -121,6 +123,19 @@ export function queue(ctx: AppContext, staffId: string, f: QueueFilter) {
   if (f.statuses.length) {
     where.push(`o.status IN (${f.statuses.map((_, i) => `:s${i}`).join(',')})`);
     f.statuses.forEach((s, i) => (params[`s${i}`] = s));
+  }
+  if (f.stages.length) {
+    const parts: string[] = [];
+    f.stages.forEach((stage, i) => {
+      if (stage === 'on_hold') {
+        parts.push("(o.on_hold = 1 OR o.status = 'failed')");
+        return;
+      }
+      const list = STAGE_STATUSES[stage];
+      list.forEach((st, j) => (params[`g${i}_${j}`] = st));
+      parts.push(`(o.on_hold = 0 AND o.status IN (${list.map((_, j) => `:g${i}_${j}`).join(',')}))`);
+    });
+    where.push(`(${parts.join(' OR ')})`);
   }
   if (f.payoutMethod) {
     where.push('o.payout_method = :method');
@@ -173,6 +188,8 @@ export function queue(ctx: AppContext, staffId: string, f: QueueFilter) {
       source: o.source,
       direction: o.direction,
       status: o.status,
+      stage: orderStage(o.status, o.on_hold === 1),
+      onHold: o.on_hold === 1,
       priority: priorityOf(o, now),
       customer: { id: o.user_id, email: maskEmail(o.email), name: o.full_name ?? '' },
       asset: o.asset,
