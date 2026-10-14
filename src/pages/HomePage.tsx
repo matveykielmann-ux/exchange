@@ -1,3 +1,4 @@
+import { useIsSandbox } from '@/state/config';
 import { Link } from 'react-router-dom';
 import { Calculator } from '@/components/Calculator';
 import { HeroArt } from '@/components/HeroArt';
@@ -33,6 +34,7 @@ const STEPS = [
 
 export function HomePage() {
   useDocumentTitle('');
+  const sandbox = useIsSandbox();
   return (
     <>
       <section className="hero">
@@ -351,8 +353,9 @@ export function HomePage() {
               Designed for regulated operation.
             </h2>
             <p className="lead">
-              These controls run on our server for every order. In the sandbox, the providers behind them are simulated. None of them is a
-              claim of licensing or insurance.
+              These controls run on our server for every order.
+              {sandbox ? ' In the sandbox, the providers behind them are simulated.' : ''} None of them is a claim of licensing or
+              insurance.
             </p>
           </div>
           <ul className="pillars">

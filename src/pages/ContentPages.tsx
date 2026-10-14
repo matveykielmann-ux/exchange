@@ -106,7 +106,7 @@ export function HowItWorksPage() {
         </div>
         <p className="small muted">
           Bitcoin, Ethereum and Tron follow the table in Section 5 of the Service Rules. The Rules set no count for Solana or Base; the
-          counts shown for them are this sandbox&rsquo;s own and are awaiting the owner&rsquo;s decision.
+          counts shown for them are set by {BRAND.name}.
         </p>
         <h2 id="payout-sent">6. Receive dollars</h2>
         <p>
