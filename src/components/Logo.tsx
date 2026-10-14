@@ -1,21 +1,28 @@
 import { BRAND } from '@/config/brand';
 
-/** Original mark: an arc over a vale (a shallow valley), inside a rounded seal. */
-export function LogoMark() {
+/**
+ * The CryptoBit mark: the gold digital globe wrapped by an orbit that ends in
+ * an arrow. A raster cut from the approved brand board (public/brand/); it is
+ * not redrawn, because the mark is a detailed 3D render.
+ */
+export function LogoMark({ size = 40 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 28 28" aria-hidden="true" focusable="false">
-      <rect x="1" y="1" width="26" height="26" rx="8" style={{ fill: 'var(--logo-bg)' }} />
-      <path d="M7.5 16.5a6.5 6.5 0 0 1 13 0" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-      <path d="M8 20.2 14 17.2l6 3" fill="none" stroke="#a78bfa" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <img className="brand__mark" src="/brand/cryptobit-mark.webp" alt="" width={Math.round(size * 1.41)} height={size} decoding="async" />
   );
 }
 
+/** Horizontal lockup: mark, "CryptoBit" and "EXCHANGE". */
 export function Logo() {
   return (
     <>
       <LogoMark />
-      <span>{BRAND.name}</span>
+      <span className="brand__word" aria-hidden="true">
+        <span className="brand__name">
+          Crypto<span className="brand__accent">Bit</span>
+        </span>
+        <span className="brand__sub">Exchange</span>
+      </span>
+      <span className="visually-hidden">{BRAND.name}</span>
     </>
   );
 }

@@ -4,6 +4,7 @@
  * parts win on the rare key that two areas share.
  */
 import { RU_ADMIN } from './ru-admin';
+import { RU_CRM } from './ru-crm';
 import { RU_DOMAIN } from './ru-domain';
 import { RU_PUBLIC } from './ru-public';
 import { RU_PUBLIC2 } from './ru-public2';
@@ -15,6 +16,7 @@ export const RU: Record<string, string> = {
   ...RU_PUBLIC2,
   ...RU_PUBLIC3,
   ...RU_DOMAIN,
+  ...RU_CRM,
   // Names of server components that appear inside error messages.
   'Sanctions screening': 'Санкционный скрининг',
   'Identity verification': 'Проверка личности',
@@ -38,6 +40,8 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 export const RU_PATTERNS: [RegExp, (g: string[], tr: Tr) => string][] = [
   [/^(\d+) of (\d+) network confirmations\.$/, ([a, b]) => `${a} из ${b} подтверждений сети.`],
   [/^A deposit needs (\d+) confirmations to be final\.$/, ([n]) => `Для окончательного подтверждения депозиту нужно ${n} подтверждений.`],
+  [/^Amount at or above the manual review threshold \((.+)\)\.$/, ([a]) => `Сумма не меньше порога ручной проверки (${a}).`],
+  [/^Refund address screening: (.+)$/, ([n]) => `Скрининг адреса возврата: ${n}`],
   [/^Flagged for review: (.+)$/, ([r], tr) => `Отмечено для проверки: ${tr(r!)}`],
   [/^Enter (.+)\.$/, ([label], tr) => `Введите ${tr(label!)}.`],
   [/^(.+) must be at least (\d+) characters\.$/, ([l, n], tr) => `${cap(tr(l!))}: не менее ${n} символов.`],

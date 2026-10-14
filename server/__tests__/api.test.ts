@@ -304,6 +304,18 @@ describe('API', () => {
     expect(n.body.notifications.find((x: { template: string }) => x.template === 'status_changed').orderId).toBe(id);
     expect((await c.post('/api/me/notifications/read', {})).body.unread).toBe(0);
 
+    // A second operator acting on a stale screen is refused instead of acting on the new status.
+    const stale = await master.post(`/api/admin/orders/${id}/reject`, { reason: 'Looks wrong', expectedStatus: 'compliance_review' });
+    expect(stale.status).toBe(409);
+    expect(stale.body.error.code).toBe('stale_status');
+    expect((await c.get(`/api/orders/${id}`)).body.status).toBe('ready_for_payout');
+
+    // Orders waiting on a person come first and can be filtered on their own.
+    const attention = await master.get('/api/admin/orders?attention=true&sort=attention');
+    expect(attention.body.items.map((x: { id: string }) => x.id)).toEqual([id]);
+    expect(Number(attention.body.items[0].grossCents)).toBeGreaterThan(240_000);
+    expect((await master.get('/api/admin/overview')).body.totals.needsAction).toBe(1);
+
     const detail = await master.get(`/api/admin/orders/${id}`);
     expect(detail.body.order.stage).toBe('processing');
     expect(detail.body.notifications.length).toBeGreaterThan(2);

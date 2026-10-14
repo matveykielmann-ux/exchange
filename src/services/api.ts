@@ -74,7 +74,12 @@ const toSummary = (o: J): OrderSummary => ({
   netCents: big(o.netCents),
   grossCents: big(o.grossCents),
 });
-const toQueueItem = (o: J): QueueItem => ({ ...o, amountAtomic: big(o.amountAtomic), netCents: big(o.netCents) });
+const toQueueItem = (o: J): QueueItem => ({
+  ...o,
+  amountAtomic: big(o.amountAtomic),
+  grossCents: big(o.grossCents),
+  netCents: big(o.netCents),
+});
 const toPage = <T>(p: J, f: (x: J) => T): Page<T> => ({ ...p, items: (p.items as J[]).map(f) });
 const toOutcome = (r: J): SandboxOutcome => ({ outcome: r.outcome ?? r.outcomes, order: toOrder(r.order) });
 
@@ -220,6 +225,7 @@ export async function createApiServices(base = ''): Promise<Services> {
             review: q.review === 'open' ? 'open' : undefined,
             assigned: q.assigned === 'any' ? undefined : q.assigned,
             overdue: q.overdue,
+            attention: q.attention,
             sort: q.sort,
             dir: q.dir,
             page: q.page,

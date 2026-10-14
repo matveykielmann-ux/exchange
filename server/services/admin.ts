@@ -24,6 +24,8 @@ export function overview(ctx: AppContext) {
   const overdue = overdueClause(now);
   const overdueCount = ctx.db.get<{ n: number }>(`SELECT count(*) AS n FROM orders o WHERE ${overdue.sql}`, overdue.params)!.n;
   const openConversations = ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM support_conversations WHERE status != 'resolved'")!.n;
+  const needsAction = ctx.db.get<{ n: number }>(`SELECT count(*) AS n FROM orders o WHERE ${NEEDS_ACTION_SQL}`)!.n;
+  const onHold = ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM orders WHERE on_hold = 1')!.n;
   const unreadConversations = ctx.db.get<{ n: number }>(
     "SELECT count(*) AS n FROM support_conversations c WHERE status != 'resolved' AND EXISTS (SELECT 1 FROM support_messages m WHERE m.conversation_id = c.id AND m.author_kind = 'customer' AND m.created_at > c.staff_last_read_at)",
   )!.n;
@@ -56,6 +58,9 @@ export function overview(ctx: AppContext) {
       awaitingPayout: byStatus.ready_for_payout + byStatus.payout_submitted + byStatus.payout_processing,
       failedOrOverdue: byStatus.failed + byStatus.refund_pending + overdueCount,
       completed: byStatus.completed,
+      /** Waiting on a person: review, payout authorization, a failed payout, a pending refund, or a hold. */
+      needsAction,
+      onHold,
       openConversations,
       unreadConversations,
     },
@@ -68,6 +73,9 @@ export function overview(ctx: AppContext) {
     createdLast7Days: createdLast7,
   };
 }
+
+/** Orders waiting on a person (see NEEDS_OPERATOR), including any order an operator has put on hold. */
+const NEEDS_ACTION_SQL = `(o.status IN (${[...NEEDS_OPERATOR].map((s) => `'${s}'`).join(',')}) OR o.on_hold = 1)`;
 
 /** Orders that have waited too long on the network, a provider, or a person. Thresholds are operational placeholders. */
 function overdueClause(now: number) {
@@ -93,7 +101,10 @@ export interface QueueFilter {
   review: 'open' | 'any';
   assigned: 'me' | 'unassigned' | 'any';
   overdue: boolean;
-  sort: 'created_at' | 'updated_at' | 'net_cents' | 'priority';
+  /** Only orders waiting on a person. */
+  attention: boolean;
+  /** 'attention': orders waiting on a person first, then everything else by most recent update. */
+  sort: 'created_at' | 'updated_at' | 'net_cents' | 'priority' | 'attention';
   dir: 'asc' | 'desc';
   page: number;
   pageSize: number;
@@ -163,6 +174,7 @@ export function queue(ctx: AppContext, staffId: string, f: QueueFilter) {
     where.push('o.assigned_operator_id = :me');
     params.me = staffId;
   } else if (f.assigned === 'unassigned') where.push('o.assigned_operator_id IS NULL');
+  if (f.attention) where.push(NEEDS_ACTION_SQL);
   if (f.overdue) {
     const od = overdueClause(now);
     where.push(od.sql);
@@ -173,7 +185,11 @@ export function queue(ctx: AppContext, staffId: string, f: QueueFilter) {
   const total = ctx.db.get<{ n: number }>(`SELECT count(*) AS n ${from} ${clause}`, params)!.n;
   const priorityExpr = `CASE WHEN o.status IN ('failed','refund_pending') THEN 0 WHEN o.status = 'compliance_review' THEN 1 WHEN o.status = 'ready_for_payout' THEN 2 ELSE 3 END`;
   const order =
-    f.sort === 'priority' ? `${priorityExpr} ${f.dir === 'asc' ? 'DESC' : 'ASC'}, o.updated_at ASC` : `o.${f.sort} ${f.dir.toUpperCase()}`;
+    f.sort === 'priority'
+      ? `${priorityExpr} ${f.dir === 'asc' ? 'DESC' : 'ASC'}, o.updated_at ASC`
+      : f.sort === 'attention'
+        ? `CASE WHEN ${NEEDS_ACTION_SQL} THEN 0 ELSE 1 END, o.updated_at DESC`
+        : `o.${f.sort} ${f.dir.toUpperCase()}`;
   const rows = ctx.db.all<OrderRow & { email: string; full_name: string | null; assigned_email: string | null }>(
     `SELECT o.*, u.email, p.full_name, a.email AS assigned_email ${from} LEFT JOIN users a ON a.id = o.assigned_operator_id ${clause} ORDER BY ${order}, o.id LIMIT :limit OFFSET :offset`,
     { ...params, limit: f.pageSize, offset: (f.page - 1) * f.pageSize },
@@ -195,6 +211,7 @@ export function queue(ctx: AppContext, staffId: string, f: QueueFilter) {
       asset: o.asset,
       network: o.network,
       amountAtomic: o.amount_atomic,
+      grossCents: String(o.gross_cents),
       netCents: String(o.net_cents),
       payoutMethod: o.payout_method,
       assignedTo: o.assigned_operator_id ? { id: o.assigned_operator_id, email: o.assigned_email } : null,

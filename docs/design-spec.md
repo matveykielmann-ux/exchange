@@ -2,6 +2,8 @@
 
 Status: v1, Phase 1 output. Owner: product/design. Applies to every page in `src/`.
 
+> **Superseded visual identity (2026-10-14).** Colours, logo and the hero now follow the approved CryptoBit Exchange brand board: one dark theme (deep black, graphite surfaces, champagne gold accent), the gold globe-and-orbit mark (`public/brand/`) and the "Exchange Without Limits / Fast. Secure. Global." hero. The values live in `src/styles/tokens.css`. The light theme and the theme toggle were removed. Layout, typography scale, spacing, accessibility and motion rules below still apply.
+
 > **Arcvale is a working name** (it replaced the earlier placeholder "Settlewell"). It has not had trademark clearance. The name lives in one constant (`src/config/brand.ts`) so it can be replaced in one edit.
 
 ## 1. Research basis and limits

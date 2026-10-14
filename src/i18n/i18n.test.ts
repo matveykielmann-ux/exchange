@@ -1,6 +1,17 @@
 import { COURIER_WINDOW_LABELS } from '@/domain/courier';
 import { ORDER_STAGE_LABEL, ORDER_STATUS_LABEL, ORDER_STATUSES, orderStatusLabel } from '@/domain/order';
 import { PAYOUT_METHODS, describeFee } from '@/domain/payout';
+import {
+  ACTION_EXPLAIN,
+  ACTION_LABEL,
+  DEFAULT_REASON,
+  NOTIFY_STATUS,
+  notifyTemplates,
+  queueNextStep,
+  REJECT_REASONS,
+  SUCCESS,
+  WAITING,
+} from '@/admin/orderActions';
 import { getLang, lookupRu, setLang, t } from './index';
 
 /** The app's source files (tests and this folder excluded), read as text at build time. */
@@ -38,6 +49,21 @@ describe('Russian dictionary', () => {
       ...Object.values(COURIER_WINDOW_LABELS),
       ...Object.values(PAYOUT_METHODS).flatMap((m) => [m.name, m.summary, m.timingEstimate]),
       describeFee({ kind: 'none' }),
+      // CRM labels and texts kept in tables
+      ...Object.values(ACTION_LABEL),
+      ...Object.values(ACTION_EXPLAIN),
+      ...Object.values(DEFAULT_REASON),
+      ...Object.values(SUCCESS),
+      ...Object.values(WAITING),
+      ...Object.values(NOTIFY_STATUS),
+      ...REJECT_REASONS,
+      ...ORDER_STATUSES.flatMap((s) => [true, false].flatMap((h) => notifyTemplates(s, h).flatMap((x) => [x.label, x.body]))).filter(
+        Boolean,
+      ),
+      ...ORDER_STATUSES.flatMap((s) => [
+        queueNextStep({ status: s, onHold: false }).label,
+        queueNextStep({ status: s, onHold: true }).label,
+      ]),
     ];
     expect(labels.filter((k) => lookupRu(k) === undefined)).toEqual([]);
   });

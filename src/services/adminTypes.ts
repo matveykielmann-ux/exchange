@@ -26,6 +26,9 @@ export interface Overview {
     awaitingPayout: number;
     failedOrOverdue: number;
     completed: number;
+    /** Waiting on a person: review, payout authorization, failed payout, pending refund or a hold. */
+    needsAction: number;
+    onHold: number;
     openConversations: number;
     unreadConversations: number;
   };
@@ -47,6 +50,8 @@ export interface QueueItem {
   asset: AssetCode;
   network: NetworkId;
   amountAtomic: AtomicAmount;
+  /** Sell: value at the reference price. Buy: the cash the customer pays. */
+  grossCents: Cents;
   netCents: Cents;
   payoutMethod: PayoutMethodId;
   assignedTo: { id: string; email: string | null } | null;
@@ -63,7 +68,9 @@ export interface QueueQuery {
   review?: 'open' | 'any';
   assigned?: 'me' | 'unassigned' | 'any';
   overdue?: boolean;
-  sort?: 'created_at' | 'updated_at' | 'net_cents' | 'priority';
+  /** Only orders waiting on a person. */
+  attention?: boolean;
+  sort?: 'created_at' | 'updated_at' | 'net_cents' | 'priority' | 'attention';
   dir?: 'asc' | 'desc';
   page?: number;
   pageSize?: number;

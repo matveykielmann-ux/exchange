@@ -33,7 +33,7 @@ const PAGES = (
 )
   .split(',')
   .filter(Boolean);
-const ADMIN_PAGES = ['/admin', '/admin/orders', '/admin/inbox', '/admin/audit', '/admin/users', '/admin/system', '/admin/sandbox'];
+const ADMIN_PAGES = ['/admin/orders', '/admin/overview', '/admin/inbox', '/admin/audit', '/admin/users', '/admin/system', '/admin/sandbox'];
 const STAFF_PASSWORD = 'sandbox-pass-2026';
 const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
@@ -268,7 +268,11 @@ async function keyboardChecks(browser) {
   await page.screenshot({ path: `${OUT}/390/_menu-open.png` });
   await page.keyboard.press('Escape');
   await sheet.waitFor({ state: 'detached', timeout: 3000 }).catch(() => fail('keyboard', 'Escape did not close the mobile menu'));
-  const back = await page.evaluate(() => document.activeElement?.classList.contains('menu-button'));
+  // Radix returns focus on the frame after the sheet unmounts; allow it a moment.
+  const back = await page
+    .waitForFunction(() => document.activeElement?.classList.contains('menu-button'), null, { timeout: 1000 })
+    .then(() => true)
+    .catch(() => false);
   if (!back) fail('keyboard', 'focus did not return to the Menu button after closing');
   await context.close();
 }
@@ -444,23 +448,32 @@ async function journey(browser, width) {
   const adminSink = { consoleErrors: [], pageErrors: [], failedRequests: [] };
   const adminFlush = instrument(admin, `${where} (admin)`, adminSink);
   await signIn(admin, 'admin@arcvale.test');
-  await admin.waitForURL('**/admin');
-  await expectText(admin, 'Needs review', 'admin overview');
+  // The order queue is the CRM home, with the orders waiting on a person first.
+  await admin.waitForURL('**/admin/orders');
+  await expectText(admin, 'Needs action', 'queue quick filters');
   await shot(admin, '11-admin-overview');
   const orderId = orderUrl.split('/').pop();
-  await go(admin, `${BASE_URL}/admin/orders?status=ready_for_payout`);
+  await go(admin, `${BASE_URL}/admin/orders?attention=true`);
+  await admin
+    .getByRole('button', { name: /^Confirm payout · / })
+    .first()
+    .click();
+  await admin.locator('.order-card').waitFor({ timeout: 8000 });
   await shot(admin, '12-admin-queue');
   await go(admin, `${BASE_URL}/admin/orders/${orderId}`);
-  await admin.getByRole('button', { name: 'Authorize payout' }).click();
-  await admin.getByRole('button', { name: 'Authorize payout' }).last().click();
+  await admin.locator('.action-bar').getByRole('button', { name: 'Confirm payout' }).click();
+  const dlg = admin.locator('.dialog');
+  await dlg.locator('#reason-text').fill('');
+  await dlg.getByRole('button', { name: 'Confirm payout' }).click();
   await expectText(admin, 'Write at least 4 characters', 'reason is required');
-  await admin.locator('#reason-authorize_payout').fill('Deposit final, screening clear, bank details verified.');
-  await admin.getByRole('button', { name: 'Authorize payout' }).last().click();
-  await admin.locator('h1', { hasText: 'Payout submitted' }).waitFor({ timeout: 8000 });
+  await dlg.locator('#reason-text').fill('Deposit final, screening clear, bank details verified.');
+  await dlg.getByRole('button', { name: 'Confirm payout' }).click();
+  await admin.locator('.order-card__result', { hasText: 'Payout confirmed' }).waitFor({ timeout: 8000 });
+  // The operator's click only submits the instruction; completion comes from the provider.
+  await admin.locator('.order-status-line', { hasText: /Payout submitted|Payout processing/ }).waitFor({ timeout: 8000 });
   await shot(admin, '13-admin-payout-submitted');
-  if ((await admin.getByText('Payout completed', { exact: true }).count()) > 0) fail(where, 'admin click must not complete a payout');
   // The sandbox payout provider reports processing, then completion, through signed webhooks (autopilot).
-  await waitForHeading(admin, /Completed/, `${where} (admin)`, 60_000);
+  await admin.locator('.order-status-line', { hasText: 'Completed' }).waitFor({ timeout: 60_000 });
   await shot(admin, '14-admin-completed');
   step(11, 'operator signed in');
   step(12, 'order found in queue');
@@ -633,15 +646,15 @@ async function buyJourney(browser, width, server) {
   const adminSink = { consoleErrors: [], pageErrors: [], failedRequests: [] };
   const adminFlush = instrument(admin, `${where} (admin)`, adminSink);
   await signIn(admin, 'admin@arcvale.test');
-  await admin.waitForURL('**/admin');
+  await admin.waitForURL('**/admin/orders');
   const orderId = page.url().split('/').pop();
   await go(admin, `${BASE_URL}/admin/orders/${orderId}`);
   await expectText(admin, 'Buy · cash → crypto', 'admin sees the direction');
   await expectText(admin, 'test-id.png', 'admin sees the uploaded ID record');
-  await admin.getByRole('button', { name: 'Authorize payout' }).click();
-  await admin.locator('#reason-authorize_payout').fill('Cash counted and verified; sending USDT.');
-  await admin.getByRole('button', { name: 'Authorize payout' }).last().click();
-  await waitForHeading(admin, /Payout submitted|Crypto transfer|Completed/, `${where} (admin)`);
+  await admin.locator('.action-bar').getByRole('button', { name: 'Confirm payout' }).click();
+  await admin.locator('.dialog #reason-text').fill('Cash counted and verified; sending USDT.');
+  await admin.locator('.dialog').getByRole('button', { name: 'Confirm payout' }).click();
+  await admin.locator('.order-status-line', { hasText: /Crypto transfer|Completed/ }).waitFor({ timeout: 15_000 });
   await shot(admin, '07-admin');
   step(8, 'operator authorized the crypto transfer');
 

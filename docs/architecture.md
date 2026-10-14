@@ -88,7 +88,14 @@ Courier delivery reuses the payout states: payout submitted means the courier is
 - Exchanging needs an account: `/exchange` is behind sign-in, and the server requires a session for firm quotes and orders.
 - Payout details (including courier addresses) and TOTP secrets are encrypted with AES-256-GCM. Card numbers are never accepted (provider tokens only) and CVV is never accepted. Staff views mask PII.
 - Errors come back as `{ error: { code, message } }` with safe messages. Stack traces are never sent. Logs are structured JSON without secrets.
-- The CSP is `script-src 'self'` with no third-party origins. The saved-theme bootstrap is a same-origin file (`public/theme-init.js`), so no inline script is needed.
+- The CSP is `script-src 'self'` with no third-party origins and no inline scripts. The site has one dark brand theme, so no theme bootstrap script is needed.
+
+## CRM (staff workspace)
+
+- `/admin/orders` is the home screen: quick filters with counts (needs action, awaiting payment, in progress, completed, rejected or cancelled), search, and a compact table (order, customer, exchange, amount, status, next step). Orders waiting on a person come first (`sort=attention`). Rarely used filters sit under "Filters".
+- An order opens as a side panel (`?open=<id>`; `/admin/orders/:id` is the same card on its own page): essentials with one primary and at most one secondary action for the current status, customer and operation details, a short merged history (events, notifications with delivery state, internal notes), and the rest (payments, reviews, conversations, audit link, sandbox lab) under "More details". `src/admin/orderActions.ts` decides the arrangement; the server's `actions` list decides what is allowed.
+- Every confirming action opens a dialog with a recorded reason. Order actions send `expectedStatus`; the server refuses them with `409 stale_status` when the order has moved on, so two operators can't act on different versions of the same order.
+- Statistics, audit log, users and roles, system and the sandbox lab are under "Administration" in the sidebar.
 
 ## Interface language
 

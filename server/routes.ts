@@ -687,7 +687,9 @@ function registerAdminRoutes(r: Router, app: AppContext) {
         review: q.get('review') === 'open' ? 'open' : 'any',
         assigned: (['me', 'unassigned'] as const).find((x) => x === q.get('assigned')) ?? 'any',
         overdue: q.get('overdue') === 'true',
-        sort: (['created_at', 'updated_at', 'net_cents', 'priority'] as const).find((x) => x === q.get('sort')) ?? 'created_at',
+        attention: q.get('attention') === 'true',
+        sort:
+          (['created_at', 'updated_at', 'net_cents', 'priority', 'attention'] as const).find((x) => x === q.get('sort')) ?? 'created_at',
         dir: q.get('dir') === 'asc' ? 'asc' : 'desc',
         ...pageV(q),
       };
@@ -745,6 +747,15 @@ function registerAdminRoutes(r: Router, app: AppContext) {
       `/api/admin/orders/:id/${path}`,
       async (ctx) => {
         const o = ops.ensureOrder(app, ctx.params.id!);
+        // Two operators can act on one order: an action taken on a screen that no longer shows the
+        // current status is refused, so nobody approves or rejects an order that has already moved.
+        const expected = (ctx.body as { expectedStatus?: unknown } | null)?.expectedStatus;
+        if (typeof expected === 'string' && expected !== o.status)
+          throw new ApiError(
+            409,
+            'stale_status',
+            'This order changed while you were looking at it. It has been reloaded; check it and try again.',
+          );
         await run(ctx, o.id);
         return { body: orders.orderView(app, orders.getOrderRow(app, o.id), { internal: true }) };
       },

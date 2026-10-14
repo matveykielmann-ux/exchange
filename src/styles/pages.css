@@ -5,7 +5,7 @@
   overflow: hidden;
 }
 .hero::before {
-  /* Soft violet wash behind the illustration. */
+  /* Soft gold wash behind the globe. */
   content: '';
   position: absolute;
   inset: -20% -10% auto 40%;
@@ -138,123 +138,48 @@
   margin-top: 2px;
 }
 
-/* Hero illustration palette and motion */
-/* 3D coins (three.js). The glows sit behind the canvas so they work in both themes. */
-.hero-coins {
+/* Hero art: the CryptoBit mark (globe with the orbit arrow) over a soft gold glow and star field. */
+.hero-globe {
   position: relative;
-  width: 100%;
-  aspect-ratio: 1.08;
-  isolation: isolate;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1 / 0.82;
+  max-width: 520px;
+  padding: 4%;
+  margin-inline: auto;
 }
-.hero-coins::before,
-.hero-coins::after {
+.hero-globe::before {
+  /* Warm glow behind the globe. */
   content: '';
   position: absolute;
-  z-index: -1;
+  inset: 8% 6%;
   border-radius: 50%;
-  filter: blur(36px);
+  background: radial-gradient(closest-side, rgb(212 162 76 / 34%), rgb(212 162 76 / 8%) 60%, transparent);
+  filter: blur(8px);
+}
+.hero-globe::after {
+  /* Sparse gold particles. */
+  content: '';
+  position: absolute;
+  inset: -6%;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 22%, rgb(246 215 138 / 70%), transparent),
+    radial-gradient(1px 1px at 82% 14%, rgb(246 215 138 / 60%), transparent),
+    radial-gradient(1.5px 1.5px at 90% 64%, rgb(246 215 138 / 55%), transparent),
+    radial-gradient(1px 1px at 6% 72%, rgb(246 215 138 / 50%), transparent),
+    radial-gradient(1px 1px at 52% 4%, rgb(246 215 138 / 45%), transparent),
+    radial-gradient(1.5px 1.5px at 30% 92%, rgb(246 215 138 / 45%), transparent);
   pointer-events: none;
 }
-.hero-coins::before {
-  inset: 18% 42% 26% 8%;
-  background: radial-gradient(closest-side, rgb(227 173 70 / 38%), transparent);
-}
-.hero-coins::after {
-  inset: 28% 6% 22% 50%;
-  background: radial-gradient(closest-side, rgb(139 92 246 / 30%), transparent);
-}
-.hero-coins__canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  opacity: 0;
-  transition: opacity 600ms var(--ease);
-}
-.hero-coins__canvas.is-ready {
-  opacity: 1;
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero-coins__canvas {
-    transition: none;
-  }
-}
-.hero-art {
-  --art-white-top: #ffffff;
-  --art-white-left: #e9e6f2;
-  --art-white-right: #d6d2e4;
-  --art-dark-top: #3a3550;
-  --art-dark-left: #26223a;
-  --art-dark-right: #1b1830;
-  --art-screen: #4b3f86;
-  --art-accent: #8b5cf6;
-  --art-glow: #8b5cf6;
-  --art-shadow: rgb(18 15 43 / 10%);
-  --art-wire: #c9c4dc;
-  display: block;
+.hero-globe img {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: auto;
-  overflow: visible;
+  object-fit: contain;
+  animation: hero-globe-float 9s ease-in-out infinite;
 }
-:root[data-theme='dark'] .hero-art {
-  --art-white-top: #d9d4ef;
-  --art-white-left: #a59fc4;
-  --art-white-right: #8781ab;
-  --art-wire: #3d3866;
-  --art-shadow: rgb(0 0 0 / 22%);
-  --art-dark-top: #4a4475;
-  --art-dark-left: #353058;
-  --art-dark-right: #2a2647;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .hero-art {
-    --art-white-top: #d9d4ef;
-    --art-white-left: #a59fc4;
-    --art-white-right: #8781ab;
-    --art-wire: #3d3866;
-    --art-shadow: rgb(0 0 0 / 22%);
-    --art-dark-top: #4a4475;
-    --art-dark-left: #353058;
-    --art-dark-right: #2a2647;
-  }
-}
-.hero-art__wire {
-  stroke: var(--art-wire);
-  stroke-width: 6;
-  stroke-linecap: round;
-  fill: none;
-}
-.hero-art__pulse {
-  stroke: var(--art-accent);
-  stroke-width: 3;
-  stroke-linecap: round;
-  fill: none;
-  stroke-dasharray: 14 400;
-  stroke-dashoffset: 414;
-  filter: drop-shadow(0 0 4px var(--art-accent));
-  animation: art-pulse 2.8s linear infinite;
-}
-.hero-art__coin-sign {
-  font: 700 44px var(--font-sans);
-  fill: #7a5214;
-}
-.hero-art__coin-float {
-  animation: art-float 4s ease-in-out infinite;
-}
-.hero-art__coin {
-  animation: art-turn 6s ease-in-out infinite;
-}
-.hero-art__glow,
-.hero-art__screen {
-  animation: art-glow 3s ease-in-out infinite;
-}
-@keyframes art-pulse {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-@keyframes art-float {
+@keyframes hero-globe-float {
   0%,
   100% {
     transform: translateY(0);
@@ -263,33 +188,23 @@
     transform: translateY(-10px);
   }
 }
-@keyframes art-turn {
-  0%,
-  35% {
-    transform: scaleX(1);
-  }
-  50% {
-    transform: scaleX(0.12);
-  }
-  65%,
-  100% {
-    transform: scaleX(1);
-  }
-}
-@keyframes art-glow {
-  0%,
-  100% {
-    opacity: 0.75;
-  }
-  50% {
-    opacity: 1;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
-  .hero-art *,
-  .hero-art {
-    animation: none !important;
+  .hero-globe img {
+    animation: none;
   }
+}
+.hero__title .gold,
+.gold-text {
+  background: linear-gradient(100deg, var(--gold-light), var(--gold) 55%, var(--gold-deep));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero__tagline {
+  font-size: clamp(1.125rem, 0.95rem + 0.6vw, 1.5rem);
+  letter-spacing: 0.14em;
+  color: var(--gold);
+  font-weight: 500;
 }
 
 @media (max-width: 1023px) {

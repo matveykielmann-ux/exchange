@@ -80,7 +80,9 @@ export function AppRoutes() {
           </RequireStaff>
         }
       >
-        <Route index element={<AdminOverview />} />
+        {/* The order queue is the CRM home; statistics moved to /admin/overview. */}
+        <Route index element={<Navigate to="/admin/orders" replace />} />
+        <Route path="overview" element={<AdminOverview />} />
         <Route path="orders" element={<AdminQueue />} />
         <Route path="orders/:id" element={<AdminOrder />} />
         <Route path="inbox" element={<AdminInbox />} />

@@ -1,7 +1,6 @@
 import { useIsSandbox } from '@/state/config';
 import { Link } from 'react-router-dom';
 import { Calculator } from '@/components/Calculator';
-import { HeroArt } from '@/components/HeroArt';
 import { Icon } from '@/components/Icon';
 import { QuoteBreakdown } from '@/components/QuoteBreakdown';
 import { AssetMark, MockBadge } from '@/components/ui';
@@ -45,15 +44,15 @@ export function HomePage() {
               <span className="hero-pill__dot" aria-hidden="true" />
               {t('Crypto to US dollars')}
             </p>
-            <h1 className="display-xl hero__title">
-              {t('Sell crypto.')}
+            {/* The brand slogan stays in English in both languages, as on the brand board. */}
+            <h1 className="display-xl hero__title" lang="en">
+              Exchange
               <br />
-              {t('Get dollars.')}
-              <br />
-              <em>{t('Every fee shown.')}</em>
-              <br />
-              <em>{t('Before you confirm.')}</em>
+              <span className="gold">Without Limits</span>
             </h1>
+            <p className="hero__tagline" lang="en">
+              Fast. Secure. Global.
+            </p>
             <p className="lead">
               {t(
                 'Send BTC, ETH, USDT or USDC and receive US dollars in your bank account, with the exchange rate and the payout fee listed as separate lines.',
@@ -72,7 +71,9 @@ export function HomePage() {
             </div>
           </div>
           <div className="hero__art">
-            <HeroArt />
+            <div className="hero-globe">
+              <img src="/brand/cryptobit-mark.webp" alt="" width="312" height="220" decoding="async" fetchPriority="high" />
+            </div>
           </div>
         </div>
         <div className="container">

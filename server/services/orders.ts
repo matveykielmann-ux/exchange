@@ -267,11 +267,9 @@ export function applyOrderEvent(
       data: { from: order.status, to: result.status },
     });
     const updated = getOrderRow(ctx, orderId);
-    if (
-      result.visibility === 'customer' &&
-      (result.status !== order.status || 'onHold' in result.patch) &&
-      !SPECIFIC_NOTICE.has(event.type)
-    )
+    // One notice per change the customer sees in their summary: a new stage, or a hold placed or released.
+    const stageChanged = orderStage(order.status, order.on_hold === 1) !== orderStage(updated.status, updated.on_hold === 1);
+    if (result.visibility === 'customer' && (stageChanged || 'onHold' in result.patch) && !SPECIFIC_NOTICE.has(event.type))
       notifyStatusChange(ctx, updated, result.detail);
     ctx.db.afterCommit(() =>
       ctx.bus.publish([{ userId: updated.user_id }, { staff: true }], {
