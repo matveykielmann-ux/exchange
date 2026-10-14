@@ -40,7 +40,7 @@ export const SERVICE_RULES: LegalDocument = {
     },
     {
       id: 'LR-39',
-      text: '"Service working hours" (clause 4.20 and Section 5) and the official contacts, including the Telegram username (clause 4.21), are not published anywhere on this site.',
+      text: 'The Service working hours (07:00–16:00 America/New_York) and the Telegram support account are published (owner decision, 2026-10-14). The other official contacts in clause 4.21 (official email, social networks) have not been supplied.',
     },
     {
       id: 'LR-40',
@@ -48,7 +48,7 @@ export const SERVICE_RULES: LegalDocument = {
     },
     {
       id: 'LR-41',
-      text: 'Sign-up asks for a US state of residence and payouts go to US accounts or US addresses only, while the Rules restrict only the territories listed in clause 8.5.',
+      text: 'Resolved 2026-10-14 (owner decision): sign-up asks for the country of residence and refuses the territories listed in clause 8.5; it is not limited to the US. Bank, card and courier payouts still go only to US accounts or US addresses.',
     },
     {
       id: 'LR-42',

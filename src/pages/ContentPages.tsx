@@ -1,3 +1,4 @@
+import { SupportContact } from '@/components/SupportContact';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
@@ -454,13 +455,11 @@ export function HelpPage() {
             ))}
           </ul>
           <div style={{ marginTop: 64, maxWidth: 720 }}>
-            <Notice tone="neutral" title="Contacting support">
-              <p>
-                Signed in? <Link to="/support">Send us a message</Link> and link it to an order if it's about one; replies appear in your
-                account. You can also write to <span className="mono">{BRAND.supportEmail}</span>. Never share your password, codes, private
-                keys or seed phrase with anyone, including us.
-              </p>
-            </Notice>
+            <SupportContact title="Contacting support">
+              Message us on Telegram, or, signed in, <Link to="/support">send us a message</Link> and link it to an order if it's about one;
+              replies appear in your account. You can also write to <span className="mono">{BRAND.supportEmail}</span>. Never share your
+              password, codes, private keys or seed phrase with anyone, including us.
+            </SupportContact>
           </div>
         </div>
       </section>

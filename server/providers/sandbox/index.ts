@@ -81,6 +81,10 @@ export function createSandboxProviders(config: AppConfig, now: () => number): Pr
       async requestRefund(req) {
         return { providerRef: `sbx_rfd_${short(req.idempotencyKey, 16).toLowerCase()}` };
       },
+      async sendCrypto(req) {
+        // Nothing is broadcast: the sandbox only acknowledges the instruction.
+        return { providerRef: `sbx_out_${short(req.idempotencyKey, 16).toLowerCase()}` };
+      },
     },
     identity: {
       info: () => info('identity', 'Identity verification'),
@@ -142,6 +146,15 @@ export function createSandboxProviders(config: AppConfig, now: () => number): Pr
         if (req.destination.holderName.includes(SANDBOX_FIXTURES.payoutDeclineWord))
           throw new ProviderError('cash', 'Sandbox fixture: cash delivery declined by the carrier.', false, 422);
         return { providerRef: `sbx_cash_${short(req.idempotencyKey, 16).toLowerCase()}` };
+      },
+      async scheduleCollection(req) {
+        if (!FEATURE_FLAGS.courierCashDelivery) throw new ProviderError('cash', 'Cash collection is switched off.', false, 422);
+        if (req.destination.address.zip.startsWith(SANDBOX_FIXTURES.courierUnavailableZipPrefix))
+          throw new ProviderError('cash', 'Sandbox fixture: the courier does not serve this area.', false, 422);
+        return { providerRef: `sbx_col_${short(req.idempotencyKey, 16).toLowerCase()}` };
+      },
+      async requestCashReturn(req) {
+        return { providerRef: `sbx_ret_${short(req.idempotencyKey, 16).toLowerCase()}` };
       },
     },
     email: {

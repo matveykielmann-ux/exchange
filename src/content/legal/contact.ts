@@ -3,7 +3,7 @@ import type { LegalDocument } from './types';
 export const CONTACT_AND_NOTICES: LegalDocument = {
   slug: 'contact',
   title: 'Contact and Legal Notices',
-  version: '2.0.0',
+  version: '2.1.0',
   effectiveDate: null,
   lastUpdated: '2026-10-14',
   summary: 'Who operates {{brand}}, which contacts are official, and how to reach us for support, complaints, privacy requests and claims.',
@@ -30,9 +30,22 @@ export const CONTACT_AND_NOTICES: LegalDocument = {
       blocks: [
         { type: 'rules', refs: ['4.21'] },
         {
+          type: 'list',
+          items: [
+            'Telegram support: {{supportTelegram}}',
+            'In-app support messages, available after you sign in',
+            'Email: {{supportEmail}}',
+            'Service working hours (clause 4.20 and Section 5): {{supportHours}}',
+          ],
+        },
+        {
+          type: 'p',
+          text: 'Contact us only through the contacts listed on this page. Nobody from {{brand}} will ask you to send crypto or cash on their behalf, or for your password, one-time codes, seed phrase or private keys.',
+        },
+        {
           type: 'review',
           id: 'LR-39',
-          text: '[OWNER INPUT REQUIRED: The official contacts clause 4.21 refers to (email, Telegram username, social networks and messengers) and the Service working hours (clause 4.20 and Section 5). Until they are supplied, the only contact shown is the placeholder support email.]',
+          text: '[OWNER INPUT REQUIRED: The Telegram support account and the working hours were confirmed on 2026-10-14. The remaining official contacts clause 4.21 refers to (the official email address, social networks and other messengers) have not been supplied; the email shown is a placeholder.]',
         },
       ],
     },
@@ -42,12 +55,12 @@ export const CONTACT_AND_NOTICES: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'For help with your account or an order, use the support chat in the Service or email {{supportEmail}}. Please include your order reference where relevant. We will never ask for your password, one-time codes, seed phrase or private keys.',
+          text: 'For help with your account or an order, message us on Telegram ({{supportTelegram}}), use the support messages in the Service, or email {{supportEmail}}. We answer during the Service working hours, {{supportHours}}. Please include your order reference where relevant. We will never ask for your password, one-time codes, seed phrase or private keys.',
         },
         {
           type: 'review',
           id: 'LR-29',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Support hours, support phone number (if any), dedicated complaints email address, and any response or resolution targets to be published, including any timeframes required by state law for complaint acknowledgement and resolution.]',
+          text: '[OWNER/COUNSEL INPUT REQUIRED: Support phone number (if any), dedicated complaints email address, and any response or resolution targets to be published, including any timeframes required by state law for complaint acknowledgement and resolution.]',
         },
       ],
     },

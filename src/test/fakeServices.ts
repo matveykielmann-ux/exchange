@@ -3,7 +3,7 @@
  * calculator at fixed prices; everything else is an inert stub. Tests that
  * need server behavior belong in server/__tests__.
  */
-import { calculateQuote, PRICING_POLICY } from '@/domain/quote';
+import { calculateBuyQuote, calculateQuote, PRICING_POLICY } from '@/domain/quote';
 import { LEGAL_DOCUMENTS } from '@/content/legal';
 import type { AssetCode } from '@/domain/assets';
 import type { Services } from '@/services/types';
@@ -20,7 +20,8 @@ const unused = () => Promise.reject(new Error('Not available in component tests.
 export function createFakeServices(overrides: Partial<Services> = {}): Services {
   const listeners = new Set<() => void>();
   const quote = async (i: Parameters<Services['quotes']['indicative']>[0], firm: boolean) => {
-    const r = calculateQuote({ ...i, referencePriceMicros: PRICES[i.asset], now: Date.now(), source: 'sandbox' });
+    const common = { referencePriceMicros: PRICES[i.asset], now: Date.now(), source: 'sandbox' as const };
+    const r = i.direction === 'buy' ? calculateBuyQuote({ ...i, ...common }) : calculateQuote({ ...i, ...common });
     return { ...r, firm, price: { asset: i.asset, priceMicros: PRICES[i.asset], asOf: Date.now(), source: 'sandbox' as const } };
   };
   const base: Services = {
@@ -28,6 +29,7 @@ export function createFakeServices(overrides: Partial<Services> = {}): Services 
       mode: 'sandbox',
       realMoneyEnabled: false,
       featureFlags: { courierCashDelivery: false },
+      sandboxAutopilotStepMs: 0,
       providers: [],
       policy: {
         quoteTtlMs: PRICING_POLICY.quoteTtlMs,
@@ -89,6 +91,7 @@ export function createFakeServices(overrides: Partial<Services> = {}): Services 
       get: unused,
       cancel: unused,
       reportSent: unused,
+      uploadDocument: unused,
     },
     support: { list: async () => [], create: unused, get: unused, send: unused, markRead: async () => undefined },
     live: { subscribe: () => () => undefined, state: () => 'offline', onState: () => () => undefined },

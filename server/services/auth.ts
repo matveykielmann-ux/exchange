@@ -8,6 +8,7 @@
  * - Brute force: per-IP route limits plus per-account lockout after 5 failures.
  */
 import { validateEmail, validatePassword } from '@/domain/validation';
+import { residenceError } from '@/domain/residence';
 import { BRAND } from '@/config/brand';
 import { LEGAL_DOCUMENTS } from '@/content/legal';
 import type { Actor, AppContext } from '../context';
@@ -165,11 +166,23 @@ export async function signUp(
     email: string;
     password: string;
     fullName: string;
+    /** ISO 3166-1 alpha-2. Defaults to US when only a US state is given (older clients). */
+    countryOfResidence?: string | null;
     stateOfResidence: string | null;
+    /** Confirms the person does not live in a territory listed in clause 8.5 of the Service Rules. */
+    notInRestrictedTerritory: boolean;
     accepted: { slug: string; version: string }[];
   },
   meta: { ip: string | null; userAgent: string | null },
 ): Promise<{ userId: string; grant: SessionGrant }> {
+  const country = input.countryOfResidence ?? (input.stateOfResidence ? 'US' : null);
+  const residence = residenceError(country ?? '', input.stateOfResidence);
+  if (residence) throw badRequest(residence, { field: country ? 'stateOfResidence' : 'countryOfResidence' });
+  if (input.notInRestrictedTerritory !== true)
+    throw badRequest('Confirm that you do not live in a territory listed in clause 8.5 of the Service Rules.', {
+      field: 'notInRestrictedTerritory',
+    });
+  const state = country === 'US' ? input.stateOfResidence : null;
   const emailError = validateEmail(input.email);
   if (emailError) throw badRequest(emailError, { field: 'email' });
   const passwordError = validatePassword(input.password);
@@ -190,18 +203,15 @@ export async function signUp(
       now,
       now,
     ]);
-    ctx.db.run('INSERT INTO customer_profiles (user_id, full_name, state_of_residence, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [
-      userId,
-      input.fullName,
-      input.stateOfResidence,
-      now,
-      now,
-    ]);
+    ctx.db.run(
+      'INSERT INTO customer_profiles (user_id, full_name, country_of_residence, state_of_residence, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [userId, input.fullName, country, state, now, now],
+    );
     recordAcceptances(ctx, userId, docs, 'signup', meta);
     audit(
       ctx,
       { type: 'customer', id: userId, role: 'customer', ip: meta.ip },
-      { action: 'auth.signup', targetType: 'user', targetId: userId },
+      { action: 'auth.signup', targetType: 'user', targetId: userId, data: { country, notInRestrictedTerritory: true } },
     );
     notify(ctx, { userId, to: email, template: 'welcome', vars: { name: input.fullName } });
     return createSession(ctx, userId, false, meta);

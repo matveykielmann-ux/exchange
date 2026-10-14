@@ -171,6 +171,7 @@ export function queue(ctx: AppContext, staffId: string, f: QueueFilter) {
       id: o.id,
       reference: o.reference,
       source: o.source,
+      direction: o.direction,
       status: o.status,
       priority: priorityOf(o, now),
       customer: { id: o.user_id, email: maskEmail(o.email), name: o.full_name ?? '' },

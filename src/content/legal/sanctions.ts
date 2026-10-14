@@ -3,7 +3,7 @@ import type { LegalDocument } from './types';
 export const SANCTIONS_NOTICE: LegalDocument = {
   slug: 'sanctions',
   title: 'Sanctions and Restricted-Jurisdiction Notice',
-  version: '2.0.0',
+  version: '2.1.0',
   effectiveDate: null,
   lastUpdated: '2026-10-14',
   summary:
@@ -21,12 +21,7 @@ export const SANCTIONS_NOTICE: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'Sign-up on this site currently asks for a US state of residence, and payouts are made to US bank accounts and US debit cards or, where cash delivery is offered, to US addresses.',
-        },
-        {
-          type: 'review',
-          id: 'LR-41',
-          text: '[OWNER INPUT REQUIRED: The Service Rules restrict only the territories in clause 8.5, while this site serves US residents only. Confirm which countries and states the Service is offered in, and whether the US-only sign-up stays.]',
+          text: 'The Service is not limited to residents of the United States. Sign-up asks for your country of residence and a confirmation that you are not resident in, and are not acting from, a country or region listed in clause 8.5; accounts from those places are refused. Bank and card payouts are made to US bank accounts and US debit cards, and cash collection and delivery by courier are available only at US addresses in a courier’s service area.',
         },
       ],
     },
@@ -52,7 +47,7 @@ export const SANCTIONS_NOTICE: LegalDocument = {
         {
           type: 'review',
           id: 'LR-44',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: The Service Rules do not name specific sanctions regimes or lists. Confirm which sanctions lists the operator screens against, and whether this page should name them, given that the site serves US residents.]',
+          text: '[OWNER/COUNSEL INPUT REQUIRED: The Service Rules do not name specific sanctions regimes or lists. Confirm which sanctions lists the operator screens against, and whether this page should name them, given that the Service is not limited to US residents.]',
         },
       ],
     },

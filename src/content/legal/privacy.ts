@@ -3,7 +3,7 @@ import type { LegalDocument } from './types';
 export const PRIVACY_POLICY: LegalDocument = {
   slug: 'privacy',
   title: 'Privacy Policy',
-  version: '2.0.0',
+  version: '2.1.0',
   effectiveDate: null,
   lastUpdated: '2026-10-14',
   summary:
@@ -158,7 +158,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'The Service is intended for residents of the United States. Some of our service providers may process information in other countries, subject to contractual protections.',
+          text: 'The Service is not limited to residents of the United States, and is not offered in the countries and regions listed in clause 8.5 of the Service Rules. Some of our service providers may process information in other countries, subject to contractual protections.',
         },
         {
           type: 'review',

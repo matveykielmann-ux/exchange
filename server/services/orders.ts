@@ -4,10 +4,11 @@
  * an audit record in one transaction, with optimistic concurrency on the
  * order's version. Nothing else updates orders.status.
  */
-import { NETWORKS, networkLabel, type AssetCode, type NetworkId } from '@/domain/assets';
+import { isValidAddress, NETWORKS, networkLabel, type AssetCode, type NetworkId } from '@/domain/assets';
+import { CASH_COLLECTION_WINDOW_MS } from '@/domain/courier';
 import { formatUsd } from '@/domain/money';
 import { PAYOUT_METHODS, payoutEligibility, type PayoutMethodId } from '@/domain/payout';
-import { isQuoteExpired, PRICING_POLICY } from '@/domain/quote';
+import { isQuoteExpired, PRICING_POLICY, type ExchangeDirection, type Quote } from '@/domain/quote';
 import { canConfirmExchange } from '@/domain/identity';
 import {
   isPreviewDepositAddress,
@@ -20,14 +21,14 @@ import {
   type OrderMachineState,
   type OrderStatus,
 } from '@/domain/order';
-import { validateRefundAddress } from '@/domain/validation';
+import { validateRefundAddress, validateTxHash } from '@/domain/validation';
 import type { Actor, AppContext } from '../context';
 import { ApiError, badRequest, conflict, notConfigured, notFound } from '../http/errors';
 import { newId, randomId } from '../lib/clock';
 import { isUsable } from '../providers/registry';
 import { ProviderError, ProviderNotConfiguredError, type PayoutProvider } from '../providers/types';
 import { audit } from './audit';
-import { courierDelivery, getProfile, type DestinationRow } from './customers';
+import { courierDelivery, getProfile, payoutDetails, type DestinationRow } from './customers';
 import { notify } from './notifications';
 import { loadQuote, quoteFromRow } from './quotes';
 import { recordAcceptances, requireAcceptance } from './auth';
@@ -41,6 +42,8 @@ export interface OrderRow {
   status: OrderStatus;
   version: number;
   source: 'sandbox' | 'live';
+  /** sell: crypto in, USD out. buy: cash collected by courier, crypto out (refund_address is then the receiving wallet). */
+  direction: ExchangeDirection;
   asset: AssetCode;
   network: NetworkId;
   amount_atomic: string;
@@ -96,8 +99,10 @@ export function getOrderRow(ctx: AppContext, id: string): OrderRow {
 
 function machineState(o: OrderRow): OrderMachineState {
   return {
+    direction: o.direction,
     status: o.status,
-    quotedAmountAtomic: BigInt(o.amount_atomic),
+    // A buy's "deposit" is the cash collected, in cents.
+    quotedAmountAtomic: o.direction === 'buy' ? BigInt(o.gross_cents) : BigInt(o.amount_atomic),
     depositDeadline: o.deposit_deadline,
     confirmationsRequired: o.confirmations_required,
     confirmationsCount: o.confirmations_count,
@@ -240,16 +245,26 @@ function payoutProviderFor(ctx: AppContext, method: PayoutMethodId): PayoutProvi
   return ctx.providers.cash;
 }
 
-const newReference = () => `ARC-${randomId(8)}`;
+// Orders created before the rebrand keep their ARC- references.
+const newReference = () => `CBX-${randomId(8)}`;
 
 export async function createOrder(
   ctx: AppContext,
   actor: Actor,
   userId: string,
-  input: { quoteId: string; destinationId: string; refundAddress: string; accepted: { slug: string; version: string }[] },
+  input: {
+    quoteId: string;
+    destinationId: string;
+    /** Sell orders: where crypto is returned if the exchange cannot be completed. */
+    refundAddress?: string | null;
+    /** Buy orders: the wallet that receives the crypto. */
+    receiveAddress?: string | null;
+    accepted: { slug: string; version: string }[];
+  },
 ): Promise<OrderRow> {
   const quoteRow = loadQuote(ctx, input.quoteId, userId);
   const quote = quoteFromRow(quoteRow);
+  if (quote.direction === 'buy') return createBuyOrder(ctx, actor, userId, quote, quoteRow.used_at, quoteRow.issues, input);
   const now = ctx.clock.now();
 
   // Readiness: refuse up front rather than take a deposit we cannot pay out.
@@ -269,9 +284,9 @@ export async function createOrder(
   if (!canConfirmExchange(profile.kyc_status === 'verified' ? 'verified' : 'unverified'))
     throw new ApiError(403, 'kyc_required', 'Verify your identity before confirming an exchange.');
 
-  const refundError = validateRefundAddress(input.refundAddress, quote.network);
+  const refundError = validateRefundAddress(input.refundAddress ?? '', quote.network);
   if (refundError) throw badRequest(refundError, { field: 'refundAddress' });
-  const refundAddress = input.refundAddress.trim();
+  const refundAddress = (input.refundAddress ?? '').trim();
 
   const dest = ctx.db.get<DestinationRow>("SELECT * FROM payout_destinations WHERE id = ? AND user_id = ? AND status = 'active'", [
     input.destinationId,
@@ -412,6 +427,161 @@ export async function createOrder(
   return getOrderRow(ctx, id);
 }
 
+/**
+ * Buy order (cash → crypto). The courier collects the cash from the verified
+ * account holder after an ID check; once the cash is counted (cash provider
+ * webhooks) and checks are complete, an operator authorizes the crypto
+ * transfer to the customer's wallet. The same state machine and webhook
+ * rules apply as for a sell.
+ */
+async function createBuyOrder(
+  ctx: AppContext,
+  actor: Actor,
+  userId: string,
+  quote: Quote,
+  usedAt: number | null,
+  issuesJson: string,
+  input: { destinationId: string; receiveAddress?: string | null; accepted: { slug: string; version: string }[] },
+): Promise<OrderRow> {
+  const now = ctx.clock.now();
+  if (!isUsable(ctx.providers.cash.info())) throw notConfigured('Cash collection provider');
+  if (!isUsable(ctx.providers.custody.info())) throw notConfigured('Crypto custody provider');
+  if (!isUsable(ctx.providers.screening.info())) throw notConfigured('Sanctions screening');
+
+  if (usedAt) throw conflict('This quote has already been used. Get a new quote.', 'quote_used');
+  if (isQuoteExpired(quote, now)) throw new ApiError(409, 'quote_expired', 'This quote has expired. Get a new quote to continue.');
+  if ((JSON.parse(issuesJson) as unknown[]).length)
+    throw new ApiError(422, 'quote_issues', 'This quote cannot be accepted. Change the amount.');
+  const eligibility = payoutEligibility(PAYOUT_METHODS.courier_cash, quote.grossCents);
+  if (!eligibility.eligible) throw new ApiError(422, 'method_unavailable', eligibility.reason);
+
+  const profile = getProfile(ctx, userId);
+  if (!canConfirmExchange(profile.kyc_status === 'verified' ? 'verified' : 'unverified'))
+    throw new ApiError(403, 'kyc_required', 'Verify your identity before confirming an exchange.');
+
+  const receiveAddress = (input.receiveAddress ?? '').trim();
+  if (!receiveAddress)
+    throw badRequest(`Enter the ${NETWORKS[quote.network].name} wallet address that receives your ${quote.asset}.`, {
+      field: 'receiveAddress',
+    });
+  if (!isValidAddress(quote.network, receiveAddress))
+    throw badRequest(
+      `That doesn't look like a ${NETWORKS[quote.network].name} address (expected ${NETWORKS[quote.network].addressExample}).`,
+      { field: 'receiveAddress' },
+    );
+
+  const dest = ctx.db.get<DestinationRow>(
+    "SELECT * FROM payout_destinations WHERE id = ? AND user_id = ? AND status = 'active' AND kind = 'courier'",
+    [input.destinationId, userId],
+  );
+  if (!dest) throw badRequest('Choose the address where the courier collects the cash.', { field: 'destinationId' });
+
+  const docs = requireAcceptance(input.accepted, 'order');
+
+  let screening;
+  try {
+    screening = await ctx.providers.screening.screenAddress(quote.network, receiveAddress);
+  } catch (e) {
+    if (e instanceof ProviderNotConfiguredError) throw notConfigured('Sanctions screening');
+    throw new ApiError(503, 'provider_unavailable', 'Screening is temporarily unavailable. Try again shortly.');
+  }
+  if (screening.result === 'blocked') {
+    audit(ctx, actor, { action: 'order.blocked_by_screening', targetType: 'quote', targetId: quote.id, data: { network: quote.network } });
+    throw new ApiError(422, 'screening_blocked', 'We can’t process this exchange. Contact support if you think this is a mistake.');
+  }
+
+  const id = newId('ord');
+  const reference = newReference();
+  const deadline = now + CASH_COLLECTION_WINDOW_MS;
+  ctx.db.tx(() => {
+    const { changes } = ctx.db.run('UPDATE quotes SET used_at = ? WHERE id = ? AND used_at IS NULL', [now, quote.id]);
+    if (changes !== 1) throw conflict('This quote has already been used. Get a new quote.', 'quote_used');
+    ctx.db.run(
+      `INSERT INTO orders (id, reference, user_id, quote_id, status, source, direction, asset, network, amount_atomic, reference_price_micros, gross_cents,
+         spread_bps, spread_cents, payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label, payout_last4, refund_address,
+         deposit_deadline, confirmations_required, review_reason, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'created', ?, 'buy', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'courier_cash', ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+      [
+        id,
+        reference,
+        userId,
+        quote.id,
+        quote.source === 'live' ? 'live' : 'sandbox',
+        quote.asset,
+        quote.network,
+        quote.amountAtomic.toString(),
+        quote.referencePriceMicros.toString(),
+        Number(quote.grossCents),
+        quote.spreadBps,
+        Number(quote.spreadCents),
+        Number(quote.payoutFeeCents),
+        Number(quote.netCents),
+        dest.id,
+        dest.label,
+        dest.last4,
+        receiveAddress,
+        deadline,
+        screening.result === 'review' ? `Receiving address screening: ${screening.note}` : null,
+        now,
+        now,
+      ],
+    );
+    insertEvent(ctx, id, {
+      type: 'ORDER_CREATED',
+      from: null,
+      to: 'created',
+      actor,
+      visibility: 'customer',
+      detail: 'Exchange request created with your accepted quote.',
+      data: { quoteId: quote.id, direction: 'buy' },
+    });
+    recordAcceptances(ctx, userId, docs, 'order', { ip: actor.ip, orderId: id });
+    audit(ctx, actor, {
+      action: 'order.created',
+      targetType: 'order',
+      targetId: id,
+      data: { quoteId: quote.id, direction: 'buy', grossCents: quote.grossCents, amountAtomic: quote.amountAtomic },
+    });
+  });
+
+  try {
+    const destination = payoutDetails(ctx, dest.id);
+    if (destination.kind !== 'courier') throw new Error('Collection address is not a courier address.');
+    const { providerRef } = await ctx.providers.cash.scheduleCollection({
+      orderId: id,
+      amountCents: quote.grossCents,
+      destination,
+      idempotencyKey: `collection:${id}`,
+    });
+    ctx.db.tx(() => {
+      // No crypto deposit address exists for a buy; the row records the courier collection.
+      ctx.db.run(
+        'INSERT INTO deposit_instructions (id, order_id, provider, provider_ref, address, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [newId('dep'), id, 'cash', providerRef, 'courier-collection', null, ctx.clock.now()],
+      );
+      applyOrderEvent(ctx, id, { type: 'DEPOSIT_INSTRUCTIONS_ISSUED' }, { type: 'system', id: null, role: null, ip: null });
+      const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [userId])!.email;
+      notify(ctx, {
+        userId,
+        to: email,
+        template: 'buy_order_created',
+        vars: { reference, cash: formatUsd(quote.grossCents), deadline: new Date(deadline).toISOString() },
+      });
+    });
+  } catch (e) {
+    ctx.log.error('cash collection request failed', { orderId: id, error: e instanceof Error ? e.message : String(e) });
+    applyOrderEvent(
+      ctx,
+      id,
+      { type: 'DEPOSIT_INSTRUCTIONS_FAILED', reason: e instanceof ProviderError ? e.message : 'Provider error' },
+      { type: 'system', id: null, role: null, ip: null },
+    );
+    if (e instanceof ProviderError && !e.retryable) throw new ApiError(422, 'collection_unavailable', e.message);
+    throw new ApiError(503, 'provider_unavailable', 'We could not arrange cash collection. Get a new quote and try again.');
+  }
+  return getOrderRow(ctx, id);
+}
+
 /* ---------- Customer actions ---------- */
 
 export function customerOrder(ctx: AppContext, userId: string, id: string): OrderRow {
@@ -425,10 +595,20 @@ export function cancelOrder(ctx: AppContext, actor: Actor, userId: string, id: s
   return applyOrderEvent(ctx, o.id, { type: 'CUSTOMER_CANCELLED' }, actor);
 }
 
+/**
+ * The customer submits the transaction hash for review. Recorded only: it never
+ * moves the order, and nothing claims the transfer was verified. Submitting
+ * the same hash again is a no-op, so a retried request is safe.
+ */
 export function reportSent(ctx: AppContext, actor: Actor, userId: string, id: string, txHash: string | null): OrderRow {
   const o = customerOrder(ctx, userId, id);
+  if (o.direction === 'buy') throw conflict('Cash orders have no transaction hash to submit.', 'invalid_transition');
   if (o.customer_reported_sent_at) return o;
-  return applyOrderEvent(ctx, o.id, { type: 'CUSTOMER_REPORTED_SENT', txHash }, actor);
+  // The hash is required so the team can look the transfer up; only its format is checked here.
+  const hash = txHash?.trim() ?? '';
+  const error = validateTxHash(hash, o.network);
+  if (error) throw badRequest(error, { field: 'txHash' });
+  return applyOrderEvent(ctx, o.id, { type: 'CUSTOMER_REPORTED_SENT', txHash: hash }, actor);
 }
 
 /* ---------- Background: expiry ---------- */
@@ -468,7 +648,12 @@ export function afterDepositConfirmed(ctx: AppContext, orderId: string) {
   const updated = applyOrderEvent(ctx, orderId, next, { type: 'system', id: null, role: null, ip: null });
   if (next.type === 'REVIEW_REQUIRED') openReview(ctx, orderId, next.reason, null);
   const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [o.user_id])!.email;
-  notify(ctx, { userId: o.user_id, to: email, template: 'deposit_confirmed', vars: { reference: o.reference } });
+  notify(ctx, {
+    userId: o.user_id,
+    to: email,
+    template: o.direction === 'buy' ? 'buy_cash_verified' : 'deposit_confirmed',
+    vars: { reference: o.reference },
+  });
   return updated;
 }
 
@@ -511,12 +696,19 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
     [o.id],
   );
   const events = orderEvents(ctx, o.id, internal);
-  // In sandbox mode the UI must never show an address that could be valid on a real chain.
-  const address = deposit && (ctx.config.mode !== 'sandbox' || isPreviewDepositAddress(deposit.address)) ? deposit.address : null;
+  const buy = o.direction === 'buy';
+  // The hash the customer submitted for review (format-checked only; not proof of a deposit).
+  const reported = ctx.db.get<{ data: string }>("SELECT data FROM order_events WHERE order_id = ? AND type = 'CUSTOMER_REPORTED_SENT'", [
+    o.id,
+  ]);
+  const customerTxHash = reported ? ((JSON.parse(reported.data) as { txHash?: string | null }).txHash ?? null) : null;
+  // In sandbox mode the UI must never show an address that could be valid on a real chain. A buy has no deposit address.
+  const address = deposit && !buy && (ctx.config.mode !== 'sandbox' || isPreviewDepositAddress(deposit.address)) ? deposit.address : null;
   return {
     id: o.id,
     reference: o.reference,
     source: o.source,
+    direction: o.direction,
     status: o.status,
     version: o.version,
     asset: o.asset,
@@ -542,7 +734,11 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
       // The customer sees the delivery details they gave; staff views add role-masked details separately.
       delivery: !internal && o.payout_method === 'courier_cash' ? courierDelivery(ctx, o.payout_destination_id) : null,
     },
-    refundAddress: o.refund_address,
+    /** Sell: where crypto is returned. Null for a buy, whose cash is returned by courier. */
+    refundAddress: buy ? null : o.refund_address,
+    /** Buy: the wallet that receives the crypto. */
+    receiveAddress: buy ? o.refund_address : null,
+    documents: orderDocuments(ctx, o.id),
     deposit: {
       address,
       memo: deposit?.memo ?? null,
@@ -552,6 +748,7 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
       amountAtomic: o.deposit_amount_atomic,
       exception: o.deposit_exception,
       customerReportedSentAt: o.customer_reported_sent_at,
+      customerTxHash,
     },
     refundTxHash: o.refund_tx_hash,
     steps: orderSteps(
@@ -561,6 +758,7 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
         count: o.confirmations_count,
         required: o.confirmations_required,
       },
+      o.direction,
     ),
     events,
     createdAt: o.created_at,
@@ -569,6 +767,33 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
       ? { reviewReason: o.review_reason, assignedOperatorId: o.assigned_operator_id, depositProviderRef: deposit?.provider_ref ?? null }
       : {}),
   };
+}
+
+export function orderDocuments(ctx: AppContext, orderId: string) {
+  return ctx.db
+    .all<{
+      id: string;
+      kind: string;
+      file_name: string;
+      content_type: string;
+      size_bytes: number;
+      sha256: string;
+      stored: number;
+      created_at: number;
+    }>(
+      'SELECT id, kind, file_name, content_type, size_bytes, sha256, stored, created_at FROM order_documents WHERE order_id = ? ORDER BY created_at',
+      [orderId],
+    )
+    .map((d) => ({
+      id: d.id,
+      kind: d.kind as 'id_document',
+      fileName: d.file_name,
+      contentType: d.content_type,
+      sizeBytes: d.size_bytes,
+      sha256: d.sha256,
+      stored: d.stored === 1,
+      createdAt: d.created_at,
+    }));
 }
 
 export function listCustomerOrders(ctx: AppContext, userId: string, page: number, pageSize: number) {
@@ -586,11 +811,13 @@ export function listCustomerOrders(ctx: AppContext, userId: string, page: number
       id: o.id,
       reference: o.reference,
       source: o.source,
+      direction: o.direction,
       status: o.status,
       asset: o.asset,
       network: o.network,
       amountAtomic: o.amount_atomic,
       netCents: String(o.net_cents),
+      grossCents: String(o.gross_cents),
       payoutMethod: o.payout_method,
       createdAt: o.created_at,
       updatedAt: o.updated_at,

@@ -21,6 +21,7 @@ import { payoutDetails } from './customers';
 import { notify } from './notifications';
 import { applyOrderEvent, getOrderRow, openReview, type OrderRow } from './orders';
 import { postSystemMessage } from './support';
+import { formatAssetPlain } from './format';
 
 const STAFF = ['support', 'reviewer', 'admin', 'owner'];
 
@@ -117,10 +118,33 @@ export async function rejectOrder(ctx: AppContext, actor: Actor, orderId: string
   return getOrderRow(ctx, orderId);
 }
 
-function payoutProvider(ctx: AppContext, o: OrderRow): { key: 'bankPayout' | 'cardPayout' | 'cash'; provider: PayoutProvider } {
-  if (o.payout_method === 'instant_debit') return { key: 'cardPayout', provider: ctx.providers.cardPayout };
-  if (o.payout_method === 'ach' || o.payout_method === 'wire') return { key: 'bankPayout', provider: ctx.providers.bankPayout };
-  return { key: 'cash', provider: ctx.providers.cash };
+type PayoutKey = 'bankPayout' | 'cardPayout' | 'cash' | 'custody';
+
+/** What leaves us when an order pays out: dollars for a sell, crypto from custody for a buy. */
+function payoutProvider(ctx: AppContext, o: OrderRow): { key: PayoutKey; provider: PayoutProvider; name: string } {
+  if (o.direction === 'buy') {
+    const custody = ctx.providers.custody;
+    return {
+      key: 'custody',
+      name: 'Crypto custody',
+      provider: {
+        info: () => custody.info(),
+        submitPayout: (req) =>
+          custody.sendCrypto({
+            orderId: req.orderId,
+            asset: o.asset,
+            network: o.network,
+            address: o.refund_address,
+            amountAtomic: BigInt(o.amount_atomic),
+            idempotencyKey: req.idempotencyKey,
+          }),
+      },
+    };
+  }
+  const name = PAYOUT_METHODS[o.payout_method].name;
+  if (o.payout_method === 'instant_debit') return { key: 'cardPayout', provider: ctx.providers.cardPayout, name };
+  if (o.payout_method === 'ach' || o.payout_method === 'wire') return { key: 'bankPayout', provider: ctx.providers.bankPayout, name };
+  return { key: 'cash', provider: ctx.providers.cash, name };
 }
 
 export async function authorizePayout(ctx: AppContext, actor: Actor, orderId: string, reason: string) {
@@ -128,7 +152,7 @@ export async function authorizePayout(ctx: AppContext, actor: Actor, orderId: st
   const order = getOrderRow(ctx, orderId);
   if (order.status !== 'ready_for_payout')
     throw conflict(`Payouts can be authorized only when an order is ready for payout (it is ${order.status}).`, 'invalid_transition');
-  const { key, provider } = payoutProvider(ctx, order);
+  const { key, provider, name } = payoutProvider(ctx, order);
 
   // Reuse an authorized-but-unsubmitted instruction (e.g. after a provider timeout) so the idempotency key is stable.
   let pi = ctx.db.get<{ id: string; attempt: number; idempotency_key: string; status: string }>(
@@ -151,7 +175,7 @@ export async function authorizePayout(ctx: AppContext, actor: Actor, orderId: st
           attempt,
           pi.idempotency_key,
           key,
-          order.payout_method,
+          order.direction === 'buy' ? 'crypto_transfer' : order.payout_method,
           order.net_cents,
           actor.id,
           r,
@@ -165,7 +189,7 @@ export async function authorizePayout(ctx: AppContext, actor: Actor, orderId: st
 
   if (!isUsable(provider.info())) {
     ctx.db.run("UPDATE payout_instructions SET status = 'not_configured', updated_at = ? WHERE id = ?", [ctx.clock.now(), instruction.id]);
-    throw notConfigured(`${PAYOUT_METHODS[order.payout_method].name} payout provider`);
+    throw notConfigured(`${name} payout provider`);
   }
   try {
     const { providerRef } = await provider.submitPayout({
@@ -187,12 +211,26 @@ export async function authorizePayout(ctx: AppContext, actor: Actor, orderId: st
         { type: 'PAYOUT_SUBMITTED', providerRef, attempt: instruction.attempt },
         { type: 'system', id: null, role: null, ip: null },
       );
-      notify(ctx, {
-        userId: o.user_id,
-        to: emailOf(ctx, o.user_id),
-        template: 'payout_submitted',
-        vars: { reference: o.reference, amount: formatUsd(BigInt(o.net_cents)), timing: PAYOUT_METHODS[o.payout_method].timingEstimate },
-      });
+      notify(
+        ctx,
+        o.direction === 'buy'
+          ? {
+              userId: o.user_id,
+              to: emailOf(ctx, o.user_id),
+              template: 'buy_transfer_submitted',
+              vars: { reference: o.reference, amount: formatAssetPlain(BigInt(o.amount_atomic), o.asset) },
+            }
+          : {
+              userId: o.user_id,
+              to: emailOf(ctx, o.user_id),
+              template: 'payout_submitted',
+              vars: {
+                reference: o.reference,
+                amount: formatUsd(BigInt(o.net_cents)),
+                timing: PAYOUT_METHODS[o.payout_method].timingEstimate,
+              },
+            },
+      );
       return o;
     });
   } catch (e) {
@@ -201,7 +239,7 @@ export async function authorizePayout(ctx: AppContext, actor: Actor, orderId: st
         ctx.clock.now(),
         instruction.id,
       ]);
-      throw notConfigured(`${PAYOUT_METHODS[order.payout_method].name} payout provider`);
+      throw notConfigured(`${name} payout provider`);
     }
     if (e instanceof ProviderError && !e.retryable) {
       // The provider refused the instruction: that is a real provider outcome, so the order fails.
@@ -242,9 +280,14 @@ export async function initiateRefund(ctx: AppContext, actor: Actor, orderId: str
   return getOrderRow(ctx, orderId);
 }
 
-/** Asks the custody provider to return the deposit. Safe to call again: the idempotency key is per order. */
+/**
+ * Asks the custody provider to return the deposit (sell), or the cash provider
+ * to return the collected cash (buy). Safe to call again: the idempotency key
+ * is per order.
+ */
 export async function submitRefund(ctx: AppContext, actor: Actor, orderId: string, reason: string) {
   const o = getOrderRow(ctx, orderId);
+  const buy = o.direction === 'buy';
   if (o.status !== 'refund_pending')
     throw conflict('Refunds can be submitted only for orders with a pending refund.', 'invalid_transition');
   if (!o.deposit_amount_atomic) throw conflict('There is no observed deposit to refund.');
@@ -260,8 +303,8 @@ export async function submitRefund(ctx: AppContext, actor: Actor, orderId: strin
           id,
           orderId,
           refund!.idempotency_key,
-          ctx.config.mode === 'sandbox' ? 'sandbox' : 'custody',
-          o.refund_address,
+          ctx.config.mode === 'sandbox' ? 'sandbox' : buy ? 'cash' : 'custody',
+          buy ? 'courier-return' : o.refund_address,
           o.deposit_amount_atomic,
           actor.id,
           reason,
@@ -274,19 +317,30 @@ export async function submitRefund(ctx: AppContext, actor: Actor, orderId: strin
     });
   }
   const r = refund!;
-  if (!isUsable(ctx.providers.custody.info())) {
+  if (!isUsable((buy ? ctx.providers.cash : ctx.providers.custody).info())) {
     ctx.db.run("UPDATE refunds SET status = 'not_configured', updated_at = ? WHERE id = ?", [ctx.clock.now(), r.id]);
     return { ...r, status: 'not_configured' };
   }
   try {
-    const { providerRef } = await ctx.providers.custody.requestRefund({
-      orderId,
-      asset: o.asset,
-      network: o.network,
-      address: o.refund_address,
-      amountAtomic: BigInt(o.deposit_amount_atomic),
-      idempotencyKey: r.idempotency_key,
-    });
+    let providerRef: string;
+    if (buy) {
+      const destination = payoutDetails(ctx, o.payout_destination_id);
+      if (destination.kind !== 'courier') throw new Error('Collection address is not a courier address.');
+      ({ providerRef } = await ctx.providers.cash.requestCashReturn({
+        orderId,
+        amountCents: BigInt(o.deposit_amount_atomic),
+        destination,
+        idempotencyKey: r.idempotency_key,
+      }));
+    } else
+      ({ providerRef } = await ctx.providers.custody.requestRefund({
+        orderId,
+        asset: o.asset,
+        network: o.network,
+        address: o.refund_address,
+        amountAtomic: BigInt(o.deposit_amount_atomic),
+        idempotencyKey: r.idempotency_key,
+      }));
     ctx.db.run("UPDATE refunds SET status = 'submitted', provider_ref = ?, updated_at = ? WHERE id = ?", [
       providerRef,
       ctx.clock.now(),
@@ -310,7 +364,7 @@ export function availableActions(ctx: AppContext, o: OrderRow, role: string) {
   const isReviewer = ['reviewer', 'admin', 'owner'].includes(role);
   const isAdmin = ['admin', 'owner'].includes(role);
   const s: OrderStatus = o.status;
-  const payout = o.payout_method === 'instant_debit' ? ctx.providers.cardPayout.info() : ctx.providers.bankPayout.info();
+  const payout = payoutProvider(ctx, o).provider.info();
   const refund = ctx.db.get<{ status: string }>('SELECT status FROM refunds WHERE order_id = ?', [o.id]);
   const why = (ok: boolean, roleOk: boolean, roleName: string, stateMsg: string) =>
     ok && roleOk ? null : !roleOk ? `Requires the ${roleName} role.` : stateMsg;

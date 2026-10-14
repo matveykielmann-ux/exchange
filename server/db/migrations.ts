@@ -459,4 +459,35 @@ ALTER TABLE payout_destinations_v2 RENAME TO payout_destinations;
 CREATE INDEX payout_destinations_user ON payout_destinations(user_id, status);
 `,
   },
+  {
+    id: 3,
+    name: 'buy_orders_residence_documents',
+    sql: `
+-- Buy orders (cash collected by courier, crypto sent to the customer). For a buy, orders.amount_atomic is the
+-- crypto the customer receives, gross_cents the cash collected, and refund_address the customer's receiving wallet.
+ALTER TABLE quotes ADD COLUMN direction TEXT NOT NULL DEFAULT 'sell' CHECK (direction IN ('sell','buy'));
+ALTER TABLE orders ADD COLUMN direction TEXT NOT NULL DEFAULT 'sell' CHECK (direction IN ('sell','buy'));
+
+-- The Service is not limited to US residents; the US state applies only to US residents.
+ALTER TABLE customer_profiles ADD COLUMN country_of_residence TEXT CHECK (country_of_residence IS NULL OR length(country_of_residence) = 2);
+UPDATE customer_profiles SET country_of_residence = 'US' WHERE state_of_residence IS NOT NULL;
+
+-- Documents a customer uploads for an order (the ID shown at a cash handover). In sandbox mode the file is
+-- checked and discarded: only its type, size and SHA-256 fingerprint are kept (stored = 0).
+CREATE TABLE order_documents (
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL REFERENCES orders(id),
+  user_id TEXT NOT NULL REFERENCES users(id),
+  kind TEXT NOT NULL CHECK (kind IN ('id_document')),
+  file_name TEXT NOT NULL CHECK (length(file_name) BETWEEN 1 AND 120),
+  content_type TEXT NOT NULL CHECK (content_type IN ('image/jpeg','image/png','application/pdf')),
+  size_bytes INTEGER NOT NULL CHECK (size_bytes > 0),
+  sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
+  stored INTEGER NOT NULL CHECK (stored IN (0,1)),
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX order_documents_order ON order_documents(order_id);
+${appendOnly('order_documents')}
+`,
+  },
 ];

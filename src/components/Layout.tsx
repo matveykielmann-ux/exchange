@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { BRAND } from '@/config/brand';
+import { BRAND, SUPPORT } from '@/config/brand';
+import { TelegramLink } from './SupportContact';
 import { useTheme } from '@/lib/theme';
 import { isStaff, useUser } from '@/state/auth';
 import { useConfig } from '@/state/config';
@@ -187,8 +188,11 @@ function SiteFooter() {
             </Link>
             <p className="muted" style={{ maxWidth: '34ch' }}>
               {config.mode === 'sandbox'
-                ? 'Sell crypto for US dollars. This is the sandbox: every price, deposit and payout is simulated.'
-                : 'Sell crypto for US dollars, paid to a US bank account or debit card.'}
+                ? 'Sell crypto for US dollars, or buy crypto with cash. This is the sandbox: every price, deposit and payout is simulated.'
+                : 'Sell crypto for US dollars, or buy crypto with cash collected by courier.'}
+            </p>
+            <p className="small">
+              Support: <TelegramLink /> · {SUPPORT.hours.label}
             </p>
           </div>
           <div>
@@ -196,6 +200,9 @@ function SiteFooter() {
             <ul>
               <li>
                 <Link to="/exchange">Sell crypto</Link>
+              </li>
+              <li>
+                <Link to="/exchange?direction=buy">Buy crypto with cash</Link>
               </li>
               <li>
                 <Link to="/large-transactions">Large transactions</Link>

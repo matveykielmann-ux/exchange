@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ASSET_ORDER, ASSETS, defaultNetwork } from '../assets';
 import { PAYOUT_METHODS, payoutFeeCents } from '../payout';
-import { atomicForCents, calculateQuote, grossCentsFor, isQuoteExpired, PRICING_POLICY, spreadBpsFor } from '../quote';
+import { atomicForCents, calculateBuyQuote, calculateQuote, grossCentsFor, isQuoteExpired, PRICING_POLICY, spreadBpsFor } from '../quote';
 
 const base = {
   asset: 'BTC' as const,
@@ -99,5 +99,39 @@ describe('payout fees', () => {
   it('offers courier cash delivery with a flat fee', () => {
     expect(PAYOUT_METHODS.courier_cash.availability.available).toBe(true);
     expect(payoutFeeCents(PAYOUT_METHODS.courier_cash, 2_000_00n)).toBe(35_00n);
+  });
+});
+
+describe('calculateBuyQuote', () => {
+  const buy = { asset: 'USDT' as const, network: 'tron' as const, referencePriceMicros: 1_000_000n, now: 1_000 };
+
+  it('reconciles cash − spread − courier fee and converts the rest, rounding the crypto down', () => {
+    const { quote, issues } = calculateBuyQuote({ ...buy, cashCents: 1_000_00n });
+    expect(issues).toEqual([]);
+    expect(quote.direction).toBe('buy');
+    expect(quote.payoutMethod).toBe('courier_cash');
+    expect(quote.grossCents).toBe(1_000_00n);
+    expect(quote.spreadBps).toBe(spreadBpsFor('USDT', 1_000_00n));
+    expect(quote.payoutFeeCents).toBe(payoutFeeCents(PAYOUT_METHODS.courier_cash, 1_000_00n));
+    expect(quote.grossCents - quote.spreadCents - quote.payoutFeeCents).toBe(quote.netCents);
+    // $1 per USDT, 6 decimals: one cent is 10,000 atomic units.
+    expect(quote.amountAtomic).toBe(quote.netCents * 10_000n);
+    expect(quote.expiresAt - quote.createdAt).toBe(PRICING_POLICY.quoteTtlMs);
+
+    const btc = calculateBuyQuote({
+      asset: 'BTC',
+      network: 'bitcoin',
+      referencePriceMicros: 68_000_000_000n,
+      now: 1,
+      cashCents: 1_234_56n,
+    });
+    const exact = (btc.quote.netCents * 10_000n * 100_000_000n) / 68_000_000_000n;
+    expect(btc.quote.amountAtomic).toBe(exact); // floor
+  });
+
+  it('flags amounts below the minimum and below the courier minimum', () => {
+    expect(calculateBuyQuote({ ...buy, cashCents: 0n }).issues.map((i) => i.code)).toEqual(['zero_amount']);
+    expect(calculateBuyQuote({ ...buy, cashCents: 10_00n }).issues.map((i) => i.code)).toEqual(['below_minimum']);
+    expect(calculateBuyQuote({ ...buy, cashCents: 400_00n }).issues.map((i) => i.code)).toContain('payout_ineligible');
   });
 });

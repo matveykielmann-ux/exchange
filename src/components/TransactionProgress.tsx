@@ -108,3 +108,35 @@ export function EventLog({ log }: { log: OrderEventView[] }) {
     </ol>
   );
 }
+
+/**
+ * Overall progress as a bar: the share of steps completed. The fill eases to
+ * its new width when the order moves (CSS transition, off under reduced
+ * motion). The text alternative is the bar's value and the current step.
+ */
+export function OrderProgressBar({ steps }: { steps: OrderStep[] }) {
+  const done = steps.filter((s) => s.state === 'done').length;
+  const failed = steps.some((s) => s.state === 'failed');
+  const current = steps.find((s) => s.state === 'current' || s.state === 'failed');
+  const pct = Math.round((done / Math.max(1, steps.length)) * 100);
+  const state = failed ? 'failed' : pct === 100 ? 'done' : 'active';
+  return (
+    <div className="order-progress" data-state={state}>
+      <div
+        className="order-progress__track"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={steps.length}
+        aria-valuenow={done}
+        aria-valuetext={`${done} of ${steps.length} steps completed${current ? `. Next: ${current.label}` : ''}`}
+        aria-label="Order progress"
+      >
+        <span className="order-progress__fill" style={{ width: `${pct}%` }} />
+      </div>
+      <p className="small muted order-progress__text">
+        {done} of {steps.length} steps completed
+        {current ? ` · ${current.state === 'failed' ? 'Stopped at' : 'Next'}: ${current.label}` : ''}
+      </p>
+    </div>
+  );
+}

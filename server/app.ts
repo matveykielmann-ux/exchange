@@ -17,6 +17,7 @@ import { createProviders } from './providers/registry';
 import { registerRoutes } from './routes';
 import { resolveSession, SESSION_COOKIE } from './services/auth';
 import { expireOverdueOrders } from './services/orders';
+import { sandboxAutopilotTick } from './services/sandbox';
 
 export interface App {
   ctx: AppContext;
@@ -86,8 +87,17 @@ export function createApp(config: AppConfig, opts: { clock?: Clock; log?: Logger
     }
   };
 
+  const runAutopilot = () => {
+    try {
+      sandboxAutopilotTick(ctx);
+    } catch (e) {
+      log.error('sandbox autopilot failed', { err: e });
+    }
+  };
+
   let server: Server | null = null;
   let timer: NodeJS.Timeout | null = null;
+  let autopilot: NodeJS.Timeout | null = null;
   const sockets = new Set<import('node:net').Socket>();
 
   return {
@@ -109,6 +119,10 @@ export function createApp(config: AppConfig, opts: { clock?: Clock; log?: Logger
         server.listen(config.port, config.host, () => {
           timer = setInterval(runJobs, 30_000);
           timer.unref();
+          if (config.mode === 'sandbox' && config.sandbox.autopilotStepMs) {
+            autopilot = setInterval(runAutopilot, Math.min(1000, config.sandbox.autopilotStepMs));
+            autopilot.unref();
+          }
           runJobs();
           log.info('listening', { host: config.host, port: config.port, origin: config.publicOrigin });
           resolve(server!);
@@ -117,6 +131,7 @@ export function createApp(config: AppConfig, opts: { clock?: Clock; log?: Logger
     },
     async close() {
       if (timer) clearInterval(timer);
+      if (autopilot) clearInterval(autopilot);
       if (server) {
         const s = server;
         server = null;

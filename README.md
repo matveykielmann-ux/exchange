@@ -25,7 +25,7 @@ To try it: sign up, then go to `/exchange`. On the order page, the **sandbox dep
 ```bash
 pnpm lint && pnpm typecheck && pnpm format:check && pnpm test && pnpm build
 pnpm server:scenarios   # 14 deterministic lifecycle scenarios on a throwaway database
-pnpm qa:visual          # Playwright against the built server: screenshots, axe, overflow, keyboard, the 16-step journey
+pnpm qa:visual          # Playwright against the built server: screenshots, axe, overflow, keyboard, the sell and buy journeys
 ```
 
 ## Operations

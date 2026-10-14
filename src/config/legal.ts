@@ -27,11 +27,14 @@ export const LEGAL_ENTITY = {
   complaintsEmail: null as string | null,
   privacyEmail: null as string | null,
   supportPhone: null as string | null,
-  supportHours: null as string | null,
+  /** Owner decision 2026-10-14 (clause 4.20). */
+  supportHours: '07:00–16:00 New York time (America/New_York)' as string | null,
+  /** Official Telegram support (clause 4.21), owner decision 2026-10-14. */
+  supportTelegram: 'https://t.me/cryptocurrency_1exchange' as string | null,
   /** Law that governs the Service Rules (Section 16). */
   governingLaw: 'the laws of the Republic of Panama' as string | null,
   /** Dispute resolution (Section 16): negotiations, then the competent court of the Republic of Panama after 60 calendar days. */
   disputeForum: 'the competent court of the Republic of Panama' as string | null,
-  /** US states and territories where the service is offered. Null = not yet determined. */
+  /** Owner decision 2026-10-14: not limited to US residents; only the territories in clause 8.5 are refused. */
   servedStates: null as string[] | null,
 } as const;

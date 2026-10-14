@@ -83,3 +83,67 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
     </div>
   );
 }
+
+/**
+ * Buy quote (cash → crypto): cash paid − spread − courier fee = dollars
+ * converted at the reference price into the crypto the customer receives.
+ */
+export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; loading?: boolean }) {
+  const method = PAYOUT_METHODS[quote.payoutMethod];
+  const sk = loading ? ' skeleton' : '';
+  return (
+    <div aria-busy={loading || undefined}>
+      <dl className="quote-lines">
+        <div>
+          <dt>
+            You pay in cash
+            <small>Handed to the courier after an ID check</small>
+          </dt>
+          <dd className={sk}>{formatUsd(quote.grossCents)}</dd>
+        </div>
+        <div className="is-deduction">
+          <dt>
+            <span className="quote-lines__term">
+              Exchange spread
+              <InfoHint label="the exchange spread">
+                The difference between the reference price and the rate you get, shown as a dollar amount. There is no separate trading fee.
+              </InfoHint>
+            </span>
+            <small>{formatBps(quote.spreadBps)} of cash</small>
+          </dt>
+          <dd className={sk}>{formatUsd(-quote.spreadCents)}</dd>
+        </div>
+        <div className="is-deduction">
+          <dt>
+            <span className="quote-lines__term">
+              Courier fee
+              <InfoHint label="the courier fee">
+                {method.name}: {describeFee(method.fee)}.
+              </InfoHint>
+            </span>
+            <small>Cash collection</small>
+          </dt>
+          <dd className={sk}>{formatUsd(-quote.payoutFeeCents)}</dd>
+        </div>
+        <div>
+          <dt>Converted to {quote.asset}</dt>
+          <dd className={sk}>{formatUsd(quote.netCents < 0n ? 0n : quote.netCents)}</dd>
+        </div>
+        <div>
+          <dt>
+            Reference price
+            <small>Mid-market, per {quote.asset}</small>
+          </dt>
+          <dd className={sk}>{formatPriceMicros(quote.referencePriceMicros, quote.asset)}</dd>
+        </div>
+      </dl>
+      <div className="quote-total">
+        <span className="quote-total__label">You receive</span>
+        <span className={`quote-total__value tabular${sk}`}>{formatAsset(quote.amountAtomic, quote.asset)}</span>
+      </div>
+      <p className="small muted" style={{ marginTop: 12 }}>
+        Sent on {networkLabel(quote.asset, quote.network)} to the wallet address you give, after the cash is counted and verified.
+      </p>
+    </div>
+  );
+}

@@ -31,26 +31,38 @@ Arcvale has a working API server, database, admin panel, real-time support chat,
 | `pnpm test` | **67 passed** in 12 files. Web: money, assets, quote (incl. a 2,000-case reconciliation property), order state machine, validation, courier details, Calculator, HoldButton. Server: API (auth, CSRF, RBAC, lifecycle, courier delivery, isolation, webhooks, chat, validation, lockout, MFA, proxy IPs), database (append-only, snapshots, audit tamper detection), production mode (fail-closed config, NOT_CONFIGURED, policy gates), scenarios. |
 | `pnpm server:scenarios` | **14/14 passed**: happy path, cash by courier, duplicate webhook, large-amount review, payout failure and retry, payout declined then refund, short deposit, late deposit, expired window, expired quote, customer cancel, rejected request, KYC rejected, audit chain. |
 | `pnpm build` | pass. three.js is a separate lazy chunk loaded only by the home hero. |
-| `pnpm qa:visual` | Runs against the built server on a throwaway sandbox database: 23 routes (15 public, 8 admin) at 1440/1024/768/390, axe, overflow, console and request checks, keyboard checks, and the 16-step journey at 1440 and 390. |
+| `pnpm qa:visual` | Runs against the built server on a throwaway sandbox database: 23 routes (15 public, 8 admin) at 1440/1024/768/390, axe, overflow, console and request checks, keyboard checks, the 16-step sell journey and the 9-step buy journey at 1440 and 390. `QA_JOURNEY=sell|buy` runs only one journey. |
 
 ### The 16-step sandbox journey (visual QA)
 
-1. Sign up: validation errors first, then an account with a state of residence and accepted terms.
+1. Sign up: validation errors first, then an account with a country and state of residence, the clause 8.5 confirmation and accepted terms.
 2. Amount: below the minimum is refused, a large amount is accepted (no maximum), then a valid 2,500 USDC on Ethereum.
 3. Payout method: cash by courier asks for a delivery address; an empty form, then a ZIP outside the area, are refused and a valid address is saved. The journey then continues with a bank transfer.
 4. Details: bank account (routing checksum) and refund address.
 5. Identity verification (sandbox rules) and a firm quote.
 6. Acknowledgements and hold-to-confirm create the order.
-7. "I've sent it" is recorded, and the order still waits for the deposit.
-8. The sandbox deposit monitor reports the exact deposit through a signed webhook.
-9. Final confirmations: the order becomes ready for payout.
+7. The customer submits the transaction hash for review: a malformed hash is refused next to the field; a well-formed one is recorded, and the order still waits for the deposit.
+8. With the hash submitted, the sandbox autopilot (`SANDBOX_AUTOPILOT_STEP_MS`, default 3 s; off in production) replaces the manual controls and reports the deposit through a signed webhook.
+9. Confirmations arrive the same way: the order becomes ready for payout.
 10. The customer messages support from the chat widget, linked to the order.
 11. An admin signs in and sees the overview.
 12. The admin finds the order in the queue.
 13. Authorizing the payout without a reason is refused; with a reason it is submitted.
-14. The sandbox payout provider reports completion through a signed webhook.
+14. The sandbox payout provider reports processing, then completion, through signed webhooks (autopilot).
 15. The admin replies in the inbox and adds an internal note.
-16. The customer sees the completed order and the reply, never the internal note, and the order in their history.
+16. The customer sees the success screen (final demo amounts, "Completed (demo)", next steps, Telegram support), the reply, never the internal note, and the order in their history.
+
+### The buy journey (cash → crypto, visual QA)
+
+1. A customer resident outside the US signs up; the clause 8.5 confirmation is required.
+2. Buy with cash: below the minimum and below the courier minimum are refused; a $1,000 USDT (TRC-20) quote is shown, and the draft survives a refresh.
+3. A collection address is saved and the receiving wallet is validated next to the field.
+4. Verification, firm quote, acknowledgements and hold-to-confirm create a `CBX-…` order.
+5. A demo photo ID upload: a wrong file type is refused; a PNG is checked (type sniffed, size, SHA-256) and discarded, and only its record is kept.
+6. The server is restarted on the same database; the order and its progress are intact.
+7. The autopilot reports the cash collected and counted through signed `cash` webhooks.
+8. An admin sees the direction and the ID record, and authorizes the crypto transfer with a reason.
+9. The autopilot reports the transfer through signed `custody` webhooks; the success screen shows the final demo amounts and says nothing was collected, sent or broadcast.
 
 ## Not done, and why
 

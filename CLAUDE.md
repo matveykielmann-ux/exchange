@@ -24,7 +24,7 @@ shadcn/ui and registry components (`@react-bits`, `@spaceui` in `components.json
 ```bash
 pnpm lint && pnpm typecheck && pnpm format:check && pnpm test && pnpm build
 pnpm server:scenarios   # deterministic sandbox lifecycle scenarios
-pnpm qa:visual          # Playwright against the built server: screenshots, axe, overflow, keyboard, 16-step journey (see .claude/skills/visual-qa)
+pnpm qa:visual          # Playwright against the built server: screenshots, axe, overflow, keyboard, sell and buy journeys (see .claude/skills/visual-qa)
 ```
 `pnpm dev` runs the API (sandbox, `./data/arcvale-sandbox.db`) and Vite together; `pnpm server:seed` adds demo accounts (password `sandbox-pass-2026`). Schema changes are new migrations in `server/db/migrations.ts` (see `docs/migrations.md`); never edit a shipped one.
 Done means all of the above pass, and you have looked at the affected screenshots in `qa-output/` at 390 and 1440.

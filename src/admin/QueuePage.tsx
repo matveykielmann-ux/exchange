@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
 import { MockBadge, StatusBadge } from '@/components/ui';
 import { formatUsd } from '@/domain/money';
-import { isOrderStatus, ORDER_STATUS_LABEL, ORDER_STATUSES, orderTone, type OrderStatus } from '@/domain/order';
+import { isOrderStatus, ORDER_STATUS_LABEL, ORDER_STATUSES, orderStatusLabel, orderTone } from '@/domain/order';
 import { PAYOUT_METHODS, PAYOUT_ORDER, type PayoutMethodId } from '@/domain/payout';
 import { formatAsset, formatDateTime } from '@/lib/format';
 import type { QueueQuery } from '@/services/adminTypes';
@@ -237,7 +237,8 @@ export function QueuePage() {
                       {o.source === 'sandbox' ? <MockBadge label="SBX" force /> : null}
                     </th>
                     <td>
-                      <StatusBadge tone={orderTone(o.status)}>{ORDER_STATUS_LABEL[o.status as OrderStatus]}</StatusBadge>
+                      <StatusBadge tone={orderTone(o.status)}>{orderStatusLabel(o.status, o.direction)}</StatusBadge>
+                      {o.direction === 'buy' ? <span className="small muted block">Buy · cash collection</span> : null}
                       {o.depositException ? (
                         <span className="small muted block">Exception: {o.depositException.replace('_', ' ')}</span>
                       ) : null}
@@ -252,7 +253,9 @@ export function QueuePage() {
                     <td className="num">{formatAsset(o.amountAtomic, o.asset)}</td>
                     <td className="num">
                       {formatUsd(o.netCents)}
-                      <span className="small muted block">{PAYOUT_METHODS[o.payoutMethod].name}</span>
+                      <span className="small muted block">
+                        {o.direction === 'buy' ? 'Crypto transfer' : PAYOUT_METHODS[o.payoutMethod].name}
+                      </span>
                     </td>
                     <td className="small">{o.assignedTo ? (o.assignedTo.email ?? 'Staff') : <span className="muted">Unassigned</span>}</td>
                     <td className="small tabular">{formatDateTime(o.createdAt)}</td>

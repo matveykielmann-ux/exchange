@@ -37,7 +37,15 @@ export interface ScenarioCustomer {
 export async function sandboxCustomer(ctx: AppContext, email: string, fullName = 'Alex Morgan'): Promise<ScenarioCustomer> {
   const { userId } = await signUp(
     ctx,
-    { email, password: SANDBOX_PASSWORD, fullName, stateOfResidence: 'NY', accepted: requiredSignupDocuments() },
+    {
+      email,
+      password: SANDBOX_PASSWORD,
+      fullName,
+      countryOfResidence: 'US',
+      stateOfResidence: 'NY',
+      notInRestrictedTerritory: true,
+      accepted: requiredSignupDocuments(),
+    },
     meta,
   );
   const actor: Actor = { type: 'customer', id: userId, role: 'customer', ip: meta.ip };
@@ -118,8 +126,8 @@ export const SCENARIOS: Scenario[] = [
       const c = await sandboxCustomer(ctx, `happy${n}@example.test`);
       const o = await placeOrder(ctx, c);
       step(`order ${o.reference} ${status(ctx, o.id)}`);
-      reportSent(ctx, c.actor, c.userId, o.id, null);
-      step(`customer said "I sent it": still ${status(ctx, o.id)}`);
+      reportSent(ctx, c.actor, c.userId, o.id, '0x' + 'ab'.repeat(32));
+      step(`customer submitted a tx hash for review: still ${status(ctx, o.id)}`);
       sandbox.simulateDeposit(ctx, op, o.id, 'exact');
       step(`deposit observed: ${status(ctx, o.id)}`);
       sandbox.simulateConfirmations(ctx, op, o.id, { toFinal: true });
@@ -166,6 +174,47 @@ export const SCENARIOS: Scenario[] = [
       sandbox.simulatePayout(ctx, op, o.id, 'completed');
       const provider = ctx.db.get<{ provider: string }>('SELECT provider FROM payout_instructions WHERE order_id = ?', [o.id])!.provider;
       if (provider !== 'cash') throw new Error(`Courier payout went to ${provider}.`);
+      return status(ctx, o.id);
+    },
+  },
+  {
+    name: 'buy-with-cash',
+    description:
+      'Cash → crypto: courier collects the cash (signed cash events), operator authorizes, custody sends the crypto (signed custody events).',
+    expected: 'completed',
+    async run(ctx, op, step, n) {
+      const c = await sandboxCustomer(ctx, `buyer${n}@example.test`);
+      const dest = await addCourierAddress(ctx, c.actor, c.userId, {
+        phone: '212-555-0142',
+        line1: '200 Example Street',
+        line2: '',
+        city: 'New York',
+        state: 'NY',
+        zip: '10001',
+        window: 'any',
+        preferredDate: '',
+        instructions: '',
+      });
+      const { quote } = await firmQuote(ctx, c.userId, { direction: 'buy', asset: 'USDT', network: 'tron', cashCents: 1_000_00n });
+      const o = await createOrder(ctx, c.actor, c.userId, {
+        quoteId: quote.id,
+        destinationId: dest.id,
+        receiveAddress: 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE',
+        accepted: ORDER_DOCS(),
+      });
+      step(`buy order ${o.reference} ${status(ctx, o.id)}`);
+      sandbox.simulateDeposit(ctx, op, o.id, 'exact');
+      step(`cash collected: ${status(ctx, o.id)}`);
+      sandbox.simulateConfirmations(ctx, op, o.id, { toFinal: true });
+      step(`cash counted and screened: ${status(ctx, o.id)}`);
+      await ops.authorizePayout(ctx, op, o.id, 'Cash verified; sending crypto.');
+      sandbox.simulatePayout(ctx, op, o.id, 'processing');
+      sandbox.simulatePayout(ctx, op, o.id, 'completed');
+      const pi = ctx.db.get<{ provider: string; method: string }>('SELECT provider, method FROM payout_instructions WHERE order_id = ?', [
+        o.id,
+      ])!;
+      if (pi.provider !== 'custody' || pi.method !== 'crypto_transfer')
+        throw new Error(`Buy transfer went to ${pi.provider}/${pi.method}.`);
       return status(ctx, o.id);
     },
   },

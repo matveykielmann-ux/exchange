@@ -63,6 +63,28 @@ export function validateAccountNumber(value: string): FieldError {
   return null;
 }
 
+/** The wallet that receives the crypto of a buy order. */
+export function validateReceiveAddress(value: string, network: NetworkId): FieldError {
+  const v = value.trim();
+  if (!v) return `Enter the ${NETWORKS[network].name} address of a wallet you control.`;
+  if (!isValidAddress(network, v))
+    return `That doesn't look like a ${NETWORKS[network].name} address (expected ${NETWORKS[network].addressExample}).`;
+  return null;
+}
+
+/** Cash a customer pays the courier on a buy, in whole cents. */
+export function validateCashAmount(value: string): FieldError {
+  const parsed = parseDecimal(value.replace(/,/g, ''), 2);
+  if (!parsed.ok)
+    return parsed.reason === 'empty'
+      ? 'Enter how many US dollars you will pay.'
+      : parsed.reason === 'too_many_decimals'
+        ? 'Use at most 2 decimal places.'
+        : 'Enter a dollar amount, for example 1,500.';
+  if (parsed.value === 0n) return 'Enter an amount greater than zero.';
+  return null;
+}
+
 export function validateUsdAmount(value: string, { minCents }: { minCents: Cents }): FieldError {
   const parsed = parseDecimal(value, 2);
   if (!parsed.ok) return parsed.reason === 'empty' ? 'Enter an approximate amount in USD.' : 'Enter a dollar amount, for example 75,000.';
@@ -76,5 +98,25 @@ export function validateUsPhone(value: string): FieldError {
   if (!digits) return 'Enter a phone number.';
   const lengthOk = digits.length === 10 || (digits.length === 11 && digits.startsWith('1'));
   if (!lengthOk || !/^[\d\s()+.-]+$/.test(value.trim())) return 'Enter a US phone number, including area code.';
+  return null;
+}
+
+const TX_HASH: Record<NetworkId, { pattern: RegExp; example: string }> = {
+  bitcoin: { pattern: /^[0-9a-fA-F]{64}$/, example: '64 hexadecimal characters' },
+  tron: { pattern: /^[0-9a-fA-F]{64}$/, example: '64 hexadecimal characters' },
+  ethereum: { pattern: /^0x[0-9a-fA-F]{64}$/, example: '0x followed by 64 hexadecimal characters' },
+  base: { pattern: /^0x[0-9a-fA-F]{64}$/, example: '0x followed by 64 hexadecimal characters' },
+  solana: { pattern: /^[1-9A-HJ-NP-Za-km-z]{64,90}$/, example: 'a Base58 signature of 64 to 90 characters' },
+};
+
+/**
+ * Checks only that a transaction hash is shaped like one for the network. It
+ * says nothing about whether the transaction exists or reached us.
+ */
+export function validateTxHash(value: string, network: NetworkId): FieldError {
+  const v = value.trim();
+  if (!v) return 'Enter the transaction hash (TXID) from your wallet.';
+  if (!TX_HASH[network].pattern.test(v))
+    return `That doesn't look like a transaction hash on ${NETWORKS[network].name} (expected ${TX_HASH[network].example}).`;
   return null;
 }

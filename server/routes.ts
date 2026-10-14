@@ -27,7 +27,9 @@ import { withIdempotency } from './services/idempotency';
 import { listNotifications } from './services/notifications';
 import * as ops from './services/operations';
 import * as orders from './services/orders';
-import { firmQuote, indicativeQuote, referencePrice } from './services/quotes';
+import { firmQuote, indicativeQuote, referencePrice, type QuoteInput } from './services/quotes';
+import { DOCUMENT_TYPES, uploadOrderDocument } from './services/documents';
+import { COUNTRY_CODES } from '@/domain/residence';
 import * as sandbox from './services/sandbox';
 import * as support from './services/support';
 import { ingestWebhook, isWebhookSource } from './services/webhooks';
@@ -36,6 +38,20 @@ const assetV = v.enum(ASSET_ORDER as AssetCode[], 'asset');
 const networkV = v.enum(Object.keys(NETWORKS) as NetworkId[], 'network');
 const methodV = v.enum(PAYOUT_ORDER as PayoutMethodId[], 'payout method');
 const reasonV = v.object({ reason: v.string({ min: 4, max: 500, label: 'a reason' }) });
+/** Sell: crypto amount and payout method. Buy (cash → crypto): the dollars handed to the courier. */
+function quoteInput(raw: unknown): QuoteInput {
+  const { direction } = parse(v.object({ direction: v.optional(v.enum(['sell', 'buy'] as const, 'direction')) }), raw);
+  if (direction === 'buy')
+    return {
+      direction,
+      ...parse(v.object({ asset: assetV, network: networkV, cashCents: v.bigintString({ max: 10n ** 15n }) }), raw),
+    };
+  return parse(
+    v.object({ asset: assetV, network: networkV, amountAtomic: v.bigintString({ max: 10n ** 30n }), payoutMethod: methodV }),
+    raw,
+  );
+}
+
 const acceptedV = v.array(v.object({ slug: v.string({ max: 64 }), version: v.string({ max: 32 }) }), { max: 30 });
 const pageV = (q: URLSearchParams, max = 100) => ({
   page: parse(v.optional(v.int({ min: 1, max: 100_000 })), q.get('page') ?? undefined) ?? 1,
@@ -76,6 +92,8 @@ export function registerRoutes(r: Router, app: AppContext) {
       mode: app.config.mode,
       realMoneyEnabled: REAL_MONEY_ENABLED,
       featureFlags: FEATURE_FLAGS,
+      /** Sandbox only: the demo autopilot advances orders after the customer's step (0 = off). */
+      sandboxAutopilotStepMs: app.config.mode === 'sandbox' ? app.config.sandbox.autopilotStepMs : 0,
       providers: providerInfos(app.providers).map((p) => ({ key: p.key, label: p.label, state: p.state })),
       policy: {
         quoteTtlMs: PRICING_POLICY.quoteTtlMs,
@@ -96,11 +114,7 @@ export function registerRoutes(r: Router, app: AppContext) {
   r.get(
     '/api/quotes/indicative',
     async (ctx) => {
-      const q = parse(
-        v.object({ asset: assetV, network: networkV, amountAtomic: v.bigintString({ max: 10n ** 30n }), payoutMethod: methodV }),
-        queryObject(ctx.query),
-      );
-      return { body: await indicativeQuote(app, q) };
+      return { body: await indicativeQuote(app, quoteInput(queryObject(ctx.query))) };
     },
     { rateLimit: { bucket: 'quotes', max: 120, windowMs: 60_000 } },
   );
@@ -200,7 +214,9 @@ export function registerRoutes(r: Router, app: AppContext) {
           email: v.string({ max: 254, label: 'your email' }),
           password: v.string({ min: 1, max: 200, trim: false, label: 'a password' }),
           fullName: v.string({ max: 120, label: 'your full legal name' }),
+          countryOfResidence: v.optional(v.nullable(v.enum(COUNTRY_CODES, 'country'))),
           stateOfResidence: v.nullable(v.enum(customers.US_STATES, 'state')),
+          notInRestrictedTerritory: v.bool(),
           accepted: acceptedV,
         }),
         ctx.body,
@@ -330,6 +346,7 @@ export function registerRoutes(r: Router, app: AppContext) {
         v.object({
           fullName: v.optional(v.string({ max: 120, label: 'your full legal name' })),
           phone: v.nullable(v.string({ max: 32, pattern: /^[\d\s()+.-]{10,}$/, label: 'a phone number' })),
+          countryOfResidence: v.optional(v.nullable(v.enum(COUNTRY_CODES, 'country'))),
           stateOfResidence: v.nullable(v.enum(customers.US_STATES, 'state')),
         }),
         ctx.body,
@@ -437,11 +454,7 @@ export function registerRoutes(r: Router, app: AppContext) {
   r.post(
     '/api/quotes',
     async (ctx) => {
-      const b = parse(
-        v.object({ asset: assetV, network: networkV, amountAtomic: v.bigintString({ max: 10n ** 30n }), payoutMethod: methodV }),
-        ctx.body,
-      );
-      return { status: 201, body: await firmQuote(app, me(ctx), b) };
+      return { status: 201, body: await firmQuote(app, me(ctx), quoteInput(ctx.body)) };
     },
     { auth: 'user', rateLimit: { bucket: 'firm-quotes', max: 30, windowMs: 60_000 } },
   );
@@ -453,7 +466,8 @@ export function registerRoutes(r: Router, app: AppContext) {
         v.object({
           quoteId: v.string({ max: 64 }),
           destinationId: v.string({ max: 64 }),
-          refundAddress: v.string({ max: 128, label: 'a refund address' }),
+          refundAddress: v.optional(v.nullable(v.string({ max: 128, label: 'a refund address' }))),
+          receiveAddress: v.optional(v.nullable(v.string({ max: 128, label: 'a wallet address' }))),
           accepted: acceptedV,
         }),
         ctx.body,
@@ -495,6 +509,23 @@ export function registerRoutes(r: Router, app: AppContext) {
       return { body: orders.orderView(app, orders.reportSent(app, actorOf(ctx), me(ctx), ctx.params.id!, b.txHash)) };
     },
     { auth: 'user' },
+  );
+
+  r.post(
+    '/api/orders/:id/documents',
+    (ctx) => {
+      const b = parse(
+        v.object({
+          kind: v.enum(['id_document'] as const, 'document type'),
+          fileName: v.string({ max: 200, label: 'a file name' }),
+          contentType: v.enum(DOCUMENT_TYPES, 'file type'),
+          dataBase64: v.string({ max: 6 * 1024 * 1024, trim: false, label: 'the file' }),
+        }),
+        ctx.body,
+      );
+      return { status: 201, body: { documents: uploadOrderDocument(app, actorOf(ctx), me(ctx), ctx.params.id!, b) } };
+    },
+    { auth: 'user', maxBodyBytes: 6 * 1024 * 1024, rateLimit: { bucket: 'documents', max: 10, windowMs: 60 * 60_000 } },
   );
 
   /* ---------- Support ---------- */

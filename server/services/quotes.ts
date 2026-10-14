@@ -5,18 +5,33 @@
  */
 import { isSupportedPair, type AssetCode, type NetworkId } from '@/domain/assets';
 import type { PayoutMethodId } from '@/domain/payout';
-import { calculateQuote, type Quote, type QuoteIssue } from '@/domain/quote';
+import { calculateBuyQuote, calculateQuote, type ExchangeDirection, type Quote, type QuoteIssue } from '@/domain/quote';
 import type { AppContext } from '../context';
 import { ApiError, badRequest, notConfigured, notFound } from '../http/errors';
 import { newId } from '../lib/clock';
 import { isUsable } from '../providers/registry';
 import { ProviderError, ProviderNotConfiguredError, type ReferencePrice } from '../providers/types';
 
-export interface QuoteInput {
+export interface SellQuoteInput {
+  direction?: 'sell';
   asset: AssetCode;
   network: NetworkId;
   amountAtomic: bigint;
   payoutMethod: PayoutMethodId;
+}
+/** Cash → crypto: the customer states the dollars they will hand to the courier. */
+export interface BuyQuoteInput {
+  direction: 'buy';
+  asset: AssetCode;
+  network: NetworkId;
+  cashCents: bigint;
+}
+export type QuoteInput = SellQuoteInput | BuyQuoteInput;
+
+function compute(input: QuoteInput, price: ReferencePrice, now: number, id: string) {
+  return input.direction === 'buy'
+    ? calculateBuyQuote({ ...input, referencePriceMicros: price.priceMicros, now, source: price.source, id })
+    : calculateQuote({ ...input, referencePriceMicros: price.priceMicros, now, source: price.source, id });
 }
 
 export async function referencePrice(ctx: AppContext, asset: AssetCode): Promise<ReferencePrice> {
@@ -50,13 +65,7 @@ export interface QuoteView {
 export async function indicativeQuote(ctx: AppContext, input: QuoteInput): Promise<QuoteView> {
   checkPair(input);
   const price = await referencePrice(ctx, input.asset);
-  const { quote, issues } = calculateQuote({
-    ...input,
-    referencePriceMicros: price.priceMicros,
-    now: ctx.clock.now(),
-    source: price.source,
-    id: 'indicative',
-  });
+  const { quote, issues } = compute(input, price, ctx.clock.now(), 'indicative');
   return { quote, issues, price, firm: false };
 }
 
@@ -65,20 +74,15 @@ export async function firmQuote(ctx: AppContext, userId: string, input: QuoteInp
   checkPair(input);
   const price = await referencePrice(ctx, input.asset);
   const id = newId('qte');
-  const { quote, issues } = calculateQuote({
-    ...input,
-    referencePriceMicros: price.priceMicros,
-    now: ctx.clock.now(),
-    source: price.source,
-    id,
-  });
+  const { quote, issues } = compute(input, price, ctx.clock.now(), id);
   ctx.db.run(
-    `INSERT INTO quotes (id, user_id, source, asset, network, payout_method, amount_atomic, reference_price_micros, price_as_of, gross_cents, spread_bps,
-       spread_cents, payout_fee_cents, net_cents, effective_rate_micros, issues, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO quotes (id, user_id, direction, source, asset, network, payout_method, amount_atomic, reference_price_micros, price_as_of, gross_cents,
+       spread_bps, spread_cents, payout_fee_cents, net_cents, effective_rate_micros, issues, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       userId,
+      quote.direction ?? 'sell',
       quote.source === 'live' ? 'live' : 'sandbox',
       quote.asset,
       quote.network,
@@ -103,6 +107,7 @@ export async function firmQuote(ctx: AppContext, userId: string, input: QuoteInp
 export interface QuoteRow {
   id: string;
   user_id: string | null;
+  direction: ExchangeDirection;
   source: 'sandbox' | 'live';
   asset: AssetCode;
   network: NetworkId;
@@ -125,6 +130,7 @@ export interface QuoteRow {
 export function quoteFromRow(r: QuoteRow): Quote {
   return {
     id: r.id,
+    direction: r.direction,
     source: r.source,
     asset: r.asset,
     network: r.network,

@@ -2,14 +2,30 @@ import { Fragment, useEffect, useMemo, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { LegalMarkdown, RulesQuote } from '@/components/LegalMarkdown';
 import { Notice, PageHeader } from '@/components/ui';
-import { BRAND } from '@/config/brand';
+import { BRAND, SUPPORT } from '@/config/brand';
+import { TelegramLink } from '@/components/SupportContact';
 import { getLegalDocument, LEGAL_DOCUMENTS, type LegalBlock, type LegalDocument } from '@/content/legal';
 import { headingRanks, parseMarkdown, type MdBlock } from '@/content/legal/markdown';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { useIsSandbox } from '@/state/config';
 import { NotFoundPage } from './ContentPages';
 
-const fill = (text: string) => text.replaceAll('{{brand}}', BRAND.name).replaceAll('{{supportEmail}}', BRAND.supportEmail);
+const fill = (text: string) =>
+  text
+    .replaceAll('{{brand}}', BRAND.name)
+    .replaceAll('{{supportEmail}}', BRAND.supportEmail)
+    .replaceAll('{{supportHours}}', SUPPORT.hours.label);
+
+/** Paragraph text with {{supportTelegram}} rendered as the official Telegram link. */
+function Filled({ text }: { text: string }) {
+  const parts = fill(text).split('{{supportTelegram}}');
+  return parts.map((part, i) => (
+    <Fragment key={i}>
+      {part}
+      {i < parts.length - 1 ? <TelegramLink /> : null}
+    </Fragment>
+  ));
+}
 
 const ACCEPTANCE_LABEL: Record<NonNullable<LegalDocument['acceptance']>, string> = {
   signup: 'Accepted when you create an account',
@@ -107,9 +123,17 @@ function PendingReviewNotice({ sandbox, doc }: { sandbox: boolean; doc?: LegalDo
 function Block({ block, sandbox }: { block: LegalBlock; sandbox: boolean }): ReactNode {
   switch (block.type) {
     case 'p':
-      return <p>{fill(block.text)}</p>;
+      return (
+        <p>
+          <Filled text={block.text} />
+        </p>
+      );
     case 'list': {
-      const items = block.items.map((t, i) => <li key={i}>{fill(t)}</li>);
+      const items = block.items.map((t, i) => (
+        <li key={i}>
+          <Filled text={t} />
+        </li>
+      ));
       return block.ordered ? <ol>{items}</ol> : <ul>{items}</ul>;
     }
     case 'rules':

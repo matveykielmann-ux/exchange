@@ -68,7 +68,12 @@ export function toOrder(o: J): OrderView {
   };
 }
 
-const toSummary = (o: J): OrderSummary => ({ ...o, amountAtomic: big(o.amountAtomic), netCents: big(o.netCents) });
+const toSummary = (o: J): OrderSummary => ({
+  ...o,
+  amountAtomic: big(o.amountAtomic),
+  netCents: big(o.netCents),
+  grossCents: big(o.grossCents),
+});
 const toQueueItem = (o: J): QueueItem => ({ ...o, amountAtomic: big(o.amountAtomic), netCents: big(o.netCents) });
 const toPage = <T>(p: J, f: (x: J) => T): Page<T> => ({ ...p, items: (p.items as J[]).map(f) });
 const toOutcome = (r: J): SandboxOutcome => ({ outcome: r.outcome ?? r.outcomes, order: toOrder(r.order) });
@@ -312,7 +317,11 @@ export async function createApiServices(base = ''): Promise<Services> {
       indicative: async (i: QuoteInput) =>
         toQuoteData(
           await http.get(
-            `/api/quotes/indicative${qs({ asset: i.asset, network: i.network, amountAtomic: i.amountAtomic.toString(), payoutMethod: i.payoutMethod })}`,
+            `/api/quotes/indicative${
+              i.direction === 'buy'
+                ? qs({ direction: 'buy', asset: i.asset, network: i.network, cashCents: i.cashCents.toString() })
+                : qs({ asset: i.asset, network: i.network, amountAtomic: i.amountAtomic.toString(), payoutMethod: i.payoutMethod })
+            }`,
           ),
         ),
       firm: async (i: QuoteInput) => toQuoteData(await http.post('/api/quotes', i)),
@@ -343,6 +352,7 @@ export async function createApiServices(base = ''): Promise<Services> {
       get: async (id) => toOrder(await http.get(`/api/orders/${encodeURIComponent(id)}`)),
       cancel: async (id) => toOrder(await http.post(`/api/orders/${encodeURIComponent(id)}/cancel`)),
       reportSent: async (id, txHash) => toOrder(await http.post(`/api/orders/${encodeURIComponent(id)}/report-sent`, { txHash })),
+      uploadDocument: async (id, file) => (await http.post<J>(`/api/orders/${encodeURIComponent(id)}/documents`, file)).documents,
     },
     sandbox: sandbox
       ? {

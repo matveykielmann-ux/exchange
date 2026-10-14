@@ -51,6 +51,9 @@ export interface QuoteRequest {
 
 export type QuoteSource = 'mock' | 'sandbox' | 'live';
 
+/** sell: the customer sends crypto and receives USD. buy: the customer pays USD cash to a courier and receives crypto. */
+export type ExchangeDirection = 'sell' | 'buy';
+
 export type QuoteIssue =
   | { code: 'unsupported_network' }
   | { code: 'zero_amount' }
@@ -60,6 +63,8 @@ export type QuoteIssue =
 
 export interface Quote {
   id: string;
+  /** Absent on quotes stored before buy orders existed: those are sells. */
+  direction?: ExchangeDirection;
   source: QuoteSource;
   asset: AssetCode;
   network: NetworkId;
@@ -150,6 +155,72 @@ export function calculateQuote(req: QuoteRequest): QuoteResult {
       payoutFeeCents: feeCents,
       netCents,
       effectiveRateMicros,
+      createdAt: req.now,
+      expiresAt: req.now + PRICING_POLICY.quoteTtlMs,
+    },
+    issues,
+  };
+}
+
+/**
+ * Buy quote: the customer hands `cashCents` of US dollars to the courier and
+ * receives crypto. The same lines as a sell, read the other way:
+ * grossCents (cash paid) − spreadCents − payoutFeeCents (courier fee) = netCents,
+ * the dollars converted at the reference price into `amountAtomic` (rounded
+ * down to whole atomic units, so the customer is never promised more).
+ */
+export interface BuyQuoteRequest {
+  asset: AssetCode;
+  network: NetworkId;
+  cashCents: Cents;
+  referencePriceMicros: Micros;
+  now: number;
+  source?: QuoteSource;
+  id?: string;
+}
+
+/** The cash leg of a buy is always collected by courier. */
+export const BUY_CASH_METHOD: PayoutMethodId = 'courier_cash';
+
+export function calculateBuyQuote(req: BuyQuoteRequest): QuoteResult {
+  const issues: QuoteIssue[] = [];
+  if (!isSupportedPair(req.asset, req.network)) issues.push({ code: 'unsupported_network' });
+  const grossCents = req.cashCents > 0n ? req.cashCents : 0n;
+  const spreadBps = spreadBpsFor(req.asset, grossCents);
+  const spreadCents = divRoundHalfUp(grossCents * BigInt(spreadBps), 10_000n);
+  const method = PAYOUT_METHODS[BUY_CASH_METHOD];
+  const feeCents = payoutFeeCents(method, grossCents);
+  const netCents = grossCents - spreadCents - feeCents;
+  const decimals = pow10(ASSETS[req.asset].decimals);
+  const amountAtomic =
+    netCents > 0n && req.referencePriceMicros > 0n ? (netCents * MICROS_PER_CENT * decimals) / req.referencePriceMicros : 0n;
+
+  if (grossCents <= 0n) issues.push({ code: 'zero_amount' });
+  else if (grossCents < PRICING_POLICY.minimumCents)
+    issues.push({ code: 'below_minimum', minimumCents: PRICING_POLICY.minimumCents, minimumAtomic: 0n });
+  else {
+    const eligibility = payoutEligibility(method, grossCents);
+    if (!eligibility.eligible) issues.push({ code: 'payout_ineligible', reason: eligibility.reason });
+    if (netCents <= 0n || amountAtomic <= 0n) issues.push({ code: 'non_positive_payout' });
+  }
+
+  return {
+    quote: {
+      id: req.id ?? quoteId(req.now),
+      direction: 'buy',
+      source: req.source ?? 'mock',
+      asset: req.asset,
+      network: req.network,
+      amountAtomic,
+      referencePriceMicros: req.referencePriceMicros,
+      grossCents,
+      spreadBps,
+      spreadCents,
+      payoutMethod: BUY_CASH_METHOD,
+      payoutFeeCents: feeCents,
+      netCents,
+      // Cash paid per whole unit received.
+      effectiveRateMicros: amountAtomic > 0n ? (grossCents * MICROS_PER_CENT * decimals) / amountAtomic : 0n,
       createdAt: req.now,
       expiresAt: req.now + PRICING_POLICY.quoteTtlMs,
     },

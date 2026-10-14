@@ -132,6 +132,13 @@ export function createProductionProviders(config: AppConfig, log: Logger): Provi
         });
         return { providerRef: str(r.id, 'custody', 'id') };
       },
+      async sendCrypto(req) {
+        const r = await need(custody).request<{ id: string }>('POST', 'v1/withdrawals', {
+          idempotencyKey: req.idempotencyKey,
+          body: { reference: req.orderId, asset: req.asset, network: req.network, address: req.address, amountAtomic: req.amountAtomic },
+        });
+        return { providerRef: str(r.id, 'custody', 'id') };
+      },
     },
     identity: {
       info: () => identity.info,
@@ -193,6 +200,20 @@ export function createProductionProviders(config: AppConfig, log: Logger): Provi
       },
       async submitPayout(req) {
         const r = await need(cash).request<{ id: string }>('POST', 'v1/deliveries', {
+          idempotencyKey: req.idempotencyKey,
+          body: { reference: req.orderId, amountCents: req.amountCents, currency: 'USD', delivery: req.destination },
+        });
+        return { providerRef: str(r.id, 'cash', 'id') };
+      },
+      async scheduleCollection(req) {
+        const r = await need(cash).request<{ id: string }>('POST', 'v1/collections', {
+          idempotencyKey: req.idempotencyKey,
+          body: { reference: req.orderId, amountCents: req.amountCents, currency: 'USD', pickup: req.destination },
+        });
+        return { providerRef: str(r.id, 'cash', 'id') };
+      },
+      async requestCashReturn(req) {
+        const r = await need(cash).request<{ id: string }>('POST', 'v1/returns', {
           idempotencyKey: req.idempotencyKey,
           body: { reference: req.orderId, amountCents: req.amountCents, currency: 'USD', delivery: req.destination },
         });

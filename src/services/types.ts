@@ -12,7 +12,7 @@ import type { AtomicAmount, Cents, Micros } from '@/domain/money';
 import type { OrderEventType, OrderStatus, OrderStep } from '@/domain/order';
 import type { PayoutMethodId } from '@/domain/payout';
 import type { CourierDeliveryInput, CourierWindow } from '@/domain/courier';
-import type { Quote, QuoteIssue } from '@/domain/quote';
+import type { ExchangeDirection, Quote, QuoteIssue } from '@/domain/quote';
 
 export type AppMode = 'sandbox' | 'production';
 export type ProviderState = 'sandbox' | 'configured' | 'not_configured' | 'disabled_by_policy';
@@ -36,6 +36,8 @@ export interface PublicConfig {
   mode: AppMode;
   realMoneyEnabled: boolean;
   featureFlags: { courierCashDelivery: boolean };
+  /** Sandbox only: delay between demo autopilot steps; 0 when off (always 0 in production). */
+  sandboxAutopilotStepMs: number;
   providers: ProviderSummary[];
   policy: { quoteTtlMs: number; depositWindowMs: number; indicativeRefreshMs: number; minimumCents: Cents; largeDeskFromCents: Cents };
   legal: LegalDocRef[];
@@ -49,6 +51,9 @@ export interface User {
   totpEnabled: boolean;
   fullName: string;
   phone: string | null;
+  /** ISO 3166-1 alpha-2; null on accounts created before it was asked. */
+  countryOfResidence: string | null;
+  /** US residents only. */
   stateOfResidence: string | null;
   verification: { status: KycStatus; level: 'none' | 'basic' | 'enhanced' };
 }
@@ -60,12 +65,23 @@ export interface ReferencePrice {
   source: 'sandbox' | 'live';
 }
 
-export interface QuoteInput {
+export interface SellQuoteInput {
+  direction?: 'sell';
   asset: AssetCode;
   network: NetworkId;
   amountAtomic: AtomicAmount;
   payoutMethod: PayoutMethodId;
 }
+
+/** Cash → crypto: the dollars the customer hands to the courier. */
+export interface BuyQuoteInput {
+  direction: 'buy';
+  asset: AssetCode;
+  network: NetworkId;
+  cashCents: Cents;
+}
+
+export type QuoteInput = SellQuoteInput | BuyQuoteInput;
 
 export interface QuoteData {
   quote: Quote;
@@ -118,10 +134,24 @@ export interface OrderEventView {
   createdAt: number;
 }
 
+export interface OrderDocumentView {
+  id: string;
+  kind: 'id_document';
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  sha256: string;
+  /** False in the sandbox: the file was checked and discarded; only this record is kept. */
+  stored: boolean;
+  createdAt: number;
+}
+
 export interface OrderView {
   id: string;
   reference: string;
   source: 'sandbox' | 'live';
+  /** sell: crypto → USD. buy: cash collected by courier → crypto. */
+  direction: ExchangeDirection;
   status: OrderStatus;
   version: number;
   asset: AssetCode;
@@ -147,7 +177,11 @@ export interface OrderView {
     /** Courier orders, customer view only. */
     delivery?: CourierDeliveryView | null;
   };
-  refundAddress: string;
+  /** Sell orders: where crypto is returned. Null for a buy. */
+  refundAddress: string | null;
+  /** Buy orders: the wallet that receives the crypto. */
+  receiveAddress: string | null;
+  documents: OrderDocumentView[];
   deposit: {
     address: string | null;
     memo: string | null;
@@ -157,6 +191,8 @@ export interface OrderView {
     amountAtomic: AtomicAmount | null;
     exception: 'amount_mismatch' | 'late' | 'order_closed' | null;
     customerReportedSentAt: number | null;
+    /** The hash the customer submitted for review. Only its format was checked. */
+    customerTxHash: string | null;
   };
   refundTxHash: string | null;
   steps: OrderStep[];
@@ -172,11 +208,14 @@ export interface OrderSummary {
   id: string;
   reference: string;
   source: 'sandbox' | 'live';
+  direction: ExchangeDirection;
   status: OrderStatus;
   asset: AssetCode;
   network: NetworkId;
   amountAtomic: AtomicAmount;
   netCents: Cents;
+  /** Buy orders: the cash paid. */
+  grossCents: Cents;
   payoutMethod: PayoutMethodId;
   createdAt: number;
   updatedAt: number;
@@ -272,7 +311,9 @@ export interface AuthApi {
     email: string;
     password: string;
     fullName: string;
+    countryOfResidence: string;
     stateOfResidence: string | null;
+    notInRestrictedTerritory: boolean;
     accepted: { slug: string; version: string }[];
   }): Promise<User>;
   signIn(input: { email: string; password: string }): Promise<SignInResult>;
@@ -298,7 +339,12 @@ export interface SessionStore {
 
 export interface AccountApi {
   profile(): Promise<User>;
-  updateProfile(patch: { fullName?: string; phone: string | null; stateOfResidence: string | null }): Promise<User>;
+  updateProfile(patch: {
+    fullName?: string;
+    phone: string | null;
+    countryOfResidence?: string | null;
+    stateOfResidence: string | null;
+  }): Promise<User>;
   startVerification(): Promise<{ status: KycStatus; hostedUrl: string | null }>;
   destinations(): Promise<Destination[]>;
   addBankAccount(input: {
@@ -316,13 +362,26 @@ export interface AccountApi {
 
 export interface OrdersApi {
   create(
-    input: { quoteId: string; destinationId: string; refundAddress: string; accepted: { slug: string; version: string }[] },
+    input: {
+      quoteId: string;
+      destinationId: string;
+      /** Sell orders. */
+      refundAddress?: string;
+      /** Buy orders. */
+      receiveAddress?: string;
+      accepted: { slug: string; version: string }[];
+    },
     idempotencyKey: string,
   ): Promise<OrderView>;
   list(page?: number): Promise<Page<OrderSummary>>;
   get(id: string): Promise<OrderView>;
   cancel(id: string): Promise<OrderView>;
   reportSent(id: string, txHash: string | null): Promise<OrderView>;
+  /** Demo ID upload for a cash handover. The sandbox checks and discards the file. */
+  uploadDocument(
+    id: string,
+    file: { kind: 'id_document'; fileName: string; contentType: string; dataBase64: string },
+  ): Promise<OrderDocumentView[]>;
 }
 
 /** Sandbox-only customer controls. Absent (undefined) in production. */

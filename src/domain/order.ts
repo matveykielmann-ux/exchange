@@ -18,6 +18,7 @@
  *   order is never paid at the locked rate; it can only be refunded.
  */
 import type { AtomicAmount } from './money';
+import type { ExchangeDirection } from './quote';
 
 export type OrderStatus =
   | 'created'
@@ -94,8 +95,15 @@ export type OrderEvent =
 
 export type OrderEventType = OrderEvent['type'];
 
-/** The order fields the state machine reads and may change. */
+/**
+ * The order fields the state machine reads and may change. For a buy order
+ * (cash → crypto) the "deposit" is the cash the courier collects, counted in
+ * cents, and the "payout" is the crypto sent to the customer's wallet; the
+ * table is the same, only the customer-facing words differ.
+ */
 export interface OrderMachineState {
+  /** Absent means sell. */
+  direction?: ExchangeDirection;
   status: OrderStatus;
   quotedAmountAtomic: AtomicAmount;
   depositDeadline: number;
@@ -186,6 +194,10 @@ function ev<T extends OrderEventType>(e: OrderEvent, type: T): Extract<OrderEven
   return e as Extract<OrderEvent, { type: T }>;
 }
 
+const isBuy = (s: Pick<OrderMachineState, 'direction'>) => s.direction === 'buy';
+/** Picks the customer-facing wording for the order's direction. */
+const say = (s: Pick<OrderMachineState, 'direction'>, sell: string, buy: string) => (isBuy(s) ? buy : sell);
+
 /* ---------- Resolvers with guards ---------- */
 
 const depositObserved: Resolver = (s, e, now) => {
@@ -206,8 +218,15 @@ const depositObserved: Resolver = (s, e, now) => {
   return {
     status: 'deposit_observed',
     patch: { depositTxHash: d.txHash, depositAmountAtomic: d.amountAtomic, depositException: exception, confirmationsCount: confirmations },
-    detail:
-      exception === 'late'
+    detail: isBuy(s)
+      ? exception === 'late'
+        ? 'Cash was collected after the collection window closed. It cannot be exchanged at the quoted rate and will be reviewed for return.'
+        : exception === 'order_closed'
+          ? 'Cash was collected for an order that was already closed. It will be reviewed for return.'
+          : exception === 'amount_mismatch'
+            ? 'The cash collected differs from the quoted amount. It cannot be exchanged at the quoted rate and will be reviewed for return.'
+            : 'The courier collected your cash. It is being counted and checked.'
+      : exception === 'late'
         ? 'A deposit arrived after the deposit window closed. It cannot be paid at the locked rate and will be reviewed for return to your refund address.'
         : exception === 'order_closed'
           ? 'A deposit arrived for an order that was already closed. It will be reviewed for return to your refund address.'
@@ -239,7 +258,7 @@ const depositConfirmed: Resolver = (s, e) => {
   return {
     status: 'deposit_confirmed',
     patch: { confirmationsCount: s.confirmationsRequired },
-    detail: 'Your deposit is final on the network.',
+    detail: say(s, 'Your deposit is final on the network.', 'Your cash was counted and matches the quote.'),
     visibility: 'customer',
   };
 };
@@ -247,7 +266,12 @@ const depositConfirmed: Resolver = (s, e) => {
 const screeningCleared: Resolver = (s, e) => {
   if (s.depositException || s.reviewReason)
     throw new InvalidOrderTransitionError(s.status, e.type, 'This order must go through compliance review.');
-  return { status: 'ready_for_payout', patch: {}, detail: 'Checks complete. Your payout is being prepared.', visibility: 'customer' };
+  return {
+    status: 'ready_for_payout',
+    patch: {},
+    detail: say(s, 'Checks complete. Your payout is being prepared.', 'Checks complete. Your crypto transfer is being prepared.'),
+    visibility: 'customer',
+  };
 };
 
 const reviewRequired: Resolver = (s, e) => {
@@ -274,7 +298,7 @@ const reviewApproved: Resolver = (s, e) => {
   return {
     status: 'ready_for_payout',
     patch: { reviewReason: null },
-    detail: 'Review complete. Your payout is being prepared.',
+    detail: say(s, 'Review complete. Your payout is being prepared.', 'Review complete. Your crypto transfer is being prepared.'),
     visibility: 'customer',
   };
 };
@@ -287,18 +311,22 @@ const orderRejected: Resolver = (s, e) => {
     status: fundsHeld ? 'refund_pending' : 'rejected',
     patch: {},
     detail: fundsHeld
-      ? 'We could not complete this exchange. Your deposit will be returned to your refund address under Section 9 of the Service Rules, which sets the return fees.'
+      ? say(
+          s,
+          'We could not complete this exchange. Your deposit will be returned to your refund address under Section 9 of the Service Rules, which sets the return fees.',
+          'We could not complete this exchange. Your cash will be returned under Section 9 of the Service Rules, which sets the return fees.',
+        )
       : 'We could not accept this exchange request.',
     visibility: 'customer',
   };
 };
 
-const payoutSubmitted: Resolver = (_s, e) => {
+const payoutSubmitted: Resolver = (s, e) => {
   const p = ev(e, 'PAYOUT_SUBMITTED');
   return {
     status: 'payout_submitted',
     patch: { payoutProviderRef: p.providerRef },
-    detail: 'Your payout was submitted to the payout provider.',
+    detail: say(s, 'Your payout was submitted to the payout provider.', 'Your crypto transfer was submitted to the custody provider.'),
     visibility: 'customer',
   };
 };
@@ -310,12 +338,26 @@ const payoutRef = (s: OrderMachineState, e: OrderEvent, ref: string) => {
 
 const payoutProcessing: Resolver = (s, e) => {
   payoutRef(s, e, ev(e, 'PAYOUT_PROCESSING').providerRef);
-  return { status: 'payout_processing', patch: {}, detail: 'The payout provider is processing your payout.', visibility: 'customer' };
+  return {
+    status: 'payout_processing',
+    patch: {},
+    detail: say(s, 'The payout provider is processing your payout.', 'The custody provider is processing your crypto transfer.'),
+    visibility: 'customer',
+  };
 };
 
 const payoutCompleted: Resolver = (s, e) => {
   payoutRef(s, e, ev(e, 'PAYOUT_COMPLETED').providerRef);
-  return { status: 'completed', patch: {}, detail: 'The payout provider reports your payout as completed.', visibility: 'customer' };
+  return {
+    status: 'completed',
+    patch: {},
+    detail: say(
+      s,
+      'The payout provider reports your payout as completed.',
+      'The custody provider reports your crypto transfer as completed.',
+    ),
+    visibility: 'customer',
+  };
 };
 
 const payoutFailed: Resolver = (s, e) => {
@@ -324,7 +366,11 @@ const payoutFailed: Resolver = (s, e) => {
   return {
     status: 'failed',
     patch: {},
-    detail: 'Your payout could not be completed. Our team will contact you about next steps.',
+    detail: say(
+      s,
+      'Your payout could not be completed. Our team will contact you about next steps.',
+      'Your crypto transfer could not be completed. Our team will contact you about next steps.',
+    ),
     visibility: 'customer',
   };
 };
@@ -332,18 +378,41 @@ const payoutFailed: Resolver = (s, e) => {
 /** status → event → resolver. Anything not listed is rejected. */
 const TABLE: Partial<Record<OrderStatus, Partial<Record<OrderEventType, Resolver>>>> = {
   created: {
-    DEPOSIT_INSTRUCTIONS_ISSUED: to('awaiting_deposit', () => 'Deposit instructions issued. Send the exact amount before the deadline.'),
-    DEPOSIT_INSTRUCTIONS_FAILED: to('failed', () => 'We could not issue deposit instructions for this order. Nothing was sent.'),
-    CUSTOMER_CANCELLED: to('cancelled', () => 'You cancelled this order before sending funds.'),
+    DEPOSIT_INSTRUCTIONS_ISSUED: to('awaiting_deposit', (s) =>
+      say(
+        s,
+        'Deposit instructions issued. Send the exact amount before the deadline.',
+        'Cash collection requested from the courier. Have the exact amount ready.',
+      ),
+    ),
+    DEPOSIT_INSTRUCTIONS_FAILED: to('failed', (s) =>
+      say(
+        s,
+        'We could not issue deposit instructions for this order. Nothing was sent.',
+        'We could not arrange cash collection for this order.',
+      ),
+    ),
+    CUSTOMER_CANCELLED: to('cancelled', (s) =>
+      say(s, 'You cancelled this order before sending funds.', 'You cancelled this order before the cash was collected.'),
+    ),
     ORDER_REJECTED: orderRejected,
   },
   awaiting_deposit: {
-    CUSTOMER_REPORTED_SENT: same(
-      () =>
-        'You told us you sent the deposit. We will update this order when the network shows it; your report alone does not confirm a deposit.',
+    CUSTOMER_REPORTED_SENT: same((_s, e) =>
+      ev(e, 'CUSTOMER_REPORTED_SENT').txHash
+        ? 'You submitted a transaction hash for review. It is checked against our deposit monitoring; a hash alone does not confirm a deposit.'
+        : 'You told us you sent the deposit. We will update this order when the network shows it; your report alone does not confirm a deposit.',
     ),
-    CUSTOMER_CANCELLED: to('cancelled', () => 'You cancelled this order before sending funds.'),
-    DEPOSIT_WINDOW_EXPIRED: to('expired', () => 'No deposit arrived before the deadline. The quote has expired.'),
+    CUSTOMER_CANCELLED: to('cancelled', (s) =>
+      say(s, 'You cancelled this order before sending funds.', 'You cancelled this order before the cash was collected.'),
+    ),
+    DEPOSIT_WINDOW_EXPIRED: to('expired', (s) =>
+      say(
+        s,
+        'No deposit arrived before the deadline. The quote has expired.',
+        'The cash was not collected before the deadline. The quote has expired.',
+      ),
+    ),
     DEPOSIT_OBSERVED: depositObserved,
     REVIEW_REQUIRED: reviewRequired,
     ORDER_REJECTED: orderRejected,
@@ -400,7 +469,7 @@ const TABLE: Partial<Record<OrderStatus, Partial<Record<OrderEventType, Resolver
       return {
         status: 'refund_pending',
         patch: {},
-        detail: 'A refund of your deposit to your refund address has been started.',
+        detail: say(s, 'A refund of your deposit to your refund address has been started.', 'A return of your cash has been started.'),
         visibility: 'customer',
       };
     },
@@ -411,7 +480,7 @@ const TABLE: Partial<Record<OrderStatus, Partial<Record<OrderEventType, Resolver
   refund_pending: {
     REFUND_COMPLETED: to(
       'refunded',
-      () => 'Your refund was sent to your refund address.',
+      (s) => say(s, 'Your refund was sent to your refund address.', 'Your cash was returned by courier.'),
       (e) => ({ refundTxHash: ev(e, 'REFUND_COMPLETED').txHash }),
     ),
   },
@@ -484,6 +553,23 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   refunded: 'Refunded',
 };
 
+/** Buy orders (cash → crypto) reuse the statuses; these are the words a customer sees for them. */
+const BUY_STATUS_LABEL: Partial<Record<OrderStatus, string>> = {
+  awaiting_deposit: 'Awaiting cash collection',
+  deposit_observed: 'Cash collected',
+  confirming: 'Counting cash',
+  deposit_confirmed: 'Cash verified',
+  ready_for_payout: 'Ready to send crypto',
+  payout_submitted: 'Crypto transfer submitted',
+  payout_processing: 'Crypto transfer processing',
+  refund_pending: 'Cash return pending',
+  refunded: 'Cash returned',
+};
+
+export function orderStatusLabel(status: OrderStatus, direction: ExchangeDirection = 'sell'): string {
+  return (direction === 'buy' ? BUY_STATUS_LABEL[status] : undefined) ?? ORDER_STATUS_LABEL[status];
+}
+
 export type OrderTone = 'info' | 'success' | 'warn' | 'danger' | 'neutral';
 
 export function orderTone(status: OrderStatus): OrderTone {
@@ -528,7 +614,9 @@ export function orderSteps(
   status: OrderStatus,
   events: readonly PersistedOrderEvent[],
   confirmations: { count: number; required: number },
+  direction: ExchangeDirection = 'sell',
 ): OrderStep[] {
+  const buy = direction === 'buy';
   const firstAt = (...types: PersistedOrderEvent['type'][]) => events.find((e) => types.includes(e.type))?.createdAt ?? null;
   const reachedReview = events.some((e) => e.toStatus === 'compliance_review');
   const refunding = status === 'refund_pending' || status === 'refunded';
@@ -543,13 +631,15 @@ export function orderSteps(
     { key: 'created', label: 'Request created', state: 'done', at: firstAt('ORDER_CREATED') },
     {
       key: 'deposit',
-      label: 'Deposit observed',
+      label: buy ? 'Cash collected' : 'Deposit observed',
       state: depositAt ? 'done' : closedEarly ? 'failed' : status === 'awaiting_deposit' ? 'current' : 'upcoming',
       at: depositAt,
     },
     {
       key: 'confirm',
-      label: `Confirmations (${Math.min(confirmations.count, confirmations.required)} of ${confirmations.required})`,
+      label: buy
+        ? 'Cash counted and verified'
+        : `Confirmations (${Math.min(confirmations.count, confirmations.required)} of ${confirmations.required})`,
       state: confirmedAt ? 'done' : depositAt ? 'current' : 'upcoming',
       at: confirmedAt,
     },
@@ -563,12 +653,17 @@ export function orderSteps(
     });
   }
   if (refunding) {
-    steps.push({ key: 'refund', label: 'Refund', state: status === 'refunded' ? 'done' : 'current', at: firstAt('REFUND_COMPLETED') });
+    steps.push({
+      key: 'refund',
+      label: buy ? 'Cash return' : 'Refund',
+      state: status === 'refunded' ? 'done' : 'current',
+      at: firstAt('REFUND_COMPLETED'),
+    });
     return steps;
   }
   steps.push({
     key: 'payout',
-    label: 'Payout submitted',
+    label: buy ? 'Crypto transfer submitted' : 'Payout submitted',
     state: submittedAt && status !== 'ready_for_payout' ? 'done' : status === 'ready_for_payout' ? 'current' : 'upcoming',
     at: submittedAt,
   });
