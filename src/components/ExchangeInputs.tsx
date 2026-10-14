@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { ASSET_ORDER, ASSETS, NETWORKS, isAssetCode, networkLabel, type AssetCode, type NetworkId } from '@/domain/assets';
 import { formatUsd } from '@/domain/money';
 import type { QuoteIssue } from '@/domain/quote';
@@ -126,15 +125,6 @@ export function QuoteIssues({ issues, asset }: { issues: QuoteIssue[]; asset: As
             return (
               <Notice key={issue.code} tone="warn" title={`Minimum is ${formatUsd(issue.minimumCents)}`}>
                 <p>That is about {formatAsset(issue.minimumAtomic, asset)} at the current mock price.</p>
-              </Notice>
-            );
-          case 'above_retail_maximum':
-            return (
-              <Notice key={issue.code} tone="info" title={`Above the ${formatUsd(issue.maximumCents)} online limit`}>
-                <p>
-                  Larger amounts go through the <Link to="/large-transactions">large-transaction desk</Link>, with enhanced verification and
-                  negotiated pricing.
-                </p>
               </Notice>
             );
           case 'payout_ineligible':

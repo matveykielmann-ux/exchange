@@ -15,8 +15,9 @@ import { describeFee, feeLabel, PAYOUT_METHODS, payoutOptions } from '@/domain/p
 import { amountIssues } from '@/domain/quote';
 import { validateRefundAddress } from '@/domain/validation';
 import { AddBankForm } from '@/components/AddBankForm';
+import { AddCourierForm } from '@/components/AddCourierForm';
 import { errorMessage, isNotConfigured } from '@/lib/errors';
-import { describeDestination, formatAsset } from '@/lib/format';
+import { describeDestination, destinationLabel, formatAsset } from '@/lib/format';
 import { useUser } from '@/state/auth';
 import { useDraft, type ExchangeDraft } from '@/state/draft';
 import { useServices } from '@/state/services';
@@ -157,8 +158,8 @@ function PayoutStep({ grossCents, onBack, onNext }: { grossCents: bigint | null;
         })}
       </fieldset>
       <p className="small muted">
-        Timing is estimated from when your deposit is final and any review is complete. It is not guaranteed. Cash by courier is{' '}
-        <Link to="/cash-delivery">not offered</Link>.
+        Timing is estimated from when your deposit is final and any review is complete. It is not guaranteed. For{' '}
+        <Link to="/cash-delivery">cash by courier</Link> you give a delivery address in the next step.
       </p>
       <div className="flow__actions">
         <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
@@ -209,7 +210,12 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
 
   const usable = destinations?.filter((d) => d.methods.includes(draft.payoutMethod)) ?? [];
   const refundError = touched ? validateRefundAddress(draft.refundAddress, draft.network) : null;
-  const destinationError = touched && !usable.some((d) => d.id === draft.destinationId) ? 'Choose where to send your dollars.' : null;
+  const destinationError =
+    touched && !usable.some((d) => d.id === draft.destinationId)
+      ? draft.payoutMethod === 'courier_cash'
+        ? 'Save or choose a delivery address.'
+        : 'Choose where to send your dollars.'
+      : null;
   const valid = !validateRefundAddress(draft.refundAddress, draft.network) && usable.some((d) => d.id === draft.destinationId);
 
   return (
@@ -223,14 +229,22 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
         else document.getElementById(destinationError || !draft.destinationId ? 'dest-0' : 'refund-address')?.focus();
       }}
     >
-      <h2 className="flow__step-title">Where should we send it?</h2>
+      <h2 className="flow__step-title">
+        {draft.payoutMethod === 'courier_cash' ? 'Where should the courier bring it?' : 'Where should we send it?'}
+      </h2>
 
       <fieldset className="option-list">
-        <legend className="field__label">{method.name} destination</legend>
+        <legend className="field__label">
+          {draft.payoutMethod === 'courier_cash' ? 'Delivery address' : `${method.name} destination`}
+        </legend>
         {destinations === null ? (
           <p className="muted">Loading saved destinations…</p>
         ) : usable.length === 0 ? (
-          <p className="muted">No saved destinations can receive {method.name} payouts yet.</p>
+          <p className="muted">
+            {draft.payoutMethod === 'courier_cash'
+              ? 'No saved delivery addresses yet. Add one below.'
+              : `No saved destinations can receive ${method.name} payouts yet.`}
+          </p>
         ) : (
           usable.map((d, i) => (
             <label className="option" key={d.id} htmlFor={`dest-${i}`}>
@@ -299,6 +313,23 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
             </div>
           </div>
         ) : null
+      ) : draft.payoutMethod === 'courier_cash' ? (
+        adding || (destinations !== null && usable.length === 0) ? (
+          <AddCourierForm
+            onAdded={(d) => {
+              setAdding(false);
+              update({ destinationId: d.id });
+              load();
+            }}
+            onCancel={usable.length ? () => setAdding(false) : undefined}
+          />
+        ) : (
+          <div>
+            <button type="button" className="btn btn--secondary" onClick={() => setAdding(true)}>
+              Add a delivery address
+            </button>
+          </div>
+        )
       ) : adding ? (
         <AddBankForm
           onAdded={(d) => {
@@ -604,7 +635,7 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
             <dl className="dl">
               <div>
                 <dt>Payout to</dt>
-                <dd>{destination ? `${destination.label} ending ${destination.last4}` : '—'}</dd>
+                <dd>{destination ? destinationLabel(destination.label, destination.last4) : '—'}</dd>
               </div>
               <div>
                 <dt>Payout method</dt>

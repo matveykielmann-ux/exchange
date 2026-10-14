@@ -12,7 +12,7 @@ Every item needs a named owner and a date before Arcvale handles a real customer
 ## Enabling real money (blocking, code change with review)
 - [ ] Provider adapters mapped to the contracted vendors, with tests against their sandboxes.
 - [ ] `REAL_MONEY_ENABLED` changed in `src/config/runtime.ts` in a reviewed pull request that references the signed-off items above.
-- [ ] Courier cash stays behind `FEATURE_FLAGS.courierCashDelivery = false` until `compliance-readiness.md` §6 is signed off.
+- [ ] Courier cash is enabled in the product (owner decision, 2026-10-14). Before real deliveries: contract a carrier (`CASH_PROVIDER_*`), sign off `compliance-readiness.md` §6 and set the courier fee and minimum.
 
 ## Infrastructure
 - [ ] VPS hardened: SSH keys only, firewall 22/80/443, automatic security updates.

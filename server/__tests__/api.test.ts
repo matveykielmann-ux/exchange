@@ -243,6 +243,72 @@ describe('API', () => {
     ).toBe(true);
   });
 
+  it('delivers cash by courier: validated address, carrier area check, masked staff view, signed courier webhooks', async () => {
+    const c = env.client();
+    await customer(c, 'courier@example.test');
+    const tomorrow = new Date(env.ctx.clock.now() + 86_400_000).toISOString().slice(0, 10);
+    const address = {
+      phone: '(212) 555-0142',
+      line1: '200 Example Street',
+      line2: 'Apt 4B',
+      city: 'New York',
+      state: 'NY',
+      zip: '10001',
+      window: 'afternoon',
+      preferredDate: tomorrow,
+      instructions: 'Ring the buzzer for 4B.',
+    };
+    // Validation: PO boxes, past dates and areas the courier does not serve are refused.
+    expect((await c.post('/api/me/destinations/courier', { ...address, line1: 'PO Box 12' })).status).toBe(400);
+    expect((await c.post('/api/me/destinations/courier', { ...address, preferredDate: '2020-01-01' })).status).toBe(400);
+    const outside = await c.post('/api/me/destinations/courier', { ...address, zip: '99950' });
+    expect(outside.status).toBe(400);
+    expect(outside.body.error.details.field).toBe('zip');
+
+    const saved = await c.post('/api/me/destinations/courier', address);
+    expect(saved.status).toBe(201);
+    expect(saved.body).toMatchObject({ kind: 'courier', last4: '', methods: ['courier_cash'], label: 'Courier to New York, NY 10001' });
+    expect(saved.body.courier.line1).toBe('200 Example Street');
+    // Encrypted at rest.
+    const row = env.ctx.db.get<{ details_enc: string }>('SELECT details_enc FROM payout_destinations WHERE id = ?', [saved.body.id]);
+    expect(row!.details_enc).not.toContain('Example Street');
+
+    const q = await c.post('/api/quotes', { asset: 'USDC', network: 'ethereum', amountAtomic: '2500000000', payoutMethod: 'courier_cash' });
+    expect(q.status).toBe(201);
+    expect(q.body.issues).toEqual([]);
+    const o = await c.post(
+      '/api/orders',
+      { quoteId: q.body.quote.id, destinationId: saved.body.id, refundAddress: TEST_ETH_ADDRESS, accepted: docs('order') },
+      { 'idempotency-key': 'courier-1' },
+    );
+    expect(o.status).toBe(201);
+    const id = o.body.id as string;
+    expect(o.body.payout.delivery).toMatchObject({ recipient: 'Alex Morgan', line1: '200 Example Street', window: 'afternoon' });
+
+    await c.post(`/api/sandbox/orders/${id}/deposit`, { scenario: 'exact' });
+    expect((await c.post(`/api/sandbox/orders/${id}/confirmations`, { toFinal: true })).body.order.status).toBe('ready_for_payout');
+
+    const support = await staff(env.app, env.base, 'support');
+    const masked = (await support.get(`/api/admin/orders/${id}`)).body.courierDelivery;
+    expect(masked).toMatchObject({ masked: true, line1: '•••', city: 'New York', zip: '10001', phone: '••• ••• 0142' });
+    expect(JSON.stringify(masked)).not.toContain('Example Street');
+
+    const admin = await staff(env.app, env.base, 'admin');
+    expect((await admin.get(`/api/admin/orders/${id}`)).body.courierDelivery).toMatchObject({ masked: false, line1: '200 Example Street' });
+    const auth = await admin.post(`/api/admin/orders/${id}/authorize-payout`, { reason: 'Courier delivery approved.' });
+    expect(auth.body.status).toBe('payout_submitted');
+    const pi = env.ctx.db.get<{ provider: string; provider_ref: string }>(
+      'SELECT provider, provider_ref FROM payout_instructions WHERE order_id = ?',
+      [id],
+    );
+    expect(pi).toMatchObject({ provider: 'cash' });
+    expect(pi!.provider_ref).toMatch(/^sbx_cash_/);
+    expect((await admin.post(`/api/admin/sandbox/orders/${id}/payout`, { outcome: 'completed' })).body.order.status).toBe('completed');
+
+    // Once the order is finished the address can be removed.
+    expect((await c.req('DELETE', `/api/me/destinations/${saved.body.id}`)).status).toBe(204);
+  });
+
   it('isolates customers from each other', async () => {
     const a = env.client();
     const { bankId } = await customer(a, 'a1@example.test');

@@ -93,7 +93,8 @@ export function AppRoutes() {
       </Route>
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
-        <Route path="exchange" element={<ExchangePage />} />
+        {/* Exchanges need an account (owner decision, 2026-10-14). The server also requires a session for firm quotes and orders. */}
+        <Route path="exchange" element={auth(<ExchangePage />)} />
         <Route path="large-transactions" element={<LargeTransactionsPage />} />
         <Route path="cash-delivery" element={<CashDeliveryPage />} />
         <Route path="how-it-works" element={<HowItWorksPage />} />

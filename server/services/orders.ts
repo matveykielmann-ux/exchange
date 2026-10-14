@@ -27,7 +27,7 @@ import { newId, randomId } from '../lib/clock';
 import { isUsable } from '../providers/registry';
 import { ProviderError, ProviderNotConfiguredError, type PayoutProvider } from '../providers/types';
 import { audit } from './audit';
-import { getProfile, type DestinationRow } from './customers';
+import { courierDelivery, getProfile, type DestinationRow } from './customers';
 import { notify } from './notifications';
 import { loadQuote, quoteFromRow } from './quotes';
 import { recordAcceptances, requireAcceptance } from './auth';
@@ -237,7 +237,7 @@ export function applyOrderEvent(
 function payoutProviderFor(ctx: AppContext, method: PayoutMethodId): PayoutProvider {
   if (method === 'instant_debit') return ctx.providers.cardPayout;
   if (method === 'ach' || method === 'wire') return ctx.providers.bankPayout;
-  throw new ApiError(422, 'method_unavailable', `${PAYOUT_METHODS[method].name} is not offered.`);
+  return ctx.providers.cash;
 }
 
 const newReference = () => `ARC-${randomId(8)}`;
@@ -539,6 +539,8 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
       label: o.payout_label,
       last4: o.payout_last4,
       providerRef: o.payout_provider_ref,
+      // The customer sees the delivery details they gave; staff views add role-masked details separately.
+      delivery: !internal && o.payout_method === 'courier_cash' ? courierDelivery(ctx, o.payout_destination_id) : null,
     },
     refundAddress: o.refund_address,
     deposit: {

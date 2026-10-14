@@ -17,7 +17,7 @@ import {
 } from '@/domain/order';
 import { ApiError } from '@/services/http';
 import { errorMessage } from '@/lib/errors';
-import { formatAsset, formatDateTime, formatPriceMicros } from '@/lib/format';
+import { describeDestination, destinationLabel, formatAsset, formatDateTime, formatPriceMicros } from '@/lib/format';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { useExpired } from '@/lib/useExpired';
 import type { OrderView } from '@/services/types';
@@ -239,6 +239,13 @@ function StatusNotice({ order }: { order: OrderView }) {
   }
 }
 
+/** Courier orders use the same payout states; only the words change. */
+const COURIER_STEP_LABELS: Partial<Record<string, string>> = { payout: 'Courier scheduled', completed: 'Cash delivered' };
+const courierStep = <T extends { key: string; label: string }>(step: T): T => ({
+  ...step,
+  label: COURIER_STEP_LABELS[step.key] ?? step.label,
+});
+
 export function OrderPage() {
   const { id = '' } = useParams();
   const services = useServices();
@@ -398,7 +405,7 @@ export function OrderPage() {
               <span className="small muted">Updated {formatDateTime(order.updatedAt)}</span>
             </div>
             <div className="panel__body">
-              <StatusRail steps={order.steps} />
+              <StatusRail steps={order.payout.method === 'courier_cash' ? order.steps.map(courierStep) : order.steps} />
             </div>
           </section>
 
@@ -481,7 +488,7 @@ export function OrderPage() {
                     {order.payout.methodName}
                     <br />
                     <span className="small muted">
-                      {order.payout.label} ending {order.payout.last4} · {order.payout.timing}
+                      {destinationLabel(order.payout.label, order.payout.last4)} · {order.payout.timing}
                     </span>
                   </dd>
                 </div>
@@ -491,6 +498,19 @@ export function OrderPage() {
                     {order.deposit.confirmations.count} of {order.deposit.confirmations.required}
                   </dd>
                 </div>
+                {order.payout.delivery ? (
+                  <div>
+                    <dt>Delivery</dt>
+                    <dd>
+                      {order.payout.delivery.recipient}, ID check at the door
+                      <br />
+                      <span className="small muted">
+                        {describeDestination({ kind: 'courier', last4: '', courier: order.payout.delivery })}
+                        {order.payout.delivery.preferredDate ? ` · preferred ${order.payout.delivery.preferredDate}` : ''}
+                      </span>
+                    </dd>
+                  </div>
+                ) : null}
                 {order.deposit.txHash ? (
                   <div>
                     <dt>Deposit tx</dt>

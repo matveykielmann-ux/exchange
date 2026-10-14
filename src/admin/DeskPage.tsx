@@ -19,7 +19,7 @@ export function DeskPage() {
     <div className="stack stack--lg">
       <AdminHead
         title="Large-transaction desk"
-        lead="Quote requests above the online limit. Contact details are shown to staff so the desk can reply."
+        lead="Requests for individually priced large orders. Contact details are shown to staff so the desk can reply."
       >
         <MockBadge label="Sandbox data" />
       </AdminHead>

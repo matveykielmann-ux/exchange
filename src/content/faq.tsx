@@ -88,8 +88,9 @@ export const FAQ: FaqItem[] = [
     q: 'Can I receive cash?',
     a: (
       <p>
-        Not at this time. Courier cash delivery is <Link to="/cash-delivery">disabled</Link> until licensing, cash-reporting, insurance and
-        carrier requirements are verified.
+        Yes. Choose <Link to="/cash-delivery">cash by courier</Link> as your payout method and give a US delivery address, a phone number
+        and a preferred delivery window. A courier hands the cash only to you, after checking a photo ID that matches your verified account.
+        You need a verified account, and the delivery area is checked by ZIP code.
       </p>
     ),
   },
@@ -98,8 +99,9 @@ export const FAQ: FaqItem[] = [
     q: 'What is the largest amount I can sell online?',
     a: (
       <p>
-        {formatUsd(PRICING_POLICY.retailMaximumCents)} per transaction. Larger amounts go through the{' '}
-        <Link to="/large-transactions">large-transaction desk</Link>.
+        There is no maximum. The minimum is {formatUsd(PRICING_POLICY.minimumCents)}. Orders of{' '}
+        {formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })} or more go to a manual review before payout, and you can also ask
+        the <Link to="/large-transactions">large-transaction desk</Link> for an individual price.
       </p>
     ),
   },

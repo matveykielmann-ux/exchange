@@ -11,7 +11,7 @@ import type { AssetCode, NetworkId } from '@/domain/assets';
 import type { Actor, AppContext } from './context';
 import { SANDBOX_FIXTURES } from './providers/sandbox';
 import { createAccount, requiredSignupDocuments, signUp } from './services/auth';
-import { addBankAccount, addCard, startVerification, updateProfile } from './services/customers';
+import { addBankAccount, addCard, addCourierAddress, startVerification, updateProfile } from './services/customers';
 import * as ops from './services/operations';
 import { cancelOrder, createOrder, expireOverdueOrders, getOrderRow, reportSent } from './services/orders';
 import { firmQuote } from './services/quotes';
@@ -65,7 +65,14 @@ export async function sandboxOperator(
 export async function placeOrder(
   ctx: AppContext,
   c: ScenarioCustomer,
-  opts: { asset?: AssetCode; network?: NetworkId; amountAtomic?: bigint; method?: PayoutMethodId; refundAddress?: string } = {},
+  opts: {
+    asset?: AssetCode;
+    network?: NetworkId;
+    amountAtomic?: bigint;
+    method?: PayoutMethodId;
+    refundAddress?: string;
+    destinationId?: string;
+  } = {},
 ) {
   const method = opts.method ?? 'ach';
   const { quote } = await firmQuote(ctx, c.userId, {
@@ -76,7 +83,7 @@ export async function placeOrder(
   });
   return createOrder(ctx, c.actor, c.userId, {
     quoteId: quote.id,
-    destinationId: method === 'instant_debit' ? c.cardId : c.bankId,
+    destinationId: opts.destinationId ?? (method === 'instant_debit' ? c.cardId : c.bankId),
     refundAddress: opts.refundAddress ?? TEST_ETH_ADDRESS,
     accepted: ORDER_DOCS(),
   });
@@ -121,6 +128,44 @@ export const SCENARIOS: Scenario[] = [
       step(`payout authorized: ${status(ctx, o.id)}`);
       sandbox.simulatePayout(ctx, op, o.id, 'processing');
       sandbox.simulatePayout(ctx, op, o.id, 'completed');
+      return status(ctx, o.id);
+    },
+  },
+  {
+    name: 'courier-cash',
+    description: 'Cash by courier: delivery address checked with the carrier, payout to the courier, delivery confirmed by its webhook.',
+    expected: 'completed',
+    async run(ctx, op, step, n) {
+      const c = await sandboxCustomer(ctx, `courier${n}@example.test`);
+      const address = {
+        phone: '212-555-0142',
+        line1: '200 Example Street',
+        line2: '',
+        city: 'New York',
+        state: 'NY',
+        zip: '10001',
+        window: 'any' as const,
+        preferredDate: '',
+        instructions: '',
+      };
+      try {
+        await addCourierAddress(ctx, c.actor, c.userId, { ...address, zip: `${SANDBOX_FIXTURES.courierUnavailableZipPrefix}01` });
+        throw new Error('An address outside the courier area was accepted.');
+      } catch (e) {
+        if (!(e instanceof ApiError)) throw e;
+        step(`outside the area refused: ${e.message}`);
+      }
+      const dest = await addCourierAddress(ctx, c.actor, c.userId, address);
+      step(`delivery address saved: ${dest.label}`);
+      const o = await placeOrder(ctx, c, { method: 'courier_cash', destinationId: dest.id });
+      sandbox.simulateDeposit(ctx, op, o.id, 'exact');
+      sandbox.simulateConfirmations(ctx, op, o.id, { toFinal: true });
+      await ops.authorizePayout(ctx, op, o.id, 'Checks passed; courier delivery booked with the carrier.');
+      step(`courier scheduled: ${status(ctx, o.id)}`);
+      sandbox.simulatePayout(ctx, op, o.id, 'processing');
+      sandbox.simulatePayout(ctx, op, o.id, 'completed');
+      const provider = ctx.db.get<{ provider: string }>('SELECT provider FROM payout_instructions WHERE order_id = ?', [o.id])!.provider;
+      if (provider !== 'cash') throw new Error(`Courier payout went to ${provider}.`);
       return status(ctx, o.id);
     },
   },

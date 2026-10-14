@@ -14,7 +14,8 @@ import { PAYOUT_METHODS, payoutEligibility, payoutFeeCents, type PayoutMethodId 
 /** MOCK pricing policy. Real spreads must come from the pricing/treasury owner. */
 export const PRICING_POLICY = {
   minimumCents: 50_00n,
-  retailMaximumCents: 25_000_00n,
+  /** There is no maximum. From this amount the large-transaction desk can price an order individually (optional). */
+  largeDeskFromCents: 25_000_00n,
   /** Quote validity on the review step before it must be refreshed. */
   quoteTtlMs: 60_000,
   /** Indicative calculator quotes refresh on this cadence. */
@@ -54,7 +55,6 @@ export type QuoteIssue =
   | { code: 'unsupported_network' }
   | { code: 'zero_amount' }
   | { code: 'below_minimum'; minimumCents: Cents; minimumAtomic: AtomicAmount }
-  | { code: 'above_retail_maximum'; maximumCents: Cents }
   | { code: 'payout_ineligible'; reason: string }
   | { code: 'non_positive_payout' };
 
@@ -126,8 +126,6 @@ export function calculateQuote(req: QuoteRequest): QuoteResult {
       minimumCents: PRICING_POLICY.minimumCents,
       minimumAtomic: atomicForCents(req.asset, PRICING_POLICY.minimumCents, req.referencePriceMicros),
     });
-  } else if (grossCents > PRICING_POLICY.retailMaximumCents) {
-    issues.push({ code: 'above_retail_maximum', maximumCents: PRICING_POLICY.retailMaximumCents });
   } else {
     const eligibility = payoutEligibility(method, grossCents);
     if (!eligibility.eligible) issues.push({ code: 'payout_ineligible', reason: eligibility.reason });

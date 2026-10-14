@@ -11,6 +11,12 @@ export interface Migration {
   id: number;
   name: string;
   sql: string;
+  /**
+   * Table rebuilds (SQLite cannot alter a CHECK constraint) run with foreign
+   * keys off, as SQLite's documented procedure requires; foreign_key_check
+   * then runs inside the same transaction and aborts it on any violation.
+   */
+  disableForeignKeys?: boolean;
 }
 
 const digits = (col: string, nullable = false) =>
@@ -424,6 +430,33 @@ CREATE TABLE large_desk_requests (
   status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','contacted','closed')),
   created_at INTEGER NOT NULL
 );
+`,
+  },
+  {
+    id: 2,
+    name: 'courier_payout_destinations',
+    disableForeignKeys: true,
+    sql: `
+CREATE TABLE payout_destinations_v2 (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('bank','card','courier')),
+  label TEXT NOT NULL CHECK (length(label) BETWEEN 1 AND 60),
+  -- Courier addresses have no account number, so no last4.
+  last4 TEXT NOT NULL CHECK ((kind = 'courier' AND last4 = '') OR (length(last4) = 4 AND last4 NOT GLOB '*[^0-9]*')),
+  methods TEXT NOT NULL, -- JSON array of payout method ids
+  -- AES-256-GCM ciphertext of the bank details, the card provider token, or the courier delivery details.
+  details_enc TEXT NOT NULL,
+  provider_token TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','removed')),
+  created_at INTEGER NOT NULL,
+  removed_at INTEGER
+);
+INSERT INTO payout_destinations_v2 (id, user_id, kind, label, last4, methods, details_enc, provider_token, status, created_at, removed_at)
+  SELECT id, user_id, kind, label, last4, methods, details_enc, provider_token, status, created_at, removed_at FROM payout_destinations;
+DROP TABLE payout_destinations;
+ALTER TABLE payout_destinations_v2 RENAME TO payout_destinations;
+CREATE INDEX payout_destinations_user ON payout_destinations(user_id, status);
 `,
   },
 ];

@@ -7,6 +7,7 @@
  */
 import type { AssetCode, NetworkId } from '@/domain/assets';
 import type { PayoutMethodId } from '@/domain/payout';
+import type { CourierWindow } from '@/domain/courier';
 
 export type ProviderKey = 'rates' | 'custody' | 'identity' | 'screening' | 'bankPayout' | 'cardPayout' | 'cash' | 'email';
 
@@ -115,7 +116,25 @@ export interface ScreeningProvider extends Provider {
 /* ---------- Payouts (bank: ACH and wire; card: push to debit) ---------- */
 export type PayoutDestinationDetails =
   | { kind: 'bank'; routingNumber: string; accountNumber: string; accountType: 'checking' | 'savings'; holderName: string }
-  | { kind: 'card'; providerToken: string; holderName: string };
+  | { kind: 'card'; providerToken: string; holderName: string }
+  | {
+      kind: 'courier';
+      /** The verified account holder. Cash is released only to this person after an ID check. */
+      holderName: string;
+      phone: string;
+      address: CourierAddress;
+      window: CourierWindow;
+      preferredDate: string | null;
+      instructions: string;
+    };
+
+export interface CourierAddress {
+  line1: string;
+  line2: string;
+  city: string;
+  state: string;
+  zip: string;
+}
 
 export interface PayoutRequest {
   orderId: string;
@@ -138,8 +157,9 @@ export interface CardTokenizer {
   createSandboxToken?(holderName: string): Promise<{ providerToken: string; last4: string }>;
 }
 
-/* ---------- Cash delivery / pickup ---------- */
-export interface CashProvider extends Provider {
+/* ---------- Cash delivery by courier ---------- */
+/** A cash payout is a payout whose destination is a courier delivery; results arrive as payout.* webhooks. */
+export interface CashProvider extends PayoutProvider {
   checkAvailability(zip: string): Promise<{ available: boolean; reason: string }>;
 }
 
@@ -160,7 +180,7 @@ export interface Providers {
 }
 
 /* ---------- Webhooks ---------- */
-export type WebhookSource = 'custody' | 'identity' | 'bankPayout' | 'cardPayout';
+export type WebhookSource = 'custody' | 'identity' | 'bankPayout' | 'cardPayout' | 'cash';
 
 /**
  * The generic event contract adapters translate vendor webhooks into. The
@@ -191,8 +211,8 @@ export const WEBHOOK_EVENT_SOURCES: Record<ProviderEvent['type'], readonly Webho
   'deposit.confirmations': ['custody'],
   'deposit.confirmed': ['custody'],
   'refund.completed': ['custody'],
-  'payout.processing': ['bankPayout', 'cardPayout'],
-  'payout.completed': ['bankPayout', 'cardPayout'],
-  'payout.failed': ['bankPayout', 'cardPayout'],
+  'payout.processing': ['bankPayout', 'cardPayout', 'cash'],
+  'payout.completed': ['bankPayout', 'cardPayout', 'cash'],
+  'payout.failed': ['bankPayout', 'cardPayout', 'cash'],
   'verification.updated': ['identity'],
 };

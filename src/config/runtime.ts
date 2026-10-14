@@ -20,6 +20,10 @@ export function resolveServiceMode(raw: string | undefined): ServiceMode {
 }
 
 export const FEATURE_FLAGS = {
-  /** Courier cash delivery stays off until legal, licensing, insurance and operating requirements are verified. */
-  courierCashDelivery: false,
+  /**
+   * Courier cash delivery: offered in the product (owner decision, 2026-10-14). Real cash payouts still need
+   * REAL_MONEY_ENABLED and a contracted carrier; until then the production cash adapter is DISABLED_BY_POLICY.
+   * The checklist in docs/compliance-readiness.md §6 must be signed off before launch.
+   */
+  courierCashDelivery: true,
 } as const;

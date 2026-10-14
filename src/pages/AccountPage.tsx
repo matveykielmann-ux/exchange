@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AddBankForm } from '@/components/AddBankForm';
+import { AddCourierForm } from '@/components/AddCourierForm';
+import { FEATURE_FLAGS } from '@/config/runtime';
 import { Field } from '@/components/Field';
 import { Icon } from '@/components/Icon';
 import { MockBadge, Notice, PageHeader, StatusBadge } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
-import { formatUsd } from '@/domain/money';
 import { US_STATE_NAMES, US_STATES, type UsStateCode } from '@/domain/usStates';
 import { validatePassword } from '@/domain/validation';
 import { errorMessage, isNotConfigured } from '@/lib/errors';
-import { describeDestination, formatDateTime } from '@/lib/format';
+import { describeDestination, destinationLabel, formatDateTime } from '@/lib/format';
 import type { Acceptance, KycStatus, Notification, SessionInfo, User } from '@/services/types';
 import { useDestinations } from '@/state/useDestinations';
 import { useUser } from '@/state/auth';
@@ -178,10 +179,7 @@ function VerificationSection({ user }: { user: User }) {
       title="Identity verification"
       aside={<StatusBadge tone={k.tone === 'danger' ? 'danger' : k.tone}>{k.label}</StatusBadge>}
     >
-      <p>
-        {k.body}
-        {user.verification.status === 'verified' ? ` The online limit is ${formatUsd(config.policy.retailMaximumCents)} per order.` : null}
-      </p>
+      <p>{k.body}</p>
       {config.mode === 'sandbox' ? (
         <p className="small muted">
           Sandbox: results come from test rules based on your name (“Review” needs more information, “Reject” is rejected, “Sanctioned”
@@ -209,7 +207,7 @@ function VerificationSection({ user }: { user: User }) {
 function PayoutSection() {
   const { account, config } = useServices();
   const { list: destinations, reload } = useDestinations();
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState<'bank' | 'courier' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function act(fn: () => Promise<unknown>) {
@@ -233,7 +231,7 @@ function PayoutSection() {
           {destinations.map((d) => (
             <li key={d.id}>
               <span className="row" style={{ gap: 12 }}>
-                <Icon name={d.kind === 'bank' ? 'bank' : 'card'} width={22} height={22} />
+                <Icon name={d.kind === 'bank' ? 'bank' : d.kind === 'courier' ? 'cash' : 'card'} width={22} height={22} />
                 <span>
                   <span className="tx-list__title">{d.label}</span>
                   <span className="small muted tabular" style={{ display: 'block' }}>
@@ -246,7 +244,7 @@ function PayoutSection() {
                 type="button"
                 className="btn btn--ghost"
                 onClick={() => act(() => account.removeDestination(d.id))}
-                aria-label={`Remove ${d.label} ending ${d.last4}`}
+                aria-label={`Remove ${destinationLabel(d.label, d.last4)}`}
               >
                 Remove
               </button>
@@ -255,18 +253,31 @@ function PayoutSection() {
         </ul>
       )}
       {error ? <Notice tone="danger" title={error} role="alert" /> : null}
-      {adding ? (
+      {adding === 'bank' ? (
         <AddBankForm
           onAdded={() => {
-            setAdding(false);
+            setAdding(null);
             reload();
           }}
         />
+      ) : adding === 'courier' ? (
+        <AddCourierForm
+          onAdded={() => {
+            setAdding(null);
+            reload();
+          }}
+          onCancel={() => setAdding(null)}
+        />
       ) : (
         <div className="row">
-          <button type="button" className="btn btn--secondary" onClick={() => setAdding(true)}>
+          <button type="button" className="btn btn--secondary" onClick={() => setAdding('bank')}>
             Add a bank account
           </button>
+          {FEATURE_FLAGS.courierCashDelivery ? (
+            <button type="button" className="btn btn--ghost" onClick={() => setAdding('courier')}>
+              Add a cash delivery address
+            </button>
+          ) : null}
           <button type="button" className="btn btn--ghost" onClick={() => act(() => account.addCard('Debit card'))}>
             {config.mode === 'sandbox' ? 'Add test debit card' : 'Add a debit card'}
           </button>

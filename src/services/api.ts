@@ -45,7 +45,6 @@ function toQuote(q: J): Quote {
 function toIssues(issues: J[]): QuoteData['issues'] {
   return issues.map((i) => {
     if (i.code === 'below_minimum') return { ...i, minimumCents: big(i.minimumCents), minimumAtomic: big(i.minimumAtomic) };
-    if (i.code === 'above_retail_maximum') return { ...i, maximumCents: big(i.maximumCents) };
     return i;
   });
 }
@@ -75,7 +74,7 @@ const toPage = <T>(p: J, f: (x: J) => T): Page<T> => ({ ...p, items: (p.items as
 const toOutcome = (r: J): SandboxOutcome => ({ outcome: r.outcome ?? r.outcomes, order: toOrder(r.order) });
 
 function toConfig(c: J): PublicConfig {
-  return { ...c, policy: { ...c.policy, minimumCents: big(c.policy.minimumCents), retailMaximumCents: big(c.policy.retailMaximumCents) } };
+  return { ...c, policy: { ...c.policy, minimumCents: big(c.policy.minimumCents), largeDeskFromCents: big(c.policy.largeDeskFromCents) } };
 }
 
 function qs(params: Record<string, string | number | boolean | undefined | null | string[]>): string {
@@ -333,6 +332,7 @@ export async function createApiServices(base = ''): Promise<Services> {
       destinations: async () => (await http.get<{ destinations: Destination[] }>('/api/me/destinations')).destinations,
       addBankAccount: (input) => http.post('/api/me/destinations/bank', input),
       addCard: (label) => http.post('/api/me/destinations/card', { label }),
+      addCourierAddress: (input) => http.post('/api/me/destinations/courier', input),
       removeDestination: (id) => http.delete(`/api/me/destinations/${encodeURIComponent(id)}`),
       notifications: async () => (await http.get<J>('/api/me/notifications')).notifications,
       acceptances: async () => (await http.get<J>('/api/me/legal')).acceptances,

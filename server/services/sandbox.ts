@@ -112,7 +112,14 @@ export function simulatePayout(ctx: AppContext, actor: Actor, orderId: string, o
     return deliver(ctx, pi.provider, {
       id,
       type: 'payout.failed',
-      data: { providerRef: pi.provider_ref, reason: reason ?? 'Sandbox: receiving bank returned the payment (account closed).' },
+      data: {
+        providerRef: pi.provider_ref,
+        reason:
+          reason ??
+          (pi.provider === 'cash'
+            ? 'Sandbox: the courier could not complete the handoff (recipient not available).'
+            : 'Sandbox: receiving bank returned the payment (account closed).'),
+      },
     });
   return deliver(ctx, pi.provider, {
     id,

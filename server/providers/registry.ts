@@ -25,6 +25,7 @@ export function webhookSecret(config: AppConfig, source: WebhookSource): string 
     identity: config.providers.identity,
     bankPayout: config.providers.bankPayout,
     cardPayout: config.providers.cardPayout,
+    cash: config.providers.cash,
   }[source];
   return creds?.webhookSecret ?? null;
 }

@@ -11,6 +11,7 @@ import type { AssetCode, NetworkId } from '@/domain/assets';
 import type { AtomicAmount, Cents, Micros } from '@/domain/money';
 import type { OrderEventType, OrderStatus, OrderStep } from '@/domain/order';
 import type { PayoutMethodId } from '@/domain/payout';
+import type { CourierDeliveryInput, CourierWindow } from '@/domain/courier';
 import type { Quote, QuoteIssue } from '@/domain/quote';
 
 export type AppMode = 'sandbox' | 'production';
@@ -36,7 +37,7 @@ export interface PublicConfig {
   realMoneyEnabled: boolean;
   featureFlags: { courierCashDelivery: boolean };
   providers: ProviderSummary[];
-  policy: { quoteTtlMs: number; depositWindowMs: number; indicativeRefreshMs: number; minimumCents: Cents; retailMaximumCents: Cents };
+  policy: { quoteTtlMs: number; depositWindowMs: number; indicativeRefreshMs: number; minimumCents: Cents; largeDeskFromCents: Cents };
   legal: LegalDocRef[];
 }
 
@@ -74,13 +75,34 @@ export interface QuoteData {
   firm: boolean;
 }
 
+export interface CourierDetailsView {
+  phone: string;
+  line1: string;
+  line2: string;
+  city: string;
+  state: string;
+  zip: string;
+  window: CourierWindow;
+  preferredDate: string | null;
+  instructions: string;
+}
+
 export interface Destination {
   id: string;
-  kind: 'bank' | 'card';
+  kind: 'bank' | 'card' | 'courier';
   label: string;
+  /** Empty for courier addresses. */
   last4: string;
   methods: PayoutMethodId[];
   createdAt: number;
+  /** Courier addresses only: the details the owner gave. */
+  courier?: CourierDetailsView;
+}
+
+/** Delivery details on a courier order. Support staff get a masked version. */
+export interface CourierDeliveryView extends CourierDetailsView {
+  recipient: string;
+  masked: boolean;
 }
 
 export interface OrderEventView {
@@ -115,7 +137,16 @@ export interface OrderView {
     payoutFeeCents: Cents;
     netCents: Cents;
   };
-  payout: { method: PayoutMethodId; methodName: string; timing: string; label: string; last4: string; providerRef: string | null };
+  payout: {
+    method: PayoutMethodId;
+    methodName: string;
+    timing: string;
+    label: string;
+    last4: string;
+    providerRef: string | null;
+    /** Courier orders, customer view only. */
+    delivery?: CourierDeliveryView | null;
+  };
   refundAddress: string;
   deposit: {
     address: string | null;
@@ -277,6 +308,7 @@ export interface AccountApi {
     accountType: 'checking' | 'savings';
   }): Promise<Destination>;
   addCard(label: string): Promise<Destination>;
+  addCourierAddress(input: CourierDeliveryInput): Promise<Destination>;
   removeDestination(id: string): Promise<void>;
   notifications(): Promise<Notification[]>;
   acceptances(): Promise<Acceptance[]>;

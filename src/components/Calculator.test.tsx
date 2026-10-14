@@ -47,11 +47,11 @@ describe('<Calculator />', () => {
     expect(amount).toHaveAttribute('aria-invalid', 'true');
   });
 
-  it('lists cash by courier as not offered', async () => {
+  it('offers cash by courier as a payout option', async () => {
     const user = userEvent.setup();
     renderCalc();
     await user.click(screen.getByLabelText('Receive by'));
-    const option = screen.getByRole('option', { name: /Cash by courier — not offered/ });
-    expect(option).toHaveAttribute('aria-disabled', 'true');
+    const option = screen.getByRole('option', { name: /^Cash by courier/ });
+    expect(option).not.toHaveAttribute('aria-disabled', 'true');
   });
 });

@@ -26,7 +26,7 @@ const LABELS: Record<ProviderKey, string> = {
   screening: 'Sanctions and address screening',
   bankPayout: 'Bank payouts (ACH and wire)',
   cardPayout: 'Debit card payouts',
-  cash: 'Cash delivery and pickup',
+  cash: 'Cash delivery by courier',
   email: 'Email delivery',
 };
 
@@ -103,14 +103,7 @@ export function createProductionProviders(config: AppConfig, log: Logger): Provi
   const screening = slot('screening', p.screening, log);
   const bank = slot('bankPayout', p.bankPayout, log);
   const card = slot('cardPayout', p.cardPayout, log);
-  const cash = slot(
-    'cash',
-    p.cash,
-    log,
-    FEATURE_FLAGS.courierCashDelivery
-      ? null
-      : 'Disabled by FEATURE_FLAGS.courierCashDelivery until the compliance checklist is signed off.',
-  );
+  const cash = slot('cash', p.cash, log, FEATURE_FLAGS.courierCashDelivery ? null : 'Disabled by FEATURE_FLAGS.courierCashDelivery.');
   const email = slot('email', p.email, log);
 
   return {
@@ -191,7 +184,19 @@ export function createProductionProviders(config: AppConfig, log: Logger): Provi
     cash: {
       info: () => cash.info,
       async checkAvailability(zip) {
-        return need(cash).request('GET', `v1/availability?zip=${encodeURIComponent(zip)}`);
+        const r = await need(cash).request<{ available: unknown; reason?: unknown }>(
+          'GET',
+          `v1/availability?zip=${encodeURIComponent(zip)}`,
+        );
+        if (typeof r.available !== 'boolean') throw new ProviderError('cash', 'Provider returned an invalid availability.', false);
+        return { available: r.available, reason: typeof r.reason === 'string' ? r.reason.slice(0, 200) : '' };
+      },
+      async submitPayout(req) {
+        const r = await need(cash).request<{ id: string }>('POST', 'v1/deliveries', {
+          idempotencyKey: req.idempotencyKey,
+          body: { reference: req.orderId, amountCents: req.amountCents, currency: 'USD', delivery: req.destination },
+        });
+        return { providerRef: str(r.id, 'cash', 'id') };
       },
     },
     email: {

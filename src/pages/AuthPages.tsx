@@ -125,7 +125,13 @@ export function SignInPage() {
       <div className="auth__panel stack stack--lg">
         <div className="stack">
           <h1 className="display-l">{challenge ? 'Two-step sign-in' : 'Sign in'}</h1>
-          <p className="muted">{challenge ? 'Enter the 6-digit code from your authenticator app.' : 'Welcome back.'}</p>
+          <p className="muted">
+            {challenge
+              ? 'Enter the 6-digit code from your authenticator app.'
+              : returnTo.startsWith('/exchange')
+                ? 'Sign in or create an account to exchange. Your amount and choices are kept.'
+                : 'Welcome back.'}
+          </p>
         </div>
         <SandboxAccountsNotice />
         {!challenge ? (

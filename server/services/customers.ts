@@ -6,6 +6,15 @@
  */
 import { validateAccountNumber, validateRoutingNumber } from '@/domain/validation';
 import type { PayoutMethodId } from '@/domain/payout';
+import {
+  courierLabel,
+  isoDay,
+  normalizeCourierInput,
+  validateCourierDelivery,
+  zip5,
+  type CourierDeliveryInput,
+  type CourierWindow,
+} from '@/domain/courier';
 import type { Actor, AppContext } from '../context';
 import { ApiError, badRequest, conflict, notConfigured, notFound } from '../http/errors';
 import { newId } from '../lib/clock';
@@ -175,7 +184,7 @@ export async function startVerification(ctx: AppContext, actor: Actor, userId: s
 export interface DestinationRow {
   id: string;
   user_id: string;
-  kind: 'bank' | 'card';
+  kind: 'bank' | 'card' | 'courier';
   label: string;
   last4: string;
   methods: string;
@@ -185,8 +194,26 @@ export interface DestinationRow {
   created_at: number;
 }
 
-export function destinationView(d: DestinationRow) {
-  return {
+/** Stored (encrypted) for a courier destination. The recipient is always the verified account holder. */
+interface CourierDetails {
+  holderName: string;
+  phone: string;
+  line1: string;
+  line2: string;
+  city: string;
+  state: string;
+  zip: string;
+  window: CourierWindow;
+  preferredDate: string | null;
+  instructions: string;
+}
+
+const readCourier = (ctx: AppContext, d: DestinationRow) =>
+  JSON.parse(decrypt(ctx.config.dataEncryptionKey, d.details_enc)) as CourierDetails;
+
+/** The owner's view of a destination. Courier addresses are shown in full to their owner (they typed them). */
+export function destinationView(ctx: AppContext, d: DestinationRow) {
+  const base = {
     id: d.id,
     kind: d.kind,
     label: d.label,
@@ -194,12 +221,87 @@ export function destinationView(d: DestinationRow) {
     methods: JSON.parse(d.methods) as PayoutMethodId[],
     createdAt: d.created_at,
   };
+  if (d.kind !== 'courier') return base;
+  const c = readCourier(ctx, d);
+  return {
+    ...base,
+    courier: {
+      phone: c.phone,
+      line1: c.line1,
+      line2: c.line2,
+      city: c.city,
+      state: c.state,
+      zip: c.zip,
+      window: c.window,
+      preferredDate: c.preferredDate,
+      instructions: c.instructions,
+    },
+  };
 }
 
 export function listDestinations(ctx: AppContext, userId: string) {
   return ctx.db
     .all<DestinationRow>("SELECT * FROM payout_destinations WHERE user_id = ? AND status = 'active' ORDER BY created_at", [userId])
-    .map(destinationView);
+    .map((d) => destinationView(ctx, d));
+}
+
+/**
+ * Saves a courier delivery address. The ZIP is checked with the carrier
+ * first, so we never collect an address it cannot serve.
+ */
+export async function addCourierAddress(ctx: AppContext, actor: Actor, userId: string, raw: CourierDeliveryInput) {
+  if (!isUsable(ctx.providers.cash.info())) throw notConfigured('Cash delivery');
+  const input = normalizeCourierInput(raw);
+  const errors = validateCourierDelivery(input, isoDay(ctx.clock.now()));
+  const first = Object.entries(errors)[0];
+  if (first) throw badRequest(first[1], { field: first[0] });
+  const count = ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM payout_destinations WHERE user_id = ? AND status = 'active'", [
+    userId,
+  ])!.n;
+  if (count >= 10) throw conflict('You can save up to 10 payout destinations. Remove one first.');
+  let availability;
+  try {
+    availability = await ctx.providers.cash.checkAvailability(zip5(input.zip));
+  } catch (e) {
+    if (e instanceof ProviderNotConfiguredError) throw notConfigured('Cash delivery');
+    throw new ApiError(503, 'provider_unavailable', 'We couldn’t check courier availability. Try again shortly.');
+  }
+  if (!availability.available)
+    throw badRequest(`Cash delivery isn’t available in ${zip5(input.zip)}. ${availability.reason}`.trim(), { field: 'zip' });
+
+  const id = newId('dst');
+  const details: CourierDetails = {
+    holderName: getProfile(ctx, userId).full_name,
+    phone: input.phone,
+    line1: input.line1,
+    line2: input.line2,
+    city: input.city,
+    state: input.state,
+    zip: input.zip,
+    window: input.window,
+    preferredDate: input.preferredDate || null,
+    instructions: input.instructions,
+  };
+  ctx.db.tx(() => {
+    ctx.db.run(
+      "INSERT INTO payout_destinations (id, user_id, kind, label, last4, methods, details_enc, created_at) VALUES (?, ?, 'courier', ?, '', ?, ?, ?)",
+      [
+        id,
+        userId,
+        courierLabel(input.city, input.state, input.zip),
+        JSON.stringify(['courier_cash']),
+        encrypt(ctx.config.dataEncryptionKey, JSON.stringify(details)),
+        ctx.clock.now(),
+      ],
+    );
+    audit(ctx, actor, {
+      action: 'destination.added',
+      targetType: 'destination',
+      targetId: id,
+      data: { kind: 'courier', state: input.state, zip: zip5(input.zip) },
+    });
+  });
+  return destinationView(ctx, ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [id])!);
 }
 
 export function addBankAccount(
@@ -236,7 +338,7 @@ export function addBankAccount(
       data: { kind: 'bank', last4: account.slice(-4) },
     });
   });
-  return destinationView(ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [id])!);
+  return destinationView(ctx, ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [id])!);
 }
 
 /** Sandbox only: adds a test card token. Production needs the provider's hosted card form (NOT_CONFIGURED until integrated). */
@@ -262,7 +364,7 @@ export async function addCard(ctx: AppContext, actor: Actor, userId: string, lab
     );
     audit(ctx, actor, { action: 'destination.added', targetType: 'destination', targetId: id, data: { kind: 'card', last4 } });
   });
-  return destinationView(ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [id])!);
+  return destinationView(ctx, ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [id])!);
 }
 
 export function removeDestination(ctx: AppContext, actor: Actor, userId: string, id: string) {
@@ -282,10 +384,47 @@ export function removeDestination(ctx: AppContext, actor: Actor, userId: string,
   });
 }
 
+/**
+ * Courier delivery details of an order's destination, or null for other kinds.
+ * `masked` (support staff) keeps only the area, window and the phone's last
+ * four digits; the owner and reviewers and above see the full address.
+ */
+export function courierDelivery(ctx: AppContext, destinationId: string, { masked = false }: { masked?: boolean } = {}) {
+  const d = ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [destinationId]);
+  if (!d || d.kind !== 'courier') return null;
+  const c = readCourier(ctx, d);
+  const phoneDigits = c.phone.replace(/\D/g, '');
+  return {
+    recipient: c.holderName,
+    phone: masked ? `••• ••• ${phoneDigits.slice(-4)}` : c.phone,
+    line1: masked ? '•••' : c.line1,
+    line2: masked ? '' : c.line2,
+    city: c.city,
+    state: c.state,
+    zip: masked ? zip5(c.zip) : c.zip,
+    window: c.window,
+    preferredDate: c.preferredDate,
+    instructions: masked ? '' : c.instructions,
+    masked,
+  };
+}
+
 /** Decrypts destination details for a payout submission. Never returned to any client. */
 export function payoutDetails(ctx: AppContext, destinationId: string): PayoutDestinationDetails {
   const d = ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [destinationId]);
   if (!d) throw notFound('Payout destination not found.');
+  if (d.kind === 'courier') {
+    const c = readCourier(ctx, d);
+    return {
+      kind: 'courier',
+      holderName: c.holderName,
+      phone: c.phone,
+      address: { line1: c.line1, line2: c.line2, city: c.city, state: c.state, zip: c.zip },
+      window: c.window,
+      preferredDate: c.preferredDate,
+      instructions: c.instructions,
+    };
+  }
   const plain = JSON.parse(decrypt(ctx.config.dataEncryptionKey, d.details_enc)) as Record<string, string>;
   if (d.kind === 'card') {
     if (!d.provider_token) throw new ApiError(409, 'destination_invalid', 'This card has no provider token.');

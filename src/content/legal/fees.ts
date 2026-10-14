@@ -3,9 +3,9 @@ import type { LegalDocument } from './types';
 export const FEE_DISCLOSURE: LegalDocument = {
   slug: 'fees',
   title: 'Fee and Exchange-Rate Disclosure',
-  version: '1.0.0',
+  version: '1.1.0',
   effectiveDate: null,
-  lastUpdated: '2026-10-13',
+  lastUpdated: '2026-10-14',
   summary:
     'You pay {{brand}} a spread on the reference price and a payout fee that depends on how you are paid, and every amount is itemized in your quote before you confirm.',
   acceptance: 'order',
@@ -50,11 +50,12 @@ export const FEE_DISCLOSURE: LegalDocument = {
             'ACH bank transfer: no payout fee.',
             'Domestic bank wire: a flat fee per payout.',
             'Debit card: a percentage of the payout amount, subject to a minimum and a maximum fee.',
+            'Cash by courier: a flat fee per delivery.',
           ],
         },
         {
           type: 'p',
-          text: 'Current amounts are shown on the Fees page and in each quote. Each payout method also has its own minimum and maximum order amounts, shown in the Service.',
+          text: 'Current amounts are shown on the Fees page and in each quote. Each payout method has its own minimum order amount, shown in the Service. There is no maximum.',
         },
       ],
     },
@@ -78,7 +79,7 @@ export const FEE_DISCLOSURE: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'Orders of about $25,000 or more are handled by our large-transaction desk. Pricing for these orders is set individually and is confirmed with you in writing, itemized in the same way, before you send any funds. Any indicative pricing shown on the request form is not an offer.',
+          text: 'You may ask our large-transaction desk to price an order of $25,000 or more individually. Desk pricing is confirmed with you in writing, itemized in the same way, before you send any funds. Any indicative pricing shown on the request form is not an offer. Large orders placed online use the standard schedule.',
         },
       ],
     },

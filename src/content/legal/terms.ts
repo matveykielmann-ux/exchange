@@ -3,9 +3,9 @@ import type { LegalDocument } from './types';
 export const TERMS_OF_SERVICE: LegalDocument = {
   slug: 'terms',
   title: 'Terms of Service',
-  version: '1.0.0',
+  version: '1.1.0',
   effectiveDate: null,
-  lastUpdated: '2026-10-13',
+  lastUpdated: '2026-10-14',
   summary:
     'These Terms are the agreement between you and {{brand}} that governs your account and every sale of digital assets for US dollars you make through the Service.',
   acceptance: 'signup',
@@ -107,7 +107,7 @@ export const TERMS_OF_SERVICE: LegalDocument = {
         },
         {
           type: 'p',
-          text: 'Orders worth about $25,000 or more are handled by our large-transaction desk rather than the standard online flow. Large-transaction requests are subject to additional review, are priced individually, and are confirmed with you separately before you send any funds. The standard online minimum and maximum order amounts are shown in the Service.',
+          text: 'There is no maximum order amount. The minimum order amount for each payout method is shown in the Service. Orders worth $25,000 or more are reviewed manually before payout. You may also ask our large-transaction desk to price a large order individually; desk requests are subject to additional review and are confirmed with you separately before you send any funds.',
         },
         {
           type: 'review',
@@ -182,7 +182,7 @@ export const TERMS_OF_SERVICE: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'You can receive your US dollar payout by ACH bank transfer, domestic bank wire, or push payment to an eligible US debit card, subject to the minimums, maximums and eligibility rules shown in the Service. Payouts may be made only to a bank account or debit card held in your own name in the United States.',
+          text: 'You can receive your US dollar payout by ACH bank transfer, domestic bank wire, push payment to an eligible US debit card, or cash delivered by courier to a US address, subject to the minimums and eligibility rules shown in the Service. Payouts may be made only to a bank account or debit card held in your own name in the United States, or in cash to you in person under the Cash Delivery Terms.',
         },
         {
           type: 'p',

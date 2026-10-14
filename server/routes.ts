@@ -7,6 +7,8 @@ import { ASSET_ORDER, NETWORKS, type AssetCode, type NetworkId } from '@/domain/
 import { PAYOUT_ORDER, type PayoutMethodId } from '@/domain/payout';
 import { ORDER_STATUSES, type OrderStatus } from '@/domain/order';
 import { PRICING_POLICY } from '@/domain/quote';
+import { COURIER_WINDOWS } from '@/domain/courier';
+import { formatUsd } from '@/domain/money';
 import { REAL_MONEY_ENABLED, FEATURE_FLAGS } from '@/config/runtime';
 import { LEGAL_DOCUMENTS } from '@/content/legal';
 import type { Actor, AppContext } from './context';
@@ -80,7 +82,7 @@ export function registerRoutes(r: Router, app: AppContext) {
         depositWindowMs: PRICING_POLICY.depositWindowMs,
         indicativeRefreshMs: PRICING_POLICY.indicativeRefreshMs,
         minimumCents: PRICING_POLICY.minimumCents.toString(),
-        retailMaximumCents: PRICING_POLICY.retailMaximumCents.toString(),
+        largeDeskFromCents: PRICING_POLICY.largeDeskFromCents.toString(),
       },
       legal: LEGAL_DOCUMENTS.map((d) => ({ slug: d.slug, title: d.title, version: d.version, acceptance: d.acceptance })),
     },
@@ -106,7 +108,7 @@ export function registerRoutes(r: Router, app: AppContext) {
   r.get('/api/cash/availability', async (ctx) => {
     const zip = parse(v.string({ pattern: /^\d{5}$/, label: 'a 5-digit ZIP code' }), ctx.query.get('zip') ?? '');
     if (!isUsable(app.providers.cash.info()))
-      return { body: { available: false, reason: 'Cash delivery and pickup are not offered. No contracted carrier exists.', zip } };
+      return { body: { available: false, reason: 'Cash delivery is not available right now.', zip } };
     return { body: { ...(await app.providers.cash.checkAvailability(zip)), zip } };
   });
 
@@ -127,8 +129,15 @@ export function registerRoutes(r: Router, app: AppContext) {
         }),
         ctx.body,
       );
-      if (b.approximateUsdCents < PRICING_POLICY.retailMaximumCents)
-        throw new ApiError(422, 'invalid_input', 'The desk handles amounts above the online limit.', { field: 'approximateUsdCents' });
+      if (b.approximateUsdCents < PRICING_POLICY.largeDeskFromCents)
+        throw new ApiError(
+          422,
+          'invalid_input',
+          `The desk handles ${formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })} or more.`,
+          {
+            field: 'approximateUsdCents',
+          },
+        );
       const id = newId('lrg');
       const reference = `DESK-${id.slice(-8).toUpperCase()}`;
       app.db.tx(() => {
@@ -356,6 +365,35 @@ export function registerRoutes(r: Router, app: AppContext) {
     async (ctx) => {
       const b = parse(v.object({ label: v.optional(v.string({ min: 0, max: 60 })) }), ctx.body);
       return { status: 201, body: await customers.addCard(app, actorOf(ctx), me(ctx), b.label ?? '') };
+    },
+    { auth: 'user', rateLimit: WRITE_LIMIT },
+  );
+  r.post(
+    '/api/me/destinations/courier',
+    async (ctx) => {
+      const b = parse(
+        v.object({
+          phone: v.string({ max: 32, label: 'a phone number' }),
+          line1: v.string({ max: 120, label: 'the street address' }),
+          line2: v.optional(v.string({ min: 0, max: 80 })),
+          city: v.string({ max: 60, label: 'the city' }),
+          state: v.enum(customers.US_STATES, 'state'),
+          zip: v.string({ max: 10, pattern: /^\d{5}(-\d{4})?$/, label: 'a ZIP code' }),
+          window: v.enum(COURIER_WINDOWS, 'delivery window'),
+          preferredDate: v.optional(v.string({ min: 0, max: 10 })),
+          instructions: v.optional(v.string({ min: 0, max: 200 })),
+        }),
+        ctx.body,
+      );
+      return {
+        status: 201,
+        body: await customers.addCourierAddress(app, actorOf(ctx), me(ctx), {
+          ...b,
+          line2: b.line2 ?? '',
+          preferredDate: b.preferredDate ?? '',
+          instructions: b.instructions ?? '',
+        }),
+      };
     },
     { auth: 'user', rateLimit: WRITE_LIMIT },
   );
@@ -617,6 +655,10 @@ function registerAdminRoutes(r: Router, app: AppContext) {
         body: {
           order: orders.orderView(app, o, { internal: true }),
           customer: admin.customerSummary(app, o.user_id),
+          courierDelivery:
+            o.payout_method === 'courier_cash'
+              ? customers.courierDelivery(app, o.payout_destination_id, { masked: ctx.auth!.role === 'support' })
+              : null,
           notes: ops.orderNotes(app, o.id),
           reviews: app.db.all(
             'SELECT id, status, reason, opened_by AS openedBy, decided_by AS decidedBy, decision_reason AS decisionReason, created_at AS createdAt, decided_at AS decidedAt FROM compliance_reviews WHERE order_id = ? ORDER BY created_at',

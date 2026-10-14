@@ -28,14 +28,14 @@ Each provider reports one state on `/api/ready`, in `check-config` and on the ad
 | Screening | `SCREENING_PROVIDER` | `POST v1/screen/address {network, address}`, `POST v1/screen/person {...}` → `{result: clear, review or blocked; note}` |
 | Bank payouts | `BANK_PAYOUT_PROVIDER` | `POST v1/payouts {reference, method: ach or wire, amountCents, currency: "USD", destination}` → `{id}` |
 | Card payouts | `CARD_PAYOUT_PROVIDER` | Same as bank payouts, `method: instant_debit`. `destination` is the provider's card token. Card numbers never reach Arcvale. |
-| Cash | `CASH_PROVIDER` | `GET v1/availability?zip=` (disabled by feature flag) |
+| Cash by courier | `CASH_PROVIDER` | `GET v1/availability?zip=` → `{available, reason?}`; `POST v1/deliveries {reference, amountCents, currency: "USD", delivery}` → `{id}`. `delivery` holds the recipient (the verified account holder), phone, address, window, preferred date and instructions. Results arrive as `payout.*` webhooks from source `cash`. |
 | Email | `EMAIL_PROVIDER` + `EMAIL_FROM` | `POST v1/messages {from, to, subject, text}` → `{id}` |
 
 ## Webhooks (inbound)
 
 Outcomes such as funds received, deposit confirmed, payout sent or refund completed are accepted **only** from signed provider webhooks, never from the browser or a staff click.
 
-- Endpoint: `POST /api/webhooks/{source}` where source is custody, identity, bankPayout or cardPayout, at most 256 KB, rate-limited.
+- Endpoint: `POST /api/webhooks/{source}` where source is custody, identity, bankPayout, cardPayout or cash, at most 256 KB, rate-limited.
 - Header: `X-Arcvale-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256(secret, "<t>.<raw body>")>`. The secret is `<PREFIX>_WEBHOOK_SECRET` (≥ 32 chars). Timestamps older or newer than 5 minutes are rejected (replay protection).
 - Body: `{ "id": "<unique event id>", "type": "<event type>", "data": { ... } }`. A repeated `id` from the same source returns `duplicate` and changes nothing.
 - Each delivery is stored in the webhook log (admin System page) with its outcome. Processing and the order change commit in one transaction.
@@ -46,8 +46,8 @@ Outcomes such as funds received, deposit confirmed, payout sent or refund comple
 | `deposit.confirmations` | custody | `orderId, confirmations` |
 | `deposit.confirmed` | custody | `orderId, confirmations` |
 | `refund.completed` | custody | `orderId, txHash` |
-| `payout.processing` / `payout.completed` | bankPayout, cardPayout | `providerRef` |
-| `payout.failed` | bankPayout, cardPayout | `providerRef, reason` |
+| `payout.processing` / `payout.completed` | bankPayout, cardPayout, cash | `providerRef` (for cash: out for delivery / delivered) |
+| `payout.failed` | bankPayout, cardPayout, cash | `providerRef, reason` (for cash: the handoff did not happen) |
 | `verification.updated` | identity | `providerRef, status, detail?` |
 
 Each event moves an order only through `applyOrderEvent` in `server/services/orders.ts`, which enforces the state table in `src/domain/order.ts`. An event that does not fit the current state is rejected and logged, not forced.

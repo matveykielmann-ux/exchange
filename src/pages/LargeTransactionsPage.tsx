@@ -35,7 +35,7 @@ export function LargeTransactionsPage() {
     e.preventDefault();
     const next: Record<string, string> = {};
     const checks: Array<[string, string | null]> = [
-      ['lt-amount', validateUsdAmount(amount, { minCents: PRICING_POLICY.retailMaximumCents })],
+      ['lt-amount', validateUsdAmount(amount, { minCents: PRICING_POLICY.largeDeskFromCents })],
       ['lt-name', validateRequired(fullName, customerType === 'business' ? 'the contact name' : 'your full name')],
       ['lt-email', validateEmail(email)],
       ['lt-phone', validateUsPhone(phone)],
@@ -71,7 +71,7 @@ export function LargeTransactionsPage() {
     <>
       <PageHeader
         eyebrow="Large transactions"
-        title={<>A desk for {formatUsd(PRICING_POLICY.retailMaximumCents, { whole: true })} and up.</>}
+        title={<>A desk for {formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })} and up.</>}
         lead="Large sales are priced and reviewed one by one. You work with a desk, not a checkout, and receive dollars by wire."
       />
 
@@ -158,7 +158,7 @@ export function LargeTransactionsPage() {
               Request a desk quote
             </h2>
             <p>
-              Below {formatUsd(PRICING_POLICY.retailMaximumCents)}? Use the <Link to="/exchange">online exchange</Link>.
+              The <Link to="/exchange">online exchange</Link> has no maximum. The desk is optional and prices large orders individually.
             </p>
           </div>
           {reference ? (
@@ -207,7 +207,7 @@ export function LargeTransactionsPage() {
                     label="Approximate amount (USD)"
                     id="lt-amount"
                     error={errors['lt-amount']}
-                    hint={`${formatUsd(PRICING_POLICY.retailMaximumCents)} or more`}
+                    hint={`${formatUsd(PRICING_POLICY.largeDeskFromCents)} or more`}
                     className="span-2"
                   >
                     {(p) => (

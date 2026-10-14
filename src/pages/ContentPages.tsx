@@ -181,14 +181,12 @@ export function FeesPage() {
                 <td className="num">{formatBps(stb[0].bps)}</td>
               </tr>
               <tr>
-                <th scope="row">
-                  {formatUsd(vol[0].upToCents!, { whole: true })} to {formatUsd(PRICING_POLICY.retailMaximumCents, { whole: true })}
-                </th>
+                <th scope="row">{formatUsd(vol[0].upToCents!, { whole: true })} and over</th>
                 <td className="num">{formatBps(vol[1].bps)}</td>
                 <td className="num">{formatBps(stb[1].bps)}</td>
               </tr>
               <tr>
-                <th scope="row">Large-transaction desk</th>
+                <th scope="row">Large-transaction desk (optional)</th>
                 <td className="num">Quoted per request</td>
                 <td className="num">Quoted per request</td>
               </tr>
@@ -203,7 +201,7 @@ export function FeesPage() {
                 <th scope="col">Method</th>
                 <th scope="col">Fee</th>
                 <th scope="col">Estimated timing</th>
-                <th scope="col">Per transaction</th>
+                <th scope="col">Minimum</th>
               </tr>
             </thead>
             <tbody>
@@ -215,8 +213,8 @@ export function FeesPage() {
                     <th scope="row">{m.name}</th>
                     <td data-label="Fee">{off ? 'Not offered' : describeFee(m.fee)}</td>
                     <td data-label="Timing">{m.timingEstimate}</td>
-                    <td data-label="Limits" className="tabular">
-                      {off ? '—' : `${formatUsd(m.minCents)} – ${formatUsd(m.maxCents)}`}
+                    <td data-label="Minimum" className="tabular">
+                      {off ? '—' : `${formatUsd(m.minCents)}, no maximum`}
                     </td>
                   </tr>
                 );
@@ -232,9 +230,10 @@ export function FeesPage() {
         <h2 id="limits">Limits</h2>
         <ul>
           <li>Minimum sale: {formatUsd(PRICING_POLICY.minimumCents)} in value.</li>
+          <li>No maximum per transaction, for every payout method.</li>
           <li>
-            Online maximum: {formatUsd(PRICING_POLICY.retailMaximumCents)} per transaction. Above that, use the{' '}
-            <Link to="/large-transactions">large-transaction desk</Link>.
+            Orders of {formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })} or more get a manual review before payout. The{' '}
+            <Link to="/large-transactions">large-transaction desk</Link> can also price them individually.
           </li>
         </ul>
         <h2 id="example">Worked example</h2>
@@ -406,7 +405,7 @@ export function HelpPage() {
     { title: 'Fees and limits', body: 'The full schedule, with a worked example.', to: '/fees', link: 'See fees' },
     {
       title: 'Large amounts',
-      body: `Selling ${formatUsd(PRICING_POLICY.retailMaximumCents)} or more goes through the desk.`,
+      body: `Selling ${formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })} or more? The desk can price it individually.`,
       to: '/large-transactions',
       link: 'Large transactions',
     },

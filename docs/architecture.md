@@ -20,13 +20,13 @@ Arcvale is a crypto-to-USD exchange: a React web app, a Node API server with a S
 
 ```
 src/                    web app
-  config/               brand, REAL_MONEY_ENABLED=false, feature flags (courier off)
+  config/               brand, REAL_MONEY_ENABLED=false, feature flags (courier on)
   domain/               pure business rules shared with the server (no React, no I/O)
     money.ts            bigint money: cents, USD micros, atomic units
     assets.ts           assets × networks, confirmation policy, address checks
     quote.ts            pricing policy and calculateQuote (reconciles to the cent)
     order.ts            order state machine: statuses, event table, who may raise each event
-    payout.ts, identity.ts, validation.ts, usStates.ts
+    payout.ts, courier.ts, identity.ts, validation.ts, usStates.ts
   services/             api.ts (HTTP client for the server), types.ts, adminTypes.ts
   state/                auth session, server config, live updates (SSE with polling fallback)
   pages/, admin/, components/
@@ -47,7 +47,7 @@ server/
 
 - All amounts are `bigint`: USD **cents**, prices in **USD micros**, crypto in **atomic units**. The API sends them as decimal strings, and `src/services/api.ts` converts them. Floating point is never used for money.
 - `calculateQuote` rounds every line to cents before subtracting, so `gross − spread − fee = net` exactly (property-tested).
-- Policy values (spreads, limits, TTLs, review threshold) are **placeholders**. `MANUAL_REVIEW_THRESHOLD_USD` is configurable.
+- Policy values (spreads, minimums, fees, TTLs, review threshold) are **placeholders**. There is no maximum per order (owner decision, 2026-10-14). `MANUAL_REVIEW_THRESHOLD_USD` is configurable.
 
 ## Order lifecycle (server-enforced)
 
@@ -71,13 +71,18 @@ Rules:
 - Late or mismatched deposits are never paid at the locked rate. They go to review or refund.
 - Orders at or above the review threshold, and any screening flag, go to `compliance_review` before payout.
 
+## Cash by courier
+
+Courier delivery reuses the payout states: payout submitted means the courier is scheduled, processing means out for delivery, completed means delivered, failed means the handoff did not happen. The customer saves a courier address (`POST /api/me/destinations/courier`) as a `payout_destinations` row of kind `courier`, encrypted, after the carrier confirms the ZIP is served. Cash goes only to the verified account holder after an ID check; the recipient is never typed in. Results arrive as `payout.*` webhooks from source `cash`. Staff see the address on the order; support staff see it masked.
+
 ## Auth, roles and security
 
 - Passwords are hashed with scrypt. Sessions are 256-bit random tokens in an `HttpOnly; SameSite=Lax` (and `Secure` over https) cookie. Only an HMAC of the token is stored. Sessions have a fixed lifetime (`SESSION_TTL_HOURS`) and are revoked on a password change or reset.
 - CSRF uses a per-session token sent back in `X-CSRF-Token`, plus an `Origin` check on every mutation. Only signature-authenticated webhooks are exempt.
 - Roles: `customer < support < reviewer < admin < owner`. The router checks roles on every route, and the UI hides what the server would refuse. Admins can grant roles up to reviewer; only owners grant admin or owner. Production requires staff TOTP (`REQUIRE_STAFF_MFA`).
 - Rate limits: per-IP limits on auth, quotes, orders, chat, live events and webhooks. Accounts lock after 5 failed sign-ins.
-- Payout details and TOTP secrets are encrypted with AES-256-GCM. Card numbers are never accepted (provider tokens only) and CVV is never accepted. Staff views mask PII.
+- Exchanging needs an account: `/exchange` is behind sign-in, and the server requires a session for firm quotes and orders.
+- Payout details (including courier addresses) and TOTP secrets are encrypted with AES-256-GCM. Card numbers are never accepted (provider tokens only) and CVV is never accepted. Staff views mask PII.
 - Errors come back as `{ error: { code, message } }` with safe messages. Stack traces are never sent. Logs are structured JSON without secrets.
 - The CSP is `script-src 'self'` with no third-party origins. The saved-theme bootstrap is a same-origin file (`public/theme-init.js`), so no inline script is needed.
 

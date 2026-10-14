@@ -145,11 +145,21 @@ export function migrate(db: Db, mode: AppMode, now: number): number[] {
   const ran: number[] = [];
   for (const p of pending) {
     const m = MIGRATIONS.find((x) => x.id === p.id)!;
-    db.tx(() => {
-      db.exec(m.sql);
-      db.run('INSERT INTO schema_migrations (id, name, checksum, applied_at) VALUES (?, ?, ?, ?)', [m.id, m.name, checksum(m), now]);
-      if (m.id === 1) db.run("INSERT INTO app_meta (key, value) VALUES ('mode', ?)", [mode]);
-    });
+    // PRAGMA foreign_keys is a no-op inside a transaction, so it is switched outside it.
+    if (m.disableForeignKeys) db.exec('PRAGMA foreign_keys = OFF');
+    try {
+      db.tx(() => {
+        db.exec(m.sql);
+        if (m.disableForeignKeys) {
+          const broken = db.all('PRAGMA foreign_key_check');
+          if (broken.length) throw new Error(`Migration ${m.id} (${m.name}) would break ${broken.length} foreign key reference(s).`);
+        }
+        db.run('INSERT INTO schema_migrations (id, name, checksum, applied_at) VALUES (?, ?, ?, ?)', [m.id, m.name, checksum(m), now]);
+        if (m.id === 1) db.run("INSERT INTO app_meta (key, value) VALUES ('mode', ?)", [mode]);
+      });
+    } finally {
+      if (m.disableForeignKeys) db.exec('PRAGMA foreign_keys = ON');
+    }
     ran.push(m.id);
   }
   assertDatabaseMode(db, mode);

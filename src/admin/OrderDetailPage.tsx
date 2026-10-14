@@ -5,7 +5,8 @@ import { MockBadge, Notice, StatusBadge } from '@/components/ui';
 import { formatUsd } from '@/domain/money';
 import { ORDER_STATUS_LABEL, orderTone } from '@/domain/order';
 import { errorMessage } from '@/lib/errors';
-import { formatAsset, formatDateTime, formatPriceMicros } from '@/lib/format';
+import { destinationLabel, formatAsset, formatDateTime, formatPriceMicros } from '@/lib/format';
+import { COURIER_WINDOW_LABELS } from '@/domain/courier';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import type { ActionAvailability, AdminOrderDetail, OrderActionKey } from '@/services/adminTypes';
 import { useUser } from '@/state/auth';
@@ -365,9 +366,41 @@ export function OrderDetailPage() {
                 <div>
                   <dt>Payout to</dt>
                   <dd>
-                    {o.payout.methodName} · {o.payout.label} ending {o.payout.last4}
+                    {o.payout.methodName} · {destinationLabel(o.payout.label, o.payout.last4)}
                   </dd>
                 </div>
+                {data.courierDelivery ? (
+                  <div>
+                    <dt>Courier delivery</dt>
+                    <dd>
+                      Hand only to {data.courierDelivery.recipient} after a photo ID check
+                      <br />
+                      <span className="small">
+                        {data.courierDelivery.line1}
+                        {data.courierDelivery.line2 ? `, ${data.courierDelivery.line2}` : ''}, {data.courierDelivery.city},{' '}
+                        {data.courierDelivery.state} {data.courierDelivery.zip}
+                      </span>
+                      <br />
+                      <span className="small muted">
+                        {COURIER_WINDOW_LABELS[data.courierDelivery.window]}
+                        {data.courierDelivery.preferredDate ? ` · preferred ${data.courierDelivery.preferredDate}` : ''} · phone{' '}
+                        <span className="tabular">{data.courierDelivery.phone}</span>
+                      </span>
+                      {data.courierDelivery.instructions ? (
+                        <>
+                          <br />
+                          <span className="small muted">Instructions: {data.courierDelivery.instructions}</span>
+                        </>
+                      ) : null}
+                      {data.courierDelivery.masked ? (
+                        <>
+                          <br />
+                          <span className="small muted">Street address and phone are masked for your role.</span>
+                        </>
+                      ) : null}
+                    </dd>
+                  </div>
+                ) : null}
                 <div>
                   <dt>Quote snapshot</dt>
                   <dd className="mono small">{o.quote.id}</dd>

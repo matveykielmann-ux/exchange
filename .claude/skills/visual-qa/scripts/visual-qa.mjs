@@ -260,7 +260,7 @@ async function journey(browser, width) {
   await page.getByText('Identity verification').first().waitFor();
   step(1, 'signed up');
 
-  // 2. Amount: below minimum, above the online limit, then valid.
+  // 2. Amount: below minimum, a large amount (no maximum), then valid.
   await go(page, BASE_URL + '/exchange');
   await page.getByLabel('Asset').click();
   await page.getByRole('option', { name: /^USDC/ }).click();
@@ -270,17 +270,36 @@ async function journey(browser, width) {
   await amount.fill('10');
   await expectText(page, 'Minimum is $50.00', 'below minimum');
   await amount.fill('40000');
-  await expectText(page, 'online limit', 'above retail maximum');
-  await shot(page, '02-amount-over-limit');
+  await page.waitForTimeout(600);
+  if (await page.getByText(/maximum|online limit/i).count()) fail(where, 'a large amount must not hit a maximum');
+  await shot(page, '02-amount-large');
   await amount.fill('2500');
   await page.waitForTimeout(600);
   await shot(page, '03-amount');
   await page.getByRole('button', { name: /Continue to payout/ }).click();
   step(2, 'amount quoted');
 
-  // 3. Payout method: courier is disabled.
+  // 3. Payout method: cash by courier takes a delivery address (area checked by ZIP); then the journey continues with a bank transfer.
   const courier = page.getByRole('radio', { name: /Cash by courier/ });
-  if (!(await courier.isDisabled())) fail(where, 'courier option must be disabled');
+  if (await courier.isDisabled()) fail(where, 'courier option must be available');
+  await courier.check();
+  await page.getByRole('button', { name: /Continue to details/ }).click();
+  await expectText(page, 'Where should the courier bring it?', 'courier details step');
+  await page.getByRole('button', { name: 'Save delivery address' }).click();
+  await expectText(page, 'Enter the street address', 'courier address validation');
+  await page.getByLabel('Street address').fill('500 Congress Avenue');
+  await page.getByLabel('City').fill('Austin');
+  await page.getByLabel('State', { exact: true }).selectOption('TX');
+  await page.getByLabel('ZIP code').fill('99901');
+  await page.getByLabel('Phone for the courier').fill('(512) 555-0199');
+  await page.getByRole('button', { name: 'Save delivery address' }).click();
+  await expectText(page, 'isn’t available in 99901', 'courier area check');
+  await shot(page, '04-courier-form');
+  await page.getByLabel('ZIP code').fill('78701');
+  await page.getByRole('button', { name: 'Save delivery address' }).click();
+  await expectText(page, 'Courier to Austin, TX 78701', 'saved courier address');
+  await shot(page, '04-courier-details');
+  await page.getByRole('button', { name: /^Back/ }).click();
   await page.getByRole('radio', { name: /Bank transfer/ }).check();
   await shot(page, '04-payout');
   await page.getByRole('button', { name: /Continue to details/ }).click();

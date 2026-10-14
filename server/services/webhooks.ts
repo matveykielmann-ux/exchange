@@ -21,7 +21,7 @@ import { formatUsd } from '@/domain/money';
 
 export type WebhookOutcome = { status: 'processed' | 'duplicate' | 'rejected'; eventId: string; error?: string };
 
-const SOURCES: readonly WebhookSource[] = ['custody', 'identity', 'bankPayout', 'cardPayout'];
+const SOURCES: readonly WebhookSource[] = ['custody', 'identity', 'bankPayout', 'cardPayout', 'cash'];
 export const isWebhookSource = (s: string): s is WebhookSource => (SOURCES as readonly string[]).includes(s);
 
 function parseEvent(raw: Buffer): ProviderEvent {

@@ -5,6 +5,7 @@ import type { OrderStatus } from '@/domain/order';
 import type { PayoutMethodId } from '@/domain/payout';
 import type {
   AppMode,
+  CourierDeliveryView,
   Conversation,
   ConversationStatus,
   ConversationSummary,
@@ -109,6 +110,8 @@ export interface AdminOrderDetail {
     memberSince: number;
     orders: { total: number; completed: number };
   };
+  /** Courier orders only. Masked for support staff. */
+  courierDelivery: CourierDeliveryView | null;
   notes: { id: string; body: string; createdAt: number; author: { id: string; email: string } }[];
   reviews: {
     id: string;

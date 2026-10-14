@@ -7,6 +7,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { AssetCode } from '@/domain/assets';
 import { PRICING_POLICY } from '@/domain/quote';
+import { FEATURE_FLAGS } from '@/config/runtime';
 import type { AppConfig } from '../../config';
 import { ProviderError, type Providers, type ProviderInfo, type ProviderKey } from '../types';
 
@@ -47,6 +48,8 @@ export const SANDBOX_FIXTURES = {
   kycRejectWord: 'Reject',
   /** A payout holder name containing this word is declined synchronously by the payout provider. */
   payoutDeclineWord: 'Decline',
+  /** Courier cash delivery does not serve ZIP codes starting with this prefix. */
+  courierUnavailableZipPrefix: '999',
 } as const;
 
 const info = (key: ProviderKey, label: string): ProviderInfo => ({
@@ -125,14 +128,20 @@ export function createSandboxProviders(config: AppConfig, now: () => number): Pr
       },
     },
     cash: {
-      info: () => ({
-        key: 'cash',
-        label: 'Cash delivery and pickup',
-        state: 'not_configured',
-        detail: 'Not offered. No contracted carrier; disabled by feature flag.',
-      }),
-      async checkAvailability() {
-        return { available: false, reason: 'Cash delivery and pickup are not offered.' };
+      info: () =>
+        FEATURE_FLAGS.courierCashDelivery
+          ? info('cash', 'Cash delivery by courier')
+          : { key: 'cash', label: 'Cash delivery by courier', state: 'not_configured', detail: 'Disabled by feature flag.' },
+      async checkAvailability(zip) {
+        if (!FEATURE_FLAGS.courierCashDelivery) return { available: false, reason: 'Cash delivery is switched off.' };
+        if (zip.startsWith(SANDBOX_FIXTURES.courierUnavailableZipPrefix))
+          return { available: false, reason: 'Sandbox fixture: the courier does not serve this area.' };
+        return { available: true, reason: 'Sandbox courier serves this area.' };
+      },
+      async submitPayout(req) {
+        if (req.destination.holderName.includes(SANDBOX_FIXTURES.payoutDeclineWord))
+          throw new ProviderError('cash', 'Sandbox fixture: cash delivery declined by the carrier.', false, 422);
+        return { providerRef: `sbx_cash_${short(req.idempotencyKey, 16).toLowerCase()}` };
       },
     },
     email: {

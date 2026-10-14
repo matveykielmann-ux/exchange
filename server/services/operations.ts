@@ -117,10 +117,10 @@ export async function rejectOrder(ctx: AppContext, actor: Actor, orderId: string
   return getOrderRow(ctx, orderId);
 }
 
-function payoutProvider(ctx: AppContext, o: OrderRow): { key: 'bankPayout' | 'cardPayout'; provider: PayoutProvider } {
+function payoutProvider(ctx: AppContext, o: OrderRow): { key: 'bankPayout' | 'cardPayout' | 'cash'; provider: PayoutProvider } {
   if (o.payout_method === 'instant_debit') return { key: 'cardPayout', provider: ctx.providers.cardPayout };
   if (o.payout_method === 'ach' || o.payout_method === 'wire') return { key: 'bankPayout', provider: ctx.providers.bankPayout };
-  throw new ApiError(422, 'method_unavailable', `${PAYOUT_METHODS[o.payout_method].name} is not offered.`);
+  return { key: 'cash', provider: ctx.providers.cash };
 }
 
 export async function authorizePayout(ctx: AppContext, actor: Actor, orderId: string, reason: string) {
