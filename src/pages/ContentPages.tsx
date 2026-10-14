@@ -195,11 +195,6 @@ export function FeesPage() {
                 <td className="num">{formatBps(vol[1].bps)}</td>
                 <td className="num">{formatBps(stb[1].bps)}</td>
               </tr>
-              <tr>
-                <th scope="row">Large-transaction desk (optional)</th>
-                <td className="num">Quoted per request</td>
-                <td className="num">Quoted per request</td>
-              </tr>
             </tbody>
           </table>
         </div>
@@ -247,10 +242,7 @@ export function FeesPage() {
         <ul>
           <li>Minimum sale: {formatUsd(PRICING_POLICY.minimumCents)} in value.</li>
           <li>No maximum per transaction, for every payout method.</li>
-          <li>
-            Any order may be held for review before payout. For {formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })} or more, the{' '}
-            <Link to="/large-transactions">large-transaction desk</Link> can also price an order individually.
-          </li>
+          <li>Any order may be held for review before payout.</li>
         </ul>
         <h2 id="commission">Commission formula</h2>
         <p>
@@ -428,12 +420,6 @@ export function HelpPage() {
       link: 'Go to the exchange',
     },
     { title: 'Fees and limits', body: 'The full schedule, with a worked example.', to: '/fees', link: 'See fees' },
-    {
-      title: 'Large amounts',
-      body: `Selling ${formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })} or more? The desk can price it individually.`,
-      to: '/large-transactions',
-      link: 'Large transactions',
-    },
     { title: 'Account security', body: 'Two-step sign-in, sessions and scam warnings.', to: '/security', link: 'Security' },
   ];
   return (

@@ -54,8 +54,8 @@ export function HomePage() {
               <em>Before you confirm.</em>
             </h1>
             <p className="lead">
-              Send BTC, ETH, USDT or USDC and receive US dollars in your bank account, with the reference price, our spread and the payout
-              fee listed as separate lines.
+              Send BTC, ETH, USDT or USDC and receive US dollars in your bank account, with the exchange rate and the payout fee listed as
+              separate lines.
             </p>
             <div className="row hero__ctas">
               <Link className="btn btn--lg" to="/exchange">
@@ -129,9 +129,6 @@ export function HomePage() {
               <li>
                 <Icon name="check" /> Network chosen with the asset, with clear warnings
               </li>
-              <li>
-                <Icon name="check" /> An optional desk for {formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })}+
-              </li>
             </ul>
           </div>
           <div className="hero__calc">
@@ -148,7 +145,7 @@ export function HomePage() {
               Every charge on its own line.
             </h2>
             <p className="lead">
-              We list the reference price, the spread and the payout fee separately, so you can check the math yourself. How the commission
+              We list the exchange rate and the payout fee separately, so you can check the math yourself. How the commission
               is defined is set out in Section 6 of the <Link to="/legal/fees">Service Rules</Link>.
             </p>
           </div>
@@ -157,26 +154,19 @@ export function HomePage() {
               <li>
                 <span className="anatomy__num">1</span>
                 <div>
-                  <h3>Reference price</h3>
-                  <p>A market mid-price for the asset at the moment of the quote.</p>
+                  <h3>Exchange rate</h3>
+                  <p>The rate you get per coin at the moment of the quote, with our commission already included.</p>
                 </div>
               </li>
               <li>
                 <span className="anatomy__num">2</span>
-                <div>
-                  <h3>Exchange spread</h3>
-                  <p>Our margin, shown in dollars and as a percentage. It gets smaller as the amount gets larger.</p>
-                </div>
-              </li>
-              <li>
-                <span className="anatomy__num">3</span>
                 <div>
                   <h3>Payout fee</h3>
                   <p>Set by the payout method you choose. Bank transfer has no payout fee.</p>
                 </div>
               </li>
               <li>
-                <span className="anatomy__num">4</span>
+                <span className="anatomy__num">3</span>
                 <div>
                   <h3>You receive</h3>
                   <p>The exact dollar amount sent to you. The lines above always add up to it.</p>
@@ -317,31 +307,6 @@ export function HomePage() {
               );
             })}
           </ul>
-        </div>
-      </section>
-
-      <section className="band" aria-labelledby="large-title">
-        <div className="container band__grid">
-          <div className="stack">
-            <p className="eyebrow eyebrow--on-dark">Large transactions</p>
-            <h2 id="large-title" className="display-m">
-              Selling {formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })} or more?
-            </h2>
-            <p className="lead">
-              There is no maximum online. For large amounts you can also use the desk: enhanced verification, an individually negotiated
-              price, and a wire to your bank account.
-            </p>
-          </div>
-          <div className="stack band__aside">
-            <ul className="band__list">
-              <li>Request a quote with the asset, network and approximate size</li>
-              <li>Complete enhanced verification and source-of-funds review</li>
-              <li>Agree on a price, then send and receive by wire</li>
-            </ul>
-            <Link className="btn btn--lg btn--on-dark" to="/large-transactions">
-              Request a large-transaction quote
-            </Link>
-          </div>
         </div>
       </section>
 

@@ -7,7 +7,8 @@ import { EventLog, OrderProgressBar, StatusRail } from '@/components/Transaction
 import { LiveIndicator } from '@/components/chat/Chat';
 import { MockBadge, Notice, StatusBadge } from '@/components/ui';
 import { ASSETS, NETWORKS, networkLabel } from '@/domain/assets';
-import { formatUsd, formatBps } from '@/domain/money';
+import { formatUsd } from '@/domain/money';
+import { exchangeRateMicros, valueAtRateCents } from '@/domain/quote';
 import {
   canRaise,
   DEPOSIT_EXCEPTION_LABEL,
@@ -564,31 +565,31 @@ function Receipt({ order }: { order: OrderView }) {
         <dd className="tabular">{buy ? formatUsd(order.quote.grossCents) : formatAsset(order.amountAtomic, order.asset)}</dd>
       </div>
       <div>
-        <dt>Reference price</dt>
+        <dt>Exchange rate</dt>
         <dd className="tabular">
-          {formatPriceMicros(order.quote.referencePriceMicros, order.asset)} per {ASSETS[order.asset].code}
+          {formatPriceMicros(
+            exchangeRateMicros({
+              asset: order.asset,
+              amountAtomic: order.amountAtomic,
+              // A buy's rate is the cash after the courier fee per unit received; a sell's is the value after the spread.
+              grossCents: buy ? order.quote.grossCents - order.quote.payoutFeeCents : order.quote.grossCents,
+              spreadCents: buy ? 0n : order.quote.spreadCents,
+            }),
+            order.asset,
+          )}{' '}
+          per {ASSETS[order.asset].code}
         </dd>
       </div>
       {!buy ? (
         <div>
-          <dt>Value</dt>
-          <dd className="tabular">{formatUsd(order.quote.grossCents)}</dd>
+          <dt>Value at this rate</dt>
+          <dd className="tabular">{formatUsd(valueAtRateCents(order.quote))}</dd>
         </div>
       ) : null}
-      <div>
-        <dt>Exchange spread ({formatBps(order.quote.spreadBps)})</dt>
-        <dd className="tabular">−{formatUsd(order.quote.spreadCents)}</dd>
-      </div>
       <div>
         <dt>{buy ? 'Courier fee' : 'Payout fee'}</dt>
         <dd className="tabular">−{formatUsd(order.quote.payoutFeeCents)}</dd>
       </div>
-      {buy ? (
-        <div>
-          <dt>Converted to {order.asset}</dt>
-          <dd className="tabular">{formatUsd(order.quote.netCents)}</dd>
-        </div>
-      ) : null}
       <div>
         <dt>You receive</dt>
         <dd className="tabular">

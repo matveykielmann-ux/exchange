@@ -488,7 +488,7 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
         </section>
 
         <p className="small muted">
-          The spread, courier fee, minimum, quote validity and collection window shown here are the conditions of this exchange. Under
+          The exchange rate, courier fee, minimum, quote validity and collection window shown here are the conditions of this exchange. Under
           clause 4.24 of the <Link to="/legal/terms#clause-4-24">Service Rules</Link>, continuing with this Exchange Request signifies your
           agreement with them. Submitting it is acceptance of the public offer (Section 3).
         </p>

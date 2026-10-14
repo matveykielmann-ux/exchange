@@ -17,7 +17,6 @@ const NAV: { to: string; label: string; icon: IconName; min: Role; end?: boolean
   { to: '/admin', label: 'Overview', icon: 'grid', min: 'support', end: true },
   { to: '/admin/orders', label: 'Orders', icon: 'list', min: 'support' },
   { to: '/admin/inbox', label: 'Support inbox', icon: 'inbox', min: 'support' },
-  { to: '/admin/desk', label: 'Large-transaction desk', icon: 'briefcase', min: 'support' },
   { to: '/admin/audit', label: 'Audit log', icon: 'file', min: 'reviewer' },
   { to: '/admin/users', label: 'Users and roles', icon: 'users', min: 'admin' },
   { to: '/admin/system', label: 'System', icon: 'activity', min: 'admin' },

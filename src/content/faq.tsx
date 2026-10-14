@@ -128,9 +128,7 @@ export const FAQ: FaqItem[] = [
     q: 'What is the largest amount I can sell online?',
     a: (
       <p>
-        There is no maximum. The minimum is {formatUsd(PRICING_POLICY.minimumCents)}. Any order may be reviewed before payout, and for{' '}
-        {formatUsd(PRICING_POLICY.largeDeskFromCents, { whole: true })} or more you can also ask the{' '}
-        <Link to="/large-transactions">large-transaction desk</Link> for an individual price.
+        There is no maximum. The minimum is {formatUsd(PRICING_POLICY.minimumCents)}. Any order may be reviewed before payout.
       </p>
     ),
   },

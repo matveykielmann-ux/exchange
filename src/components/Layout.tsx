@@ -13,7 +13,6 @@ import { SupportLauncher } from './SupportWidget';
 
 const NAV = [
   { to: '/exchange', label: 'Sell crypto' },
-  { to: '/large-transactions', label: 'Large transactions' },
   { to: '/fees', label: 'Fees' },
   { to: '/how-it-works', label: 'How it works' },
   { to: '/security', label: 'Security' },
@@ -203,9 +202,6 @@ function SiteFooter() {
               </li>
               <li>
                 <Link to="/exchange?direction=buy">Buy crypto with cash</Link>
-              </li>
-              <li>
-                <Link to="/large-transactions">Large transactions</Link>
               </li>
               <li>
                 <Link to="/cash-delivery">Cash delivery</Link>

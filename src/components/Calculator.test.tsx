@@ -23,7 +23,8 @@ describe('<Calculator />', () => {
   it('shows an itemized, sandbox-labelled quote and enables Continue', async () => {
     renderCalc();
     expect(screen.getByText('Sandbox pricing')).toBeInTheDocument();
-    expect(await screen.findByText('Exchange spread')).toBeInTheDocument();
+    expect(await screen.findByText('Exchange rate')).toBeInTheDocument();
+    expect(screen.queryByText('Exchange spread')).not.toBeInTheDocument();
     expect(screen.getByText('Payout fee')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: /Continue/ })).toBeEnabled();
   });

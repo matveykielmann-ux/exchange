@@ -19,7 +19,6 @@ const SignUpPage = named(() => import('./pages/AuthPages'), 'SignUpPage');
 const ResetRequestPage = named(() => import('./pages/AuthPages'), 'ResetRequestPage');
 const ResetConfirmPage = named(() => import('./pages/AuthPages'), 'ResetConfirmPage');
 const SupportPage = named(() => import('./pages/SupportPage'), 'SupportPage');
-const LargeTransactionsPage = named(() => import('./pages/LargeTransactionsPage'), 'LargeTransactionsPage');
 const CashDeliveryPage = named(() => import('./pages/CashDeliveryPage'), 'CashDeliveryPage');
 const HowItWorksPage = named(() => import('./pages/ContentPages'), 'HowItWorksPage');
 const FeesPage = named(() => import('./pages/ContentPages'), 'FeesPage');
@@ -39,7 +38,6 @@ const AdminInbox = named(() => import('./admin/InboxPage'), 'InboxPage');
 const AdminUsers = named(() => import('./admin/UsersPage'), 'UsersPage');
 const AdminAudit = named(() => import('./admin/AuditPage'), 'AuditPage');
 const AdminSystem = named(() => import('./admin/SystemPage'), 'SystemPage');
-const AdminDesk = named(() => import('./admin/DeskPage'), 'DeskPage');
 const AdminSandbox = named(() => import('./admin/SandboxLabPage'), 'SandboxLabPage');
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -88,14 +86,12 @@ export function AppRoutes() {
         <Route path="users" element={<AdminUsers />} />
         <Route path="audit" element={<AdminAudit />} />
         <Route path="system" element={<AdminSystem />} />
-        <Route path="desk" element={<AdminDesk />} />
         <Route path="sandbox" element={<AdminSandbox />} />
       </Route>
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
         {/* Exchanges need an account (owner decision, 2026-10-14). The server also requires a session for firm quotes and orders. */}
         <Route path="exchange" element={auth(<ExchangePage />)} />
-        <Route path="large-transactions" element={<LargeTransactionsPage />} />
         <Route path="cash-delivery" element={<CashDeliveryPage />} />
         <Route path="how-it-works" element={<HowItWorksPage />} />
         <Route path="fees" element={<FeesPage />} />

@@ -261,3 +261,20 @@ export function verifyQuote(
 export function isQuoteExpired(quote: Pick<Quote, 'expiresAt'>, now: number): boolean {
   return now >= quote.expiresAt;
 }
+
+/**
+ * The rate the customer gets per whole unit of the asset, with the spread
+ * already applied (USD micros). The quote screens show this rate instead of a
+ * separate spread line, so the rows still reconcile: for a sell,
+ * valueAtRateCents − payoutFeeCents === netCents.
+ */
+export function exchangeRateMicros(q: Pick<Quote, 'asset' | 'amountAtomic' | 'grossCents' | 'spreadCents' | 'direction'>): Micros {
+  if (q.amountAtomic <= 0n) return 0n;
+  const usdCents = valueAtRateCents(q);
+  return (usdCents * MICROS_PER_CENT * pow10(ASSETS[q.asset].decimals)) / q.amountAtomic;
+}
+
+/** Dollar value at the customer's rate: gross minus the spread (sell); cash minus the spread for a buy. */
+export function valueAtRateCents(q: Pick<Quote, 'grossCents' | 'spreadCents'>): Cents {
+  return q.grossCents - q.spreadCents;
+}

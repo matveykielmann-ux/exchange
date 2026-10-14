@@ -1,13 +1,13 @@
 import { NETWORKS, networkLabel } from '@/domain/assets';
-import { formatBps, formatUsd } from '@/domain/money';
+import { formatUsd } from '@/domain/money';
 import { PAYOUT_METHODS, describeFee } from '@/domain/payout';
-import type { Quote } from '@/domain/quote';
+import { exchangeRateMicros, valueAtRateCents, type Quote } from '@/domain/quote';
 import { formatAsset, formatPriceMicros } from '@/lib/format';
 import { InfoHint } from './InfoHint';
 import { RollingAmount } from './RollingAmount';
 
 /**
- * The quote anatomy. Rows reconcile exactly: gross − spread − fee = net.
+ * The quote anatomy. Rows reconcile exactly: value at the customer's rate − fee = net.
  * `loading` greys the figures while a refresh is in flight.
  */
 export function QuoteBreakdown({ quote, loading = false, compact = false }: { quote: Quote; loading?: boolean; compact?: boolean }) {
@@ -29,32 +29,19 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
         <div>
           <dt>
             <span className="quote-lines__term">
-              Reference price
-              <InfoHint label="reference price">
-                The mid-market price for {quote.asset} from our price source when this quote was made. Your payout is calculated from it,
-                then the spread and payout fee below are taken off.
+              Exchange rate
+              <InfoHint label="the exchange rate">
+                The rate you get for {quote.asset} on this quote. Our commission is already included in it; the payout fee below is the only
+                other deduction.
               </InfoHint>
             </span>
-            <small>Mid-market, per {quote.asset}</small>
+            <small>Per {quote.asset}</small>
           </dt>
-          <dd className={sk}>{formatPriceMicros(quote.referencePriceMicros, quote.asset)}</dd>
+          <dd className={sk}>{formatPriceMicros(exchangeRateMicros(quote), quote.asset)}</dd>
         </div>
         <div>
-          <dt>Value at reference price</dt>
-          <dd className={sk}>{formatUsd(quote.grossCents)}</dd>
-        </div>
-        <div className="is-deduction">
-          <dt>
-            <span className="quote-lines__term">
-              Exchange spread
-              <InfoHint label="the exchange spread">
-                The difference between the reference price and the rate you get, shown as a dollar amount so you can see exactly what it
-                costs. There is no separate trading fee.
-              </InfoHint>
-            </span>
-            <small>{formatBps(quote.spreadBps)} of value</small>
-          </dt>
-          <dd className={sk}>{formatUsd(-quote.spreadCents)}</dd>
+          <dt>Value at this rate</dt>
+          <dd className={sk}>{formatUsd(valueAtRateCents(quote))}</dd>
         </div>
         <div className="is-deduction">
           <dt>
@@ -85,8 +72,8 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
 }
 
 /**
- * Buy quote (cash → crypto): cash paid − spread − courier fee = dollars
- * converted at the reference price into the crypto the customer receives.
+ * Buy quote (cash → crypto): cash paid − courier fee, converted at the
+ * customer's rate (commission included) into the crypto they receive.
  */
 export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; loading?: boolean }) {
   const method = PAYOUT_METHODS[quote.payoutMethod];
@@ -104,18 +91,6 @@ export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; lo
         <div className="is-deduction">
           <dt>
             <span className="quote-lines__term">
-              Exchange spread
-              <InfoHint label="the exchange spread">
-                The difference between the reference price and the rate you get, shown as a dollar amount. There is no separate trading fee.
-              </InfoHint>
-            </span>
-            <small>{formatBps(quote.spreadBps)} of cash</small>
-          </dt>
-          <dd className={sk}>{formatUsd(-quote.spreadCents)}</dd>
-        </div>
-        <div className="is-deduction">
-          <dt>
-            <span className="quote-lines__term">
               Courier fee
               <InfoHint label="the courier fee">
                 {method.name}: {describeFee(method.fee)}.
@@ -126,15 +101,11 @@ export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; lo
           <dd className={sk}>{formatUsd(-quote.payoutFeeCents)}</dd>
         </div>
         <div>
-          <dt>Converted to {quote.asset}</dt>
-          <dd className={sk}>{formatUsd(quote.netCents < 0n ? 0n : quote.netCents)}</dd>
-        </div>
-        <div>
           <dt>
-            Reference price
-            <small>Mid-market, per {quote.asset}</small>
+            Exchange rate
+            <small>Per {quote.asset}, commission included</small>
           </dt>
-          <dd className={sk}>{formatPriceMicros(quote.referencePriceMicros, quote.asset)}</dd>
+          <dd className={sk}>{formatPriceMicros(buyRateMicros(quote), quote.asset)}</dd>
         </div>
       </dl>
       <div className="quote-total">
@@ -146,4 +117,9 @@ export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; lo
       </p>
     </div>
   );
+}
+
+/** Buy: dollars paid after the courier fee, per whole unit of crypto received (commission included). */
+function buyRateMicros(quote: Quote) {
+  return exchangeRateMicros({ ...quote, grossCents: quote.grossCents - quote.payoutFeeCents, spreadCents: 0n });
 }
