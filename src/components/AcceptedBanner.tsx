@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { SUPPORT } from '@/config/brand';
 import { Icon } from './Icon';
+import { t } from '@/i18n';
 
 /**
  * Shown once, right after an order is created. It confirms the request was
@@ -14,22 +15,22 @@ export function AcceptedBanner({ reference, detailsId }: { reference: string; de
       </span>
       <div>
         <p id="accepted-title" className="accepted-banner__title">
-          Request accepted
+          {t('Request accepted')}
         </p>
         <p>
-          Order <span className="mono">{reference}</span>. Follow its status in your account. To reach a manager, use Telegram or the
-          messages on this site.
+          {t('Order')} <span className="mono">{reference}</span>
+          {t('. Follow its status in your account. To reach a manager, use Telegram or the messages on this site.')}
         </p>
         <div className="accepted-banner__actions">
           <a className="btn" href={SUPPORT.telegramUrl} target="_blank" rel="noopener noreferrer">
-            <Icon name="send" width={16} height={16} /> Contact us on Telegram
-            <span className="visually-hidden"> (opens in a new tab)</span>
+            <Icon name="send" width={16} height={16} /> {t('Contact us on Telegram')}
+            <span className="visually-hidden"> {t('(opens in a new tab)')}</span>
           </a>
           <a className="btn btn--secondary" href={`#${detailsId}`}>
-            Open the order
+            {t('Open the order')}
           </a>
           <Link className="btn btn--secondary" to="/account">
-            Go to your account
+            {t('Go to your account')}
           </Link>
         </div>
       </div>

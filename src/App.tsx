@@ -4,6 +4,7 @@ import { Layout } from './components/Layout';
 import { HomePage } from './pages/HomePage';
 import { isStaff, useUser } from './state/auth';
 import { DraftProvider } from './state/draft';
+import { LanguageRoot } from './i18n/react';
 import { ServicesProvider } from './state/services';
 import type { Services } from './services/types';
 
@@ -127,7 +128,9 @@ export function App({ services }: { services: Services }) {
     <ServicesProvider services={services}>
       <DraftProvider>
         <BrowserRouter>
-          <AppRoutes />
+          <LanguageRoot>
+            <AppRoutes />
+          </LanguageRoot>
         </BrowserRouter>
       </DraftProvider>
     </ServicesProvider>

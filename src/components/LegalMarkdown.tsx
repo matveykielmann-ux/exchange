@@ -2,6 +2,7 @@ import { createElement, Fragment, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { headingRanks, inlineText, type MdBlock, type MdInline } from '@/content/legal/markdown';
 import { rulesExcerpt } from '@/content/legal/rules';
+import { t } from '@/i18n';
 
 /** Internal links ("/en/privacy-policy") stay in the app; anything with a scheme opens in a new tab. */
 function MdLink({ href, children }: { href: string; children: ReactNode }) {
@@ -9,7 +10,7 @@ function MdLink({ href, children }: { href: string; children: ReactNode }) {
   return (
     <a href={href} target="_blank" rel="noopener noreferrer">
       {children}
-      <span className="visually-hidden"> (opens in a new tab)</span>
+      <span className="visually-hidden"> {t('(opens in a new tab)')}</span>
     </a>
   );
 }
@@ -125,11 +126,11 @@ export function RulesQuote({ refs }: { refs: string[] }) {
     <figure className="rules-quote">
       <blockquote cite="/legal/terms">
         {parts.map((p) => (
-          <LegalMarkdown key={p.ref} blocks={p.blocks} label={`Service Rules, ${p.label}`} anchors={false} />
+          <LegalMarkdown key={p.ref} blocks={p.blocks} label={t('Service Rules, {0}', [p.label])} anchors={false} />
         ))}
       </blockquote>
       <figcaption>
-        Service Rules,{' '}
+        {t('Service Rules,')}{' '}
         {parts.map((p, i) => (
           <Fragment key={p.ref}>
             {i > 0 ? (i === parts.length - 1 ? ' and ' : ', ') : null}

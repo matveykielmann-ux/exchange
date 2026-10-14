@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { t, tNode } from '@/i18n';
 import { Icon } from './Icon';
 
 export interface FieldRenderProps {
@@ -34,18 +35,18 @@ export function Field({
   return (
     <div className={`field ${className ?? ''}`}>
       <label className="field__label" htmlFor={id}>
-        {label}
+        {tNode(label)}
       </label>
       {children({ id, 'aria-describedby': describedBy, 'aria-invalid': error ? true : undefined })}
       {error ? (
         <p className="field__error" id={errorId!}>
           <Icon name="alert" />
-          <span>{error}</span>
+          <span>{t(error)}</span>
         </p>
       ) : null}
       {hint ? (
         <p className="field__hint" id={hintId!}>
-          {hint}
+          {tNode(hint)}
         </p>
       ) : null}
     </div>
@@ -65,11 +66,11 @@ export function ErrorSummary({ errors, title = 'Fix the following to continue' }
   if (!entries.length) return null;
   return (
     <div className="error-summary" role="alert" tabIndex={-1} ref={ref}>
-      <h2>{title}</h2>
+      <h2>{t(title)}</h2>
       <ul>
         {entries.map(([fieldId, message]) => (
           <li key={fieldId}>
-            <a href={`#${fieldId}`}>{message}</a>
+            <a href={`#${fieldId}`}>{t(message)}</a>
           </li>
         ))}
       </ul>

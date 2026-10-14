@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { FieldRenderProps } from './Field';
+import { tNode } from '@/i18n';
 
 export interface Choice<T extends string> {
   value: T;
@@ -33,8 +34,8 @@ export function ChoiceSelect<T extends string>({
       <SelectContent position="popper" className="choice-select__content">
         {choices.map((c) => (
           <SelectItem key={c.value} value={c.value} disabled={c.disabled} className="choice-select__item">
-            <span className="choice-select__label">{c.label}</span>
-            {c.detail ? <span className="choice-select__detail">{c.detail}</span> : null}
+            <span className="choice-select__label">{tNode(c.label)}</span>
+            {c.detail ? <span className="choice-select__detail">{tNode(c.detail)}</span> : null}
           </SelectItem>
         ))}
       </SelectContent>

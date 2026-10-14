@@ -10,6 +10,7 @@ import { Notice } from '../ui';
 import { ChatComposer, ChatMessages, LiveIndicator, MAX_MESSAGE } from './Chat';
 import { CONVERSATION_STATUS_LABEL } from './conversations';
 import { useChatThread } from './useChatThread';
+import { t } from '@/i18n';
 
 export function ConversationList({
   list,
@@ -20,7 +21,7 @@ export function ConversationList({
   activeId?: string | null;
   onOpen(id: string): void;
 }) {
-  if (!list.length) return <p className="muted small">No conversations yet.</p>;
+  if (!list.length) return <p className="muted small">{t('No conversations yet.')}</p>;
   return (
     <ul className="conv-list">
       {list.map((c) => (
@@ -40,11 +41,15 @@ export function ConversationList({
               ) : null}
             </span>
             <span className="conv-item__preview">
-              {c.lastMessage ? `${c.lastMessage.authorKind === 'customer' ? 'You: ' : ''}${c.lastMessage.body}` : 'No messages'}
+              {c.lastMessage ? `${c.lastMessage.authorKind === 'customer' ? 'You: ' : ''}${c.lastMessage.body}` : t('No messages')}
             </span>
             <span className="conv-item__meta">
-              <span>{CONVERSATION_STATUS_LABEL[c.status]}</span>
-              {c.order ? <span>Order {c.order.reference}</span> : null}
+              <span>{t(CONVERSATION_STATUS_LABEL[c.status])}</span>
+              {c.order ? (
+                <span>
+                  {t('Order')} {c.order.reference}
+                </span>
+              ) : null}
               <time dateTime={new Date(c.lastMessageAt).toISOString()}>{formatDateTime(c.lastMessageAt)}</time>
             </span>
           </button>
@@ -57,50 +62,50 @@ export function ConversationList({
 /** One conversation with the support team: history, live updates and the message box. */
 export function CustomerThread({ id, compact = false }: { id: string; compact?: boolean }) {
   const { support } = useServices();
-  const t = useChatThread<Conversation>(id, {
+  const thread = useChatThread<Conversation>(id, {
     load: (cid) => support.get(cid),
     send: (cid, body, cmid) => support.send(cid, body, cmid),
     markRead: (cid) => support.markRead(cid),
   });
-  if (t.loadError && !t.conversation)
+  if (thread.loadError && !thread.conversation)
     return (
-      <Notice tone="danger" title="This conversation could not be loaded." role="alert">
-        {t.loadError}
+      <Notice tone="danger" title={t('This conversation could not be loaded.')} role="alert">
+        {thread.loadError}
       </Notice>
     );
-  if (!t.conversation) return <p className="muted">Loading conversation…</p>;
-  const c = t.conversation;
+  if (!thread.conversation) return <p className="muted">{t('Loading conversation…')}</p>;
+  const c = thread.conversation;
   return (
     <div className={`chat ${compact ? 'chat--compact' : ''}`}>
       <div className="chat__head">
         <div>
           <h2 className="title chat__subject">{c.subject}</h2>
           <p className="small muted">
-            {CONVERSATION_STATUS_LABEL[c.status]}
+            {t(CONVERSATION_STATUS_LABEL[c.status])}
             {c.order ? (
               <>
                 {' · '}
                 <Link to={`/orders/${c.order.id}`}>
-                  Order {c.order.reference} ({ORDER_STATUS_LABEL[c.order.status]})
+                  {t('Order')} {c.order.reference} ({t(ORDER_STATUS_LABEL[c.order.status])})
                 </Link>
               </>
             ) : null}
           </p>
         </div>
-        <LiveIndicator state={t.live} />
+        <LiveIndicator state={thread.live} />
       </div>
       <ChatMessages
         messages={c.messages}
-        pending={t.pending}
+        pending={thread.pending}
         viewer="customer"
-        firstUnreadId={t.firstUnreadId}
-        onRetry={t.retry}
-        onDiscard={t.discard}
+        firstUnreadId={thread.firstUnreadId}
+        onRetry={thread.retry}
+        onDiscard={thread.discard}
       />
       {c.status === 'resolved' ? (
-        <p className="small muted chat__note">This conversation is resolved. Sending a message reopens it.</p>
+        <p className="small muted chat__note">{t('This conversation is resolved. Sending a message reopens it.')}</p>
       ) : null}
-      <ChatComposer onSend={(body) => t.send(body)} />
+      <ChatComposer onSend={(body) => thread.send(body)} />
     </div>
   );
 }
@@ -139,7 +144,7 @@ export function NewConversationForm({
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!subject.trim() || !body.trim()) {
-      setError('Add a subject and a message.');
+      setError(t('Add a subject and a message.'));
       return;
     }
     setBusy(true);
@@ -162,26 +167,26 @@ export function NewConversationForm({
     <form className="stack" onSubmit={submit} noValidate>
       <div className="field">
         <label className="field__label" htmlFor={`${prefix}-subject`}>
-          Subject
+          {t('Subject')}
         </label>
         <input id={`${prefix}-subject`} className="input" maxLength={140} value={subject} onChange={(e) => setSubject(e.target.value)} />
       </div>
       <div className="field">
         <label className="field__label" htmlFor={`${prefix}-order`}>
-          About an order (optional)
+          {t('About an order (optional)')}
         </label>
         <select id={`${prefix}-order`} className="select" value={orderId} onChange={(e) => setOrderId(e.target.value)}>
-          <option value="">Not about a specific order</option>
+          <option value="">{t('Not about a specific order')}</option>
           {recent.map((o) => (
             <option key={o.id} value={o.id}>
-              {o.reference} · {ORDER_STATUS_LABEL[o.status]}
+              {o.reference} · {t(ORDER_STATUS_LABEL[o.status])}
             </option>
           ))}
         </select>
       </div>
       <div className="field">
         <label className="field__label" htmlFor={`${prefix}-body`}>
-          Message
+          {t('Message')}
         </label>
         <textarea
           id={`${prefix}-body`}
@@ -191,7 +196,7 @@ export function NewConversationForm({
           value={body}
           onChange={(e) => setBody(e.target.value)}
         />
-        <p className="field__hint">Never share passwords, seed phrases, private keys or full card numbers.</p>
+        <p className="field__hint">{t('Never share passwords, seed phrases, private keys or full card numbers.')}</p>
       </div>
       {error ? (
         <p className="field__error" role="alert">
@@ -200,7 +205,7 @@ export function NewConversationForm({
       ) : null}
       <div>
         <button type="submit" className="btn" disabled={busy}>
-          {busy ? 'Sending…' : 'Send to support'}
+          {busy ? t('Sending…') : t('Send to support')}
         </button>
       </div>
     </form>

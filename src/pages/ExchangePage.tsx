@@ -32,12 +32,13 @@ import { useExpired } from '@/lib/useExpired';
 import { clientId } from '@/services/http';
 import type { QuoteData } from '@/services/types';
 import { useConfig } from '@/state/config';
+import { t } from '@/i18n';
 
 const STEPS = ['Amount', 'Payout', 'Details', 'Review'] as const;
 
 function Stepper({ current }: { current: number }) {
   return (
-    <ol className="stepper" aria-label="Exchange progress">
+    <ol className="stepper" aria-label={t('Exchange progress')}>
       {STEPS.map((label, i) => {
         const n = i + 1;
         const state = n < current ? 'done' : n === current ? 'current' : 'upcoming';
@@ -48,7 +49,7 @@ function Stepper({ current }: { current: number }) {
                 {state === 'done' ? <Icon name="check" /> : n}
               </span>
               <span className="stepper__text">{label}</span>
-              {state === 'done' ? <span className="visually-hidden">(completed)</span> : null}
+              {state === 'done' ? <span className="visually-hidden">{t('(completed)')}</span> : null}
             </span>
           </li>
         );
@@ -75,7 +76,7 @@ function AmountStep({ state, onNext }: { state: QuoteState; onNext: () => void }
       }}
       noValidate
     >
-      <h2 className="flow__step-title">What are you selling?</h2>
+      <h2 className="flow__step-title">{t('What are you selling?')}</h2>
       <AssetNetworkFields
         idPrefix="ex"
         asset={draft.asset}
@@ -92,15 +93,17 @@ function AmountStep({ state, onNext }: { state: QuoteState; onNext: () => void }
         onBlur={() => setTouched(true)}
       />
       {ASSETS[draft.asset].networks.length > 1 ? (
-        <Notice tone="warn" title={`Send only on ${networkLabel(draft.asset, draft.network)}`}>
-          <p>{draft.asset} sent on any other network may be lost. Check the network your wallet or exchange uses before you continue.</p>
+        <Notice tone="warn" title={t('Send only on {0}', [networkLabel(draft.asset, draft.network)])}>
+          <p>
+            {draft.asset} {t('sent on any other network may be lost. Check the network your wallet or exchange uses before you continue.')}
+          </p>
         </Notice>
       ) : null}
       <div aria-live="polite">{data ? <QuoteIssues issues={issues} asset={draft.asset} /> : null}</div>
       <div className="flow__actions">
         <span />
         <button className="btn btn--lg" type="submit" disabled={!ready}>
-          Continue to payout <Icon name="arrowRight" width={18} height={18} />
+          {t('Continue to payout')} <Icon name="arrowRight" width={18} height={18} />
         </button>
       </div>
     </form>
@@ -123,7 +126,7 @@ function PayoutStep({ grossCents, onBack, onNext }: { grossCents: bigint | null;
     >
       <fieldset className="option-list">
         <legend>
-          <h2 className="flow__step-title">How do you want to receive dollars?</h2>
+          <h2 className="flow__step-title">{t('How do you want to receive dollars?')}</h2>
         </legend>
         {options.map(({ method: m, eligibility, feeCents }) => {
           const disabled = !eligibility.eligible;
@@ -141,18 +144,18 @@ function PayoutStep({ grossCents, onBack, onNext }: { grossCents: bigint | null;
                 onChange={() => update({ payoutMethod: m.id, destinationId: null })}
               />
               <span>
-                <span className="option__title">{m.name}</span>
+                <span className="option__title">{t(m.name)}</span>
                 <span className="option__meta" id={`${inputId}-desc`} style={{ display: 'block' }}>
-                  {eligibility.eligible ? `${m.timingEstimate}. ${m.summary}` : eligibility.reason}
+                  {eligibility.eligible ? `${t(m.timingEstimate)}. ${t(m.summary)}` : t(eligibility.reason)}
                 </span>
               </span>
               <span className="option__aside">
                 {disabled ? (
-                  <span className="badge badge--neutral">{m.availability.available ? 'Not eligible' : 'Not offered'}</span>
+                  <span className="badge badge--neutral">{m.availability.available ? t('Not eligible') : t('Not offered')}</span>
                 ) : (
                   <>
                     <strong>{feeLabel(feeCents)}</strong>
-                    {m.fee.kind === 'percent' ? describeFee(m.fee) : null}
+                    {m.fee.kind === 'percent' ? t(describeFee(m.fee)) : null}
                   </>
                 )}
               </span>
@@ -161,15 +164,15 @@ function PayoutStep({ grossCents, onBack, onNext }: { grossCents: bigint | null;
         })}
       </fieldset>
       <p className="small muted">
-        Timing is estimated from when your deposit is final and any review is complete. It is not guaranteed. For{' '}
-        <Link to="/cash-delivery">cash by courier</Link> you give a delivery address in the next step.
+        {t('Timing is estimated from when your deposit is final and any review is complete. It is not guaranteed. For')}{' '}
+        <Link to="/cash-delivery">{t('cash by courier')}</Link> {t('you give a delivery address in the next step.')}
       </p>
       <div className="flow__actions">
         <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
-          <Icon name="arrowLeft" width={18} height={18} /> Back
+          <Icon name="arrowLeft" width={18} height={18} /> {t('Back')}
         </button>
         <button className="btn btn--lg" type="submit" disabled={!selectedOk}>
-          Continue to details <Icon name="arrowRight" width={18} height={18} />
+          {t('Continue to details')} <Icon name="arrowRight" width={18} height={18} />
         </button>
       </div>
     </form>
@@ -192,19 +195,19 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
   if (!user) {
     return (
       <div className="flow__main">
-        <h2 className="flow__step-title">Sign in to continue</h2>
-        <p>You need an account to save a payout destination and confirm an exchange. Your amount and choices are kept.</p>
+        <h2 className="flow__step-title">{t('Sign in to continue')}</h2>
+        <p>{t('You need an account to save a payout destination and confirm an exchange. Your amount and choices are kept.')}</p>
         <div className="row">
           <Link className="btn btn--lg" to="/signin" state={{ from: '/exchange' }}>
-            Sign in
+            {t('Sign in')}
           </Link>
           <Link className="btn btn--lg btn--secondary" to="/signup" state={{ from: '/exchange' }}>
-            Create an account
+            {t('Create an account')}
           </Link>
         </div>
         <div className="flow__actions">
           <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
-            <Icon name="arrowLeft" width={18} height={18} /> Back
+            <Icon name="arrowLeft" width={18} height={18} /> {t('Back')}
           </button>
         </div>
       </div>
@@ -233,20 +236,20 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
       }}
     >
       <h2 className="flow__step-title">
-        {draft.payoutMethod === 'courier_cash' ? 'Where should the courier bring it?' : 'Where should we send it?'}
+        {draft.payoutMethod === 'courier_cash' ? t('Where should the courier bring it?') : t('Where should we send it?')}
       </h2>
 
       <fieldset className="option-list">
         <legend className="field__label">
-          {draft.payoutMethod === 'courier_cash' ? 'Delivery address' : `${method.name} destination`}
+          {draft.payoutMethod === 'courier_cash' ? t('Delivery address') : `${t(method.name)} destination`}
         </legend>
         {destinations === null ? (
-          <p className="muted">Loading saved destinations…</p>
+          <p className="muted">{t('Loading saved destinations…')}</p>
         ) : usable.length === 0 ? (
           <p className="muted">
             {draft.payoutMethod === 'courier_cash'
-              ? 'No saved delivery addresses yet. Add one below.'
-              : `No saved destinations can receive ${method.name} payouts yet.`}
+              ? t('No saved delivery addresses yet. Add one below.')
+              : t('No saved destinations can receive {0} payouts yet.', [t(method.name)])}
           </p>
         ) : (
           usable.map((d, i) => (
@@ -280,11 +283,16 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
       {draft.payoutMethod === 'instant_debit' ? (
         usable.length === 0 ? (
           <div className="stack">
-            <Notice tone="neutral" title={sandbox ? 'Sandbox: a test card is added for you' : 'Cards are added through our card provider'}>
+            <Notice
+              tone="neutral"
+              title={sandbox ? t('Sandbox: a test card is added for you') : t('Cards are added through our card provider')}
+            >
               <p>
                 {sandbox
-                  ? 'The sandbox adds a test debit card. No card number is entered.'
-                  : 'Card numbers are entered only in the card provider’s secure form, never on this site. The security code (CVV) is never stored.'}
+                  ? t('The sandbox adds a test debit card. No card number is entered.')
+                  : t(
+                      'Card numbers are entered only in the card provider’s secure form, never on this site. The security code (CVV) is never stored.',
+                    )}
               </p>
             </Notice>
             {cardError ? <Notice tone={cardError.notConfigured ? 'warn' : 'danger'} title={cardError.message} role="alert" /> : null}
@@ -303,7 +311,7 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
                   } catch (e) {
                     setCardError(
                       isNotConfigured(e)
-                        ? { message: 'Card payouts are not available yet: the card provider is not connected.', notConfigured: true }
+                        ? { message: t('Card payouts are not available yet: the card provider is not connected.'), notConfigured: true }
                         : { message: errorMessage(e), notConfigured: false },
                     );
                   } finally {
@@ -311,7 +319,7 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
                   }
                 }}
               >
-                {addingCard ? 'Adding…' : sandbox ? 'Add test debit card' : 'Add a debit card'}
+                {addingCard ? t('Adding…') : sandbox ? t('Add test debit card') : t('Add a debit card')}
               </button>
             </div>
           </div>
@@ -329,7 +337,7 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
         ) : (
           <div>
             <button type="button" className="btn btn--secondary" onClick={() => setAdding(true)}>
-              Add a delivery address
+              {t('Add a delivery address')}
             </button>
           </div>
         )
@@ -344,16 +352,19 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
       ) : (
         <div>
           <button type="button" className="btn btn--secondary" onClick={() => setAdding(true)}>
-            Add a bank account
+            {t('Add a bank account')}
           </button>
         </div>
       )}
 
       <Field
-        label={`Refund address (${NETWORKS[draft.network].name})`}
+        label={t('Refund address ({0})', [NETWORKS[draft.network].name])}
         id="refund-address"
         error={refundError}
-        hint={`If we can't complete the exchange, we return your ${draft.asset} here. It must be a ${networkLabel(draft.asset, draft.network)} address you control.`}
+        hint={t("If we can't complete the exchange, we return your {0} here. It must be a {1} address you control.", [
+          draft.asset,
+          networkLabel(draft.asset, draft.network),
+        ])}
       >
         {(p) => (
           <input
@@ -371,10 +382,10 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
 
       <div className="flow__actions">
         <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
-          <Icon name="arrowLeft" width={18} height={18} /> Back
+          <Icon name="arrowLeft" width={18} height={18} /> {t('Back')}
         </button>
         <button className="btn btn--lg" type="submit">
-          Review quote <Icon name="arrowRight" width={18} height={18} />
+          {t('Review quote')} <Icon name="arrowRight" width={18} height={18} />
         </button>
       </div>
     </form>
@@ -473,20 +484,20 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
     <div className="flow__grid">
       <div className="flow__main">
         <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h2 className="flow__step-title">Review and confirm</h2>
-          <MockBadge label="Sandbox quote" />
+          <h2 className="flow__step-title">{t('Review and confirm')}</h2>
+          <MockBadge label={t('Sandbox quote')} />
         </div>
 
         <KycNotice />
 
         <section className="panel" aria-labelledby="locked-title">
           <div className="panel__head">
-            <h3 id="locked-title">Your quote</h3>
+            <h3 id="locked-title">{t('Your quote')}</h3>
             {locked && !expired ? (
               <span className="small rate-hold">
                 <RateRing from={locked.quote.createdAt} to={locked.quote.expiresAt} />
                 <span>
-                  Rate held · <Countdown to={locked.quote.expiresAt} prefix="Expires in" ended="Expired" />
+                  {t('Rate held ·')} <Countdown to={locked.quote.expiresAt} prefix={t('Expires in')} ended={t('Expired')} />
                 </span>
               </span>
             ) : null}
@@ -498,11 +509,11 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
                 <QuoteIssues issues={locked.issues} asset={locked.quote.asset} />
               </>
             ) : firm.error ? (
-              <Notice tone="warn" title="We couldn’t lock a quote" role="alert">
+              <Notice tone="warn" title={t('We couldn’t lock a quote')} role="alert">
                 <p>{firm.error}</p>
                 <div>
                   <button type="button" className="btn btn--secondary" onClick={firm.refresh}>
-                    <Icon name="refresh" width={16} height={16} /> Try again
+                    <Icon name="refresh" width={16} height={16} /> {t('Try again')}
                   </button>
                 </div>
               </Notice>
@@ -511,11 +522,11 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
             )}
             <div aria-live="assertive">
               {expired ? (
-                <Notice tone="warn" title="This quote has expired">
-                  <p>Prices move. Get a new quote to continue. Nothing has been submitted.</p>
+                <Notice tone="warn" title={t('This quote has expired')}>
+                  <p>{t('Prices move. Get a new quote to continue. Nothing has been submitted.')}</p>
                   <div>
                     <button type="button" className="btn btn--secondary" onClick={firm.refresh}>
-                      <Icon name="refresh" width={16} height={16} /> Get a new quote
+                      <Icon name="refresh" width={16} height={16} /> {t('Get a new quote')}
                     </button>
                   </div>
                 </Notice>
@@ -525,19 +536,25 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
         </section>
 
         <p className="small muted">
-          The exchange rate, payout fee, minimum, quote validity and deposit window shown here are the conditions of this exchange. Under
-          clause 4.24 of the <Link to="/legal/terms#clause-4-24">Service Rules</Link>, continuing with this Exchange Request signifies your
-          agreement with them. Submitting it is acceptance of the public offer (Section 3).
+          {t(
+            'The exchange rate, payout fee, minimum, quote validity and deposit window shown here are the conditions of this exchange. Under clause 4.24 of the',
+          )}{' '}
+          <Link to="/legal/terms#clause-4-24">{t('Service Rules')}</Link>
+          {t(
+            ', continuing with this Exchange Request signifies your agreement with them. Submitting it is acceptance of the public offer (Section 3).',
+          )}
         </p>
         <fieldset className="stack" style={{ border: 0, padding: 0, margin: 0 }}>
-          <legend className="visually-hidden">Acknowledgements</legend>
+          <legend className="visually-hidden">{t('Acknowledgements')}</legend>
           <Checkbox id="ack-network" checked={ackNetwork} onChange={setAckNetwork}>
-            I will send exactly {locked ? formatAsset(locked.quote.amountAtomic, locked.quote.asset) : draft.asset} on{' '}
-            <strong>{networkLabel(draft.asset, draft.network)}</strong>, from a wallet I control, within the deposit window. Blockchain
-            transactions can’t be reversed, and nobody from this service will ever ask me to send crypto on their behalf.
+            {t('I will send exactly')} {locked ? formatAsset(locked.quote.amountAtomic, locked.quote.asset) : draft.asset} {t('on')}{' '}
+            <strong>{networkLabel(draft.asset, draft.network)}</strong>
+            {t(
+              ', from a wallet I control, within the deposit window. Blockchain transactions can’t be reversed, and nobody from this service will ever ask me to send crypto on their behalf.',
+            )}
           </Checkbox>
           <Checkbox id="ack-docs" checked={ackDocs} onChange={setAckDocs}>
-            I have read and accept the{' '}
+            {t('I have read and accept the')}{' '}
             {orderDocs.map((d, i) => (
               <span key={d.slug}>
                 {i > 0 ? (i === orderDocs.length - 1 ? ' and ' : ', ') : null}
@@ -546,7 +563,7 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
                 </Link>
               </span>
             ))}{' '}
-            for this order.
+            {t('for this order.')}
           </Checkbox>
         </fieldset>
 
@@ -554,46 +571,48 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
 
         <div className="flow__actions">
           <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
-            <Icon name="arrowLeft" width={18} height={18} /> Back
+            <Icon name="arrowLeft" width={18} height={18} /> {t('Back')}
           </button>
           <HoldButton disabled={!canConfirm} onConfirm={confirm}>
-            {submitting ? 'Confirming…' : 'Confirm exchange'}
+            {submitting ? t('Confirming…') : t('Confirm exchange')}
           </HoldButton>
         </div>
         {!canConfirm && locked && !expired ? (
           <p className="small muted" style={{ textAlign: 'right' }}>
-            {!verified ? 'Verify your identity, then ' : ''}
-            {!ackNetwork || !ackDocs ? 'tick both boxes to confirm.' : ''}
+            {!verified ? t('Verify your identity, then ') : ''}
+            {!ackNetwork || !ackDocs ? t('tick both boxes to confirm.') : ''}
           </p>
         ) : null}
       </div>
-      <aside className="flow__aside flow__aside--after" aria-label="Exchange details">
+      <aside className="flow__aside flow__aside--after" aria-label={t('Exchange details')}>
         <div className="panel">
           <div className="panel__head">
-            <h3 className="title">Exchange details</h3>
+            <h3 className="title">{t('Exchange details')}</h3>
           </div>
           <div className="panel__body">
             <dl className="dl">
               <div>
-                <dt>Payout to</dt>
+                <dt>{t('Payout to')}</dt>
                 <dd>{destination ? destinationLabel(destination.label, destination.last4) : '—'}</dd>
               </div>
               <div>
-                <dt>Payout method</dt>
+                <dt>{t('Payout method')}</dt>
                 <dd>
-                  {PAYOUT_METHODS[draft.payoutMethod].name}
+                  {t(PAYOUT_METHODS[draft.payoutMethod].name)}
                   <span className="small muted" style={{ display: 'block' }}>
-                    {PAYOUT_METHODS[draft.payoutMethod].timingEstimate}
+                    {t(PAYOUT_METHODS[draft.payoutMethod].timingEstimate)}
                   </span>
                 </dd>
               </div>
               <div>
-                <dt>Refund address</dt>
+                <dt>{t('Refund address')}</dt>
                 <dd className="mono">{draft.refundAddress}</dd>
               </div>
               <div>
-                <dt>Deposit window</dt>
-                <dd>{config.policy.depositWindowMs / 60000} minutes after you confirm</dd>
+                <dt>{t('Deposit window')}</dt>
+                <dd>
+                  {config.policy.depositWindowMs / 60000} {t('minutes after you confirm')}
+                </dd>
               </div>
             </dl>
           </div>
@@ -609,12 +628,12 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
 /** Sell (crypto → USD) or buy (cash → crypto). The choice lives in the URL so a refresh or a shared link keeps it. */
 function DirectionSwitch({ value, onChange }: { value: 'sell' | 'buy'; onChange: (v: 'sell' | 'buy') => void }) {
   return (
-    <div className="segmented direction-switch" role="group" aria-label="Exchange direction">
+    <div className="segmented direction-switch" role="group" aria-label={t('Exchange direction')}>
       <button type="button" aria-pressed={value === 'sell'} onClick={() => onChange('sell')}>
-        Sell crypto for USD
+        {t('Sell crypto for USD')}
       </button>
       <button type="button" aria-pressed={value === 'buy'} onClick={() => onChange('buy')}>
-        Buy crypto with cash
+        {t('Buy crypto with cash')}
       </button>
     </div>
   );
@@ -627,8 +646,8 @@ export function ExchangePage() {
   const header = (
     <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
       <div className="stack" style={{ gap: 6 }}>
-        <p className="eyebrow">{direction === 'buy' ? 'Buy crypto with US dollar cash' : 'Sell crypto for USD'}</p>
-        <h1 className="display-l">Exchange</h1>
+        <p className="eyebrow">{direction === 'buy' ? t('Buy crypto with US dollar cash') : t('Sell crypto for USD')}</p>
+        <h1 className="display-l">{t('Exchange')}</h1>
       </div>
       <DirectionSwitch value={direction} onChange={(d) => setParams(d === 'buy' ? { direction: 'buy' } : {}, { replace: true })} />
     </div>
@@ -683,17 +702,17 @@ function SellFlow({ header }: { header: ReactNode }) {
             {step === 2 && <PayoutStep grossCents={data?.quote.grossCents ?? null} onBack={() => go(1)} onNext={() => go(3)} />}
             {step === 3 && <DetailsStep onBack={() => go(2)} onNext={() => go(4)} />}
           </div>
-          <aside className="flow__aside" aria-label="Quote summary">
+          <aside className="flow__aside" aria-label={t('Quote summary')}>
             {data ? (
               <div className="summary-bar" aria-hidden="true">
-                <span className="small">You receive (indicative)</span>
+                <span className="small">{t('You receive (indicative)')}</span>
                 <strong>{formatUsd(data.quote.netCents < 0n ? 0n : data.quote.netCents)}</strong>
               </div>
             ) : null}
             <div className="panel flow__aside--hide-mobile">
               <div className="panel__head">
-                <h2 className="title">Indicative quote</h2>
-                <MockBadge label="Sandbox pricing" />
+                <h2 className="title">{t('Indicative quote')}</h2>
+                <MockBadge label={t('Sandbox pricing')} />
               </div>
               <div className="panel__body">
                 {data ? (
@@ -701,10 +720,10 @@ function SellFlow({ header }: { header: ReactNode }) {
                 ) : state.status === 'loading' ? (
                   <QuoteSkeleton rows={5} />
                 ) : (
-                  <p className="muted small">Enter an amount to see the breakdown.</p>
+                  <p className="muted small">{t('Enter an amount to see the breakdown.')}</p>
                 )}
                 <p className="quote-meta">
-                  <span>Final quote is locked on the review step.</span>
+                  <span>{t('Final quote is locked on the review step.')}</span>
                 </p>
               </div>
             </div>

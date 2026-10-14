@@ -12,6 +12,8 @@ import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
 import { useLiveState } from '@/state/useLive';
 import { atLeast, ROLE_LABEL } from './lib';
+import { LanguageSwitch } from '@/i18n/react';
+import { t } from '@/i18n';
 
 const NAV: { to: string; label: string; icon: IconName; min: Role; end?: boolean; sandboxOnly?: boolean }[] = [
   { to: '/admin', label: 'Overview', icon: 'grid', min: 'support', end: true },
@@ -37,20 +39,20 @@ export function AdminLayout() {
   return (
     <div className="admin">
       <a className="skip-link" href="#admin-main">
-        Skip to content
+        {t('Skip to content')}
       </a>
       <aside className="admin-side">
-        <Link to="/admin" className="brand admin-brand" aria-label="Admin overview">
+        <Link to="/admin" className="brand admin-brand" aria-label={t('Admin overview')}>
           <Logo />
         </Link>
-        <p className="admin-side__label">Operations</p>
-        <nav aria-label="Admin">
+        <p className="admin-side__label">{t('Operations')}</p>
+        <nav aria-label={t('Admin')}>
           <ul className="admin-nav">
             {items.map((n) => (
               <li key={n.to}>
                 <NavLink to={n.to} end={n.end}>
                   <Icon name={n.icon} width={18} height={18} />
-                  <span>{n.label}</span>
+                  <span>{t(n.label)}</span>
                 </NavLink>
               </li>
             ))}
@@ -61,27 +63,28 @@ export function AdminLayout() {
         <header className="admin-bar">
           <div className="row" style={{ gap: 10 }}>
             {config.mode === 'sandbox' ? (
-              <MockBadge label="Sandbox environment" />
+              <MockBadge label={t('Sandbox environment')} />
             ) : (
-              <span className="badge badge--danger">Production</span>
+              <span className="badge badge--danger">{t('Production')}</span>
             )}
             <LiveIndicator state={live} />
           </div>
           <div className="row admin-bar__user" style={{ gap: 8 }}>
+            <LanguageSwitch />
             <span className="small">
               <span className="admin-bar__email">{user?.email}</span>{' '}
-              <span className="badge badge--neutral">{user ? ROLE_LABEL[user.role] : ''}</span>
+              <span className="badge badge--neutral">{user ? t(ROLE_LABEL[user.role]) : ''}</span>
             </span>
             <button
               type="button"
               className="btn btn--ghost"
-              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+              aria-label={t('Switch to {0} theme', [theme === 'dark' ? 'light' : 'dark'])}
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             >
               <Icon name={theme === 'dark' ? 'sun' : 'moon'} width={18} height={18} />
             </button>
             <Link className="btn btn--ghost" to="/">
-              Customer site
+              {t('Customer site')}
             </Link>
             <button
               type="button"
@@ -91,12 +94,12 @@ export function AdminLayout() {
                 navigate('/signin');
               }}
             >
-              <Icon name="logout" width={16} height={16} /> Sign out
+              <Icon name="logout" width={16} height={16} /> {t('Sign out')}
             </button>
           </div>
         </header>
         <main id="admin-main" className="admin-main">
-          <Suspense fallback={<p className="muted">Loading…</p>}>
+          <Suspense fallback={<p className="muted">{t('Loading…')}</p>}>
             <Outlet />
           </Suspense>
         </main>

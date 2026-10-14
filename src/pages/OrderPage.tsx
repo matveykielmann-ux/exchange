@@ -22,7 +22,7 @@ import {
 import { validateTxHash } from '@/domain/validation';
 import { ApiError } from '@/services/http';
 import { errorMessage } from '@/lib/errors';
-import { describeDestination, destinationLabel, formatAsset, formatDateTime, formatPriceMicros } from '@/lib/format';
+import { courierAddress, describeDestination, destinationLabel, formatAsset, formatDateTime, formatPriceMicros } from '@/lib/format';
 import { gsap, REDUCED_OK, useGSAP } from '@/lib/motion';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { useExpired } from '@/lib/useExpired';
@@ -30,6 +30,7 @@ import type { OrderView } from '@/services/types';
 import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
 import { useLiveEvents, useLiveState } from '@/state/useLive';
+import { t } from '@/i18n';
 
 type Run = (fn: () => Promise<OrderView>) => void;
 
@@ -50,7 +51,7 @@ function CopyButton({ value, label }: { value: string; label: string }) {
       }}
     >
       <Icon name={copied ? 'check' : 'copy'} width={16} height={16} />
-      <span aria-live="polite">{copied ? 'Copied' : label}</span>
+      <span aria-live="polite">{copied ? t('Copied') : label}</span>
     </button>
   );
 }
@@ -83,9 +84,9 @@ function SandboxControls({ order, busy, run }: { order: OrderView; busy: boolean
     if (!moving) return null;
     return (
       <p className="small muted autopilot-note" role="status">
-        <MockBadge label="Sandbox autopilot" force /> The sandbox {buy ? 'courier and cash desk' : 'deposit monitor'} moves this order one
-        step about every {Math.round(config.sandboxAutopilotStepMs / 1000)} seconds using signed test events. Nothing real is collected,
-        sent or broadcast.
+        <MockBadge label={t('Sandbox autopilot')} force /> {t('The sandbox')} {buy ? t('courier and cash desk') : t('deposit monitor')}{' '}
+        {t('moves this order one step about every')} {Math.round(config.sandboxAutopilotStepMs / 1000)}{' '}
+        {t('seconds using signed test events. Nothing real is collected, sent or broadcast.')}
       </p>
     );
   }
@@ -93,17 +94,18 @@ function SandboxControls({ order, busy, run }: { order: OrderView; busy: boolean
   return (
     <section className="mock-controls" aria-labelledby="mock-controls-title">
       <h2 id="mock-controls-title">
-        <MockBadge label="Sandbox controls" force /> {buy ? 'Simulate the courier' : 'Simulate the blockchain'}
+        <MockBadge label={t('Sandbox controls')} force /> {buy ? t('Simulate the courier') : t('Simulate the blockchain')}
       </h2>
       <p className="small muted">
-        These buttons send a signed test event from the sandbox {buy ? 'cash provider' : 'deposit monitor'}. The server checks the signature
-        and moves the order through the same rules a real {buy ? 'collection' : 'deposit'} would. They don’t exist outside the sandbox.
+        {t('These buttons send a signed test event from the sandbox')} {buy ? t('cash provider') : t('deposit monitor')}
+        {t('. The server checks the signature and moves the order through the same rules a real')} {buy ? 'collection' : 'deposit'}{' '}
+        {t('would. They don’t exist outside the sandbox.')}
       </p>
       <div className="row">
         {awaiting ? (
           <>
             <button type="button" className="btn" disabled={busy} onClick={() => run(() => sandbox.deposit(order.id, 'exact'))}>
-              {buy ? 'Courier collects the exact cash' : 'Deposit the exact amount'}
+              {buy ? t('Courier collects the exact cash') : t('Deposit the exact amount')}
             </button>
             <button
               type="button"
@@ -111,14 +113,14 @@ function SandboxControls({ order, busy, run }: { order: OrderView; busy: boolean
               disabled={busy}
               onClick={() => run(() => sandbox.deposit(order.id, 'short'))}
             >
-              {buy ? 'Cash is short' : 'Deposit too little'}
+              {buy ? t('Cash is short') : t('Deposit too little')}
             </button>
           </>
         ) : null}
         {confirming ? (
           <>
             <button type="button" className="btn" disabled={busy} onClick={() => run(() => sandbox.confirmations(order.id, true))}>
-              {buy ? 'Finish the cash count' : 'Reach final confirmations'}
+              {buy ? t('Finish the cash count') : t('Reach final confirmations')}
             </button>
             {!buy ? (
               <button
@@ -127,7 +129,7 @@ function SandboxControls({ order, busy, run }: { order: OrderView; busy: boolean
                 disabled={busy}
                 onClick={() => run(() => sandbox.confirmations(order.id, false))}
               >
-                Add one confirmation
+                {t('Add one confirmation')}
               </button>
             ) : null}
           </>
@@ -144,20 +146,22 @@ function TxHashForm({ order, busy, run }: { order: OrderView; busy: boolean; run
   const [touched, setTouched] = useState(false);
   if (order.deposit.customerReportedSentAt)
     return (
-      <Notice tone="neutral" title="Transaction hash submitted for review">
+      <Notice tone="neutral" title={t('Transaction hash submitted for review')}>
         {order.deposit.customerTxHash ? (
           <p className="mono small" style={{ overflowWrap: 'anywhere' }}>
             {order.deposit.customerTxHash}
           </p>
         ) : null}
         <p>
-          Received at {formatDateTime(order.deposit.customerReportedSentAt)}. A hash helps our team find your transfer, but it does not
-          confirm a deposit: the order moves on only when deposit monitoring reports the transaction on the {NETWORKS[order.network].name}{' '}
-          network.
+          {t('Received at')} {formatDateTime(order.deposit.customerReportedSentAt)}
+          {t(
+            '. A hash helps our team find your transfer, but it does not confirm a deposit: the order moves on only when deposit monitoring reports the transaction on the',
+          )}{' '}
+          {NETWORKS[order.network].name} {t('network.')}
         </p>
         <p>
-          If more proof is needed, support will contact you in your <Link to="/support">support messages</Link>, or you can reach us on{' '}
-          <TelegramLink />.
+          {t('If more proof is needed, support will contact you in your')} <Link to="/support">{t('support messages')}</Link>
+          {t(', or you can reach us on')} <TelegramLink />.
         </p>
       </Notice>
     );
@@ -177,10 +181,10 @@ function TxHashForm({ order, busy, run }: { order: OrderView; busy: boolean; run
         run(() => orders.reportSent(order.id, hash.trim()));
       }}
     >
-      <h3 className="title">Sent it? Submit the transaction hash</h3>
+      <h3 className="title">{t('Sent it? Submit the transaction hash')}</h3>
       <div className="field" data-invalid={error ? 'true' : undefined}>
         <label className="field__label" htmlFor="tx-hash">
-          Transaction hash (TXID)
+          {t('Transaction hash (TXID)')}
         </label>
         <input
           id="tx-hash"
@@ -201,12 +205,12 @@ function TxHashForm({ order, busy, run }: { order: OrderView; busy: boolean; run
           </p>
         ) : null}
         <p className="field__hint" id="tx-hash-hint">
-          Copy it from your wallet’s transaction details. We check its format only; it doesn’t confirm the deposit.
+          {t('Copy it from your wallet’s transaction details. We check its format only; it doesn’t confirm the deposit.')}
         </p>
       </div>
       <div>
         <button type="submit" className="btn btn--secondary" disabled={busy}>
-          {busy ? 'Submitting…' : 'Submit for review'}
+          {busy ? t('Submitting…') : t('Submit for review')}
         </button>
       </div>
     </form>
@@ -238,9 +242,9 @@ function IdUpload({ order, onChange }: { order: OrderView; onChange: () => void 
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!file) return setError('Choose a photo or scan of your ID.');
-    if (!ID_TYPES.includes(file.type)) return setError('Upload a JPEG, PNG or PDF file.');
-    if (file.size > ID_MAX_BYTES) return setError('The file is larger than 4 MB. Use a smaller photo or scan.');
+    if (!file) return setError(t('Choose a photo or scan of your ID.'));
+    if (!ID_TYPES.includes(file.type)) return setError(t('Upload a JPEG, PNG or PDF file.'));
+    if (file.size > ID_MAX_BYTES) return setError(t('The file is larger than 4 MB. Use a smaller photo or scan.'));
     setBusy(true);
     setError(null);
     try {
@@ -259,8 +263,8 @@ function IdUpload({ order, onChange }: { order: OrderView; onChange: () => void 
   return (
     <section className="panel" aria-labelledby="id-title">
       <div className="panel__head">
-        <h3 id="id-title">Photo ID for the courier</h3>
-        {sandbox ? <MockBadge label="Demo upload" force /> : null}
+        <h3 id="id-title">{t('Photo ID for the courier')}</h3>
+        {sandbox ? <MockBadge label={t('Demo upload')} force /> : null}
       </div>
       <div className="panel__body stack">
         {order.documents.length ? (
@@ -271,9 +275,9 @@ function IdUpload({ order, onChange }: { order: OrderView; onChange: () => void 
                 <span>
                   <strong>{d.fileName}</strong>
                   <span className="small muted" style={{ display: 'block' }}>
-                    {d.contentType.replace(/^.*\//, '').toUpperCase()} · {Math.max(1, Math.round(d.sizeBytes / 1024))} KB · received{' '}
+                    {d.contentType.replace(/^.*\//, '').toUpperCase()} · {Math.max(1, Math.round(d.sizeBytes / 1024))} {t('KB · received')}{' '}
                     {formatDateTime(d.createdAt)}
-                    {d.stored ? '' : ' · checked and discarded (sandbox: the file is not kept)'}
+                    {d.stored ? '' : t(' · checked and discarded (sandbox: the file is not kept)')}
                   </span>
                 </span>
               </li>
@@ -281,15 +285,15 @@ function IdUpload({ order, onChange }: { order: OrderView; onChange: () => void 
           </ul>
         ) : (
           <p className="small">
-            Upload the photo ID you will show the courier. The courier collects cash only from the verified account holder.
-            {sandbox ? ' Sandbox: use a test image, not a real document. The file is checked and then discarded.' : ''}
+            {t('Upload the photo ID you will show the courier. The courier collects cash only from the verified account holder.')}
+            {sandbox ? t(' Sandbox: use a test image, not a real document. The file is checked and then discarded.') : ''}
           </p>
         )}
         {open && order.documents.length < 3 ? (
           <form className="stack" onSubmit={submit} noValidate>
             <div className="field" data-invalid={error ? 'true' : undefined}>
               <label className="field__label" htmlFor="id-file">
-                {order.documents.length ? 'Add another file' : 'ID document (JPEG, PNG or PDF, up to 4 MB)'}
+                {order.documents.length ? t('Add another file') : t('ID document (JPEG, PNG or PDF, up to 4 MB)')}
               </label>
               <input
                 ref={inputRef}
@@ -312,7 +316,7 @@ function IdUpload({ order, onChange }: { order: OrderView; onChange: () => void 
             </div>
             <div>
               <button type="submit" className="btn btn--secondary" disabled={busy || !file}>
-                {busy ? 'Uploading…' : 'Upload ID'}
+                {busy ? t('Uploading…') : t('Upload ID')}
               </button>
             </div>
           </form>
@@ -326,53 +330,58 @@ function IdUpload({ order, onChange }: { order: OrderView; onChange: () => void 
 function StatusNotice({ order }: { order: OrderView }) {
   const buy = order.direction === 'buy';
   const sandbox = order.source === 'sandbox';
-  const demo = sandbox ? ' (sandbox simulation)' : '';
+  const demo = sandbox ? t(' (sandbox simulation)') : '';
   const help = (
     <p className="small">
-      Questions? Reach support on <TelegramLink /> or in your <Link to="/support">support messages</Link>.
+      {t('Questions? Reach support on')} <TelegramLink /> {t('or in your')} <Link to="/support">{t('support messages')}</Link>.
     </p>
   );
   switch (order.status) {
     case 'created':
       return (
-        <Notice tone="info" title={buy ? 'Arranging the courier' : 'Preparing your deposit address'} role="status">
-          <p>This usually takes a moment. The page updates by itself.</p>
+        <Notice tone="info" title={buy ? t('Arranging the courier') : t('Preparing your deposit address')} role="status">
+          <p>{t('This usually takes a moment. The page updates by itself.')}</p>
         </Notice>
       );
     case 'deposit_observed':
     case 'confirming':
       return (
-        <Notice tone="info" title={buy ? `Cash collected${demo}` : `Deposit seen${demo}`} role="status">
+        <Notice tone="info" title={buy ? t('Cash collected{0}', [demo]) : t('Deposit seen{0}', [demo])} role="status">
           <p>
             {buy
-              ? 'The courier reported collecting the cash. It is now counted and checked before any crypto is sent.'
-              : `Deposit monitoring reported a transfer for this order. It becomes final after ${order.deposit.confirmations.required} network confirmations.`}
+              ? t('The courier reported collecting the cash. It is now counted and checked before any crypto is sent.')
+              : t('Deposit monitoring reported a transfer for this order. It becomes final after {0} network confirmations.', [
+                  order.deposit.confirmations.required,
+                ])}
           </p>
         </Notice>
       );
     case 'deposit_confirmed':
       return (
-        <Notice tone="info" title={buy ? `Cash verified${demo}` : `Deposit final${demo}`} role="status">
-          <p>Automatic checks are running. This page updates by itself.</p>
+        <Notice tone="info" title={buy ? t('Cash verified{0}', [demo]) : t('Deposit final{0}', [demo])} role="status">
+          <p>{t('Automatic checks are running. This page updates by itself.')}</p>
         </Notice>
       );
     case 'compliance_review':
       return (
-        <Notice tone="warn" title="Held for review">
+        <Notice tone="warn" title={t('Held for review')}>
           <p>
-            A member of our team is checking this order before {buy ? 'the crypto is sent' : 'payout'}.
-            {order.deposit.exception ? ` Reason: ${DEPOSIT_EXCEPTION_LABEL[order.deposit.exception]}` : ''} If more proof is needed, support
-            will contact you in your <Link to="/support">support messages</Link>, or you can reach us on <TelegramLink />.
+            {t('A member of our team is checking this order before')} {buy ? t('the crypto is sent') : 'payout'}.
+            {order.deposit.exception ? t(' Reason: {0}', [t(DEPOSIT_EXCEPTION_LABEL[order.deposit.exception])]) : ''}{' '}
+            {t('If more proof is needed, support will contact you in your')} <Link to="/support">{t('support messages')}</Link>
+            {t(', or you can reach us on')} <TelegramLink />.
           </p>
         </Notice>
       );
     case 'ready_for_payout':
       return (
-        <Notice tone="info" title={buy ? 'Approved: waiting for the transfer to be authorized' : 'Approved for payout'} role="status">
+        <Notice tone="info" title={buy ? t('Approved: waiting for the transfer to be authorized') : t('Approved for payout')} role="status">
           <p>
             {buy
-              ? 'The cash is verified and checks are complete. A member of our team authorizes each crypto transfer before it is sent.'
-              : 'Your deposit is final and checks are complete. A member of our team authorizes each payout before it goes to the payout provider.'}
+              ? t('The cash is verified and checks are complete. A member of our team authorizes each crypto transfer before it is sent.')
+              : t(
+                  'Your deposit is final and checks are complete. A member of our team authorizes each payout before it goes to the payout provider.',
+                )}
           </p>
           {help}
         </Notice>
@@ -380,58 +389,68 @@ function StatusNotice({ order }: { order: OrderView }) {
     case 'payout_submitted':
     case 'payout_processing':
       return (
-        <Notice tone="info" title={buy ? `Crypto transfer in progress${demo}` : `Payout in progress${demo}`} role="status">
+        <Notice tone="info" title={buy ? t('Crypto transfer in progress{0}', [demo]) : t('Payout in progress{0}', [demo])} role="status">
           <p>
             {buy
-              ? `The transfer of ${formatAsset(order.amountAtomic, order.asset)} was handed to the custody provider. This page shows it as completed only when the provider reports it.`
-              : 'The payout instruction was accepted by the payout provider. This page shows it as completed only when the provider reports it.'}
-            {sandbox ? ' In the sandbox nothing is broadcast or paid.' : ''}
+              ? t(
+                  'The transfer of {0} was handed to the custody provider. This page shows it as completed only when the provider reports it.',
+                  [formatAsset(order.amountAtomic, order.asset)],
+                )
+              : t(
+                  'The payout instruction was accepted by the payout provider. This page shows it as completed only when the provider reports it.',
+                )}
+            {sandbox ? t(' In the sandbox nothing is broadcast or paid.') : ''}
           </p>
           {help}
         </Notice>
       );
     case 'failed':
       return (
-        <Notice tone="danger" title={buy ? 'The crypto transfer didn’t go through' : 'The payout didn’t go through'}>
+        <Notice tone="danger" title={buy ? t('The crypto transfer didn’t go through') : t('The payout didn’t go through')}>
           <p>
-            Our team has been alerted and will retry or contact you. If the exchange cannot be completed, clause 4.2 of the{' '}
-            <Link to="/legal/terms#clause-4-2">Service Rules</Link> governs the return of funds.
+            {t('Our team has been alerted and will retry or contact you. If the exchange cannot be completed, clause 4.2 of the')}{' '}
+            <Link to="/legal/terms#clause-4-2">{t('Service Rules')}</Link> {t('governs the return of funds.')}
           </p>
           {help}
         </Notice>
       );
     case 'refund_pending':
       return (
-        <Notice tone="warn" title={buy ? 'Cash return in progress' : 'Refund in progress'}>
+        <Notice tone="warn" title={buy ? t('Cash return in progress') : t('Refund in progress')}>
           <p>
             {buy
-              ? 'The courier will return your cash to you after an ID check. '
-              : `We are returning your ${order.asset} on-chain to the refund address you gave. `}
-            Return fees and timeframes are set by Section 9 of the Service Rules; see the <Link to="/legal/refunds">refund policy</Link>.
+              ? t('The courier will return your cash to you after an ID check. ')
+              : t('We are returning your {0} on-chain to the refund address you gave. ', [order.asset])}
+            {t('Return fees and timeframes are set by Section 9 of the Service Rules; see the')}{' '}
+            <Link to="/legal/refunds">{t('refund policy')}</Link>.
           </p>
           {help}
         </Notice>
       );
     case 'refunded':
       return (
-        <Notice tone="neutral" title="Refunded">
-          <p>{buy ? 'The provider reported your cash as returned.' : `Your ${order.asset} was returned to your refund address.`}</p>
+        <Notice tone="neutral" title={t('Refunded')}>
+          <p>
+            {buy ? t('The provider reported your cash as returned.') : t('Your {0} was returned to your refund address.', [order.asset])}
+          </p>
         </Notice>
       );
     case 'expired':
       return (
-        <Notice tone="neutral" title={buy ? 'The collection window closed' : 'The deposit window closed'}>
+        <Notice tone="neutral" title={buy ? t('The collection window closed') : t('The deposit window closed')}>
           {buy ? (
             <p>
-              The cash wasn’t collected in time, so this order expired. Nothing was taken. Start a new exchange or{' '}
-              <Link to="/support">contact support</Link>.
+              {t('The cash wasn’t collected in time, so this order expired. Nothing was taken. Start a new exchange or')}{' '}
+              <Link to="/support">{t('contact support')}</Link>.
             </p>
           ) : (
             <p>
-              No deposit was seen in time, so this order expired. If you sent funds after the window closed,{' '}
-              <Link to="/support">contact support</Link>. Under clause 4.14 of the <Link to="/legal/terms#clause-4-14">Service Rules</Link>,
-              such funds are transferred back with the related commission fees deducted, and if you ask to proceed with the exchange
-              instead, the rate and terms may be changed.
+              {t('No deposit was seen in time, so this order expired. If you sent funds after the window closed,')}{' '}
+              <Link to="/support">{t('contact support')}</Link>
+              {t('. Under clause 4.14 of the')} <Link to="/legal/terms#clause-4-14">{t('Service Rules')}</Link>
+              {t(
+                ', such funds are transferred back with the related commission fees deducted, and if you ask to proceed with the exchange instead, the rate and terms may be changed.',
+              )}
             </p>
           )}
           {help}
@@ -439,9 +458,10 @@ function StatusNotice({ order }: { order: OrderView }) {
       );
     case 'rejected':
       return (
-        <Notice tone="neutral" title="We couldn’t accept this order">
+        <Notice tone="neutral" title={t('We couldn’t accept this order')}>
           <p>
-            If you already sent funds, their return is handled under Sections 8 and 9 of the <Link to="/legal/refunds">Service Rules</Link>.
+            {t('If you already sent funds, their return is handled under Sections 8 and 9 of the')}{' '}
+            <Link to="/legal/refunds">{t('Service Rules')}</Link>.
           </p>
           {help}
         </Notice>
@@ -482,67 +502,71 @@ function SuccessPanel({ order, animate }: { order: OrderView; animate: boolean }
           </svg>
           <div className="stack" style={{ gap: 4 }}>
             <h2 id="success-title" className="flow__step-title">
-              {buy ? 'Exchange completed' : 'Payout completed'}
+              {buy ? t('Exchange completed') : t('Payout completed')}
             </h2>
             <p className="row" style={{ gap: 8 }}>
-              <StatusBadge tone="success">{sandbox ? 'Completed (demo)' : 'Completed'}</StatusBadge>
+              <StatusBadge tone="success">{sandbox ? t('Completed (demo)') : t('Completed')}</StatusBadge>
               <span className="small muted">
-                Order <span className="mono">{order.reference}</span>
+                {t('Order')} <span className="mono">{order.reference}</span>
               </span>
             </p>
           </div>
         </div>
         <dl className="dl">
           <div>
-            <dt>{buy ? 'Cash paid' : 'You sent'}</dt>
+            <dt>{buy ? t('Cash paid') : t('You sent')}</dt>
             <dd className="tabular">{buy ? formatUsd(order.quote.grossCents) : formatAsset(order.amountAtomic, order.asset)}</dd>
           </div>
           <div>
-            <dt>{buy ? 'Crypto received' : 'You received'}</dt>
+            <dt>{buy ? t('Crypto received') : t('You received')}</dt>
             <dd className="tabular">
               <strong>{buy ? formatAsset(order.amountAtomic, order.asset) : formatUsd(order.quote.netCents)}</strong>
             </dd>
           </div>
           <div>
-            <dt>{buy ? 'Sent to' : 'Paid to'}</dt>
+            <dt>{buy ? t('Sent to') : t('Paid to')}</dt>
             <dd className={buy ? 'mono' : undefined}>
               {buy ? order.receiveAddress : destinationLabel(order.payout.label, order.payout.last4)}
             </dd>
           </div>
           {order.payout.providerRef ? (
             <div>
-              <dt>Provider reference</dt>
+              <dt>{t('Provider reference')}</dt>
               <dd className="mono">{order.payout.providerRef}</dd>
             </div>
           ) : null}
         </dl>
         {sandbox ? (
           <p className="small">
-            <MockBadge force /> This is a sandbox demo. The amounts are simulated and nothing was{' '}
-            {buy ? 'collected, sent or broadcast' : 'received or paid out'}.
+            <MockBadge force /> {t('This is a sandbox demo. The amounts are simulated and nothing was')}{' '}
+            {buy ? t('collected, sent or broadcast') : t('received or paid out')}.
           </p>
         ) : (
           <p className="small">
             {buy
-              ? 'The custody provider reported the transfer as completed. Your wallet may take time to show it.'
-              : `The payout provider reported the payout as completed. ${order.payout.method === 'courier_cash' ? '' : 'Your bank may take time to show it.'}`}
+              ? t('The custody provider reported the transfer as completed. Your wallet may take time to show it.')
+              : t('The payout provider reported the payout as completed. {0}', [
+                  order.payout.method === 'courier_cash' ? '' : t('Your bank may take time to show it.'),
+                ])}
           </p>
         )}
         <div className="stack" style={{ gap: 8 }}>
-          <h3 className="title">Next steps</h3>
+          <h3 className="title">{t('Next steps')}</h3>
           <ul className="small next-steps">
-            <li>Keep the order number {order.reference} for your records; the receipt is on this page.</li>
             <li>
-              Something doesn’t match? Contact support with the order number on <TelegramLink /> or in your{' '}
-              <Link to="/support/new">support messages</Link>.
+              {t('Keep the order number')} {order.reference} {t('for your records; the receipt is on this page.')}
+            </li>
+            <li>
+              {t('Something doesn’t match? Contact support with the order number on')} <TelegramLink /> {t('or in your')}{' '}
+              <Link to="/support/new">{t('support messages')}</Link>.
             </li>
           </ul>
           <div className="row">
             <Link className="btn" to={buy ? '/exchange?direction=buy' : '/exchange'}>
-              Start another exchange
+              {t('Start another exchange')}
             </Link>
             <Link className="btn btn--secondary" to="/orders">
-              View all orders
+              {t('View all orders')}
             </Link>
           </div>
         </div>
@@ -563,11 +587,11 @@ function Receipt({ order }: { order: OrderView }) {
   return (
     <dl className="dl">
       <div>
-        <dt>{buy ? 'You pay in cash' : 'You send'}</dt>
+        <dt>{buy ? t('You pay in cash') : t('You send')}</dt>
         <dd className="tabular">{buy ? formatUsd(order.quote.grossCents) : formatAsset(order.amountAtomic, order.asset)}</dd>
       </div>
       <div>
-        <dt>Exchange rate</dt>
+        <dt>{t('Exchange rate')}</dt>
         <dd className="tabular">
           {formatPriceMicros(
             exchangeRateMicros({
@@ -579,28 +603,28 @@ function Receipt({ order }: { order: OrderView }) {
             }),
             order.asset,
           )}{' '}
-          per {ASSETS[order.asset].code}
+          {t('per')} {ASSETS[order.asset].code}
         </dd>
       </div>
       {!buy ? (
         <div>
-          <dt>Value at this rate</dt>
+          <dt>{t('Value at this rate')}</dt>
           <dd className="tabular">{formatUsd(valueAtRateCents(order.quote))}</dd>
         </div>
       ) : null}
       <div>
-        <dt>{buy ? 'Courier fee' : 'Payout fee'}</dt>
+        <dt>{buy ? t('Courier fee') : t('Payout fee')}</dt>
         <dd className="tabular">−{formatUsd(order.quote.payoutFeeCents)}</dd>
       </div>
       <div>
-        <dt>You receive</dt>
+        <dt>{t('You receive')}</dt>
         <dd className="tabular">
           <strong>{buy ? formatAsset(order.amountAtomic, order.asset) : formatUsd(order.quote.netCents)}</strong>
         </dd>
       </div>
       {buy ? (
         <div>
-          <dt>Crypto sent to</dt>
+          <dt>{t('Crypto sent to')}</dt>
           <dd className="mono">
             {order.receiveAddress}
             <br />
@@ -609,64 +633,67 @@ function Receipt({ order }: { order: OrderView }) {
         </div>
       ) : (
         <div>
-          <dt>Payout</dt>
+          <dt>{t('Payout')}</dt>
           <dd>
-            {order.payout.methodName}
+            {t(order.payout.methodName)}
             <br />
             <span className="small muted">
-              {destinationLabel(order.payout.label, order.payout.last4)} · {order.payout.timing}
+              {destinationLabel(order.payout.label, order.payout.last4)} · {t(order.payout.timing)}
             </span>
           </dd>
         </div>
       )}
       {!buy ? (
         <div>
-          <dt>Confirmations</dt>
+          <dt>{t('Confirmations')}</dt>
           <dd className="tabular">
-            {order.deposit.confirmations.count} of {order.deposit.confirmations.required}
+            {order.deposit.confirmations.count} {t('of')} {order.deposit.confirmations.required}
           </dd>
         </div>
       ) : null}
       {order.payout.delivery ? (
         <div>
-          <dt>{buy ? 'Cash collection' : 'Delivery'}</dt>
+          <dt>{buy ? t('Cash collection') : t('Delivery')}</dt>
           <dd>
-            {order.payout.delivery.recipient}, ID check at the door
+            {order.payout.delivery.recipient}
+            {t(', ID check at the door')}
             <br />
             <span className="small muted">
-              {describeDestination({ kind: 'courier', last4: '', courier: order.payout.delivery }).replace(buy ? /^Cash to / : /^$/, '')}
-              {order.payout.delivery.preferredDate ? ` · preferred ${order.payout.delivery.preferredDate}` : ''}
+              {buy && order.payout.delivery
+                ? courierAddress(order.payout.delivery)
+                : describeDestination({ kind: 'courier', last4: '', courier: order.payout.delivery })}
+              {order.payout.delivery.preferredDate ? t(' · preferred {0}', [order.payout.delivery.preferredDate]) : ''}
             </span>
           </dd>
         </div>
       ) : null}
       {!buy && order.deposit.txHash ? (
         <div>
-          <dt>Deposit tx</dt>
+          <dt>{t('Deposit tx')}</dt>
           <dd className="mono">{order.deposit.txHash}</dd>
         </div>
       ) : null}
       {order.deposit.amountAtomic !== null && order.deposit.amountAtomic !== (buy ? order.quote.grossCents : order.amountAtomic) ? (
         <div>
-          <dt>{buy ? 'Cash counted' : 'Amount received'}</dt>
+          <dt>{buy ? t('Cash counted') : t('Amount received')}</dt>
           <dd className="tabular">{buy ? formatUsd(order.deposit.amountAtomic) : formatAsset(order.deposit.amountAtomic, order.asset)}</dd>
         </div>
       ) : null}
       {order.payout.providerRef ? (
         <div>
-          <dt>{buy ? 'Transfer ref.' : 'Payout ref.'}</dt>
+          <dt>{buy ? t('Transfer ref.') : t('Payout ref.')}</dt>
           <dd className="mono">{order.payout.providerRef}</dd>
         </div>
       ) : null}
       {!buy ? (
         <div>
-          <dt>Refund to</dt>
+          <dt>{t('Refund to')}</dt>
           <dd className="mono">{order.refundAddress}</dd>
         </div>
       ) : null}
       {order.refundTxHash ? (
         <div>
-          <dt>{buy ? 'Return ref.' : 'Refund tx'}</dt>
+          <dt>{buy ? t('Return ref.') : t('Refund tx')}</dt>
           <dd className="mono">{order.refundTxHash}</dd>
         </div>
       ) : null}
@@ -731,18 +758,18 @@ export function OrderPage() {
     return (
       <div className="container flow">
         {error ? (
-          <Notice tone="danger" title="This order could not be loaded." role="alert">
+          <Notice tone="danger" title={t('This order could not be loaded.')} role="alert">
             <p>{error}</p>
             <div>
               <button type="button" className="btn btn--secondary" onClick={load}>
-                <Icon name="refresh" width={16} height={16} /> Try again
+                <Icon name="refresh" width={16} height={16} /> {t('Try again')}
               </button>
             </div>
           </Notice>
         ) : (
           <div className="stack" aria-busy="true">
             <p className="muted" role="status">
-              Loading your order…
+              {t('Loading your order…')}
             </p>
             <div className="skeleton" style={{ height: 32, maxWidth: 360 }} />
             <div className="skeleton" style={{ height: 160 }} />
@@ -753,10 +780,10 @@ export function OrderPage() {
   if (order === null)
     return (
       <div className="container flow stack">
-        <h1 className="display-l">Order not found</h1>
-        <p>It may belong to a different account, or the link is wrong.</p>
+        <h1 className="display-l">{t('Order not found')}</h1>
+        <p>{t('It may belong to a different account, or the link is wrong.')}</p>
         <p>
-          <Link to="/orders">Back to orders</Link>
+          <Link to="/orders">{t('Back to orders')}</Link>
         </p>
       </div>
     );
@@ -767,35 +794,35 @@ export function OrderPage() {
   // In the sandbox the address must be an obvious placeholder; anything else is withheld.
   const showAddress = !!address && (config.mode !== 'sandbox' || isPreviewDepositAddress(address));
   const sandboxOrder = order.source === 'sandbox';
-  const label = orderStatusLabel(order.status, order.direction);
+  const label = t(orderStatusLabel(order.status, order.direction));
   const steps = !buy && order.payout.method === 'courier_cash' ? order.steps.map(courierStep) : order.steps;
 
   return (
     <div className="container flow">
       <div className="flow__head">
         <p className="eyebrow">
-          <Link to="/orders">Orders</Link> <span aria-hidden="true">/</span> <span className="mono">{order.reference}</span>
+          <Link to="/orders">{t('Orders')}</Link> <span aria-hidden="true">/</span> <span className="mono">{order.reference}</span>
         </p>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div className="stack" style={{ gap: 8 }}>
             <h1 className="display-l">{label}</h1>
             <p className="muted">
               {buy
-                ? `Buying ${formatAsset(order.amountAtomic, order.asset)} for ${formatUsd(order.quote.grossCents)} in cash`
-                : `Selling ${formatAsset(order.amountAtomic, order.asset)} for ${formatUsd(order.quote.netCents)}`}{' '}
-              · created {formatDateTime(order.createdAt)}
+                ? t('Buying {0} for {1} in cash', [formatAsset(order.amountAtomic, order.asset), formatUsd(order.quote.grossCents)])
+                : t('Selling {0} for {1}', [formatAsset(order.amountAtomic, order.asset), formatUsd(order.quote.netCents)])}{' '}
+              {t('· created')} {formatDateTime(order.createdAt)}
             </p>
           </div>
           <div className="row">
             <StatusBadge tone={orderTone(order.status)}>{label}</StatusBadge>
-            {sandboxOrder ? <MockBadge label="Sandbox order" force /> : null}
+            {sandboxOrder ? <MockBadge label={t('Sandbox order')} force /> : null}
             <LiveIndicator state={live} />
           </div>
         </div>
         <StageTrack stage={order.stage} />
         {order.onHold ? (
-          <Notice tone="warn" title="Your order is on hold">
-            <p>Our team is checking it. Nothing moves until the hold is released; we will message you if we need anything.</p>
+          <Notice tone="warn" title={t('Your order is on hold')}>
+            <p>{t('Our team is checking it. Nothing moves until the hold is released; we will message you if we need anything.')}</p>
           </Notice>
         ) : null}
       </div>
@@ -804,15 +831,15 @@ export function OrderPage() {
         <div className="stack" style={{ marginBottom: 24 }}>
           <AcceptedBanner reference={order.reference} detailsId="order-details" />
           {order.status === 'awaiting_deposit' ? (
-            <Notice tone="info" title={`Order ${order.reference} placed`}>
+            <Notice tone="info" title={t('Order {0} placed', [order.reference])}>
               <p>
                 {buy
-                  ? 'Your rate is held for the cash amount shown. The courier will call to confirm the collection time.'
-                  : 'Your rate is held for a deposit of exactly the quoted amount that arrives in the window below.'}
+                  ? t('Your rate is held for the cash amount shown. The courier will call to confirm the collection time.')
+                  : t('Your rate is held for a deposit of exactly the quoted amount that arrives in the window below.')}
                 {sandboxOrder
                   ? buy
-                    ? ' This is a sandbox order: no courier will come and no crypto will be sent.'
-                    : ' This is a sandbox order: the deposit address is a placeholder. Do not send funds to it.'
+                    ? t(' This is a sandbox order: no courier will come and no crypto will be sent.')
+                    : t(' This is a sandbox order: the deposit address is a placeholder. Do not send funds to it.')
                   : ''}
               </p>
             </Notice>
@@ -827,38 +854,41 @@ export function OrderPage() {
           {order.status === 'awaiting_deposit' && !buy ? (
             <section className="stack" aria-labelledby="deposit-title">
               <h2 id="deposit-title" className="flow__step-title">
-                Send {formatAsset(order.amountAtomic, order.asset)}
+                {t('Send')} {formatAsset(order.amountAtomic, order.asset)}
               </h2>
               <div className="deposit-box">
                 <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <strong>Network: {networkLabel(order.asset, order.network)}</strong>
-                  <Countdown to={order.deposit.deadline} prefix="Window closes in" ended="Window closed" />
+                  <strong>
+                    {t('Network:')} {networkLabel(order.asset, order.network)}
+                  </strong>
+                  <Countdown to={order.deposit.deadline} prefix={t('Window closes in')} ended={t('Window closed')} />
                 </div>
                 {showAddress ? (
                   <div className="deposit-box__address">
                     <code>{address}</code>
-                    <CopyButton value={address} label="Copy" />
+                    <CopyButton value={address} label={t('Copy')} />
                   </div>
                 ) : (
-                  <Notice tone="danger" title="Deposit address withheld" role="alert">
-                    <p>No usable deposit address is available for this order. Do not send funds. Contact support.</p>
+                  <Notice tone="danger" title={t('Deposit address withheld')} role="alert">
+                    <p>{t('No usable deposit address is available for this order. Do not send funds. Contact support.')}</p>
                   </Notice>
                 )}
                 {order.deposit.memo ? (
                   <p className="small">
-                    Memo / tag: <code>{order.deposit.memo}</code>
+                    {t('Memo / tag:')} <code>{order.deposit.memo}</code>
                   </p>
                 ) : null}
                 {sandboxOrder ? (
                   <p className="small">
-                    <strong>Sandbox placeholder. Do not send funds.</strong> It is deliberately invalid on every network.
+                    <strong>{t('Sandbox placeholder. Do not send funds.')}</strong> {t('It is deliberately invalid on every network.')}
                   </p>
                 ) : null}
               </div>
-              <Notice tone="warn" title={`Only send ${order.asset} on ${network.name}`}>
+              <Notice tone="warn" title={t('Only send {0} on {1}', [order.asset, network.name])}>
                 <p>
-                  Sending a different asset, or using a different network, may result in permanent loss. Send exactly the amount shown; a
-                  different amount is held for review.
+                  {t(
+                    'Sending a different asset, or using a different network, may result in permanent loss. Send exactly the amount shown; a different amount is held for review.',
+                  )}
                 </p>
               </Notice>
               <TxHashForm order={order} busy={busy} run={run} />
@@ -868,31 +898,34 @@ export function OrderPage() {
           {order.status === 'awaiting_deposit' && buy ? (
             <section className="stack" aria-labelledby="collect-title">
               <h2 id="collect-title" className="flow__step-title">
-                Have {formatUsd(order.quote.grossCents)} in cash ready
+                {t('Have')} {formatUsd(order.quote.grossCents)} {t('in cash ready')}
               </h2>
               <div className="deposit-box">
                 <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <strong>Courier collection</strong>
-                  <Countdown to={order.deposit.deadline} prefix="Collection window closes in" ended="Window closed" />
+                  <strong>{t('Courier collection')}</strong>
+                  <Countdown to={order.deposit.deadline} prefix={t('Collection window closes in')} ended={t('Window closed')} />
                 </div>
                 <ol className="small next-steps">
-                  <li>Upload the photo ID you will show the courier (below).</li>
-                  <li>The courier calls to confirm the time, checks your ID and collects exactly {formatUsd(order.quote.grossCents)}.</li>
+                  <li>{t('Upload the photo ID you will show the courier (below).')}</li>
                   <li>
-                    The cash is counted and verified, then {formatAsset(order.amountAtomic, order.asset)} is sent to your{' '}
-                    {networkLabel(order.asset, order.network)} wallet.
+                    {t('The courier calls to confirm the time, checks your ID and collects exactly')} {formatUsd(order.quote.grossCents)}.
+                  </li>
+                  <li>
+                    {t('The cash is counted and verified, then')} {formatAsset(order.amountAtomic, order.asset)} {t('is sent to your')}{' '}
+                    {networkLabel(order.asset, order.network)} {t('wallet.')}
                   </li>
                 </ol>
                 {sandboxOrder ? (
                   <p className="small">
-                    <strong>Sandbox order.</strong> No courier will come. Don’t hand cash to anyone for this order.
+                    <strong>{t('Sandbox order.')}</strong> {t('No courier will come. Don’t hand cash to anyone for this order.')}
                   </p>
                 ) : null}
               </div>
-              <Notice tone="warn" title="Hand cash only to the courier at your saved address">
+              <Notice tone="warn" title={t('Hand cash only to the courier at your saved address')}>
                 <p>
-                  Nobody from this service will ask you to pay elsewhere, send crypto, or hand cash to someone without an ID check. If
-                  anything seems wrong, stop and contact support.
+                  {t(
+                    'Nobody from this service will ask you to pay elsewhere, send crypto, or hand cash to someone without an ID check. If anything seems wrong, stop and contact support.',
+                  )}
                 </p>
               </Notice>
             </section>
@@ -904,8 +937,10 @@ export function OrderPage() {
 
           <section className="panel" aria-labelledby="progress-title">
             <div className="panel__head">
-              <h2 id="progress-title">Progress</h2>
-              <span className="small muted">Updated {formatDateTime(order.updatedAt)}</span>
+              <h2 id="progress-title">{t('Progress')}</h2>
+              <span className="small muted">
+                {t('Updated')} {formatDateTime(order.updatedAt)}
+              </span>
             </div>
             <div className="panel__body">
               <StatusRail steps={steps} />
@@ -916,7 +951,7 @@ export function OrderPage() {
             <Notice tone="danger" title={error} role="alert">
               <div>
                 <button type="button" className="btn btn--secondary btn--sm" onClick={load}>
-                  <Icon name="refresh" width={16} height={16} /> Refresh the order
+                  <Icon name="refresh" width={16} height={16} /> {t('Refresh the order')}
                 </button>
               </div>
             </Notice>
@@ -940,18 +975,23 @@ export function OrderPage() {
                     run(() => services.orders.cancel(order.id));
                 }}
               >
-                Cancel this order
+                {t('Cancel this order')}
               </button>
               <p className="small muted" style={{ marginTop: 8 }}>
                 {buy ? (
                   <>
-                    Only before the courier collects the cash. After that, contact support: returns are handled under Section 9 of the{' '}
-                    <Link to="/legal/refunds">Service Rules</Link>.
+                    {t(
+                      'Only before the courier collects the cash. After that, contact support: returns are handled under Section 9 of the',
+                    )}{' '}
+                    <Link to="/legal/refunds">{t('Service Rules')}</Link>.
                   </>
                 ) : (
                   <>
-                    Only before you send funds. Already sent them? You can still ask support to cancel before the exchange is completed
-                    (clause 4.11 of the <Link to="/legal/refunds#after-you-send">Service Rules</Link>); return costs under clause 9.2 apply.
+                    {t(
+                      'Only before you send funds. Already sent them? You can still ask support to cancel before the exchange is completed (clause 4.11 of the',
+                    )}{' '}
+                    <Link to="/legal/refunds#after-you-send">{t('Service Rules')}</Link>
+                    {t('); return costs under clause 9.2 apply.')}
                   </>
                 )}
               </p>
@@ -961,22 +1001,22 @@ export function OrderPage() {
           <section aria-labelledby="log-title" className="stack">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <h2 id="log-title" className="title">
-                Activity
+                {t('Activity')}
               </h2>
-              {sandboxOrder ? <MockBadge label="Sandbox events" force /> : null}
+              {sandboxOrder ? <MockBadge label={t('Sandbox events')} force /> : null}
             </div>
             <EventLog log={order.events} />
           </section>
 
-          <SupportContact title="Questions about this order?" orderReference={order.reference}>
-            Mention order <span className="mono">{order.reference}</span> so we can find it quickly.
+          <SupportContact title={t('Questions about this order?')} orderReference={order.reference}>
+            {t('Mention order')} <span className="mono">{order.reference}</span> {t('so we can find it quickly.')}
           </SupportContact>
         </div>
 
-        <aside className="flow__aside flow__aside--after" aria-label="Receipt">
+        <aside className="flow__aside flow__aside--after" aria-label={t('Receipt')}>
           <div className="panel">
             <div className="panel__head">
-              <h2 className="title">Receipt</h2>
+              <h2 className="title">{t('Receipt')}</h2>
               {sandboxOrder ? <MockBadge force /> : null}
             </div>
             <div className="panel__body stack">

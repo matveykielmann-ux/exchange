@@ -9,6 +9,7 @@ import { formatAsset, formatDateTime } from '@/lib/format';
 import type { OrderSummary, Page } from '@/services/types';
 import { useServices } from '@/state/services';
 import { useLiveEvents } from '@/state/useLive';
+import { t } from '@/i18n';
 
 /** Order history for the signed-in customer, newest first, from the server. */
 export function OrdersPage() {
@@ -36,28 +37,28 @@ export function OrdersPage() {
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   return (
     <>
-      <PageHeader eyebrow="Account" title="Orders" lead="Every exchange on your account, newest first.">
+      <PageHeader eyebrow={t('Account')} title={t('Orders')} lead={t('Every exchange on your account, newest first.')}>
         <div className="row">
-          <MockBadge label="Sandbox orders" />
+          <MockBadge label={t('Sandbox orders')} />
         </div>
       </PageHeader>
       <div className="container section--tight">
         {error ? (
-          <Notice tone="danger" title="Orders could not be loaded." role="alert">
+          <Notice tone="danger" title={t('Orders could not be loaded.')} role="alert">
             {error}
           </Notice>
         ) : null}
         {data === null ? (
           error ? null : (
-            <p className="muted">Loading…</p>
+            <p className="muted">{t('Loading…')}</p>
           )
         ) : data.items.length === 0 ? (
           <div className="stack" style={{ maxWidth: 520 }}>
-            <h2 className="title">No orders yet</h2>
-            <p>When you confirm an exchange, it appears here with its status and receipt.</p>
+            <h2 className="title">{t('No orders yet')}</h2>
+            <p>{t('When you confirm an exchange, it appears here with its status and receipt.')}</p>
             <div>
               <Link className="btn" to="/exchange">
-                Start an exchange
+                {t('Start an exchange')}
               </Link>
             </div>
           </div>
@@ -70,12 +71,12 @@ export function OrdersPage() {
                     <AssetMark code={o.asset} />
                     <span className="stack" style={{ gap: 4 }}>
                       <span className="tx-list__title">
-                        {o.direction === 'buy' ? 'Buy' : 'Sell'} {formatAsset(o.amountAtomic, o.asset)}{' '}
+                        {o.direction === 'buy' ? t('Buy') : t('Sell')} {formatAsset(o.amountAtomic, o.asset)}{' '}
                         <span className="muted small mono">{o.reference}</span>
                       </span>
                       <span className="row small muted" style={{ gap: 8 }}>
-                        <span className="badge badge--info">{ORDER_STAGE_LABEL[o.stage]}</span>{' '}
-                        <StatusBadge tone={orderTone(o.status)}>{orderStatusLabel(o.status, o.direction)}</StatusBadge>
+                        <span className="badge badge--info">{t(ORDER_STAGE_LABEL[o.stage])}</span>{' '}
+                        <StatusBadge tone={orderTone(o.status)}>{t(orderStatusLabel(o.status, o.direction))}</StatusBadge>
                         <span>{formatDateTime(o.createdAt)}</span>
                       </span>
                     </span>
@@ -84,7 +85,7 @@ export function OrdersPage() {
                         <>
                           {formatUsd(o.grossCents)}
                           <span className="small muted" style={{ display: 'block' }}>
-                            cash
+                            {t('cash')}
                           </span>
                         </>
                       ) : (
@@ -96,17 +97,17 @@ export function OrdersPage() {
               ))}
             </ul>
             {pages > 1 ? (
-              <nav className="pager" aria-label="Pages">
+              <nav className="pager" aria-label={t('Pages')}>
                 <button
                   type="button"
                   className="btn btn--secondary"
                   disabled={page <= 1}
                   onClick={() => setParams({ page: String(page - 1) })}
                 >
-                  Previous
+                  {t('Previous')}
                 </button>
                 <span className="small muted">
-                  Page {page} of {pages}
+                  {t('Page')} {page} {t('of')} {pages}
                 </span>
                 <button
                   type="button"
@@ -114,7 +115,7 @@ export function OrdersPage() {
                   disabled={page >= pages}
                   onClick={() => setParams({ page: String(page + 1) })}
                 >
-                  Next
+                  {t('Next')}
                 </button>
               </nav>
             ) : null}

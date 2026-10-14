@@ -7,6 +7,7 @@ import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { FEATURE_FLAGS } from '@/config/runtime';
 import { errorMessage } from '@/lib/errors';
 import { useServices } from '@/state/services';
+import { t } from '@/i18n';
 
 const STEPS = [
   ['Sign in and verify', 'Cash delivery needs an account with verified identity. The courier hands the cash only to the account holder.'],
@@ -36,7 +37,7 @@ export function CashDeliveryPage() {
   async function check(e: FormEvent) {
     e.preventDefault();
     if (!/^\d{5}$/.test(zip)) {
-      setError('Enter a 5-digit ZIP code.');
+      setError(t('Enter a 5-digit ZIP code.'));
       return;
     }
     setError(null);
@@ -50,17 +51,17 @@ export function CashDeliveryPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Cash delivery"
-        title="Cash by courier, to your door."
-        lead="Sell crypto and receive US dollars in cash, handed to you at your address after an ID check."
+        eyebrow={t('Cash delivery')}
+        title={t('Cash by courier, to your door.')}
+        lead={t('Sell crypto and receive US dollars in cash, handed to you at your address after an ID check.')}
       >
         <div className="row">
           <StatusBadge tone={FEATURE_FLAGS.courierCashDelivery ? 'info' : 'neutral'}>
-            {FEATURE_FLAGS.courierCashDelivery ? 'Available in served areas' : 'Switched off'}
+            {FEATURE_FLAGS.courierCashDelivery ? t('Available in served areas') : t('Switched off')}
           </StatusBadge>
           {FEATURE_FLAGS.courierCashDelivery ? (
             <Link className="btn" to="/exchange">
-              Start an exchange
+              {t('Start an exchange')}
             </Link>
           ) : null}
         </div>
@@ -68,18 +69,18 @@ export function CashDeliveryPage() {
       <section className="section">
         <div className="container two-col">
           <div className="section-head">
-            <p className="eyebrow">How it works</p>
-            <h2 className="display-m">From deposit to handoff</h2>
+            <p className="eyebrow">{t('How it works')}</p>
+            <h2 className="display-m">{t('From deposit to handoff')}</h2>
             <p>
-              The flat delivery fee and the minimum are shown in your quote before you confirm. Delivery times are estimates. See the{' '}
-              <Link to="/legal/cash-delivery">cash delivery terms</Link>.
+              {t('The flat delivery fee and the minimum are shown in your quote before you confirm. Delivery times are estimates. See the')}{' '}
+              <Link to="/legal/cash-delivery">{t('cash delivery terms')}</Link>.
             </p>
           </div>
           <dl className="dl">
             {STEPS.map(([k, v]) => (
               <div key={k}>
-                <dt>{k}</dt>
-                <dd>{v}</dd>
+                <dt>{t(k)}</dt>
+                <dd>{t(v)}</dd>
               </div>
             ))}
           </dl>
@@ -88,10 +89,11 @@ export function CashDeliveryPage() {
       <section className="section">
         <div className="container two-col">
           <div className="section-head">
-            <p className="eyebrow">Service Rules</p>
-            <h2 className="display-m">When you receive the cash</h2>
+            <p className="eyebrow">{t('Service Rules')}</p>
+            <h2 className="display-m">{t('When you receive the cash')}</h2>
             <p>
-              These safety rules apply to every cash handoff. They are quoted from the <Link to="/legal/terms">Service Rules</Link>.
+              {t('These safety rules apply to every cash handoff. They are quoted from the')}{' '}
+              <Link to="/legal/terms">{t('Service Rules')}</Link>.
             </p>
           </div>
           <RulesQuote refs={['4.10', '4.23']} />
@@ -100,13 +102,13 @@ export function CashDeliveryPage() {
       <section className="section">
         <div className="container two-col">
           <div className="section-head">
-            <p className="eyebrow">Availability</p>
-            <h2 className="display-m">Check an area</h2>
-            <p>Enter the ZIP code of the delivery address to see whether the courier serves it.</p>
+            <p className="eyebrow">{t('Availability')}</p>
+            <h2 className="display-m">{t('Check an area')}</h2>
+            <p>{t('Enter the ZIP code of the delivery address to see whether the courier serves it.')}</p>
           </div>
           <form className="panel" onSubmit={check} noValidate>
             <div className="panel__body stack">
-              <Field label="ZIP code" id="zip" error={error}>
+              <Field label={t('ZIP code')} id="zip" error={error}>
                 {(p) => (
                   <input
                     className="input tabular"
@@ -121,20 +123,20 @@ export function CashDeliveryPage() {
               </Field>
               <div>
                 <button className="btn btn--secondary" type="submit">
-                  Check availability
+                  {t('Check availability')}
                 </button>
               </div>
               <div aria-live="polite">
                 {result ? (
                   result.available ? (
-                    <Notice tone="info" title={`Cash delivery is available in ${result.zip}`}>
+                    <Notice tone="info" title={t('Cash delivery is available in {0}', [result.zip])}>
                       <p>
-                        {result.reason} <Link to="/exchange">Start an exchange</Link>.
+                        {result.reason} <Link to="/exchange">{t('Start an exchange')}</Link>.
                       </p>
                       <MockBadge />
                     </Notice>
                   ) : (
-                    <Notice tone="neutral" title={`Not available in ${result.zip}`}>
+                    <Notice tone="neutral" title={t('Not available in {0}', [result.zip])}>
                       <p>{result.reason}</p>
                     </Notice>
                   )

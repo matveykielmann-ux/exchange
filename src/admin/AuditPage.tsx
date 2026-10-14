@@ -4,6 +4,7 @@ import { formatDateTime } from '@/lib/format';
 import { useServices } from '@/state/services';
 import { AdminHead, LoadError, Pager } from './shared';
 import { useLoad } from './lib';
+import { t } from '@/i18n';
 
 const FILTERS = [
   ['action', 'Action', 'order.payout_authorized'],
@@ -25,8 +26,8 @@ export function AuditPage() {
   return (
     <div className="stack stack--lg">
       <AdminHead
-        title="Audit log"
-        lead="Every staff action, provider event and sign-in, newest first. Entries are append-only and hash-chained."
+        title={t('Audit log')}
+        lead={t('Every staff action, provider event and sign-in, newest first. Entries are append-only and hash-chained.')}
       />
       <form
         className="filters"
@@ -40,7 +41,7 @@ export function AuditPage() {
         {FILTERS.map(([k, label, ph]) => (
           <div className="field" key={k}>
             <label className="field__label" htmlFor={`a-${k}`}>
-              {label}
+              {t(label)}
             </label>
             <input
               id={`a-${k}`}
@@ -53,24 +54,24 @@ export function AuditPage() {
         ))}
         <div className="filters__submit">
           <button type="submit" className="btn btn--secondary">
-            Filter
+            {t('Filter')}
           </button>
         </div>
       </form>
       <LoadError error={error} />
       {data ? (
         <>
-          <div className="table-wrap" tabIndex={0} role="region" aria-label="Audit log">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label={t('Audit log')}>
             <table className="data-table admin-table">
               <thead>
                 <tr>
                   <th scope="col">#</th>
-                  <th scope="col">When</th>
-                  <th scope="col">Actor</th>
-                  <th scope="col">Action</th>
-                  <th scope="col">Target</th>
-                  <th scope="col">Reason</th>
-                  <th scope="col">Details</th>
+                  <th scope="col">{t('When')}</th>
+                  <th scope="col">{t('Actor')}</th>
+                  <th scope="col">{t('Action')}</th>
+                  <th scope="col">{t('Target')}</th>
+                  <th scope="col">{t('Reason')}</th>
+                  <th scope="col">{t('Details')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -107,7 +108,7 @@ export function AuditPage() {
                         aria-expanded={open === a.id}
                         onClick={() => setOpen(open === a.id ? null : a.id)}
                       >
-                        {open === a.id ? 'Hide' : 'Show'}
+                        {open === a.id ? t('Hide') : t('Show')}
                       </button>
                       {open === a.id ? (
                         <pre className="audit-data">{JSON.stringify({ ...a.data, ip: a.ip, hash: a.hash }, null, 2)}</pre>
@@ -118,7 +119,7 @@ export function AuditPage() {
                 {data.items.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="muted">
-                      No entries match.
+                      {t('No entries match.')}
                     </td>
                   </tr>
                 ) : null}
@@ -139,7 +140,7 @@ export function AuditPage() {
           />
         </>
       ) : !error ? (
-        <p className="muted">Loading…</p>
+        <p className="muted">{t('Loading…')}</p>
       ) : null}
     </div>
   );

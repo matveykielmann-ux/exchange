@@ -14,6 +14,7 @@ import { ApiError } from '@/services/http';
 import { isStaff } from '@/state/auth';
 import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
+import { t } from '@/i18n';
 
 function useReturnTo(fallback = '/account'): string {
   const location = useLocation();
@@ -28,9 +29,9 @@ function SandboxAccountsNotice() {
   const config = useConfig();
   if (config.mode !== 'sandbox') return null;
   return (
-    <Notice tone="warn" title="Sandbox accounts">
+    <Notice tone="warn" title={t('Sandbox accounts')}>
       <p>
-        Accounts here are stored on the sandbox server and never touch real money. Don't reuse a real password. <MockBadge />
+        {t("Accounts here are stored on the sandbox server and never touch real money. Don't reuse a real password.")} <MockBadge />
       </p>
     </Notice>
   );
@@ -133,22 +134,22 @@ export function SignInPage({ staff = false }: { staff?: boolean }) {
     <div className="container auth">
       <div className="auth__panel stack stack--lg">
         <div className="stack">
-          <h1 className="display-l">{challenge ? 'Two-step sign-in' : staff ? 'Master account' : 'Sign in'}</h1>
+          <h1 className="display-l">{challenge ? t('Two-step sign-in') : staff ? t('Master account') : t('Sign in')}</h1>
           <p className="muted">
             {challenge
-              ? 'Enter the 6-digit code from your authenticator app.'
+              ? t('Enter the 6-digit code from your authenticator app.')
               : staff
-                ? 'Sign-in for the owner and staff of CryptoBit Exchange. Customer accounts cannot sign in here.'
+                ? t('Sign-in for the owner and staff of CryptoBit Exchange. Customer accounts cannot sign in here.')
                 : returnTo.startsWith('/exchange')
-                  ? 'Sign in or create an account to exchange. Your amount and choices are kept.'
-                  : 'Welcome back.'}
+                  ? t('Sign in or create an account to exchange. Your amount and choices are kept.')
+                  : t('Welcome back.')}
           </p>
         </div>
         <SandboxAccountsNotice />
         {!challenge ? (
           <form className="stack" onSubmit={submitCredentials} noValidate>
             <ErrorSummary errors={errors} />
-            <Field label="Email" id="signin-email" error={errors['signin-email']}>
+            <Field label={t('Email')} id="signin-email" error={errors['signin-email']}>
               {(p) => (
                 <input
                   className="input"
@@ -160,7 +161,7 @@ export function SignInPage({ staff = false }: { staff?: boolean }) {
                 />
               )}
             </Field>
-            <Field label="Password" id="signin-password" error={errors['signin-password']}>
+            <Field label={t('Password')} id="signin-password" error={errors['signin-password']}>
               {(p) => (
                 <input
                   className="input"
@@ -174,34 +175,39 @@ export function SignInPage({ staff = false }: { staff?: boolean }) {
             </Field>
             {serverError ? <Notice tone="danger" title={serverError} role="alert" /> : null}
             <button className="btn btn--lg btn--block" type="submit" disabled={busy}>
-              {busy ? 'Checking…' : 'Sign in'}
+              {busy ? t('Checking…') : t('Sign in')}
             </button>
             <div className="row" style={{ justifyContent: 'space-between' }}>
               {staff ? (
                 <Link className="small" to="/signin">
-                  Customer sign-in
+                  {t('Customer sign-in')}
                 </Link>
               ) : (
                 <p className="small">
-                  New here?{' '}
+                  {t('New here?')}{' '}
                   <Link to="/signup" state={{ from: returnTo || undefined }}>
-                    Create an account
+                    {t('Create an account')}
                   </Link>
                 </p>
               )}
               <Link className="small" to="/reset-password">
-                Forgot your password?
+                {t('Forgot your password?')}
               </Link>
             </div>
           </form>
         ) : (
           <form className="stack" onSubmit={submitCode} noValidate>
-            <Field label="Verification code" id="signin-code" error={errors['signin-code']} hint="The code changes every 30 seconds.">
+            <Field
+              label={t('Verification code')}
+              id="signin-code"
+              error={errors['signin-code']}
+              hint={t('The code changes every 30 seconds.')}
+            >
               {(p) => <CodeInput value={code} onChange={setCode} fieldProps={p} />}
             </Field>
             {serverError ? <Notice tone="danger" title={serverError} role="alert" /> : null}
             <button className="btn btn--lg btn--block" type="submit" disabled={busy}>
-              {busy ? 'Verifying…' : 'Verify and sign in'}
+              {busy ? t('Verifying…') : t('Verify and sign in')}
             </button>
             <button
               type="button"
@@ -211,7 +217,7 @@ export function SignInPage({ staff = false }: { staff?: boolean }) {
                 setCode('');
               }}
             >
-              Use a different account
+              {t('Use a different account')}
             </button>
           </form>
         )}
@@ -288,26 +294,31 @@ export function SignUpPage() {
     <div className="container auth">
       <div className="auth__panel stack stack--lg">
         <div className="stack">
-          <h1 className="display-l">Create an account</h1>
-          <p className="muted">You'll need one to place an order. We'll verify your identity before your first payout.</p>
+          <h1 className="display-l">{t('Create an account')}</h1>
+          <p className="muted">{t("You'll need one to place an order. We'll verify your identity before your first payout.")}</p>
         </div>
         <SandboxAccountsNotice />
         <form className="stack" onSubmit={submit} noValidate>
           <ErrorSummary errors={errors} />
-          <Field label="Full legal name" id="signup-name" error={errors['signup-name']} hint="As it appears on your government ID.">
+          <Field
+            label={t('Full legal name')}
+            id="signup-name"
+            error={errors['signup-name']}
+            hint={t('As it appears on your government ID.')}
+          >
             {(p) => (
               <input className="input" {...p} autoComplete="name" maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />
             )}
           </Field>
-          <Field label="Email" id="signup-email" error={errors['signup-email']}>
+          <Field label={t('Email')} id="signup-email" error={errors['signup-email']}>
             {(p) => (
               <input className="input" {...p} type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             )}
           </Field>
-          <Field label="Country of residence" id="signup-country" error={errors['signup-country']}>
+          <Field label={t('Country of residence')} id="signup-country" error={errors['signup-country']}>
             {(p) => (
               <select className="select" {...p} autoComplete="country" value={country} onChange={(e) => setCountry(e.target.value)}>
-                <option value="">Choose a country</option>
+                <option value="">{t('Choose a country')}</option>
                 {countries.map((c) => (
                   <option key={c.code} value={c.code}>
                     {c.name}
@@ -317,10 +328,10 @@ export function SignUpPage() {
             )}
           </Field>
           {country === 'US' ? (
-            <Field label="State of residence" id="signup-state" error={errors['signup-state']}>
+            <Field label={t('State of residence')} id="signup-state" error={errors['signup-state']}>
               {(p) => (
                 <select className="select" {...p} autoComplete="address-level1" value={state} onChange={(e) => setState(e.target.value)}>
-                  <option value="">Choose a state</option>
+                  <option value="">{t('Choose a state')}</option>
                   {US_STATES.map((s) => (
                     <option key={s} value={s}>
                       {US_STATE_NAMES[s]}
@@ -331,10 +342,10 @@ export function SignUpPage() {
             </Field>
           ) : null}
           <Field
-            label="Password"
+            label={t('Password')}
             id="signup-password"
             error={errors['signup-password']}
-            hint="At least 12 characters. A passphrase works well."
+            hint={t('At least 12 characters. A passphrase works well.')}
           >
             {(p) => (
               <input
@@ -348,14 +359,14 @@ export function SignUpPage() {
             )}
           </Field>
           <Checkbox id="signup-territory" checked={notRestricted} onChange={setNotRestricted} error={errors['signup-territory']}>
-            I am not a citizen or resident of, and do not live in, any territory listed in clause 8.5 of the{' '}
+            {t('I am not a citizen or resident of, and do not live in, any territory listed in clause 8.5 of the')}{' '}
             <Link to="/legal/terms#clause-8-5" target="_blank">
-              Service Rules
+              {t('Service Rules')}
             </Link>
             : {RESTRICTED_TERRITORIES.join('; ')}.
           </Checkbox>
           <Checkbox id="signup-agree" checked={agree} onChange={setAgree} error={errors['signup-agree']}>
-            I agree to the{' '}
+            {t('I agree to the')}{' '}
             {signupDocs.map((d, i) => (
               <span key={d.slug}>
                 {i > 0 ? (i === signupDocs.length - 1 ? ' and ' : ', ') : null}
@@ -364,23 +375,23 @@ export function SignUpPage() {
                 </Link>
               </span>
             ))}
-            , including receiving documents electronically.
+            {t(', including receiving documents electronically.')}
           </Checkbox>
           <p className="small muted">
-            Under the{' '}
+            {t('Under the')}{' '}
             <Link to="/legal/terms" target="_blank">
-              Service Rules
+              {t('Service Rules')}
             </Link>
-            , using the Service confirms your agreement with them. You also accept them with each Exchange Request.
+            {t(', using the Service confirms your agreement with them. You also accept them with each Exchange Request.')}
           </p>
           {serverError ? <Notice tone="danger" title={serverError} role="alert" /> : null}
           <button className="btn btn--lg btn--block" type="submit" disabled={busy}>
-            {busy ? 'Creating…' : 'Create account'}
+            {busy ? t('Creating…') : t('Create account')}
           </button>
           <p className="small">
-            Already have one?{' '}
+            {t('Already have one?')}{' '}
             <Link to="/signin" state={{ from: returnTo }}>
-              Sign in
+              {t('Sign in')}
             </Link>
           </p>
         </form>
@@ -417,26 +428,30 @@ export function ResetRequestPage() {
     <div className="container auth">
       <div className="auth__panel stack stack--lg">
         <div className="stack">
-          <h1 className="display-l">Reset your password</h1>
-          <p className="muted">We'll email a link that works once, for 30 minutes.</p>
+          <h1 className="display-l">{t('Reset your password')}</h1>
+          <p className="muted">{t("We'll email a link that works once, for 30 minutes.")}</p>
         </div>
         {sent ? (
           <div className="stack">
-            <Notice tone="info" title="Check your email" role="status">
-              <p>If an account exists for {email}, a reset link is on its way. It can take a few minutes to arrive.</p>
+            <Notice tone="info" title={t('Check your email')} role="status">
+              <p>
+                {t('If an account exists for')} {email}
+                {t(', a reset link is on its way. It can take a few minutes to arrive.')}
+              </p>
             </Notice>
             {sandboxPath ? (
-              <Notice tone="warn" title="Sandbox: email is not sent">
+              <Notice tone="warn" title={t('Sandbox: email is not sent')}>
                 <p>
-                  The sandbox shows the link here instead of emailing it. <Link to={sandboxPath}>Open the reset link</Link> <MockBadge />
+                  {t('The sandbox shows the link here instead of emailing it.')} <Link to={sandboxPath}>{t('Open the reset link')}</Link>{' '}
+                  <MockBadge />
                 </p>
               </Notice>
             ) : null}
-            <Link to="/signin">Back to sign in</Link>
+            <Link to="/signin">{t('Back to sign in')}</Link>
           </div>
         ) : (
           <form className="stack" onSubmit={submit} noValidate>
-            <Field label="Email" id="reset-email" error={error}>
+            <Field label={t('Email')} id="reset-email" error={error}>
               {(p) => (
                 <input
                   className="input"
@@ -449,10 +464,10 @@ export function ResetRequestPage() {
               )}
             </Field>
             <button className="btn btn--lg btn--block" type="submit" disabled={busy}>
-              {busy ? 'Sending…' : 'Send reset link'}
+              {busy ? t('Sending…') : t('Send reset link')}
             </button>
             <Link className="small" to="/signin">
-              Back to sign in
+              {t('Back to sign in')}
             </Link>
           </form>
         )}
@@ -496,26 +511,26 @@ export function ResetConfirmPage() {
   return (
     <div className="container auth">
       <div className="auth__panel stack stack--lg">
-        <h1 className="display-l">Choose a new password</h1>
+        <h1 className="display-l">{t('Choose a new password')}</h1>
         {!token ? (
-          <Notice tone="danger" title="This link is incomplete">
+          <Notice tone="danger" title={t('This link is incomplete')}>
             <p>
-              Open the link from your email again, or <Link to="/reset-password">request a new one</Link>.
+              {t('Open the link from your email again, or')} <Link to="/reset-password">{t('request a new one')}</Link>.
             </p>
           </Notice>
         ) : done ? (
           <div className="stack">
-            <Notice tone="info" title="Password changed" role="status">
-              <p>Every session on your account was signed out. Sign in with your new password.</p>
+            <Notice tone="info" title={t('Password changed')} role="status">
+              <p>{t('Every session on your account was signed out. Sign in with your new password.')}</p>
             </Notice>
             <Link className="btn btn--lg" to="/signin">
-              Sign in
+              {t('Sign in')}
             </Link>
           </div>
         ) : (
           <form className="stack" onSubmit={submit} noValidate>
             <ErrorSummary errors={errors} />
-            <Field label="New password" id="reset-password" error={errors['reset-password']} hint="At least 12 characters.">
+            <Field label={t('New password')} id="reset-password" error={errors['reset-password']} hint={t('At least 12 characters.')}>
               {(p) => (
                 <input
                   className="input"
@@ -527,7 +542,7 @@ export function ResetConfirmPage() {
                 />
               )}
             </Field>
-            <Field label="Confirm new password" id="reset-confirm" error={errors['reset-confirm']}>
+            <Field label={t('Confirm new password')} id="reset-confirm" error={errors['reset-confirm']}>
               {(p) => (
                 <input
                   className="input"
@@ -542,12 +557,12 @@ export function ResetConfirmPage() {
             {serverError ? (
               <Notice tone="danger" title={serverError} role="alert">
                 <p>
-                  Links expire after 30 minutes and work once. <Link to="/reset-password">Request a new link</Link>.
+                  {t('Links expire after 30 minutes and work once.')} <Link to="/reset-password">{t('Request a new link')}</Link>.
                 </p>
               </Notice>
             ) : null}
             <button className="btn btn--lg btn--block" type="submit" disabled={busy}>
-              {busy ? 'Saving…' : 'Save new password'}
+              {busy ? t('Saving…') : t('Save new password')}
             </button>
           </form>
         )}

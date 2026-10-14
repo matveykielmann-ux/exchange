@@ -1,0 +1,437 @@
+/** Russian: public site, part 2 (account, auth, buy flow, cash delivery, content pages). */
+export const RU_PUBLIC2: Record<string, string> = {
+  // Account
+  Profile: 'Профиль',
+  'Full legal name': 'Полное имя, как в документах',
+  'Contact support to change a verified name.': 'Чтобы изменить подтверждённое имя, обратитесь в поддержку.',
+  'Phone (optional)': 'Телефон (необязательно)',
+  'Country of residence': 'Страна проживания',
+  'Choose a country': 'Выберите страну',
+  'State of residence': 'Штат проживания',
+  'Not added': 'Не указано',
+  Country: 'Страна',
+  'Edit profile': 'Изменить профиль',
+  'Identity verification': 'Проверка личности',
+  'Sandbox: results come from test rules based on your name (“Review” needs more information, “Reject” is rejected, “Sanctioned” fails screening). No documents are collected.':
+    'Тест: результат определяется тестовыми правилами по имени («Review» — нужна доп. информация, «Reject» — отказ, «Sanctioned» — не проходит проверку). Документы не собираются.',
+  'Card payouts are not available yet: the card provider is not connected.':
+    'Выплаты на карту пока недоступны: карточный провайдер не подключён.',
+  'Payout methods': 'Способы выплаты',
+  'No payout methods saved.': 'Способы выплаты не сохранены.',
+  '· added': '· добавлен',
+  'Remove {0}': 'Удалить {0}',
+  Remove: 'Удалить',
+  'Add a bank account': 'Добавить банковский счёт',
+  'Add a cash delivery address': 'Добавить адрес доставки наличных',
+  'Add test debit card': 'Добавить тестовую дебетовую карту',
+  'Add a debit card': 'Добавить дебетовую карту',
+  'Password changed. Your other sessions were signed out.': 'Пароль изменён. Остальные сеансы завершены.',
+  'Change password': 'Сменить пароль',
+  'Current password': 'Текущий пароль',
+  'New password': 'Новый пароль',
+  'At least 12 characters.': 'Не менее 12 символов.',
+  'Two-step sign-in': 'Двухэтапный вход',
+  'Sign-in asks for a code from your authenticator app.': 'При входе запрашивается код из приложения-аутентификатора.',
+  'Turn off': 'Отключить',
+  'Enter a current code from your authenticator app to turn two-step sign-in off.':
+    'Введите текущий код из приложения-аутентификатора, чтобы отключить двухэтапный вход.',
+  'Add this account to your authenticator app, then enter the 6-digit code it shows.':
+    'Добавьте этот аккаунт в приложение-аутентификатор и введите 6-значный код из него.',
+  'Setup key': 'Ключ настройки',
+  'On a phone?': 'Вы с телефона?',
+  'Open in your authenticator app': 'Открыть в приложении-аутентификаторе',
+  'Add a code from an authenticator app (such as 1Password, Google Authenticator or Authy) to every sign-in.':
+    'Добавьте ко входу код из приложения-аутентификатора (например, 1Password, Google Authenticator или Authy).',
+  '6-digit code': '6-значный код',
+  Confirm: 'Подтвердить',
+  'Set up two-step sign-in': 'Настроить двухэтапный вход',
+  'Active sessions': 'Активные сеансы',
+  'Unknown device': 'Неизвестное устройство',
+  'This device': 'Это устройство',
+  'Signed in': 'Вход выполнен',
+  '· last active': '· последняя активность',
+  'Sign out other sessions': 'Завершить другие сеансы',
+  'Signed out {0} other session.': 'Завершён других сеансов: {0}.',
+  'Signed out {0} other sessions.': 'Завершено других сеансов: {0}.',
+  unread: 'не прочитано',
+  'Documents you accepted': 'Принятые документы',
+  'No acceptances recorded.': 'Принятых документов нет.',
+  'Legal acceptances': 'Принятие документов',
+  Document: 'Документ',
+  Version: 'Версия',
+  '· for an order': '· для заявки',
+  'Sandbox account': 'Тестовый аккаунт',
+  'Member since': 'С нами с',
+  'Account sections': 'Разделы аккаунта',
+  'Not verified': 'Не подтверждена',
+  'Verify your identity before your first exchange. You only need to do this once.':
+    'Подтвердите личность перед первым обменом. Это нужно сделать один раз.',
+  'We are checking your details. This page updates when the result arrives.':
+    'Мы проверяем ваши данные. Страница обновится, когда придёт результат.',
+  Verified: 'Подтверждена',
+  'You can place online exchanges up to the per-order limit.': 'Вы можете совершать онлайн-обмены в пределах лимита заявки.',
+  'More information needed': 'Нужна дополнительная информация',
+  'Our team needs more information to finish verifying you. Check your support messages.':
+    'Чтобы завершить проверку, нам нужна дополнительная информация. Проверьте сообщения поддержки.',
+  'Not approved': 'Не одобрена',
+  'We could not verify your identity, so exchanges are not available on this account.':
+    'Нам не удалось подтвердить вашу личность, поэтому обмены для этого аккаунта недоступны.',
+  Browser: 'Браузер',
+  'Debit card': 'Дебетовая карта',
+
+  // Auth
+  'Sandbox accounts': 'Тестовые аккаунты',
+  "Accounts here are stored on the sandbox server and never touch real money. Don't reuse a real password.":
+    'Аккаунты хранятся на тестовом сервере и никогда не работают с реальными деньгами. Не используйте настоящий пароль.',
+  'Master account': 'Мастер-аккаунт',
+  'Staff sign-in': 'Вход для сотрудников',
+  'Enter the 6-digit code from your authenticator app.': 'Введите 6-значный код из приложения-аутентификатора.',
+  'Sign-in for the owner and staff of CryptoBit Exchange. Customer accounts cannot sign in here.':
+    'Вход для владельца и сотрудников CryptoBit Exchange. Аккаунты клиентов здесь войти не могут.',
+  'Sign in or create an account to exchange. Your amount and choices are kept.':
+    'Войдите или создайте аккаунт, чтобы совершить обмен. Сумма и выбранные параметры сохранятся.',
+  'Welcome back.': 'С возвращением.',
+  Password: 'Пароль',
+  'Checking…': 'Проверка…',
+  'Customer sign-in': 'Вход для клиентов',
+  'New here?': 'Впервые здесь?',
+  'Create an account': 'Создать аккаунт',
+  'Forgot your password?': 'Забыли пароль?',
+  'Verification code': 'Код подтверждения',
+  'The code changes every 30 seconds.': 'Код меняется каждые 30 секунд.',
+  'Verifying…': 'Проверка…',
+  'Verify and sign in': 'Подтвердить и войти',
+  'Use a different account': 'Войти в другой аккаунт',
+  "You'll need one to place an order. We'll verify your identity before your first payout.":
+    'Он нужен для оформления заявки. Перед первой выплатой мы проверим вашу личность.',
+  'As it appears on your government ID.': 'Как в вашем удостоверении личности.',
+  'At least 12 characters. A passphrase works well.': 'Не менее 12 символов. Хорошо подходит парольная фраза.',
+  'I am not a citizen or resident of, and do not live in, any territory listed in clause 8.5 of the':
+    'Я не являюсь гражданином или резидентом и не проживаю на территориях, перечисленных в п. 8.5',
+  'I agree to the': 'Я принимаю',
+  ', including receiving documents electronically.': ', включая получение документов в электронном виде.',
+  'Under the': 'Согласно',
+  ', using the Service confirms your agreement with them. You also accept them with each Exchange Request.':
+    ', использование Сервиса подтверждает ваше согласие с ними. Вы также принимаете их с каждой заявкой на обмен.',
+  'Creating…': 'Создание…',
+  'Create account': 'Создать аккаунт',
+  'Already have one?': 'Уже есть аккаунт?',
+  'Reset your password': 'Сброс пароля',
+  'Reset password': 'Сброс пароля',
+  "We'll email a link that works once, for 30 minutes.": 'Мы отправим одноразовую ссылку, действующую 30 минут.',
+  'Check your email': 'Проверьте почту',
+  'If an account exists for': 'Если аккаунт для',
+  ', a reset link is on its way. It can take a few minutes to arrive.':
+    'существует, ссылка для сброса уже отправлена. Письмо может прийти через несколько минут.',
+  'Sandbox: email is not sent': 'Тест: письмо не отправляется',
+  'The sandbox shows the link here instead of emailing it.': 'В тестовой среде ссылка показывается здесь вместо письма.',
+  'Open the reset link': 'Открыть ссылку для сброса',
+  'Back to sign in': 'Вернуться ко входу',
+  'Send reset link': 'Отправить ссылку',
+  'Choose a new password': 'Придумайте новый пароль',
+  'This link is incomplete': 'Ссылка неполная',
+  'Open the link from your email again, or': 'Откройте ссылку из письма ещё раз или',
+  'request a new one': 'запросите новую',
+  'Password changed': 'Пароль изменён',
+  'Every session on your account was signed out. Sign in with your new password.':
+    'Все сеансы аккаунта завершены. Войдите с новым паролем.',
+  'Confirm new password': 'Повторите новый пароль',
+  'Links expire after 30 minutes and work once.': 'Ссылки действуют 30 минут и только один раз.',
+  'Request a new link': 'Запросить новую ссылку',
+  'Save new password': 'Сохранить новый пароль',
+  'Enter your password.': 'Введите пароль.',
+  'Enter the 6-digit code.': 'Введите 6-значный код.',
+  'your full legal name': 'полное имя',
+  'Choose the country where you live.': 'Выберите страну проживания.',
+  'Choose the state where you live.': 'Выберите штат проживания.',
+  'Confirm that you do not live in one of the listed territories.': 'Подтвердите, что вы не проживаете на перечисленных территориях.',
+  'Accept the terms to create an account.': 'Примите условия, чтобы создать аккаунт.',
+  'The passwords don’t match.': 'Пароли не совпадают.',
+
+  // Buy flow
+  Amount: 'Сумма',
+  'Collection & wallet': 'Забор и кошелёк',
+  Review: 'Проверка',
+  'Cash collection isn’t available for this amount': 'Забор наличных недоступен для этой суммы',
+  'Fees would exceed this amount. Enter a larger amount.': 'Комиссии превысят эту сумму. Введите сумму больше.',
+  'Exchange progress': 'Этапы обмена',
+  '(completed)': '(выполнено)',
+  'What do you want to buy?': 'Что вы хотите купить?',
+  'Cash you pay (USD)': 'Сумма наличными (USD)',
+  'Paid in person to the courier. Minimum {0}; cash collection has its own minimum.':
+    'Передаётся лично курьеру. Минимум {0}; у забора наличных свой минимум.',
+  'We couldn’t price this right now': 'Сейчас не удаётся рассчитать цену',
+  'Try again': 'Попробовать снова',
+  'Sign in to continue': 'Войдите, чтобы продолжить',
+  'You need an account to arrange a cash collection and confirm an exchange. Your amount and choices are kept.':
+    'Чтобы заказать забор наличных и подтвердить обмен, нужен аккаунт. Сумма и выбранные параметры сохранятся.',
+  Back: 'Назад',
+  'Save or choose a collection address.': 'Сохраните или выберите адрес забора.',
+  'Where should the courier collect the cash?': 'Где курьеру забрать наличные?',
+  'Collection address': 'Адрес забора',
+  'Loading saved addresses…': 'Загрузка сохранённых адресов…',
+  'No saved addresses yet. Add one below.': 'Сохранённых адресов пока нет. Добавьте адрес ниже.',
+  'Add a collection address': 'Добавить адрес забора',
+  'The courier collects the cash only from you, the verified account holder, after checking your photo ID.':
+    'Курьер забирает наличные только у вас — подтверждённого владельца аккаунта — после проверки документа с фото.',
+  'Your {0} wallet address': 'Адрес вашего кошелька в сети {0}',
+  'We send the {0} here once the cash is counted and verified. Use a wallet you control on {1}; transfers can’t be reversed.':
+    'Мы отправим {0} сюда после пересчёта и проверки наличных. Используйте кошелёк в сети {1}, который вы контролируете; переводы необратимы.',
+  'Review quote': 'Проверить котировку',
+  'Review and confirm': 'Проверка и подтверждение',
+  'Sandbox quote': 'Тестовая котировка',
+  'Your quote': 'Ваша котировка',
+  'Rate held ·': 'Курс зафиксирован ·',
+  'Expires in': 'Истекает через',
+  Expired: 'Истекла',
+  'We couldn’t lock a quote': 'Не удалось зафиксировать котировку',
+  'This quote has expired': 'Срок котировки истёк',
+  'Prices move. Get a new quote to continue. Nothing has been submitted.':
+    'Цены меняются. Получите новую котировку, чтобы продолжить. Ничего не отправлено.',
+  'Get a new quote': 'Получить новую котировку',
+  'The exchange rate, courier fee, minimum, quote validity and collection window shown here are the conditions of this exchange. Under clause 4.24 of the':
+    'Курс обмена, комиссия курьера, минимум, срок действия котировки и окно забора, указанные здесь, — условия этого обмена. Согласно п. 4.24',
+  ', continuing with this Exchange Request signifies your agreement with them. Submitting it is acceptance of the public offer (Section 3).':
+    ', продолжение заявки означает ваше согласие с ними. Её отправка — акцепт публичной оферты (раздел 3).',
+  Acknowledgements: 'Подтверждения',
+  'I will hand exactly': 'Я передам ровно',
+  'the quoted amount': 'сумму из котировки',
+  'in US dollar cash to the courier in person, after the courier checks my photo ID. The':
+    'наличными долларами США лично курьеру после проверки им моего документа с фото.',
+  'goes only to the': 'отправляется только на',
+  'wallet address I gave, which I control. Blockchain transfers can’t be reversed.':
+    'указанный мной адрес кошелька, который я контролирую. Переводы в блокчейне необратимы.',
+  'I have read and accept the': 'Я прочитал(а) и принимаю',
+  'for this order.': 'для этой заявки.',
+  'Confirming…': 'Подтверждение…',
+  'Confirm exchange': 'Подтвердить обмен',
+  'Verify your identity, then ': 'Подтвердите личность, затем ',
+  'tick both boxes to confirm.': 'отметьте оба пункта для подтверждения.',
+  'Exchange details': 'Детали обмена',
+  'Cash collected at': 'Адрес забора наличных',
+  'Crypto sent to': 'Крипта отправляется на',
+  Within: 'В течение',
+  'hours after you confirm (estimated)': 'часов после подтверждения (ориентировочно)',
+  'Buying with cash isn’t available right now': 'Покупка за наличные сейчас недоступна',
+  'Cash collection by courier is switched off. You can still sell crypto for USD.':
+    'Забор наличных курьером отключён. Вы по-прежнему можете продать криптовалюту за USD.',
+  'Quote summary': 'Итоги котировки',
+  'You receive (indicative)': 'Вы получите (ориентировочно)',
+  'Indicative quote': 'Ориентировочная котировка',
+  'Enter an amount to see the breakdown.': 'Введите сумму, чтобы увидеть расчёт.',
+  'Final quote is locked on the review step.': 'Окончательная котировка фиксируется на шаге проверки.',
+
+  // Cash delivery page
+  'Enter a 5-digit ZIP code.': 'Введите 5-значный индекс ZIP.',
+  'Cash by courier, to your door.': 'Наличные с курьером — прямо к двери.',
+  'Sell crypto and receive US dollars in cash, handed to you at your address after an ID check.':
+    'Продайте криптовалюту и получите доллары США наличными — курьер передаст их по вашему адресу после проверки документа.',
+  'Available in served areas': 'Доступно в зоне обслуживания',
+  'Switched off': 'Отключено',
+  'From deposit to handoff': 'От депозита до передачи',
+  'The flat delivery fee and the minimum are shown in your quote before you confirm. Delivery times are estimates. See the':
+    'Фиксированная плата за доставку и минимум показываются в котировке до подтверждения. Сроки доставки ориентировочные. См.',
+  'cash delivery terms': 'условия доставки наличных',
+  'When you receive the cash': 'Когда вы получаете наличные',
+  'These safety rules apply to every cash handoff. They are quoted from the':
+    'Эти правила безопасности действуют при каждой передаче наличных. Они приведены из',
+  Availability: 'Доступность',
+  'Check an area': 'Проверить район',
+  'Enter the ZIP code of the delivery address to see whether the courier serves it.':
+    'Введите индекс адреса доставки, чтобы проверить, обслуживает ли его курьер.',
+  'Check availability': 'Проверить доступность',
+  'Cash delivery is available in {0}': 'Доставка наличных доступна для {0}',
+  'Not available in {0}': 'Недоступно для {0}',
+  'Sign in and verify': 'Войдите и подтвердите личность',
+  'Cash delivery needs an account with verified identity. The courier hands the cash only to the account holder.':
+    'Для доставки наличных нужен аккаунт с подтверждённой личностью. Курьер передаёт наличные только владельцу аккаунта.',
+  'Choose cash by courier': 'Выберите «Наличные с курьером»',
+  'Enter the amount, pick "Cash by courier" and add a US delivery address, a phone number and a preferred window.':
+    'Введите сумму, выберите «Наличные с курьером» и добавьте адрес доставки в США, телефон и удобное время.',
+  'Send your crypto': 'Отправьте криптовалюту',
+  'Send the exact amount to the deposit address on your order. We wait for the network confirmations.':
+    'Отправьте точную сумму на адрес депозита из заявки. Мы дождёмся подтверждений в сети.',
+  'After your deposit is final and any review is complete, the courier calls to confirm the time and brings the cash.':
+    'Когда депозит подтверждён и проверки завершены, курьер позвонит, согласует время и привезёт наличные.',
+  'ID check at the door': 'Проверка документа у двери',
+  'Show a government-issued photo ID that matches your verified account. The cash is not left with anyone else.':
+    'Покажите государственный документ с фото, совпадающий с подтверждённым аккаунтом. Наличные не оставляют другим людям.',
+  'Photograph and count': 'Сфотографируйте и пересчитайте',
+  'Before counting, photograph the cash as delivered, indoors, then send the photos and your count within 24 hours, as clause 4.10 of the Service Rules requires.':
+    'Перед пересчётом сфотографируйте полученные наличные в помещении, затем в течение 24 часов отправьте фото и результат пересчёта, как требует п. 4.10 Правил сервиса.',
+
+  // Content pages
+  'On this page': 'На этой странице',
+  'From crypto to dollars, step by step.': 'От криптовалюты к долларам — шаг за шагом.',
+  'One quote, one confirmation and one status page cover the whole exchange.':
+    'Одна котировка, одно подтверждение и одна страница статуса на весь обмен.',
+  '1. Quote': '1. Котировка',
+  '2. Payout': '2. Выплата',
+  '3. Details': '3. Данные',
+  '4. Confirm': '4. Подтверждение',
+  '5. Deposit': '5. Депозит',
+  '6. Payout': '6. Выплата',
+  '1. Get a quote': '1. Получите котировку',
+  "Choose the asset and the network you'll send on, then enter an amount. You see the exchange rate, the value of your crypto at that rate and the payout fee, all before you share any personal details.":
+    'Выберите актив и сеть, в которой будете отправлять, затем введите сумму. Вы увидите курс обмена, стоимость вашей криптовалюты по этому курсу и комиссию за выплату — ещё до того, как укажете личные данные.',
+  '2. Choose a payout method': '2. Выберите способ выплаты',
+  "Bank transfer (ACH), domestic wire, or debit card. Each shows its fee and estimated timing. Methods that can't take your amount are shown and explained, not hidden.":
+    'Банковский перевод (ACH), внутренний wire-перевод или дебетовая карта. Для каждого указаны комиссия и ориентировочный срок. Способы, недоступные для вашей суммы, показываются с объяснением, а не скрываются.',
+  '3. Add your details': '3. Укажите данные',
+  "Sign in, choose or add the account that will receive dollars, and give a refund address on the same network in case the exchange can't be completed.":
+    'Войдите, выберите или добавьте счёт для получения долларов и укажите адрес для возврата в той же сети на случай, если обмен не удастся завершить.',
+  '4. Review and confirm': '4. Проверьте и подтвердите',
+  'We lock a quote for': 'Мы фиксируем котировку на',
+  'seconds while you review it. Your identity must be verified first. When you confirm, the rate holds for deposits that arrive within':
+    'секунд, пока вы её проверяете. Сначала нужно подтвердить личность. После подтверждения курс действует для депозитов, поступивших в течение',
+  'minutes.': 'минут.',
+  '5. Send your crypto': '5. Отправьте криптовалюту',
+  'Send exactly the amount shown to the deposit address shown, on the network shown. We wait for the required number of network confirmations, then screen the transaction. Clause 4.22 of the':
+    'Отправьте ровно указанную сумму на указанный адрес депозита в указанной сети. Мы дождёмся нужного числа подтверждений и проверим транзакцию. Пункт 4.22',
+  'asks you to provide confirmation of the transfer: a screenshot showing the time, the wallet address, the amount and the TXID or blockchain link. You can give the transaction hash on the order page.':
+    'просит предоставить подтверждение перевода: скриншот со временем, адресом кошелька, суммой и TXID или ссылкой на блокчейн. Хеш транзакции можно указать на странице заявки.',
+  'Deposit steps': 'Этапы депозита',
+  'Required confirmations': 'Нужно подтверждений',
+  'Sandbox policy': 'Правило тестовой среды',
+  'Typical time': 'Обычное время',
+  '(estimate)': '(оценка)',
+  'Bitcoin, Ethereum and Tron follow the table in Section 5 of the Service Rules. The Rules set no count for Solana or Base; the counts shown for them are set by':
+    'Для Bitcoin, Ethereum и Tron действует таблица из раздела 5 Правил сервиса. Для Solana и Base Правила число не устанавливают; указанные значения задаёт',
+  '6. Receive dollars': '6. Получите доллары',
+  'Once the deposit is final and any review is complete, we send the payout. Every step is time-stamped on the status page. If something stops the exchange, the status page says what happened and what comes next.':
+    'Когда депозит подтверждён и проверки завершены, мы отправляем выплату. Каждый шаг отмечен временем на странице статуса. Если обмен остановится, там будет написано, что произошло и что дальше.',
+  'Two charges, both on the quote.': 'Две платы, обе в котировке.',
+  'An exchange spread and a payout fee. Both appear as separate lines, in dollars, before you confirm. Return fees apply only if funds have to be returned.':
+    'Спред обмена и комиссия за выплату. Обе указываются отдельными строками в долларах до подтверждения. Комиссии за возврат применяются только при возврате средств.',
+  'Sandbox fee schedule': 'Тестовый тариф',
+  'Draft schedule': 'Проект тарифов',
+  'These values are the current draft schedule and will be confirmed before launch. Whatever applies to your sale is shown on the quote, line by line, before you confirm.':
+    'Это текущий проект тарифов; он будет утверждён до запуска. Всё, что применяется к вашей продаже, показывается в котировке построчно до подтверждения.',
+  'Exchange spread': 'Спред обмена',
+  'The spread is a percentage of the value of your crypto at the reference price. It is smaller for larger amounts and for stablecoins.':
+    'Спред — процент от стоимости вашей криптовалюты по справочной цене. Он меньше для крупных сумм и стейблкоинов.',
+  'Spread schedule': 'Тарифы спреда',
+  'Value of the sale': 'Сумма продажи',
+  'BTC, ETH': 'BTC, ETH',
+  'USDT, USDC': 'USDT, USDC',
+  Under: 'До',
+  'and over': 'и выше',
+  'Payout fees': 'Комиссии за выплату',
+  Method: 'Способ',
+  Fee: 'Комиссия',
+  'Estimated timing': 'Ориентировочный срок',
+  Minimum: 'Минимум',
+  'Not offered': 'Недоступно',
+  Timing: 'Срок',
+  '{0}, no maximum': '{0}, без максимума',
+  'Network fees': 'Сетевые комиссии',
+  "Your wallet or exchange charges a network fee to send crypto. We don't receive it and it isn't part of your quote. You receive the amount on the quote as long as the full quoted amount arrives.":
+    'Ваш кошелёк или биржа берёт сетевую комиссию за отправку криптовалюты. Мы её не получаем, и она не входит в котировку. Вы получите сумму из котировки, если поступит полная сумма.',
+  'Return fees': 'Комиссии за возврат',
+  'If funds have to be returned, the Service Rules allow these charges. They are not part of the quote. The full rules for returns are in the':
+    'Если средства приходится возвращать, Правила сервиса допускают эти сборы. Они не входят в котировку. Полные правила возврата — в',
+  Limits: 'Лимиты',
+  'Minimum sale:': 'Минимальная продажа:',
+  'in value.': 'по стоимости.',
+  'No maximum per transaction, for every payout method.': 'Максимума на операцию нет — для любого способа выплаты.',
+  'Any order may be held for review before payout.': 'Любая заявка может быть задержана для проверки перед выплатой.',
+  'Commission formula': 'Формула комиссии',
+  'The spread and payout fee above are how the commission appears in your quote. The Service Rules define the commission as follows:':
+    'Спред и комиссия за выплату выше — это то, как комиссия отражается в котировке. Правила сервиса определяют комиссию так:',
+  'Worked example': 'Пример расчёта',
+  'Selling 0.10 BTC at an illustrative reference price of': 'Продажа 0,10 BTC по условной справочной цене',
+  ', paid by bank transfer:': ', выплата банковским переводом:',
+  'This is the sandbox': 'Это тестовая среда',
+  'Identity verification, screening, deposits and payouts are simulated by test providers. The controls below run for real on the server; the outcomes they act on are simulated.':
+    'Проверка личности, скрининг, депозиты и выплаты имитируются тестовыми провайдерами. Описанные ниже механизмы реально работают на сервере, но результаты, на которые они реагируют, имитируются.',
+  'Some providers are not connected yet': 'Некоторые провайдеры ещё не подключены',
+  'Providers connected': 'Провайдеры подключены',
+  'Not yet connected:': 'Ещё не подключены:',
+  ". Orders that need them can't be placed until they are.": '. Заявки, которым они нужны, нельзя оформить, пока они не подключены.',
+  'Every provider this service relies on is configured.': 'Все провайдеры, от которых зависит сервис, настроены.',
+  'How the product protects you.': 'Как сервис вас защищает.',
+  'How accounts, data and transactions are protected, what is still being set up, and how to protect yourself from scams.':
+    'Как защищены аккаунты, данные и операции, что ещё настраивается и как уберечься от мошенников.',
+  'Current status': 'Текущее состояние',
+  'Your account': 'Ваш аккаунт',
+  'Passwords are stored only as salted, slow hashes. Repeated failed sign-ins lock the account for a short time.':
+    'Пароли хранятся только в виде медленных хешей с солью. После нескольких неудачных попыток входа аккаунт ненадолго блокируется.',
+  'Sessions are held on our server and referenced by a secure, HTTP-only cookie. They expire after 12 hours.':
+    'Сеансы хранятся на нашем сервере и привязаны к защищённой cookie с флагом HTTP-only. Они истекают через 12 часов.',
+  'You can add an authenticator app for two-step sign-in, see your active sessions and sign out the others from your account.':
+    'В аккаунте можно подключить приложение-аутентификатор для двухэтапного входа, посмотреть активные сеансы и завершить остальные.',
+  'Changing your password signs out every other session.': 'Смена пароля завершает все остальные сеансы.',
+  'Your data': 'Ваши данные',
+  'Bank account details are encrypted in our database and shown back only as the last four digits.':
+    'Банковские реквизиты зашифрованы в базе и показываются только последними четырьмя цифрами.',
+  'Card numbers are never typed into this site, and security codes (CVV) are never collected or stored.':
+    'Номера карт никогда не вводятся на этом сайте, а коды безопасности (CVV) не собираются и не хранятся.',
+  'Staff see masked contact details by default, and every staff action on an order is recorded in an append-only audit log.':
+    'Сотрудники по умолчанию видят частично скрытые контакты, а каждое их действие с заявкой записывается в неизменяемый журнал аудита.',
+  'No analytics, advertising or third-party scripts are loaded. Fonts are served from this site.':
+    'Аналитика, реклама и сторонние скрипты не загружаются. Шрифты отдаются с этого сайта.',
+  Transactions: 'Операции',
+  "Each exchange moves through a fixed sequence of states. A payout can't be sent before the deposit is final.":
+    'Каждый обмен проходит фиксированную последовательность состояний. Выплату нельзя отправить до окончательного подтверждения депозита.',
+  'Quotes are stored when issued, can be used once, and are refused after they expire.':
+    'Котировки сохраняются при выдаче, используются один раз и не принимаются после истечения срока.',
+  'A deposit counts only when our blockchain monitoring reports it. Saying "I sent it" doesn\'t move an order forward.':
+    'Депозит засчитывается, только когда его фиксирует наш мониторинг блокчейна. Сообщение «я отправил» заявку не продвигает.',
+  'Refund addresses are screened before an exchange is accepted.': 'Адреса для возврата проверяются до принятия обмена.',
+  'Payouts above the review threshold, or with any exception, need a person on our team to approve them, with a recorded reason.':
+    'Выплаты выше порога проверки или с любыми исключениями должен одобрить сотрудник с записью причины.',
+  'Protect yourself from scams': 'Защитите себя от мошенников',
+  'We will never ask you to send crypto': 'Мы никогда не просим отправить криптовалюту',
+  'Nobody from': 'Никто из',
+  'will call, text, or message you asking you to buy or send crypto, move money to "protect" it, or share a sign-in code. Government agencies and banks don\'t ask for that either.':
+    'не будет звонить или писать вам с просьбой купить или отправить криптовалюту, перевести деньги, чтобы «защитить» их, или сообщить код входа. Госорганы и банки тоже так не делают.',
+  'Only contacts listed on this website are official (clause 4.21 of the': 'Официальны только контакты, указанные на этом сайте (п. 4.21',
+  'Be wary of anyone who contacts you first and creates urgency.': 'Остерегайтесь тех, кто связывается с вами первым и торопит.',
+  'Don\'t send crypto to pay a debt, a fine, a "security fee" or for a romance or investment opportunity.':
+    'Не отправляйте криптовалюту в счёт долга, штрафа, «платы за безопасность», ради знакомства или «инвестиционной возможности».',
+  "If you think you've been targeted, stop, contact your bank, and report it at":
+    'Если вы подозреваете мошенничество, остановитесь, свяжитесь с банком и сообщите на',
+  'reportfraud.ftc.gov': 'reportfraud.ftc.gov',
+  or: 'или',
+  'ic3.gov': 'ic3.gov',
+  'Report a security issue': 'Сообщить о проблеме безопасности',
+  'Send details to': 'Отправьте подробности на',
+  'or through': 'или через',
+  'support messages': 'сообщения поддержки',
+  '. A vulnerability disclosure policy will be published here before launch.':
+    '. Политика раскрытия уязвимостей будет опубликована здесь до запуска.',
+  'Frequently asked questions.': 'Частые вопросы.',
+  FAQ: 'Вопросы и ответы',
+  'How can we help?': 'Чем помочь?',
+  'Answers to common problems, and a direct line to our support team.': 'Ответы на частые вопросы и прямая связь со службой поддержки.',
+  'Contacting support': 'Связь с поддержкой',
+  'Message us on Telegram, or, signed in,': 'Напишите нам в Telegram или, войдя в аккаунт,',
+  'send us a message': 'отправьте сообщение',
+  "and link it to an order if it's about one; replies appear in your account. You can also write to":
+    'и привяжите его к заявке, если вопрос по ней; ответы появятся в аккаунте. Также можно написать на',
+  '. Never share your password, codes, private keys or seed phrase with anyone, including us.':
+    '. Никогда никому не сообщайте пароль, коды, приватные ключи или сид-фразу — даже нам.',
+  "We couldn't find that page.": 'Страница не найдена.',
+  'The link may be out of date.': 'Возможно, ссылка устарела.',
+  'Go home': 'На главную',
+  'Page not found': 'Страница не найдена',
+  Scams: 'Мошенничество',
+  'Report an issue': 'Сообщить о проблеме',
+  'My deposit hasn’t shown up': 'Мой депозит не появился',
+  'Deposits appear after the network broadcasts them, then need confirmations. Check you used the network on the status page.':
+    'Депозит появляется после его рассылки в сеть, затем нужны подтверждения. Проверьте, что вы использовали сеть, указанную на странице статуса.',
+  'Deposits and confirmations': 'Депозиты и подтверждения',
+  'I sent the wrong amount': 'Я отправил не ту сумму',
+  'A different amount puts the order on hold for review, and our team will contact you in your support messages. Clause 4.12 of the Service Rules covers this case.':
+    'При другой сумме заявка задерживается для проверки, и наша команда свяжется с вами в сообщениях поддержки. Этот случай описан в п. 4.12 Правил сервиса.',
+  'Read the refund policy': 'Правила возврата',
+  'My quote expired': 'Срок моей котировки истёк',
+  'Review quotes last 60 seconds. Get a new one from the review step. Nothing is submitted until you confirm.':
+    'Котировка на шаге проверки действует 60 секунд. Получите новую на этом шаге. Пока вы не подтвердили, ничего не отправляется.',
+  'Go to the exchange': 'Перейти к обмену',
+  'Fees and limits': 'Комиссии и лимиты',
+  'The full schedule, with a worked example.': 'Полный тариф с примером расчёта.',
+  'See fees': 'Смотреть комиссии',
+  'Account security': 'Безопасность аккаунта',
+  'Two-step sign-in, sessions and scam warnings.': 'Двухэтапный вход, сеансы и предупреждения о мошенничестве.',
+};

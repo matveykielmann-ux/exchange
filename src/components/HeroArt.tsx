@@ -61,14 +61,14 @@ interface BoxProps {
 }
 
 function Box({ x, y, z = 0, w, d, h, top, left, right, className }: BoxProps) {
-  const t = [iso(x, y, z + h), iso(x + w, y, z + h), iso(x + w, y + d, z + h), iso(x, y + d, z + h)];
+  const topFace = [iso(x, y, z + h), iso(x + w, y, z + h), iso(x + w, y + d, z + h), iso(x, y + d, z + h)];
   const l = [iso(x, y + d, z + h), iso(x + w, y + d, z + h), iso(x + w, y + d, z), iso(x, y + d, z)];
   const r = [iso(x + w, y, z + h), iso(x + w, y + d, z + h), iso(x + w, y + d, z), iso(x + w, y, z)];
   return (
     <g className={className}>
       <polygon points={l.map(pt).join(' ')} fill={left} />
       <polygon points={r.map(pt).join(' ')} fill={right} />
-      <polygon points={t.map(pt).join(' ')} fill={top} />
+      <polygon points={topFace.map(pt).join(' ')} fill={top} />
     </g>
   );
 }

@@ -5,6 +5,7 @@ import { MockBadge, Notice, StatusBadge } from '@/components/ui';
 import { formatUsd } from '@/domain/money';
 import { ORDER_STAGE_LABEL, orderStatusLabel, orderTone } from '@/domain/order';
 import { StageTrack } from '@/components/StageTrack';
+import { notificationText } from '@/i18n/notifications';
 import { errorMessage } from '@/lib/errors';
 import { destinationLabel, formatAsset, formatDateTime, formatPriceMicros } from '@/lib/format';
 import { COURIER_WINDOW_LABELS } from '@/domain/courier';
@@ -15,6 +16,7 @@ import { useServices } from '@/state/services';
 import { useLiveEvents } from '@/state/useLive';
 import { AdminHead, LoadError, ReasonForm } from './shared';
 import { shortId, useLoad } from './lib';
+import { t } from '@/i18n';
 
 const DANGER: ReadonlySet<OrderActionKey> = new Set(['reject', 'refund', 'hold']);
 
@@ -37,12 +39,13 @@ function ActionPanel({ detail, onDone }: { detail: AdminOrderDetail; onDone(): v
   return (
     <section className="panel" aria-labelledby="actions-title">
       <div className="panel__head">
-        <h2 id="actions-title">Actions</h2>
+        <h2 id="actions-title">{t('Actions')}</h2>
       </div>
       <div className="panel__body stack">
         <p className="small muted">
-          Every action is checked again on the server, needs a reason where it changes the order, and is written to the audit log. A payout
-          is complete only when the payout provider reports it.
+          {t(
+            'Every action is checked again on the server, needs a reason where it changes the order, and is written to the audit log. A payout is complete only when the payout provider reports it.',
+          )}
         </p>
         <ul className="action-list">
           {visible.map((a: ActionAvailability) => (
@@ -63,11 +66,11 @@ function ActionPanel({ detail, onDone }: { detail: AdminOrderDetail; onDone(): v
                       .catch((e: unknown) => setErr(errorMessage(e)));
                 }}
               >
-                {a.label}
+                {t(a.label)}
               </button>
               {a.unavailable ? (
                 <p className="small muted" id={`why-${a.action}`}>
-                  {a.unavailable}
+                  {t(a.unavailable)}
                 </p>
               ) : null}
               {open === a.action && !a.unavailable ? (
@@ -80,11 +83,16 @@ function ActionPanel({ detail, onDone }: { detail: AdminOrderDetail; onDone(): v
                     }}
                   >
                     <label className="field__label" htmlFor="assignee">
-                      Assign to
+                      {t('Assign to')}
                     </label>
                     <select id="assignee" className="select" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
-                      <option value="">Unassigned</option>
-                      {me ? <option value={me.id}>Me ({me.email})</option> : null}
+                      <option value="">{t('Unassigned')}</option>
+                      {me ? (
+                        <option value={me.id}>
+                          {t('Me (')}
+                          {me.email})
+                        </option>
+                      ) : null}
                       {(staff ?? [])
                         .filter((s) => s.id !== me?.id)
                         .map((s) => (
@@ -95,18 +103,18 @@ function ActionPanel({ detail, onDone }: { detail: AdminOrderDetail; onDone(): v
                     </select>
                     <div className="row">
                       <button type="submit" className="btn">
-                        Save
+                        {t('Save')}
                       </button>
                       <button type="button" className="btn btn--ghost" onClick={() => setOpen(null)}>
-                        Cancel
+                        {t('Cancel')}
                       </button>
                     </div>
                   </form>
                 ) : a.action === 'message' ? (
                   <ReasonForm
                     id="message-customer"
-                    label="Message to the customer (sent to their support messages, with a notification)"
-                    submitLabel="Send message"
+                    label={t('Message to the customer (sent to their support messages, with a notification)')}
+                    submitLabel={t('Send message')}
                     minLength={2}
                     maxLength={4000}
                     onSubmit={(message) => act('message', { message })}
@@ -115,8 +123,8 @@ function ActionPanel({ detail, onDone }: { detail: AdminOrderDetail; onDone(): v
                 ) : a.action === 'request_info' ? (
                   <ReasonForm
                     id="request-info"
-                    label="Question for the customer (sent to their support messages)"
-                    submitLabel="Send request"
+                    label={t('Question for the customer (sent to their support messages)')}
+                    submitLabel={t('Send request')}
                     minLength={10}
                     maxLength={2000}
                     onSubmit={(message) => act('request_info', { message })}
@@ -125,7 +133,7 @@ function ActionPanel({ detail, onDone }: { detail: AdminOrderDetail; onDone(): v
                 ) : (
                   <ReasonForm
                     id={`reason-${a.action}`}
-                    submitLabel={a.label}
+                    submitLabel={t(a.label)}
                     danger={DANGER.has(a.action)}
                     onSubmit={(reason) => act(a.action, { reason })}
                     onCancel={() => setOpen(null)}
@@ -149,8 +157,8 @@ function NotesPanel({ detail, onDone }: { detail: AdminOrderDetail; onDone(): vo
   return (
     <section className="panel" aria-labelledby="notes-title">
       <div className="panel__head">
-        <h2 id="notes-title">Internal notes</h2>
-        <span className="small muted">Staff only</span>
+        <h2 id="notes-title">{t('Internal notes')}</h2>
+        <span className="small muted">{t('Staff only')}</span>
       </div>
       <div className="panel__body stack">
         {detail.notes.length ? (
@@ -165,7 +173,7 @@ function NotesPanel({ detail, onDone }: { detail: AdminOrderDetail; onDone(): vo
             ))}
           </ul>
         ) : (
-          <p className="small muted">No notes yet.</p>
+          <p className="small muted">{t('No notes yet.')}</p>
         )}
         <form
           className="stack"
@@ -186,7 +194,7 @@ function NotesPanel({ detail, onDone }: { detail: AdminOrderDetail; onDone(): vo
           }}
         >
           <label className="visually-hidden" htmlFor="note-body">
-            New note
+            {t('New note')}
           </label>
           <textarea
             id="note-body"
@@ -195,7 +203,7 @@ function NotesPanel({ detail, onDone }: { detail: AdminOrderDetail; onDone(): vo
             maxLength={4000}
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="Add a note for the team"
+            placeholder={t('Add a note for the team')}
           />
           {err ? (
             <p className="field__error" role="alert">
@@ -204,7 +212,7 @@ function NotesPanel({ detail, onDone }: { detail: AdminOrderDetail; onDone(): vo
           ) : null}
           <div>
             <button type="submit" className="btn btn--secondary" disabled={busy || !body.trim()}>
-              Add note
+              {t('Add note')}
             </button>
           </div>
         </form>
@@ -268,24 +276,25 @@ function SandboxLab({ detail, onDone }: { detail: AdminOrderDetail; onDone(): vo
   return (
     <section className="mock-controls" aria-labelledby="lab-title">
       <h2 id="lab-title">
-        <MockBadge label="Sandbox lab" force /> Simulate provider events
+        <MockBadge label={t('Sandbox lab')} force /> {t('Simulate provider events')}
       </h2>
       <p className="small muted">
-        Each button makes the sandbox provider send a signed webhook. The server verifies it, de-duplicates it and applies it through the
-        order state machine, exactly like a real callback.
+        {t(
+          'Each button makes the sandbox provider send a signed webhook. The server verifies it, de-duplicates it and applies it through the order state machine, exactly like a real callback.',
+        )}
       </p>
       <div className="row">
         {buttons
           .filter((b) => b.show)
           .map((b) => (
-            <button key={b.label} type="button" className="btn btn--secondary" disabled={busy} onClick={() => run(b.label, b.fn)}>
-              {b.label}
+            <button key={t(b.label)} type="button" className="btn btn--secondary" disabled={busy} onClick={() => run(b.label, b.fn)}>
+              {t(b.label)}
             </button>
           ))}
       </div>
       {msg ? (
         <p className={`small ${msg.tone === 'danger' ? 'field__error' : 'muted'} mono`} role="status">
-          {msg.text}
+          {t(msg.text)}
         </p>
       ) : null}
     </section>
@@ -305,10 +314,10 @@ export function OrderDetailPage() {
     return (
       <div className="stack">
         <p className="small">
-          <Link to="/admin/orders">← Orders</Link>
+          <Link to="/admin/orders">{t('← Orders')}</Link>
         </p>
         <LoadError error={error} />
-        {!error ? <p className="muted">Loading…</p> : null}
+        {!error ? <p className="muted">{t('Loading…')}</p> : null}
       </div>
     );
 
@@ -317,32 +326,32 @@ export function OrderDetailPage() {
   return (
     <div className="stack stack--lg">
       <p className="small">
-        <Link to="/admin/orders">← Orders</Link>
+        <Link to="/admin/orders">{t('← Orders')}</Link>
       </p>
       <AdminHead
         title={
           <>
             <span className="mono">{o.reference}</span>{' '}
-            <span className={`badge ${o.onHold ? 'badge--warn' : 'badge--info'}`}>{ORDER_STAGE_LABEL[o.stage]}</span>{' '}
-            <StatusBadge tone={orderTone(o.status)}>{orderStatusLabel(o.status, o.direction)}</StatusBadge>{' '}
-            <span className="badge badge--neutral">{o.direction === 'buy' ? 'Buy · cash → crypto' : 'Sell · crypto → USD'}</span>
+            <span className={`badge ${o.onHold ? 'badge--warn' : 'badge--info'}`}>{t(ORDER_STAGE_LABEL[o.stage])}</span>{' '}
+            <StatusBadge tone={orderTone(o.status)}>{t(orderStatusLabel(o.status, o.direction))}</StatusBadge>{' '}
+            <span className="badge badge--neutral">{o.direction === 'buy' ? t('Buy · cash → crypto') : t('Sell · crypto → USD')}</span>
           </>
         }
-        lead={`Created ${formatDateTime(o.createdAt)} · updated ${formatDateTime(o.updatedAt)} · version ${o.version}`}
+        lead={t('Created {0} · updated {1} · version {2}', [formatDateTime(o.createdAt), formatDateTime(o.updatedAt), o.version])}
       >
-        {o.source === 'sandbox' ? <MockBadge label="Sandbox order" force /> : null}
+        {o.source === 'sandbox' ? <MockBadge label={t('Sandbox order')} force /> : null}
       </AdminHead>
 
-      <StageTrack stage={o.stage} label="Pipeline stage" />
+      <StageTrack stage={o.stage} label={t('Pipeline stage')} />
 
       {o.onHold ? (
-        <Notice tone="warn" title="On hold">
-          <p>Nothing moves this order toward a payout until the hold is released. Provider reports are still recorded.</p>
+        <Notice tone="warn" title={t('On hold')}>
+          <p>{t('Nothing moves this order toward a payout until the hold is released. Provider reports are still recorded.')}</p>
         </Notice>
       ) : null}
 
       {o.reviewReason ? (
-        <Notice tone="warn" title="Review reason">
+        <Notice tone="warn" title={t('Review reason')}>
           <p>{o.reviewReason}</p>
         </Notice>
       ) : null}
@@ -351,42 +360,42 @@ export function OrderDetailPage() {
         <div className="stack stack--lg">
           <section className="panel" aria-labelledby="summary-title">
             <div className="panel__head">
-              <h2 id="summary-title">Order</h2>
+              <h2 id="summary-title">{t('Order')}</h2>
             </div>
             <div className="panel__body">
               <dl className="dl dl--cols">
                 <div>
-                  <dt>{o.direction === 'buy' ? 'Buying' : 'Selling'}</dt>
+                  <dt>{o.direction === 'buy' ? t('Buying') : t('Selling')}</dt>
                   <dd className="tabular">
-                    {formatAsset(o.amountAtomic, o.asset)} on {o.networkLabel}
+                    {formatAsset(o.amountAtomic, o.asset)} {t('on')} {o.networkLabel}
                   </dd>
                 </div>
                 <div>
-                  <dt>Reference price</dt>
+                  <dt>{t('Reference price')}</dt>
                   <dd className="tabular">{formatPriceMicros(o.quote.referencePriceMicros, o.asset)}</dd>
                 </div>
                 <div>
-                  <dt>{o.direction === 'buy' ? 'Cash to collect' : 'Gross'}</dt>
+                  <dt>{o.direction === 'buy' ? t('Cash to collect') : t('Gross')}</dt>
                   <dd className="tabular">{formatUsd(o.quote.grossCents)}</dd>
                 </div>
                 <div>
-                  <dt>Spread</dt>
+                  <dt>{t('Spread')}</dt>
                   <dd className="tabular">
-                    {formatUsd(o.quote.spreadCents)} ({o.quote.spreadBps} bps)
+                    {formatUsd(o.quote.spreadCents)} ({o.quote.spreadBps} {t('bps)')}
                   </dd>
                 </div>
                 <div>
-                  <dt>{o.direction === 'buy' ? 'Courier fee' : 'Payout fee'}</dt>
+                  <dt>{o.direction === 'buy' ? t('Courier fee') : t('Payout fee')}</dt>
                   <dd className="tabular">{formatUsd(o.quote.payoutFeeCents)}</dd>
                 </div>
                 <div>
-                  <dt>{o.direction === 'buy' ? 'Converted to crypto' : 'Net payout'}</dt>
+                  <dt>{o.direction === 'buy' ? t('Converted to crypto') : t('Net payout')}</dt>
                   <dd className="tabular">
                     <strong>{formatUsd(o.quote.netCents)}</strong>
                   </dd>
                 </div>
                 <div>
-                  <dt>{o.direction === 'buy' ? 'Crypto to' : 'Payout to'}</dt>
+                  <dt>{o.direction === 'buy' ? t('Crypto to') : t('Payout to')}</dt>
                   <dd className={o.direction === 'buy' ? 'mono small' : undefined}>
                     {o.direction === 'buy'
                       ? o.receiveAddress
@@ -395,9 +404,10 @@ export function OrderDetailPage() {
                 </div>
                 {data.courierDelivery ? (
                   <div>
-                    <dt>{o.direction === 'buy' ? 'Courier collection' : 'Courier delivery'}</dt>
+                    <dt>{o.direction === 'buy' ? t('Courier collection') : t('Courier delivery')}</dt>
                     <dd>
-                      {o.direction === 'buy' ? 'Collect only from' : 'Hand only to'} {data.courierDelivery.recipient} after a photo ID check
+                      {o.direction === 'buy' ? t('Collect only from') : t('Hand only to')} {data.courierDelivery.recipient}{' '}
+                      {t('after a photo ID check')}
                       <br />
                       <span className="small">
                         {data.courierDelivery.line1}
@@ -406,50 +416,52 @@ export function OrderDetailPage() {
                       </span>
                       <br />
                       <span className="small muted">
-                        {COURIER_WINDOW_LABELS[data.courierDelivery.window]}
-                        {data.courierDelivery.preferredDate ? ` · preferred ${data.courierDelivery.preferredDate}` : ''} · phone{' '}
-                        <span className="tabular">{data.courierDelivery.phone}</span>
+                        {t(COURIER_WINDOW_LABELS[data.courierDelivery.window])}
+                        {data.courierDelivery.preferredDate ? t(' · preferred {0}', [data.courierDelivery.preferredDate]) : ''}{' '}
+                        {t('· phone')} <span className="tabular">{data.courierDelivery.phone}</span>
                       </span>
                       {data.courierDelivery.instructions ? (
                         <>
                           <br />
-                          <span className="small muted">Instructions: {data.courierDelivery.instructions}</span>
+                          <span className="small muted">
+                            {t('Instructions:')} {data.courierDelivery.instructions}
+                          </span>
                         </>
                       ) : null}
                       {data.courierDelivery.masked ? (
                         <>
                           <br />
-                          <span className="small muted">Street address and phone are masked for your role.</span>
+                          <span className="small muted">{t('Street address and phone are masked for your role.')}</span>
                         </>
                       ) : null}
                     </dd>
                   </div>
                 ) : null}
                 <div>
-                  <dt>Quote snapshot</dt>
+                  <dt>{t('Quote snapshot')}</dt>
                   <dd className="mono small">{o.quote.id}</dd>
                 </div>
                 <div>
-                  <dt>Deposit address</dt>
+                  <dt>{t('Deposit address')}</dt>
                   <dd className="mono small">{o.deposit.address ?? '—'}</dd>
                 </div>
                 <div>
-                  <dt>Deadline</dt>
+                  <dt>{t('Deadline')}</dt>
                   <dd className="tabular">{formatDateTime(o.deposit.deadline)}</dd>
                 </div>
                 <div>
-                  <dt>Confirmations</dt>
+                  <dt>{t('Confirmations')}</dt>
                   <dd className="tabular">
-                    {o.deposit.confirmations.count} of {o.deposit.confirmations.required}
+                    {o.deposit.confirmations.count} {t('of')} {o.deposit.confirmations.required}
                   </dd>
                 </div>
                 <div>
-                  <dt>Deposit tx</dt>
+                  <dt>{t('Deposit tx')}</dt>
                   <dd className="mono small">{o.deposit.txHash ?? '—'}</dd>
                 </div>
                 {o.deposit.amountAtomic !== null ? (
                   <div>
-                    <dt>{o.direction === 'buy' ? 'Cash counted' : 'Amount received'}</dt>
+                    <dt>{o.direction === 'buy' ? t('Cash counted') : t('Amount received')}</dt>
                     <dd className="tabular">
                       {o.direction === 'buy' ? formatUsd(o.deposit.amountAtomic) : formatAsset(o.deposit.amountAtomic, o.asset)}
                     </dd>
@@ -457,12 +469,12 @@ export function OrderDetailPage() {
                 ) : null}
                 {o.deposit.exception ? (
                   <div>
-                    <dt>Deposit exception</dt>
+                    <dt>{t('Deposit exception')}</dt>
                     <dd>{o.deposit.exception.replace('_', ' ')}</dd>
                   </div>
                 ) : null}
                 <div>
-                  <dt>{o.direction === 'buy' ? 'ID uploaded' : 'Customer tx hash'}</dt>
+                  <dt>{o.direction === 'buy' ? t('ID uploaded') : t('Customer tx hash')}</dt>
                   <dd>
                     {o.direction === 'buy' ? (
                       o.documents.length ? (
@@ -470,10 +482,10 @@ export function OrderDetailPage() {
                           {o.documents.map((d) => (
                             <li key={d.id}>
                               <span>
-                                {d.fileName} · {d.contentType} · {Math.max(1, Math.round(d.sizeBytes / 1024))} KB ·{' '}
+                                {d.fileName} · {d.contentType} · {Math.max(1, Math.round(d.sizeBytes / 1024))} {t('KB ·')}{' '}
                                 {formatDateTime(d.createdAt)}
                                 <span className="mono muted" style={{ display: 'block' }}>
-                                  sha256 {d.sha256.slice(0, 16)}… {d.stored ? '' : '(sandbox: file checked and discarded)'}
+                                  {t('sha256')} {d.sha256.slice(0, 16)}… {d.stored ? '' : t('(sandbox: file checked and discarded)')}
                                 </span>
                               </span>
                             </li>
@@ -485,11 +497,12 @@ export function OrderDetailPage() {
                     ) : o.deposit.customerReportedSentAt ? (
                       <>
                         <span className="mono small" style={{ overflowWrap: 'anywhere' }}>
-                          {o.deposit.customerTxHash ?? 'no hash'}
+                          {o.deposit.customerTxHash ?? t('no hash')}
                         </span>
                         <br />
                         <span className="small muted">
-                          Submitted {formatDateTime(o.deposit.customerReportedSentAt)}; format checked only, not proof of deposit
+                          {t('Submitted')} {formatDateTime(o.deposit.customerReportedSentAt)}
+                          {t('; format checked only, not proof of deposit')}
                         </span>
                       </>
                     ) : (
@@ -499,7 +512,7 @@ export function OrderDetailPage() {
                 </div>
                 {o.direction === 'buy' ? null : (
                   <div>
-                    <dt>Refund address</dt>
+                    <dt>{t('Refund address')}</dt>
                     <dd className="mono small">{o.refundAddress}</dd>
                   </div>
                 )}
@@ -509,8 +522,8 @@ export function OrderDetailPage() {
 
           <section className="panel" aria-labelledby="progress-title">
             <div className="panel__head">
-              <h2 id="progress-title">Timeline</h2>
-              <span className="small muted">From stored events</span>
+              <h2 id="progress-title">{t('Timeline')}</h2>
+              <span className="small muted">{t('From stored events')}</span>
             </div>
             <div className="panel__body admin-timeline">
               <StatusRail steps={o.steps} />
@@ -521,21 +534,21 @@ export function OrderDetailPage() {
           {data.deposits.length || data.payouts.length || data.refund ? (
             <section className="panel" aria-labelledby="money-title">
               <div className="panel__head">
-                <h2 id="money-title">Deposits, payouts and refunds</h2>
+                <h2 id="money-title">{t('Deposits, payouts and refunds')}</h2>
               </div>
               <div className="panel__body stack">
                 {data.deposits.length ? (
-                  <div className="table-wrap" tabIndex={0} role="region" aria-label="Deposit observations">
+                  <div className="table-wrap" tabIndex={0} role="region" aria-label={t('Deposit observations')}>
                     <table className="data-table admin-table">
-                      <caption>Deposit observations (from the deposit monitor)</caption>
+                      <caption>{t('Deposit observations (from the deposit monitor)')}</caption>
                       <thead>
                         <tr>
-                          <th scope="col">Observed</th>
-                          <th scope="col">Tx hash</th>
+                          <th scope="col">{t('Observed')}</th>
+                          <th scope="col">{t('Tx hash')}</th>
                           <th scope="col" className="num">
-                            Confirmations
+                            {t('Confirmations')}
                           </th>
-                          <th scope="col">Provider event</th>
+                          <th scope="col">{t('Provider event')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -554,18 +567,18 @@ export function OrderDetailPage() {
                   </div>
                 ) : null}
                 {data.payouts.length ? (
-                  <div className="table-wrap" tabIndex={0} role="region" aria-label="Payout instructions">
+                  <div className="table-wrap" tabIndex={0} role="region" aria-label={t('Payout instructions')}>
                     <table className="data-table admin-table">
-                      <caption>Payout instructions</caption>
+                      <caption>{t('Payout instructions')}</caption>
                       <thead>
                         <tr>
                           <th scope="col">#</th>
-                          <th scope="col">Status</th>
+                          <th scope="col">{t('Status')}</th>
                           <th scope="col" className="num">
-                            Amount
+                            {t('Amount')}
                           </th>
-                          <th scope="col">Provider ref.</th>
-                          <th scope="col">Authorization</th>
+                          <th scope="col">{t('Provider ref.')}</th>
+                          <th scope="col">{t('Authorization')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -588,7 +601,7 @@ export function OrderDetailPage() {
                 {data.refund ? (
                   <dl className="dl">
                     <div>
-                      <dt>Refund</dt>
+                      <dt>{t('Refund')}</dt>
                       <dd>
                         {data.refund.status} · {data.refund.reason}
                         {data.refund.txHash ? <span className="mono small block">{data.refund.txHash}</span> : null}
@@ -603,18 +616,22 @@ export function OrderDetailPage() {
           {data.reviews.length ? (
             <section className="panel" aria-labelledby="reviews-title">
               <div className="panel__head">
-                <h2 id="reviews-title">Compliance reviews</h2>
+                <h2 id="reviews-title">{t('Compliance reviews')}</h2>
               </div>
               <div className="panel__body">
                 <ul className="note-list">
                   {data.reviews.map((r) => (
                     <li key={r.id}>
                       <p className="note-list__meta small muted">
-                        {r.status} · opened {formatDateTime(r.createdAt)}
-                        {r.decidedAt ? ` · decided ${formatDateTime(r.decidedAt)}` : ''}
+                        {r.status} {t('· opened')} {formatDateTime(r.createdAt)}
+                        {r.decidedAt ? t(' · decided {0}', [formatDateTime(r.decidedAt)]) : ''}
                       </p>
                       <p className="note-list__body">{r.reason}</p>
-                      {r.decisionReason ? <p className="small">Decision: {r.decisionReason}</p> : null}
+                      {r.decisionReason ? (
+                        <p className="small">
+                          {t('Decision:')} {r.decisionReason}
+                        </p>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -624,26 +641,26 @@ export function OrderDetailPage() {
 
           <section className="panel" aria-labelledby="ntf-title">
             <div className="panel__head">
-              <h2 id="ntf-title">Customer notifications</h2>
-              {o.source === 'sandbox' ? <MockBadge label="Sandbox: not emailed" force /> : null}
+              <h2 id="ntf-title">{t('Customer notifications')}</h2>
+              {o.source === 'sandbox' ? <MockBadge label={t('Sandbox: not emailed')} force /> : null}
             </div>
             <div className="panel__body">
               {data.notifications.length ? (
-                <div className="table-wrap" tabIndex={0} role="region" aria-label="Customer notifications">
+                <div className="table-wrap" tabIndex={0} role="region" aria-label={t('Customer notifications')}>
                   <table className="data-table admin-table">
                     <thead>
                       <tr>
-                        <th scope="col">When</th>
-                        <th scope="col">Notice</th>
-                        <th scope="col">Delivery</th>
-                        <th scope="col">Read</th>
+                        <th scope="col">{t('When')}</th>
+                        <th scope="col">{t('Notice')}</th>
+                        <th scope="col">{t('Delivery')}</th>
+                        <th scope="col">{t('Read')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.notifications.map((n) => (
                         <tr key={n.id}>
                           <td className="tabular small">{formatDateTime(n.createdAt)}</td>
-                          <td className="small">{n.subject}</td>
+                          <td className="small">{notificationText(n).subject}</td>
                           <td className="small">{n.status.replace(/_/g, ' ')}</td>
                           <td className="tabular small">{n.readAt ? formatDateTime(n.readAt) : '—'}</td>
                         </tr>
@@ -652,27 +669,27 @@ export function OrderDetailPage() {
                   </table>
                 </div>
               ) : (
-                <p className="small muted">No notices sent for this order yet.</p>
+                <p className="small muted">{t('No notices sent for this order yet.')}</p>
               )}
             </div>
           </section>
 
           <section className="panel" aria-labelledby="audit-title">
             <div className="panel__head">
-              <h2 id="audit-title">Audit trail</h2>
+              <h2 id="audit-title">{t('Audit trail')}</h2>
               <Link className="small" to={`/admin/audit?targetType=order&targetId=${o.id}`}>
-                Open in audit log
+                {t('Open in audit log')}
               </Link>
             </div>
             <div className="panel__body">
-              <div className="table-wrap" tabIndex={0} role="region" aria-label="Audit entries">
+              <div className="table-wrap" tabIndex={0} role="region" aria-label={t('Audit entries')}>
                 <table className="data-table admin-table">
                   <thead>
                     <tr>
-                      <th scope="col">When</th>
-                      <th scope="col">Actor</th>
-                      <th scope="col">Action</th>
-                      <th scope="col">Reason</th>
+                      <th scope="col">{t('When')}</th>
+                      <th scope="col">{t('Actor')}</th>
+                      <th scope="col">{t('Action')}</th>
+                      <th scope="col">{t('Reason')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -697,46 +714,46 @@ export function OrderDetailPage() {
         <div className="stack stack--lg">
           <section className="panel" aria-labelledby="customer-title">
             <div className="panel__head">
-              <h2 id="customer-title">Customer</h2>
+              <h2 id="customer-title">{t('Customer')}</h2>
             </div>
             <div className="panel__body">
               <dl className="dl">
                 <div>
-                  <dt>Name</dt>
+                  <dt>{t('Name')}</dt>
                   <dd>{c.name || '—'}</dd>
                 </div>
                 <div>
-                  <dt>Email</dt>
+                  <dt>{t('Email')}</dt>
                   <dd>{c.email}</dd>
                 </div>
                 <div>
-                  <dt>Phone</dt>
+                  <dt>{t('Phone')}</dt>
                   <dd>{c.phone ?? '—'}</dd>
                 </div>
                 <div>
-                  <dt>State</dt>
+                  <dt>{t('State')}</dt>
                   <dd>{c.stateOfResidence ?? '—'}</dd>
                 </div>
                 <div>
-                  <dt>Verification</dt>
+                  <dt>{t('Verification')}</dt>
                   <dd>
                     {c.kycStatus} ({c.kycLevel})
                   </dd>
                 </div>
                 <div>
-                  <dt>Account</dt>
+                  <dt>{t('Account')}</dt>
                   <dd>
-                    {c.accountStatus} · since {formatDateTime(c.memberSince)}
+                    {c.accountStatus} {t('· since')} {formatDateTime(c.memberSince)}
                   </dd>
                 </div>
                 <div>
-                  <dt>Orders</dt>
+                  <dt>{t('Orders')}</dt>
                   <dd>
-                    {c.orders.completed} completed of {c.orders.total}
+                    {c.orders.completed} {t('completed of')} {c.orders.total}
                   </dd>
                 </div>
               </dl>
-              <p className="small muted">Contact details are masked to limit exposure.</p>
+              <p className="small muted">{t('Contact details are masked to limit exposure.')}</p>
             </div>
           </section>
 
@@ -746,7 +763,7 @@ export function OrderDetailPage() {
 
           <section className="panel" aria-labelledby="conv-title">
             <div className="panel__head">
-              <h2 id="conv-title">Conversations</h2>
+              <h2 id="conv-title">{t('Conversations')}</h2>
             </div>
             <div className="panel__body">
               {data.conversations.length ? (
@@ -762,7 +779,7 @@ export function OrderDetailPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="small muted">No conversations about this order.</p>
+                <p className="small muted">{t('No conversations about this order.')}</p>
               )}
             </div>
           </section>

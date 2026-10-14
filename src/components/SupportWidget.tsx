@@ -4,6 +4,7 @@ import { isStaff, useUser } from '@/state/auth';
 import { useCustomerConversations } from './chat/conversations';
 import { ConversationList, CustomerThread, NewConversationForm } from './chat/CustomerChat';
 import { Icon } from './Icon';
+import { t } from '@/i18n';
 
 type View = { kind: 'list' } | { kind: 'thread'; id: string } | { kind: 'new' };
 
@@ -56,18 +57,18 @@ export function SupportLauncher() {
                 type="button"
                 className="btn btn--ghost support-panel__back"
                 onClick={() => setView({ kind: 'list' })}
-                aria-label="Back to conversations"
+                aria-label={t('Back to conversations')}
               >
                 <Icon name="arrowLeft" width={16} height={16} />
               </button>
             ) : null}
             <h2 id="support-panel-title" className="title" tabIndex={-1}>
-              {view.kind === 'new' ? 'New message' : 'Support'}
+              {view.kind === 'new' ? t('New message') : t('Support')}
             </h2>
             <button
               type="button"
               className="btn btn--ghost"
-              aria-label="Close support"
+              aria-label={t('Close support')}
               onClick={() => {
                 setOpen(false);
                 button.current?.focus();
@@ -79,13 +80,13 @@ export function SupportLauncher() {
           <div className="support-panel__body">
             {!user ? (
               <div className="stack">
-                <p>Sign in to message our support team. Your conversations are saved to your account.</p>
+                <p>{t('Sign in to message our support team. Your conversations are saved to your account.')}</p>
                 <div className="row">
                   <Link className="btn" to="/signin" state={{ from: location.pathname }}>
-                    Sign in
+                    {t('Sign in')}
                   </Link>
                   <Link className="btn btn--secondary" to="/help">
-                    Help center
+                    {t('Help center')}
                   </Link>
                 </div>
               </div>
@@ -100,15 +101,15 @@ export function SupportLauncher() {
             ) : (
               <div className="stack">
                 <button type="button" className="btn btn--block" onClick={() => setView({ kind: 'new' })}>
-                  <Icon name="chat" width={16} height={16} /> New message
+                  <Icon name="chat" width={16} height={16} /> {t('New message')}
                 </button>
                 {list ? (
                   <ConversationList list={list.slice(0, 6)} onOpen={(id) => setView({ kind: 'thread', id })} />
                 ) : (
-                  <p className="muted small">Loading…</p>
+                  <p className="muted small">{t('Loading…')}</p>
                 )}
                 <Link to="/support" className="small">
-                  Open all conversations
+                  {t('Open all conversations')}
                 </Link>
               </div>
             )}
@@ -120,7 +121,7 @@ export function SupportLauncher() {
         type="button"
         className="support-launcher__button"
         aria-expanded={open}
-        aria-label={unread ? `Support, ${unread} unread` : 'Support'}
+        aria-label={unread ? t('Support, {0} unread', [unread]) : t('Support')}
         onClick={() => setOpen((o) => !o)}
       >
         <Icon name={open ? 'x' : 'chat'} width={22} height={22} />

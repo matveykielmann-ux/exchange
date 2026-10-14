@@ -6,6 +6,7 @@ import { useServices } from '@/state/services';
 import type { Destination } from '@/services/types';
 import { Field } from './Field';
 import { Notice } from './ui';
+import { t } from '@/i18n';
 
 export function AddBankForm({ onAdded }: { onAdded: (d: Destination) => void }) {
   const { account: accounts } = useServices();
@@ -42,18 +43,20 @@ export function AddBankForm({ onAdded }: { onAdded: (d: Destination) => void }) 
     <div className="panel">
       <div className="panel__body stack">
         {sandbox ? (
-          <Notice tone="warn" title="Sandbox: don't enter real bank details">
+          <Notice tone="warn" title={t("Sandbox: don't enter real bank details")}>
             <p>
-              Use a test routing number such as <span className="mono">011000015</span> and any account number of 4 to 17 digits.
+              {t('Use a test routing number such as')} <span className="mono">011000015</span>{' '}
+              {t('and any account number of 4 to 17 digits.')}
             </p>
           </Notice>
         ) : null}
         <p className="small muted">
-          The account must be a US checking or savings account in your name. Numbers are encrypted when saved and shown back only as the
-          last four digits.
+          {t(
+            'The account must be a US checking or savings account in your name. Numbers are encrypted when saved and shown back only as the last four digits.',
+          )}
         </p>
         <div className="form-grid">
-          <Field label="Nickname" id="bank-nickname" hint="Optional, e.g. Checking" className="span-2">
+          <Field label={t('Nickname')} id="bank-nickname" hint={t('Optional, e.g. Checking')} className="span-2">
             {(p) => (
               <input
                 className="input"
@@ -65,7 +68,7 @@ export function AddBankForm({ onAdded }: { onAdded: (d: Destination) => void }) 
               />
             )}
           </Field>
-          <Field label="Account type" id="bank-type" className="span-2">
+          <Field label={t('Account type')} id="bank-type" className="span-2">
             {(p) => (
               <select
                 className="select"
@@ -73,12 +76,12 @@ export function AddBankForm({ onAdded }: { onAdded: (d: Destination) => void }) 
                 value={accountType}
                 onChange={(e) => setAccountType(e.target.value as 'checking' | 'savings')}
               >
-                <option value="checking">Checking</option>
-                <option value="savings">Savings</option>
+                <option value="checking">{t('Checking')}</option>
+                <option value="savings">{t('Savings')}</option>
               </select>
             )}
           </Field>
-          <Field label="Routing number" id="bank-routing" error={routingError}>
+          <Field label={t('Routing number')} id="bank-routing" error={routingError}>
             {(p) => (
               <input
                 className="input tabular"
@@ -91,7 +94,7 @@ export function AddBankForm({ onAdded }: { onAdded: (d: Destination) => void }) 
               />
             )}
           </Field>
-          <Field label="Account number" id="bank-account" error={accountError}>
+          <Field label={t('Account number')} id="bank-account" error={accountError}>
             {(p) => (
               <input
                 className="input tabular"
@@ -108,7 +111,7 @@ export function AddBankForm({ onAdded }: { onAdded: (d: Destination) => void }) 
         {serverError ? <Notice tone="danger" title={serverError} role="alert" /> : null}
         <div>
           <button type="button" className="btn btn--secondary" onClick={submit} disabled={busy}>
-            {busy ? 'Saving…' : 'Save bank account'}
+            {busy ? t('Saving…') : t('Save bank account')}
           </button>
         </div>
       </div>

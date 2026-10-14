@@ -8,6 +8,7 @@ import { useUser } from '@/state/auth';
 import { useServices } from '@/state/services';
 import { AdminHead, LoadError, Pager, ReasonForm } from './shared';
 import { atLeast, ROLE_LABEL, useLoad } from './lib';
+import { t } from '@/i18n';
 
 const ROLES: Role[] = ['customer', 'support', 'reviewer', 'admin', 'owner'];
 
@@ -16,11 +17,11 @@ function UserActions({ user, onDone }: { user: UserRow; onDone(): void }) {
   const me = useUser();
   const [mode, setMode] = useState<'role' | 'status' | null>(null);
   const [role, setRole] = useState<Role>(user.role);
-  if (me?.id === user.id) return <span className="small muted">You</span>;
+  if (me?.id === user.id) return <span className="small muted">{t('You')}</span>;
   // Admins can grant up to reviewer; owners can grant any role (enforced on the server).
   const grantable = ROLES.filter((r) => me?.role === 'owner' || !atLeast(r, 'admin'));
   const canTouch = me?.role === 'owner' || !atLeast(user.role, 'admin');
-  if (!canTouch) return <span className="small muted">Owner only</span>;
+  if (!canTouch) return <span className="small muted">{t('Owner only')}</span>;
   return (
     <div className="stack" style={{ gap: 8 }}>
       <div className="row" style={{ gap: 6 }}>
@@ -30,7 +31,7 @@ function UserActions({ user, onDone }: { user: UserRow; onDone(): void }) {
           aria-expanded={mode === 'role'}
           onClick={() => setMode(mode === 'role' ? null : 'role')}
         >
-          Change role
+          {t('Change role')}
         </button>
         <button
           type="button"
@@ -38,13 +39,13 @@ function UserActions({ user, onDone }: { user: UserRow; onDone(): void }) {
           aria-expanded={mode === 'status'}
           onClick={() => setMode(mode === 'status' ? null : 'status')}
         >
-          {user.status === 'active' ? 'Disable' : 'Enable'}
+          {user.status === 'active' ? t('Disable') : t('Enable')}
         </button>
       </div>
       {mode === 'role' ? (
         <ReasonForm
           id={`role-${user.id}`}
-          submitLabel="Save role"
+          submitLabel={t('Save role')}
           onCancel={() => setMode(null)}
           onSubmit={async (reason) => {
             await admin.changeRole(user.id, role, reason);
@@ -53,12 +54,12 @@ function UserActions({ user, onDone }: { user: UserRow; onDone(): void }) {
           }}
         >
           <label className="field__label" htmlFor={`role-sel-${user.id}`}>
-            New role
+            {t('New role')}
           </label>
           <select id={`role-sel-${user.id}`} className="select" value={role} onChange={(e) => setRole(e.target.value as Role)}>
             {grantable.map((r) => (
               <option key={r} value={r}>
-                {ROLE_LABEL[r]}
+                {t(ROLE_LABEL[r])}
               </option>
             ))}
           </select>
@@ -67,7 +68,7 @@ function UserActions({ user, onDone }: { user: UserRow; onDone(): void }) {
       {mode === 'status' ? (
         <ReasonForm
           id={`status-${user.id}`}
-          submitLabel={user.status === 'active' ? 'Disable account' : 'Enable account'}
+          submitLabel={user.status === 'active' ? t('Disable account') : t('Enable account')}
           danger={user.status === 'active'}
           onCancel={() => setMode(null)}
           onSubmit={async (reason) => {
@@ -100,7 +101,7 @@ export function UsersPage() {
   };
   return (
     <div className="stack stack--lg">
-      <AdminHead title="Users and roles" lead="Customer emails are masked. Staff accounts need two-step sign-in in production." />
+      <AdminHead title={t('Users and roles')} lead={t('Customer emails are masked. Staff accounts need two-step sign-in in production.')} />
       <form
         className="filters"
         role="search"
@@ -111,7 +112,7 @@ export function UsersPage() {
       >
         <div className="field filters__search">
           <label className="field__label" htmlFor="u-q">
-            Search
+            {t('Search')}
           </label>
           <div className="input-with-button">
             <input
@@ -119,22 +120,22 @@ export function UsersPage() {
               className="input"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Email, name or user id"
+              placeholder={t('Email, name or user id')}
             />
-            <button type="submit" className="btn btn--secondary" aria-label="Search">
+            <button type="submit" className="btn btn--secondary" aria-label={t('Search')}>
               <Icon name="search" width={18} height={18} />
             </button>
           </div>
         </div>
         <div className="field">
           <label className="field__label" htmlFor="u-role">
-            Role
+            {t('Role')}
           </label>
           <select id="u-role" className="select" value={role} onChange={(e) => set({ role: e.target.value || null })}>
-            <option value="">Any role</option>
+            <option value="">{t('Any role')}</option>
             {ROLES.map((r) => (
               <option key={r} value={r}>
-                {ROLE_LABEL[r]}
+                {t(ROLE_LABEL[r])}
               </option>
             ))}
           </select>
@@ -143,17 +144,17 @@ export function UsersPage() {
       <LoadError error={error} />
       {data ? (
         <>
-          <div className="table-wrap" tabIndex={0} role="region" aria-label="Users">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label={t('Users')}>
             <table className="data-table admin-table">
               <thead>
                 <tr>
-                  <th scope="col">User</th>
-                  <th scope="col">Role</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Verification</th>
-                  <th scope="col">2-step</th>
-                  <th scope="col">Created</th>
-                  <th scope="col">Actions</th>
+                  <th scope="col">{t('User')}</th>
+                  <th scope="col">{t('Role')}</th>
+                  <th scope="col">{t('Status')}</th>
+                  <th scope="col">{t('Verification')}</th>
+                  <th scope="col">{t('2-step')}</th>
+                  <th scope="col">{t('Created')}</th>
+                  <th scope="col">{t('Actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -163,12 +164,12 @@ export function UsersPage() {
                       {u.name || '—'}
                       <span className="small muted block">{u.email}</span>
                     </th>
-                    <td>{ROLE_LABEL[u.role]}</td>
+                    <td>{t(ROLE_LABEL[u.role])}</td>
                     <td>
                       <span className={`badge badge--${u.status === 'active' ? 'success' : 'neutral'}`}>{u.status}</span>
                     </td>
                     <td className="small">{u.kycStatus ?? '—'}</td>
-                    <td className="small">{u.totpEnabled ? 'On' : 'Off'}</td>
+                    <td className="small">{u.totpEnabled ? t('On') : t('Off')}</td>
                     <td className="small tabular">{formatDateTime(u.createdAt)}</td>
                     <td>
                       <UserActions user={u} onDone={reload} />
@@ -181,7 +182,7 @@ export function UsersPage() {
           <Pager page={data.page} pageSize={data.pageSize} total={data.total} onPage={(p) => set({ page: String(p) })} />
         </>
       ) : !error ? (
-        <p className="muted">Loading…</p>
+        <p className="muted">{t('Loading…')}</p>
       ) : null}
     </div>
   );

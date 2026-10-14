@@ -1,10 +1,11 @@
 import { Skeleton } from '@/components/ui/skeleton';
+import { t } from '@/i18n';
 
 /** Placeholder with the shape of `<QuoteBreakdown>` while the first quote is on its way. */
 export function QuoteSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <div className="quote-skeleton" aria-busy="true">
-      <span className="sr-only">Getting a quote…</span>
+      <span className="sr-only">{t('Getting a quote…')}</span>
       <div className="quote-lines" aria-hidden="true">
         {Array.from({ length: rows }, (_, i) => (
           <div key={i}>

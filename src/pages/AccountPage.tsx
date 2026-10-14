@@ -19,6 +19,7 @@ import { useUser } from '@/state/auth';
 import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
 import { useNotifications } from '@/state/useNotifications';
+import { t } from '@/i18n';
 
 const KYC: Record<KycStatus, { label: string; tone: 'neutral' | 'success' | 'info' | 'warn' | 'danger'; body: string }> = {
   unverified: {
@@ -84,29 +85,29 @@ function ProfileSection({ user }: { user: User }) {
   }
 
   return (
-    <Section id="profile" title="Profile">
+    <Section id="profile" title={t('Profile')}>
       {editing ? (
         <form className="stack" onSubmit={save} noValidate>
           <div className="form-grid">
             <Field
-              label="Full legal name"
+              label={t('Full legal name')}
               id="pf-name"
-              hint={locked ? 'Contact support to change a verified name.' : undefined}
+              hint={locked ? t('Contact support to change a verified name.') : undefined}
               className="span-2"
             >
               {(p) => (
                 <input className="input" {...p} value={name} readOnly={locked} onChange={(e) => setName(e.target.value)} maxLength={120} />
               )}
             </Field>
-            <Field label="Phone (optional)" id="pf-phone">
+            <Field label={t('Phone (optional)')} id="pf-phone">
               {(p) => (
                 <input className="input" {...p} type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
               )}
             </Field>
-            <Field label="Country of residence" id="pf-country">
+            <Field label={t('Country of residence')} id="pf-country">
               {(p) => (
                 <select className="select" {...p} autoComplete="country" value={country} onChange={(e) => setCountry(e.target.value)}>
-                  <option value="">Choose a country</option>
+                  <option value="">{t('Choose a country')}</option>
                   {countries.map((c) => (
                     <option key={c.code} value={c.code}>
                       {c.name}
@@ -116,10 +117,10 @@ function ProfileSection({ user }: { user: User }) {
               )}
             </Field>
             {country === 'US' ? (
-              <Field label="State of residence" id="pf-state">
+              <Field label={t('State of residence')} id="pf-state">
                 {(p) => (
                   <select className="select" {...p} value={state} onChange={(e) => setState(e.target.value)}>
-                    <option value="">Choose a state</option>
+                    <option value="">{t('Choose a state')}</option>
                     {US_STATES.map((s) => (
                       <option key={s} value={s}>
                         {US_STATE_NAMES[s]}
@@ -133,10 +134,10 @@ function ProfileSection({ user }: { user: User }) {
           {error ? <Notice tone="danger" title={error} role="alert" /> : null}
           <div className="row">
             <button type="submit" className="btn" disabled={busy}>
-              {busy ? 'Saving…' : 'Save'}
+              {busy ? t('Saving…') : t('Save')}
             </button>
             <button type="button" className="btn btn--ghost" onClick={() => setEditing(false)}>
-              Cancel
+              {t('Cancel')}
             </button>
           </div>
         </form>
@@ -144,31 +145,31 @@ function ProfileSection({ user }: { user: User }) {
         <>
           <dl className="dl">
             <div>
-              <dt>Name</dt>
+              <dt>{t('Name')}</dt>
               <dd>{user.fullName}</dd>
             </div>
             <div>
-              <dt>Email</dt>
+              <dt>{t('Email')}</dt>
               <dd>{user.email}</dd>
             </div>
             <div>
-              <dt>Phone</dt>
-              <dd>{user.phone ?? 'Not added'}</dd>
+              <dt>{t('Phone')}</dt>
+              <dd>{user.phone ?? t('Not added')}</dd>
             </div>
             <div>
-              <dt>Country</dt>
-              <dd>{user.countryOfResidence ? countryName(user.countryOfResidence) : 'Not added'}</dd>
+              <dt>{t('Country')}</dt>
+              <dd>{user.countryOfResidence ? countryName(user.countryOfResidence) : t('Not added')}</dd>
             </div>
             {user.stateOfResidence ? (
               <div>
-                <dt>State</dt>
+                <dt>{t('State')}</dt>
                 <dd>{US_STATE_NAMES[user.stateOfResidence as UsStateCode] ?? user.stateOfResidence}</dd>
               </div>
             ) : null}
           </dl>
           <div>
             <button type="button" className="btn btn--secondary" onClick={() => setEditing(true)}>
-              Edit profile
+              {t('Edit profile')}
             </button>
           </div>
         </>
@@ -190,7 +191,7 @@ function VerificationSection({ user }: { user: User }) {
       const r = await account.startVerification();
       if (r.hostedUrl) window.location.assign(r.hostedUrl);
     } catch (e) {
-      setError(isNotConfigured(e) ? 'Identity verification is not available yet: the provider is not connected.' : errorMessage(e));
+      setError(isNotConfigured(e) ? t('Identity verification is not available yet: the provider is not connected.') : errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -199,26 +200,28 @@ function VerificationSection({ user }: { user: User }) {
   return (
     <Section
       id="verification"
-      title="Identity verification"
-      aside={<StatusBadge tone={k.tone === 'danger' ? 'danger' : k.tone}>{k.label}</StatusBadge>}
+      title={t('Identity verification')}
+      aside={<StatusBadge tone={k.tone === 'danger' ? 'danger' : k.tone}>{t(k.label)}</StatusBadge>}
     >
-      <p>{k.body}</p>
+      <p>{t(k.body)}</p>
       {config.mode === 'sandbox' ? (
         <p className="small muted">
-          Sandbox: results come from test rules based on your name (“Review” needs more information, “Reject” is rejected, “Sanctioned”
-          fails screening). No documents are collected. <MockBadge />
+          {t(
+            'Sandbox: results come from test rules based on your name (“Review” needs more information, “Reject” is rejected, “Sanctioned” fails screening). No documents are collected.',
+          )}{' '}
+          <MockBadge />
         </p>
       ) : null}
       {user.verification.status === 'unverified' ? (
         <div>
           <button type="button" className="btn" disabled={busy} onClick={start}>
-            {busy ? 'Starting…' : 'Verify my identity'}
+            {busy ? t('Starting…') : t('Verify my identity')}
           </button>
         </div>
       ) : user.verification.status === 'needs_info' || user.verification.status === 'rejected' ? (
         <div>
           <Link className="btn btn--secondary" to="/support">
-            Open support messages
+            {t('Open support messages')}
           </Link>
         </div>
       ) : null}
@@ -239,16 +242,16 @@ function PayoutSection() {
       await fn();
       reload();
     } catch (e) {
-      setError(isNotConfigured(e) ? 'Card payouts are not available yet: the card provider is not connected.' : errorMessage(e));
+      setError(isNotConfigured(e) ? t('Card payouts are not available yet: the card provider is not connected.') : errorMessage(e));
     }
   }
 
   return (
-    <Section id="payout-methods" title="Payout methods">
+    <Section id="payout-methods" title={t('Payout methods')}>
       {destinations === null ? (
-        <p className="muted">Loading…</p>
+        <p className="muted">{t('Loading…')}</p>
       ) : destinations.length === 0 ? (
-        <p className="muted">No payout methods saved.</p>
+        <p className="muted">{t('No payout methods saved.')}</p>
       ) : (
         <ul className="dest-list">
           {destinations.map((d) => (
@@ -258,7 +261,7 @@ function PayoutSection() {
                 <span>
                   <span className="tx-list__title">{d.label}</span>
                   <span className="small muted tabular" style={{ display: 'block' }}>
-                    {describeDestination(d)} · added {formatDateTime(d.createdAt)}
+                    {describeDestination(d)} {t('· added')} {formatDateTime(d.createdAt)}
                   </span>
                 </span>
                 <MockBadge />
@@ -267,9 +270,9 @@ function PayoutSection() {
                 type="button"
                 className="btn btn--ghost"
                 onClick={() => act(() => account.removeDestination(d.id))}
-                aria-label={`Remove ${destinationLabel(d.label, d.last4)}`}
+                aria-label={t('Remove {0}', [destinationLabel(d.label, d.last4)])}
               >
-                Remove
+                {t('Remove')}
               </button>
             </li>
           ))}
@@ -294,15 +297,15 @@ function PayoutSection() {
       ) : (
         <div className="row">
           <button type="button" className="btn btn--secondary" onClick={() => setAdding('bank')}>
-            Add a bank account
+            {t('Add a bank account')}
           </button>
           {FEATURE_FLAGS.courierCashDelivery ? (
             <button type="button" className="btn btn--ghost" onClick={() => setAdding('courier')}>
-              Add a cash delivery address
+              {t('Add a cash delivery address')}
             </button>
           ) : null}
           <button type="button" className="btn btn--ghost" onClick={() => act(() => account.addCard('Debit card'))}>
-            {config.mode === 'sandbox' ? 'Add test debit card' : 'Add a debit card'}
+            {config.mode === 'sandbox' ? t('Add test debit card') : t('Add a debit card')}
           </button>
         </div>
       )}
@@ -329,7 +332,7 @@ function PasswordForm() {
       await auth.changePassword(current, next);
       setCurrent('');
       setNext('');
-      setMsg({ tone: 'info', text: 'Password changed. Your other sessions were signed out.' });
+      setMsg({ tone: 'info', text: t('Password changed. Your other sessions were signed out.') });
     } catch (e2) {
       setMsg({ tone: 'danger', text: errorMessage(e2) });
     } finally {
@@ -338,9 +341,9 @@ function PasswordForm() {
   }
   return (
     <form className="stack" onSubmit={submit} noValidate>
-      <h3 className="title">Change password</h3>
+      <h3 className="title">{t('Change password')}</h3>
       <div className="form-grid">
-        <Field label="Current password" id="pw-current">
+        <Field label={t('Current password')} id="pw-current">
           {(p) => (
             <input
               className="input"
@@ -352,7 +355,7 @@ function PasswordForm() {
             />
           )}
         </Field>
-        <Field label="New password" id="pw-new" hint="At least 12 characters.">
+        <Field label={t('New password')} id="pw-new" hint={t('At least 12 characters.')}>
           {(p) => (
             <input
               className="input"
@@ -365,10 +368,10 @@ function PasswordForm() {
           )}
         </Field>
       </div>
-      {msg ? <Notice tone={msg.tone} title={msg.text} role={msg.tone === 'danger' ? 'alert' : 'status'} /> : null}
+      {msg ? <Notice tone={msg.tone} title={t(msg.text)} role={msg.tone === 'danger' ? 'alert' : 'status'} /> : null}
       <div>
         <button type="submit" className="btn btn--secondary" disabled={busy || !current || !next}>
-          {busy ? 'Saving…' : 'Change password'}
+          {busy ? t('Saving…') : t('Change password')}
         </button>
       </div>
     </form>
@@ -398,13 +401,13 @@ function TotpSetup({ user }: { user: User }) {
   if (user.totpEnabled && !disabling)
     return (
       <div className="stack">
-        <h3 className="title">Two-step sign-in</h3>
+        <h3 className="title">{t('Two-step sign-in')}</h3>
         <p>
-          <StatusBadge tone="success">On</StatusBadge> Sign-in asks for a code from your authenticator app.
+          <StatusBadge tone="success">{t('On')}</StatusBadge> {t('Sign-in asks for a code from your authenticator app.')}
         </p>
         <div>
           <button type="button" className="btn btn--ghost" onClick={() => setDisabling(true)}>
-            Turn off
+            {t('Turn off')}
           </button>
         </div>
       </div>
@@ -412,26 +415,26 @@ function TotpSetup({ user }: { user: User }) {
 
   return (
     <div className="stack">
-      <h3 className="title">Two-step sign-in</h3>
+      <h3 className="title">{t('Two-step sign-in')}</h3>
       {disabling ? (
-        <p>Enter a current code from your authenticator app to turn two-step sign-in off.</p>
+        <p>{t('Enter a current code from your authenticator app to turn two-step sign-in off.')}</p>
       ) : setup ? (
         <>
-          <p>Add this account to your authenticator app, then enter the 6-digit code it shows.</p>
+          <p>{t('Add this account to your authenticator app, then enter the 6-digit code it shows.')}</p>
           <dl className="dl">
             <div>
-              <dt>Setup key</dt>
+              <dt>{t('Setup key')}</dt>
               <dd className="mono" style={{ wordBreak: 'break-all' }}>
                 {setup.secret.replace(/(.{4})/g, '$1 ').trim()}
               </dd>
             </div>
           </dl>
           <p className="small">
-            On a phone? <a href={setup.otpauthUrl}>Open in your authenticator app</a>.
+            {t('On a phone?')} <a href={setup.otpauthUrl}>{t('Open in your authenticator app')}</a>.
           </p>
         </>
       ) : (
-        <p>Add a code from an authenticator app (such as 1Password, Google Authenticator or Authy) to every sign-in.</p>
+        <p>{t('Add a code from an authenticator app (such as 1Password, Google Authenticator or Authy) to every sign-in.')}</p>
       )}
       {setup || disabling ? (
         <form
@@ -451,7 +454,7 @@ function TotpSetup({ user }: { user: User }) {
           }}
         >
           <label className="visually-hidden" htmlFor="totp-code">
-            6-digit code
+            {t('6-digit code')}
           </label>
           <input
             id="totp-code"
@@ -465,7 +468,7 @@ function TotpSetup({ user }: { user: User }) {
             placeholder="123456"
           />
           <button type="submit" className="btn btn--secondary" disabled={busy || code.length !== 6}>
-            {disabling ? 'Turn off' : 'Confirm'}
+            {disabling ? t('Turn off') : t('Confirm')}
           </button>
           <button
             type="button"
@@ -476,7 +479,7 @@ function TotpSetup({ user }: { user: User }) {
               setCode('');
             }}
           >
-            Cancel
+            {t('Cancel')}
           </button>
         </form>
       ) : (
@@ -487,7 +490,7 @@ function TotpSetup({ user }: { user: User }) {
             disabled={busy}
             onClick={() => void run(async () => setSetup(await auth.beginTotp()))}
           >
-            Set up two-step sign-in
+            {t('Set up two-step sign-in')}
           </button>
         </div>
       )}
@@ -509,20 +512,20 @@ function SessionsList() {
   useEffect(load, [load]);
   return (
     <div className="stack">
-      <h3 className="title">Active sessions</h3>
+      <h3 className="title">{t('Active sessions')}</h3>
       {list === null ? (
-        <p className="muted small">Loading…</p>
+        <p className="muted small">{t('Loading…')}</p>
       ) : (
         <ul className="dest-list">
           {list.map((s) => (
             <li key={s.id}>
               <span>
                 <span className="tx-list__title">
-                  {s.userAgent ? summarizeAgent(s.userAgent) : 'Unknown device'}{' '}
-                  {s.current ? <span className="badge badge--success">This device</span> : null}
+                  {s.userAgent ? summarizeAgent(s.userAgent) : t('Unknown device')}{' '}
+                  {s.current ? <span className="badge badge--success">{t('This device')}</span> : null}
                 </span>
                 <span className="small muted" style={{ display: 'block' }}>
-                  Signed in {formatDateTime(s.createdAt)} · last active {formatDateTime(s.lastSeenAt)}
+                  {t('Signed in')} {formatDateTime(s.createdAt)} {t('· last active')} {formatDateTime(s.lastSeenAt)}
                   {s.ip ? ` · ${s.ip}` : ''}
                 </span>
               </span>
@@ -537,11 +540,11 @@ function SessionsList() {
             className="btn btn--secondary"
             onClick={async () => {
               const n = await auth.revokeOtherSessions();
-              setMsg(`Signed out ${n} other ${n === 1 ? 'session' : 'sessions'}.`);
+              setMsg(t(n === 1 ? 'Signed out {0} other session.' : 'Signed out {0} other sessions.', [n]));
               load();
             }}
           >
-            Sign out other sessions
+            {t('Sign out other sessions')}
           </button>
         </div>
       ) : null}
@@ -583,24 +586,28 @@ function NotificationsSection() {
   return (
     <Section
       id="notifications"
-      title="Notifications"
+      title={t('Notifications')}
       aside={
         <div className="row" style={{ gap: 8 }}>
-          {unread > 0 ? <span className="badge badge--info">{unread} unread</span> : null}
-          <MockBadge label="Sandbox: not emailed" />
+          {unread > 0 ? (
+            <span className="badge badge--info">
+              {unread} {t('unread')}
+            </span>
+          ) : null}
+          <MockBadge label={t('Sandbox: not emailed')} />
         </div>
       }
     >
       {list === null ? (
-        <p className="muted">Loading…</p>
+        <p className="muted">{t('Loading…')}</p>
       ) : list.length === 0 ? (
-        <p className="muted">No notifications yet.</p>
+        <p className="muted">{t('No notifications yet.')}</p>
       ) : (
         <>
           {unread > 0 ? (
             <div>
               <button type="button" className="btn btn--ghost" onClick={() => void markRead()}>
-                <Icon name="check" width={16} height={16} /> Mark all as read
+                <Icon name="check" width={16} height={16} /> {t('Mark all as read')}
               </button>
             </div>
           ) : null}
@@ -626,19 +633,19 @@ function LegalSection() {
   }, [account]);
   const title = (slug: string) => config.legal.find((d) => d.slug === slug)?.title ?? slug;
   return (
-    <Section id="legal" title="Documents you accepted">
+    <Section id="legal" title={t('Documents you accepted')}>
       {list === null ? (
-        <p className="muted">Loading…</p>
+        <p className="muted">{t('Loading…')}</p>
       ) : list.length === 0 ? (
-        <p className="muted">No acceptances recorded.</p>
+        <p className="muted">{t('No acceptances recorded.')}</p>
       ) : (
-        <div className="table-wrap" tabIndex={0} role="region" aria-label="Legal acceptances">
+        <div className="table-wrap" tabIndex={0} role="region" aria-label={t('Legal acceptances')}>
           <table className="data-table">
             <thead>
               <tr>
-                <th scope="col">Document</th>
-                <th scope="col">Version</th>
-                <th scope="col">When</th>
+                <th scope="col">{t('Document')}</th>
+                <th scope="col">{t('Version')}</th>
+                <th scope="col">{t('When')}</th>
               </tr>
             </thead>
             <tbody>
@@ -646,7 +653,7 @@ function LegalSection() {
                 <tr key={`${a.slug}-${a.acceptedAt}-${i}`}>
                   <td>
                     <Link to={`/legal/${a.slug}`}>{title(a.slug)}</Link>
-                    {a.orderId ? <span className="small muted"> · for an order</span> : null}
+                    {a.orderId ? <span className="small muted"> {t('· for an order')}</span> : null}
                   </td>
                   <td className="tabular">{a.version}</td>
                   <td className="tabular">{formatDateTime(a.acceptedAt)}</td>
@@ -671,29 +678,31 @@ export function AccountPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Account" title={user.fullName || user.email} lead={user.email}>
+      <PageHeader eyebrow={t('Account')} title={user.fullName || user.email} lead={user.email}>
         <div className="row">
-          {config.mode === 'sandbox' ? <MockBadge label="Sandbox account" /> : null}
-          <span className="small muted">Member since {formatDateTime(user.createdAt)}</span>
+          {config.mode === 'sandbox' ? <MockBadge label={t('Sandbox account')} /> : null}
+          <span className="small muted">
+            {t('Member since')} {formatDateTime(user.createdAt)}
+          </span>
         </div>
       </PageHeader>
       <div className="container">
         <div className="content-grid account-grid">
-          <nav className="account-nav" aria-label="Account sections">
-            <a href="#profile">Profile</a>
-            <a href="#verification">Verification</a>
-            <a href="#payout-methods">Payout methods</a>
-            <a href="#security">Security</a>
-            <a href="#notifications">Notifications</a>
-            <a href="#legal">Legal</a>
-            <Link to="/orders">Orders</Link>
-            <Link to="/support">Support messages</Link>
+          <nav className="account-nav" aria-label={t('Account sections')}>
+            <a href="#profile">{t('Profile')}</a>
+            <a href="#verification">{t('Verification')}</a>
+            <a href="#payout-methods">{t('Payout methods')}</a>
+            <a href="#security">{t('Security')}</a>
+            <a href="#notifications">{t('Notifications')}</a>
+            <a href="#legal">{t('Legal')}</a>
+            <Link to="/orders">{t('Orders')}</Link>
+            <Link to="/support">{t('Support messages')}</Link>
           </nav>
           <div className="stack stack--lg">
             <ProfileSection key={`${user.fullName}|${user.phone}|${user.countryOfResidence}|${user.stateOfResidence}`} user={user} />
             <VerificationSection user={user} />
             <PayoutSection />
-            <Section id="security" title="Security">
+            <Section id="security" title={t('Security')}>
               <PasswordForm />
               <hr className="divider" />
               <TotpSetup user={user} />
@@ -709,7 +718,7 @@ export function AccountPage() {
                     navigate('/');
                   }}
                 >
-                  <Icon name="logout" width={16} height={16} /> Sign out
+                  <Icon name="logout" width={16} height={16} /> {t('Sign out')}
                 </button>
               </div>
             </Section>

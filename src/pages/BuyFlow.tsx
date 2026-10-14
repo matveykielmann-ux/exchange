@@ -25,7 +25,7 @@ import { PAYOUT_METHODS } from '@/domain/payout';
 import { PRICING_POLICY, type QuoteIssue } from '@/domain/quote';
 import { validateCashAmount, validateReceiveAddress } from '@/domain/validation';
 import { errorMessage } from '@/lib/errors';
-import { describeDestination, formatAsset } from '@/lib/format';
+import { courierAddress, describeDestination, formatAsset } from '@/lib/format';
 import { useExpired } from '@/lib/useExpired';
 import { clientId } from '@/services/http';
 import type { QuoteData } from '@/services/types';
@@ -34,6 +34,7 @@ import { useConfig } from '@/state/config';
 import { useDestinations } from '@/state/useDestinations';
 import { useServices } from '@/state/services';
 import { KycNotice } from '@/components/KycNotice';
+import { t } from '@/i18n';
 
 export interface BuyDraft {
   asset: AssetCode;
@@ -85,7 +86,8 @@ function useBuyDraft() {
 }
 
 /** The courier address without the delivery wording ("Cash to …") that describeDestination uses for payouts. */
-const collectionAddress = (d: Parameters<typeof describeDestination>[0]) => describeDestination(d).replace(/^Cash to /, '');
+const collectionAddress = (d: Parameters<typeof describeDestination>[0]) =>
+  d.courier ? courierAddress(d.courier) : describeDestination(d);
 
 function cashCents(cash: string): bigint | null {
   const p = parseDecimal(cash.replace(/,/g, ''), 2);
@@ -137,17 +139,17 @@ function BuyIssues({ issues }: { issues: QuoteIssue[] }) {
       {issues.map((issue) => {
         switch (issue.code) {
           case 'below_minimum':
-            return <Notice key={issue.code} tone="warn" title={`Minimum is ${formatUsd(issue.minimumCents)}`} />;
+            return <Notice key={issue.code} tone="warn" title={t('Minimum is {0}', [formatUsd(issue.minimumCents)])} />;
           case 'payout_ineligible':
             return (
-              <Notice key={issue.code} tone="warn" title="Cash collection isn’t available for this amount">
+              <Notice key={issue.code} tone="warn" title={t('Cash collection isn’t available for this amount')}>
                 <p>{issue.reason}.</p>
               </Notice>
             );
           case 'non_positive_payout':
-            return <Notice key={issue.code} tone="warn" title="Fees would exceed this amount. Enter a larger amount." />;
+            return <Notice key={issue.code} tone="warn" title={t('Fees would exceed this amount. Enter a larger amount.')} />;
           case 'unsupported_network':
-            return <Notice key={issue.code} tone="danger" title="That network isn't supported for this asset." />;
+            return <Notice key={issue.code} tone="danger" title={t("That network isn't supported for this asset.")} />;
           case 'zero_amount':
             return null;
         }
@@ -160,7 +162,7 @@ const STEPS = ['Amount', 'Collection & wallet', 'Review'] as const;
 
 function Stepper({ current }: { current: number }) {
   return (
-    <ol className="stepper" aria-label="Exchange progress">
+    <ol className="stepper" aria-label={t('Exchange progress')}>
       {STEPS.map((label, i) => {
         const n = i + 1;
         const state = n < current ? 'done' : n === current ? 'current' : 'upcoming';
@@ -170,8 +172,8 @@ function Stepper({ current }: { current: number }) {
               <span className="stepper__num" aria-hidden="true">
                 {state === 'done' ? <Icon name="check" /> : n}
               </span>
-              <span className="stepper__text">{label}</span>
-              {state === 'done' ? <span className="visually-hidden">(completed)</span> : null}
+              <span className="stepper__text">{t(label)}</span>
+              {state === 'done' ? <span className="visually-hidden">{t('(completed)')}</span> : null}
             </span>
           </li>
         );
@@ -198,7 +200,7 @@ function AmountStep({ draft, update, quote, onNext }: DraftProps & { quote: Retu
         if (ready) onNext();
       }}
     >
-      <h2 className="flow__step-title">What do you want to buy?</h2>
+      <h2 className="flow__step-title">{t('What do you want to buy?')}</h2>
       <AssetNetworkFields
         idPrefix="buy"
         asset={draft.asset}
@@ -209,10 +211,12 @@ function AmountStep({ draft, update, quote, onNext }: DraftProps & { quote: Retu
         onNetwork={(network) => update({ network, receiveAddress: '' })}
       />
       <Field
-        label="Cash you pay (USD)"
+        label={t('Cash you pay (USD)')}
         id="buy-cash"
         error={fieldError}
-        hint={`Paid in person to the courier. Minimum ${formatUsd(PRICING_POLICY.minimumCents, { whole: true })}; cash collection has its own minimum.`}
+        hint={t('Paid in person to the courier. Minimum {0}; cash collection has its own minimum.', [
+          formatUsd(PRICING_POLICY.minimumCents, { whole: true }),
+        ])}
       >
         {(p) => (
           <div className="amount-input" data-invalid={fieldError ? 'true' : undefined}>
@@ -234,11 +238,11 @@ function AmountStep({ draft, update, quote, onNext }: DraftProps & { quote: Retu
       </Field>
       <div aria-live="polite">
         {quote.error ? (
-          <Notice tone="warn" title="We couldn’t price this right now" role="alert">
+          <Notice tone="warn" title={t('We couldn’t price this right now')} role="alert">
             <p>{quote.error}</p>
             <div>
               <button type="button" className="btn btn--secondary" onClick={quote.refresh}>
-                <Icon name="refresh" width={16} height={16} /> Try again
+                <Icon name="refresh" width={16} height={16} /> {t('Try again')}
               </button>
             </div>
           </Notice>
@@ -249,7 +253,7 @@ function AmountStep({ draft, update, quote, onNext }: DraftProps & { quote: Retu
       <div className="flow__actions">
         <span />
         <button className="btn btn--lg" type="submit" disabled={!ready}>
-          Continue <Icon name="arrowRight" width={18} height={18} />
+          {t('Continue')} <Icon name="arrowRight" width={18} height={18} />
         </button>
       </div>
     </form>
@@ -266,19 +270,19 @@ function DetailsStep({ draft, update, onBack, onNext }: DraftProps & { onBack: (
   if (!user) {
     return (
       <div className="flow__main">
-        <h2 className="flow__step-title">Sign in to continue</h2>
-        <p>You need an account to arrange a cash collection and confirm an exchange. Your amount and choices are kept.</p>
+        <h2 className="flow__step-title">{t('Sign in to continue')}</h2>
+        <p>{t('You need an account to arrange a cash collection and confirm an exchange. Your amount and choices are kept.')}</p>
         <div className="row">
           <Link className="btn btn--lg" to="/signin" state={{ from: '/exchange?direction=buy' }}>
-            Sign in
+            {t('Sign in')}
           </Link>
           <Link className="btn btn--lg btn--secondary" to="/signup" state={{ from: '/exchange?direction=buy' }}>
-            Create an account
+            {t('Create an account')}
           </Link>
         </div>
         <div className="flow__actions">
           <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
-            <Icon name="arrowLeft" width={18} height={18} /> Back
+            <Icon name="arrowLeft" width={18} height={18} /> {t('Back')}
           </button>
         </div>
       </div>
@@ -288,7 +292,7 @@ function DetailsStep({ draft, update, onBack, onNext }: DraftProps & { onBack: (
   const usable = destinations?.filter((d) => d.kind === 'courier') ?? [];
   const addressError = touched || draft.receiveAddress ? validateReceiveAddress(draft.receiveAddress, draft.network) : null;
   const destinationOk = usable.some((d) => d.id === draft.destinationId);
-  const destinationError = touched && !destinationOk ? 'Save or choose a collection address.' : null;
+  const destinationError = touched && !destinationOk ? t('Save or choose a collection address.') : null;
   const valid = destinationOk && !validateReceiveAddress(draft.receiveAddress, draft.network);
 
   return (
@@ -302,13 +306,13 @@ function DetailsStep({ draft, update, onBack, onNext }: DraftProps & { onBack: (
         else document.getElementById(!destinationOk ? (usable.length ? 'collect-0' : 'courier-phone') : 'receive-address')?.focus();
       }}
     >
-      <h2 className="flow__step-title">Where should the courier collect the cash?</h2>
+      <h2 className="flow__step-title">{t('Where should the courier collect the cash?')}</h2>
       <fieldset className="option-list">
-        <legend className="field__label">Collection address</legend>
+        <legend className="field__label">{t('Collection address')}</legend>
         {destinations === null ? (
-          <p className="muted">Loading saved addresses…</p>
+          <p className="muted">{t('Loading saved addresses…')}</p>
         ) : usable.length === 0 ? (
-          <p className="muted">No saved addresses yet. Add one below.</p>
+          <p className="muted">{t('No saved addresses yet. Add one below.')}</p>
         ) : (
           usable.map((d, i) => (
             <label className="option" key={d.id} htmlFor={`collect-${i}`}>
@@ -350,17 +354,22 @@ function DetailsStep({ draft, update, onBack, onNext }: DraftProps & { onBack: (
       ) : (
         <div>
           <button type="button" className="btn btn--secondary" onClick={() => setAdding(true)}>
-            Add a collection address
+            {t('Add a collection address')}
           </button>
         </div>
       )}
-      <p className="small muted">The courier collects the cash only from you, the verified account holder, after checking your photo ID.</p>
+      <p className="small muted">
+        {t('The courier collects the cash only from you, the verified account holder, after checking your photo ID.')}
+      </p>
 
       <Field
-        label={`Your ${networkLabel(draft.asset, draft.network)} wallet address`}
+        label={t('Your {0} wallet address', [networkLabel(draft.asset, draft.network)])}
         id="receive-address"
         error={addressError}
-        hint={`We send the ${draft.asset} here once the cash is counted and verified. Use a wallet you control on ${NETWORKS[draft.network].name}; transfers can’t be reversed.`}
+        hint={t(
+          'We send the {0} here once the cash is counted and verified. Use a wallet you control on {1}; transfers can’t be reversed.',
+          [draft.asset, NETWORKS[draft.network].name],
+        )}
       >
         {(p) => (
           <input
@@ -378,10 +387,10 @@ function DetailsStep({ draft, update, onBack, onNext }: DraftProps & { onBack: (
 
       <div className="flow__actions">
         <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
-          <Icon name="arrowLeft" width={18} height={18} /> Back
+          <Icon name="arrowLeft" width={18} height={18} /> {t('Back')}
         </button>
         <button className="btn btn--lg" type="submit">
-          Review quote <Icon name="arrowRight" width={18} height={18} />
+          {t('Review quote')} <Icon name="arrowRight" width={18} height={18} />
         </button>
       </div>
     </form>
@@ -438,18 +447,18 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
     <div className="flow__grid">
       <div className="flow__main">
         <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h2 className="flow__step-title">Review and confirm</h2>
-          <MockBadge label="Sandbox quote" />
+          <h2 className="flow__step-title">{t('Review and confirm')}</h2>
+          <MockBadge label={t('Sandbox quote')} />
         </div>
         <KycNotice />
         <section className="panel" aria-labelledby="buy-locked-title">
           <div className="panel__head">
-            <h3 id="buy-locked-title">Your quote</h3>
+            <h3 id="buy-locked-title">{t('Your quote')}</h3>
             {locked && !expired ? (
               <span className="small rate-hold">
                 <RateRing from={locked.quote.createdAt} to={locked.quote.expiresAt} />
                 <span>
-                  Rate held · <Countdown to={locked.quote.expiresAt} prefix="Expires in" ended="Expired" />
+                  {t('Rate held ·')} <Countdown to={locked.quote.expiresAt} prefix={t('Expires in')} ended={t('Expired')} />
                 </span>
               </span>
             ) : null}
@@ -461,11 +470,11 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
                 <BuyIssues issues={locked.issues} />
               </>
             ) : firm.error ? (
-              <Notice tone="warn" title="We couldn’t lock a quote" role="alert">
+              <Notice tone="warn" title={t('We couldn’t lock a quote')} role="alert">
                 <p>{firm.error}</p>
                 <div>
                   <button type="button" className="btn btn--secondary" onClick={firm.refresh}>
-                    <Icon name="refresh" width={16} height={16} /> Try again
+                    <Icon name="refresh" width={16} height={16} /> {t('Try again')}
                   </button>
                 </div>
               </Notice>
@@ -474,11 +483,11 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
             )}
             <div aria-live="assertive">
               {expired ? (
-                <Notice tone="warn" title="This quote has expired">
-                  <p>Prices move. Get a new quote to continue. Nothing has been submitted.</p>
+                <Notice tone="warn" title={t('This quote has expired')}>
+                  <p>{t('Prices move. Get a new quote to continue. Nothing has been submitted.')}</p>
                   <div>
                     <button type="button" className="btn btn--secondary" onClick={firm.refresh}>
-                      <Icon name="refresh" width={16} height={16} /> Get a new quote
+                      <Icon name="refresh" width={16} height={16} /> {t('Get a new quote')}
                     </button>
                   </div>
                 </Notice>
@@ -488,20 +497,24 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
         </section>
 
         <p className="small muted">
-          The exchange rate, courier fee, minimum, quote validity and collection window shown here are the conditions of this exchange.
-          Under clause 4.24 of the <Link to="/legal/terms#clause-4-24">Service Rules</Link>, continuing with this Exchange Request signifies
-          your agreement with them. Submitting it is acceptance of the public offer (Section 3).
+          {t(
+            'The exchange rate, courier fee, minimum, quote validity and collection window shown here are the conditions of this exchange. Under clause 4.24 of the',
+          )}{' '}
+          <Link to="/legal/terms#clause-4-24">{t('Service Rules')}</Link>
+          {t(
+            ', continuing with this Exchange Request signifies your agreement with them. Submitting it is acceptance of the public offer (Section 3).',
+          )}
         </p>
         <fieldset className="stack" style={{ border: 0, padding: 0, margin: 0 }}>
-          <legend className="visually-hidden">Acknowledgements</legend>
+          <legend className="visually-hidden">{t('Acknowledgements')}</legend>
           <Checkbox id="ack-cash" checked={ackCash} onChange={setAckCash}>
-            I will hand exactly {locked ? formatUsd(locked.quote.grossCents) : 'the quoted amount'} in US dollar cash to the courier in
-            person, after the courier checks my photo ID. The {draft.asset} goes only to the{' '}
-            <strong>{networkLabel(draft.asset, draft.network)}</strong> wallet address I gave, which I control. Blockchain transfers can’t
-            be reversed.
+            {t('I will hand exactly')} {locked ? formatUsd(locked.quote.grossCents) : t('the quoted amount')}{' '}
+            {t('in US dollar cash to the courier in person, after the courier checks my photo ID. The')} {draft.asset}{' '}
+            {t('goes only to the')} <strong>{networkLabel(draft.asset, draft.network)}</strong>{' '}
+            {t('wallet address I gave, which I control. Blockchain transfers can’t be reversed.')}
           </Checkbox>
           <Checkbox id="ack-buy-docs" checked={ackDocs} onChange={setAckDocs}>
-            I have read and accept the{' '}
+            {t('I have read and accept the')}{' '}
             {orderDocs.map((d, i) => (
               <span key={d.slug}>
                 {i > 0 ? (i === orderDocs.length - 1 ? ' and ' : ', ') : null}
@@ -510,7 +523,7 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
                 </Link>
               </span>
             ))}{' '}
-            for this order.
+            {t('for this order.')}
           </Checkbox>
         </fieldset>
 
@@ -518,41 +531,43 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
 
         <div className="flow__actions">
           <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
-            <Icon name="arrowLeft" width={18} height={18} /> Back
+            <Icon name="arrowLeft" width={18} height={18} /> {t('Back')}
           </button>
           <HoldButton disabled={!canConfirm} onConfirm={confirm}>
-            {submitting ? 'Confirming…' : 'Confirm exchange'}
+            {submitting ? t('Confirming…') : t('Confirm exchange')}
           </HoldButton>
         </div>
         {!canConfirm && locked && !expired ? (
           <p className="small muted" style={{ textAlign: 'right' }}>
-            {!verified ? 'Verify your identity, then ' : ''}
-            {!ackCash || !ackDocs ? 'tick both boxes to confirm.' : ''}
+            {!verified ? t('Verify your identity, then ') : ''}
+            {!ackCash || !ackDocs ? t('tick both boxes to confirm.') : ''}
           </p>
         ) : null}
       </div>
-      <aside className="flow__aside flow__aside--after" aria-label="Exchange details">
+      <aside className="flow__aside flow__aside--after" aria-label={t('Exchange details')}>
         <div className="panel">
           <div className="panel__head">
-            <h3 className="title">Exchange details</h3>
+            <h3 className="title">{t('Exchange details')}</h3>
           </div>
           <div className="panel__body">
             <dl className="dl">
               <div>
-                <dt>Cash collected at</dt>
+                <dt>{t('Cash collected at')}</dt>
                 <dd>{destination ? collectionAddress(destination) : '—'}</dd>
               </div>
               <div>
-                <dt>Crypto sent to</dt>
+                <dt>{t('Crypto sent to')}</dt>
                 <dd className="mono">{draft.receiveAddress}</dd>
               </div>
               <div>
-                <dt>Network</dt>
+                <dt>{t('Network')}</dt>
                 <dd>{networkLabel(draft.asset, draft.network)}</dd>
               </div>
               <div>
-                <dt>Collection window</dt>
-                <dd>Within {CASH_COLLECTION_WINDOW_MS / 3_600_000} hours after you confirm (estimated)</dd>
+                <dt>{t('Collection window')}</dt>
+                <dd>
+                  {t('Within')} {CASH_COLLECTION_WINDOW_MS / 3_600_000} {t('hours after you confirm (estimated)')}
+                </dd>
               </div>
             </dl>
           </div>
@@ -593,8 +608,8 @@ export function BuyFlow({ header }: { header: ReactNode }) {
         <Stepper current={step} />
       </div>
       {!courier.availability.available ? (
-        <Notice tone="warn" title="Buying with cash isn’t available right now">
-          <p>Cash collection by courier is switched off. You can still sell crypto for USD.</p>
+        <Notice tone="warn" title={t('Buying with cash isn’t available right now')}>
+          <p>{t('Cash collection by courier is switched off. You can still sell crypto for USD.')}</p>
         </Notice>
       ) : step === 3 ? (
         <div ref={headingRef} className="flow__step" key="step-3">
@@ -606,17 +621,17 @@ export function BuyFlow({ header }: { header: ReactNode }) {
             {step === 1 && <AmountStep draft={draft} update={update} quote={quote} onNext={() => go(2)} />}
             {step === 2 && <DetailsStep draft={draft} update={update} onBack={() => go(1)} onNext={() => go(3)} />}
           </div>
-          <aside className="flow__aside" aria-label="Quote summary">
+          <aside className="flow__aside" aria-label={t('Quote summary')}>
             {quote.data ? (
               <div className="summary-bar" aria-hidden="true">
-                <span className="small">You receive (indicative)</span>
+                <span className="small">{t('You receive (indicative)')}</span>
                 <strong>{formatAsset(quote.data.quote.amountAtomic, quote.data.quote.asset)}</strong>
               </div>
             ) : null}
             <div className="panel flow__aside--hide-mobile">
               <div className="panel__head">
-                <h2 className="title">Indicative quote</h2>
-                <MockBadge label="Sandbox pricing" />
+                <h2 className="title">{t('Indicative quote')}</h2>
+                <MockBadge label={t('Sandbox pricing')} />
               </div>
               <div className="panel__body">
                 {quote.data ? (
@@ -624,10 +639,10 @@ export function BuyFlow({ header }: { header: ReactNode }) {
                 ) : quote.loading ? (
                   <QuoteSkeleton rows={5} />
                 ) : (
-                  <p className="muted small">Enter an amount to see the breakdown.</p>
+                  <p className="muted small">{t('Enter an amount to see the breakdown.')}</p>
                 )}
                 <p className="quote-meta">
-                  <span>Final quote is locked on the review step.</span>
+                  <span>{t('Final quote is locked on the review step.')}</span>
                 </p>
               </div>
             </div>

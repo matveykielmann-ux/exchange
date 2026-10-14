@@ -76,38 +76,38 @@ The terms of the Exchange Request take effect upon the full receipt of cryptoass
 - Unpack and count the received funds after photographing.
 - Provide photos and count confirmation within 24 hours of receipt. Claims for shortages after this period are not accepted.
 
-  4.11. The User may cancel an Exchange Request before the transaction is completed after transferring cryptoassets, non-cash, or cash funds to the Company, except as provided in Sections 8 and 13. User-initiated returns not caused by the Company’s fault incur additional costs under Section 9.
+4.11. The User may cancel an Exchange Request before the transaction is completed after transferring cryptoassets, non-cash, or cash funds to the Company, except as provided in Sections 8 and 13. User-initiated returns not caused by the Company’s fault incur additional costs under Section 9.
 
-  4.12. If an amount received in the Company’s account differs from the amount specified in the Exchange Request, the Company shall make a recalculation corresponding to the actual funds received. If the difference exceeds 10%, the Company may terminate the Exchange Request unilaterally, as if it had not come into effect, without the need to notify the User. In such cases, funds are returned to the User’s details, minus commission fees. Similarly, in the case of receiving cash, recalculation and refund shall be carried out based on the actual amount and any potential expenses incurred by the Company related to the handling of cash.
+4.12. If an amount received in the Company’s account differs from the amount specified in the Exchange Request, the Company shall make a recalculation corresponding to the actual funds received. If the difference exceeds 10%, the Company may terminate the Exchange Request unilaterally, as if it had not come into effect, without the need to notify the User. In such cases, funds are returned to the User’s details, minus commission fees. Similarly, in the case of receiving cash, recalculation and refund shall be carried out based on the actual amount and any potential expenses incurred by the Company related to the handling of cash.
 
-  4.13. If cryptoassets or funds are not transferred to the User’s specified details within the timeframe indicated in the Exchange Request, the User has the right to cancel the agreement and request return of assets: cryptoassets are returned to the specified wallet, cash — personally, non-cash funds — to the specified bank or electronic account. Return is processed by the Company only if the corresponding funds have not yet been transferred to the User’s specified account details. Returns are completed within 72 hours from the moment the request for termination is received, except in cases provided for in Sections 8 and 13 of these Rules. The Company is not responsible for delays beyond its control.
+4.13. If cryptoassets or funds are not transferred to the User’s specified details within the timeframe indicated in the Exchange Request, the User has the right to cancel the agreement and request return of assets: cryptoassets are returned to the specified wallet, cash — personally, non-cash funds — to the specified bank or electronic account. Return is processed by the Company only if the corresponding funds have not yet been transferred to the User’s specified account details. Returns are completed within 72 hours from the moment the request for termination is received, except in cases provided for in Sections 8 and 13 of these Rules. The Company is not responsible for delays beyond its control.
 
-  4.14. If the crypto assets or funds are not transferred to the Company within the period specified in the Exchange Request from the moment it was submitted by the User, the terms of the Exchange Request may be terminated by the Company unilaterally, as not having entered into force, without the need to notify the User. If the crypto assets or non-cash funds are received in the Company’s accounts after the specified period, such funds shall be transferred back to the User’s account, with all commission fees related to the transfer deducted from these funds. In the event that the User requests to proceed with the exchange operation after the period specified in the Exchange Request, the Company reserves the right to modify the exchange rate and the terms of the Exchange Request.
+4.14. If the crypto assets or funds are not transferred to the Company within the period specified in the Exchange Request from the moment it was submitted by the User, the terms of the Exchange Request may be terminated by the Company unilaterally, as not having entered into force, without the need to notify the User. If the crypto assets or non-cash funds are received in the Company’s accounts after the specified period, such funds shall be transferred back to the User’s account, with all commission fees related to the transfer deducted from these funds. In the event that the User requests to proceed with the exchange operation after the period specified in the Exchange Request, the Company reserves the right to modify the exchange rate and the terms of the Exchange Request.
 
-  4.15. If a delay occurs in the transfer of funds to the details specified by the User due to the fault of the payment system, the Company shall not be held liable for any losses arising from the delayed receipt of funds. In such a case, the User agrees that all claims shall be directed to the payment system, while the Company will provide assistance to the extent possible and within the framework of applicable law.
+4.15. If a delay occurs in the transfer of funds to the details specified by the User due to the fault of the payment system, the Company shall not be held liable for any losses arising from the delayed receipt of funds. In such a case, the User agrees that all claims shall be directed to the payment system, while the Company will provide assistance to the extent possible and within the framework of applicable law.
 
-  4.16. In the event of detection of falsified communication flows or any interference aimed at disrupting the operation of the Service, including its software code, the application shall be suspended, and the transferred funds shall be recalculated in accordance with the current agreement. If the User does not agree with the recalculation, they have the full right to terminate these Terms, and the crypto assets will be sent to the details specified by the User.
+4.16. In the event of detection of falsified communication flows or any interference aimed at disrupting the operation of the Service, including its software code, the application shall be suspended, and the transferred funds shall be recalculated in accordance with the current agreement. If the User does not agree with the recalculation, they have the full right to terminate these Terms, and the crypto assets will be sent to the details specified by the User.
 
-  4.17. Using the Service, the User acknowledges that the Company’s liability is limited to the provisions of these Terms and received cryptoassets or funds, without additional guarantees.
+4.17. Using the Service, the User acknowledges that the Company’s liability is limited to the provisions of these Terms and received cryptoassets or funds, without additional guarantees.
 
-  4.18. The User must comply with applicable law and avoid tampering with communication flows or disrupting the Service’s software.
+4.18. The User must comply with applicable law and avoid tampering with communication flows or disrupting the Service’s software.
 
-  4.19. The Company is not responsible for losses due to incorrect cryptoasset transfers if the User provided incorrect details.
+4.19. The Company is not responsible for losses due to incorrect cryptoasset transfers if the User provided incorrect details.
 
-  4.20. In the event of a failure on the part of the payment system, such exchanges will be processed manually during the Service’s working hours.
+4.20. In the event of a failure on the part of the payment system, such exchanges will be processed manually during the Service’s working hours.
 
-  4.21. The Company is not responsible for third parties impersonating it. **Only contacts listed on the website are official and can be used for performing exchange operations**. For security reasongs, use links on the website when accessing social networks or messengers. Verify Telegram username carefully.
+4.21. The Company is not responsible for third parties impersonating it. **Only contacts listed on the website are official and can be used for performing exchange operations**. For security reasongs, use links on the website when accessing social networks or messengers. Verify Telegram username carefully.
 
-  4.22. When sending cryptoassets to the Company’s wallet, the User must provide transaction confirmation: a screenshot showing time, Company wallet address, transfer amount, and TXID or blockchain link. For non-cash transfers, an electronic statement must be provided.
+4.22. When sending cryptoassets to the Company’s wallet, the User must provide transaction confirmation: a screenshot showing time, Company wallet address, transfer amount, and TXID or blockchain link. For non-cash transfers, an electronic statement must be provided.
 
-  4.23. The Serice may adjust rates if additional conditions are set by the User not described in the Exchange Request or Terms:
+4.23. The Serice may adjust rates if additional conditions are set by the User not described in the Exchange Request or Terms:
 
 - Issuance time,
 - Special requirements for the denomination, appearance, and year of issue of the banknotes,
 - Issuance location,
 - Other conditions complicating processing.
 
-  4.24. In addition to these Rules, certain exchange directions may have additional conditions (for example: fees, limits, execution times, verification requirements, and others). These conditions are displayed when creating an Exchange Request. Continuing to complete the Exchange Request signifies the User's agreement with such conditions. In case of a conflict between these Rules and the special conditions, the special conditions shall apply. By creating an Exchange Request, the User confirms that they have read and agreed to them.
+4.24. In addition to these Rules, certain exchange directions may have additional conditions (for example: fees, limits, execution times, verification requirements, and others). These conditions are displayed when creating an Exchange Request. Continuing to complete the Exchange Request signifies the User's agreement with such conditions. In case of a conflict between these Rules and the special conditions, the special conditions shall apply. By creating an Exchange Request, the User confirms that they have read and agreed to them.
 
 ### 5. Rules for Rate Fixation
 
@@ -134,6 +134,7 @@ The Service commission is calculated using the formula:\
 **P** — asset value on the Service at the time it is credited to the Service account;\
 **L** — market value of the asset at the time it is credited, determined:\
 
+
 - **For cryptoassets** — based on cryptocurrency exchange data ([Binance](https://www.binance.com/en), [Coinbase](https://www.coinbase.com/), [OKX](https://www.okx.com/) and [Kraken](https://www.kraken.com/));
 - **For fiat funds** — based on market cross-rate (during high volatility, cross-rate may be fixed according to [www.xe.com](https://www.xe.com/)).
 
@@ -155,7 +156,7 @@ Verification may include (but is not limited to):
 - Information and documents within the framework of Proof of Funds / Source of Funds procedures;
 - Transaction-specific documents for high-risk transactions per AML/CTF policy.
 
-  8.2. The Company has implemented a monitoring system to detect high-risk transactions and other unlawful activity, using [crystalintelligence.com](https://crystalintelligence.com/) and/or other authoritative analytics at its discretion, which may be used either in combination or separately.
+8.2. The Company has implemented a monitoring system to detect high-risk transactions and other unlawful activity, using [crystalintelligence.com](https://crystalintelligence.com/) and/or other authoritative analytics at its discretion, which may be used either in combination or separately.
 
 In order to prevent the circumvention of control mechanisms and in accordance with applicable regulatory requirements, the Company does not disclose the parameters of its monitoring systems, including threshold values, internal rules, and other risk assessment criteria. This information is confidential.
 
@@ -201,7 +202,7 @@ The return of such funds is processed by the Company within 14 calendar days, st
 - Transaction risk assessment, including connections to high-risk sources, sanctions, Dark Market, Stolen Coins, Scam, and other AML/CTF indicators;
 - Verification of all documents and information provided by the User, including identification data, screenshots or videos from wallets, and other materials, if the transaction is classified as high-risk.
 
-  8.5. The Company reserves the right to refuse services to citizens, residents, or individuals permanently residing in the following countries and regions: the Republic of Abkhazia, the Republic of South Ossetia, the Nagorno-Karabakh Republic, the Turkish Republic of Northern Cyprus, and the Transnistrian Moldavian Republic. Additionally, services are not provided to individuals residing in territories temporarily not controlled by the government of Ukraine, including the Autonomous Republic of Crimea and certain areas of Donetsk and Luhansk regions. Applications from such territories are not accepted for processing.
+8.5. The Company reserves the right to refuse services to citizens, residents, or individuals permanently residing in the following countries and regions: the Republic of Abkhazia, the Republic of South Ossetia, the Nagorno-Karabakh Republic, the Turkish Republic of Northern Cyprus, and the Transnistrian Moldavian Republic. Additionally, services are not provided to individuals residing in territories temporarily not controlled by the government of Ukraine, including the Autonomous Republic of Crimea and certain areas of Donetsk and Luhansk regions. Applications from such territories are not accepted for processing.
 
 Detailed AML/CTF policy information is available via the corresponding [link](/en/kyc-aml-policy).
 

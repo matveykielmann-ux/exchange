@@ -5,6 +5,7 @@ import { errorMessage, isNotConfigured } from '@/lib/errors';
 import { useUser } from '@/state/auth';
 import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
+import { t } from '@/i18n';
 
 const KYC_COPY: Record<string, { tone: 'info' | 'warn' | 'danger'; title: string; body: string }> = {
   unverified: {
@@ -48,31 +49,35 @@ export function KycNotice() {
       const r = await services.account.startVerification();
       if (r.hostedUrl) window.location.assign(r.hostedUrl);
     } catch (e) {
-      setVerifyError(isNotConfigured(e) ? 'Identity verification is not available yet: the provider is not connected.' : errorMessage(e));
+      setVerifyError(
+        isNotConfigured(e) ? t('Identity verification is not available yet: the provider is not connected.') : errorMessage(e),
+      );
     } finally {
       setVerifying(false);
     }
   }
 
   return (
-    <Notice tone={kycCopy.tone} title={kycCopy.title}>
-      <p>{kycCopy.body}</p>
+    <Notice tone={kycCopy.tone} title={t(kycCopy.title)}>
+      <p>{t(kycCopy.body)}</p>
       {config.mode === 'sandbox' && kyc === 'unverified' ? (
         <p className="small">
-          Sandbox: verification is decided by test rules. A name containing “Review” needs more information, “Reject” is rejected, and any
-          other name is approved. <MockBadge />
+          {t(
+            'Sandbox: verification is decided by test rules. A name containing “Review” needs more information, “Reject” is rejected, and any other name is approved.',
+          )}{' '}
+          <MockBadge />
         </p>
       ) : null}
       {kyc === 'unverified' ? (
         <div>
           <button type="button" className="btn btn--secondary" disabled={verifying} onClick={verify}>
-            {verifying ? 'Starting…' : 'Verify my identity'}
+            {verifying ? t('Starting…') : t('Verify my identity')}
           </button>
         </div>
       ) : kyc === 'needs_info' || kyc === 'rejected' ? (
         <div>
           <Link to="/support" className="btn btn--secondary">
-            Open support messages
+            {t('Open support messages')}
           </Link>
         </div>
       ) : null}

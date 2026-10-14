@@ -2,23 +2,24 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { Notice } from '@/components/ui';
 import { errorMessage } from '@/lib/errors';
 import { ApiError } from '@/services/http';
+import { t, tNode } from '@/i18n';
 
 export function LoadError({ error }: { error: unknown }) {
   if (!error) return null;
   if (error instanceof ApiError && error.code === 'mfa_required')
     return (
-      <Notice tone="warn" title="Two-step sign-in required" role="alert">
-        <p>Staff tools need a verified authenticator code. Turn on two-step sign-in in your account, then sign in again.</p>
+      <Notice tone="warn" title={t('Two-step sign-in required')} role="alert">
+        <p>{t('Staff tools need a verified authenticator code. Turn on two-step sign-in in your account, then sign in again.')}</p>
       </Notice>
     );
   if (error instanceof ApiError && error.status === 403)
     return (
-      <Notice tone="neutral" title="Not available for your role" role="alert">
-        <p>{error.message}</p>
+      <Notice tone="neutral" title={t('Not available for your role')} role="alert">
+        <p>{t(error.message)}</p>
       </Notice>
     );
   return (
-    <Notice tone="danger" title="This could not be loaded" role="alert">
+    <Notice tone="danger" title={t('This could not be loaded')} role="alert">
       <p>{errorMessage(error)}</p>
     </Notice>
   );
@@ -28,8 +29,8 @@ export function AdminHead({ title, lead, children }: { title: ReactNode; lead?: 
   return (
     <header className="admin-head">
       <div>
-        <h1 className="admin-title">{title}</h1>
-        {lead ? <p className="muted small">{lead}</p> : null}
+        <h1 className="admin-title">{tNode(title)}</h1>
+        {lead ? <p className="muted small">{tNode(lead)}</p> : null}
       </div>
       {children ? <div className="admin-head__actions">{children}</div> : null}
     </header>
@@ -39,15 +40,13 @@ export function AdminHead({ title, lead, children }: { title: ReactNode; lead?: 
 export function Pager({ page, pageSize, total, onPage }: { page: number; pageSize: number; total: number; onPage(p: number): void }) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
   return (
-    <nav className="pager" aria-label="Pages">
+    <nav className="pager" aria-label={t('Pages')}>
       <button type="button" className="btn btn--secondary" disabled={page <= 1} onClick={() => onPage(page - 1)}>
-        Previous
+        {t('Previous')}
       </button>
-      <span className="small muted tabular">
-        Page {page} of {pages} · {total} total
-      </span>
+      <span className="small muted tabular">{t('Page {0} of {1} · {2} total', [page, pages, total])}</span>
       <button type="button" className="btn btn--secondary" disabled={page >= pages} onClick={() => onPage(page + 1)}>
-        Next
+        {t('Next')}
       </button>
     </nav>
   );
@@ -84,7 +83,7 @@ export function ReasonForm({
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (reason.trim().length < minLength) {
-      setError(`Write at least ${minLength} characters.`);
+      setError(t('Write at least {0} characters.', [minLength]));
       return;
     }
     setBusy(true);
@@ -102,7 +101,7 @@ export function ReasonForm({
       {children}
       <div className="field">
         <label className="field__label" htmlFor={id}>
-          {label}
+          {t(label)}
         </label>
         <textarea
           id={id}
@@ -122,10 +121,10 @@ export function ReasonForm({
       ) : null}
       <div className="row">
         <button type="submit" className={`btn ${danger ? 'btn--danger' : ''}`} disabled={busy}>
-          {busy ? 'Saving…' : submitLabel}
+          {busy ? t('Saving…') : t(submitLabel)}
         </button>
         <button type="button" className="btn btn--ghost" onClick={onCancel} disabled={busy}>
-          Cancel
+          {t('Cancel')}
         </button>
       </div>
     </form>

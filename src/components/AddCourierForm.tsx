@@ -17,6 +17,7 @@ import { useServices } from '@/state/services';
 import type { Destination } from '@/services/types';
 import { ErrorSummary, Field } from './Field';
 import { Notice } from './ui';
+import { t } from '@/i18n';
 
 const DAY = 86_400_000;
 
@@ -76,7 +77,7 @@ export function AddCourierForm({
     } catch (e) {
       setServerError(
         isNotConfigured(e)
-          ? { message: 'Cash delivery is not available yet: no courier carrier is connected.', notConfigured: true }
+          ? { message: t('Cash delivery is not available yet: no courier carrier is connected.'), notConfigured: true }
           : { message: errorMessage(e), notConfigured: false },
       );
     } finally {
@@ -88,19 +89,22 @@ export function AddCourierForm({
     <div className="panel">
       <div className="panel__body stack">
         {sandbox ? (
-          <Notice tone="warn" title="Sandbox: don't enter your real address">
+          <Notice tone="warn" title={t("Sandbox: don't enter your real address")}>
             <p>
-              Any US address works. ZIP codes starting with <span className="mono">999</span> are outside the sandbox courier's area.
+              {t('Any US address works. ZIP codes starting with')} <span className="mono">999</span>{' '}
+              {t("are outside the sandbox courier's area.")}
             </p>
           </Notice>
         ) : null}
         <p className="small muted">
-          Cash is handed only to {user?.fullName ? <strong>{user.fullName}</strong> : 'the account holder'}, after a check of a
-          government-issued photo ID that matches your verified account. Details are encrypted when saved and shared only with the courier.
+          {t('Cash is handed only to')} {user?.fullName ? <strong>{user.fullName}</strong> : t('the account holder')}
+          {t(
+            ', after a check of a government-issued photo ID that matches your verified account. Details are encrypted when saved and shared only with the courier.',
+          )}
         </p>
         <ErrorSummary errors={summary} />
         <div className="form-grid">
-          <Field label="Street address" id="courier-line1" error={errors.line1} className="span-2">
+          <Field label={t('Street address')} id="courier-line1" error={errors.line1} className="span-2">
             {(p) => (
               <input
                 className="input"
@@ -112,7 +116,7 @@ export function AddCourierForm({
               />
             )}
           </Field>
-          <Field label="Apartment, suite or unit" id="courier-line2" hint="Optional" error={errors.line2} className="span-2">
+          <Field label={t('Apartment, suite or unit')} id="courier-line2" hint={t('Optional')} error={errors.line2} className="span-2">
             {(p) => (
               <input
                 className="input"
@@ -124,7 +128,7 @@ export function AddCourierForm({
               />
             )}
           </Field>
-          <Field label="City" id="courier-city" error={errors.city}>
+          <Field label={t('City')} id="courier-city" error={errors.city}>
             {(p) => (
               <input
                 className="input"
@@ -136,7 +140,7 @@ export function AddCourierForm({
               />
             )}
           </Field>
-          <Field label="State" id="courier-state" error={errors.state}>
+          <Field label={t('State')} id="courier-state" error={errors.state}>
             {(p) => (
               <select
                 className="select"
@@ -145,7 +149,7 @@ export function AddCourierForm({
                 value={input.state}
                 onChange={(e) => set('state', e.target.value)}
               >
-                <option value="">Choose a state</option>
+                <option value="">{t('Choose a state')}</option>
                 {US_STATES.map((s) => (
                   <option key={s} value={s}>
                     {US_STATE_NAMES[s]}
@@ -154,7 +158,7 @@ export function AddCourierForm({
               </select>
             )}
           </Field>
-          <Field label="ZIP code" id="courier-zip" error={errors.zip}>
+          <Field label={t('ZIP code')} id="courier-zip" error={errors.zip}>
             {(p) => (
               <input
                 className="input tabular"
@@ -167,7 +171,7 @@ export function AddCourierForm({
               />
             )}
           </Field>
-          <Field label="Phone for the courier" id="courier-phone" error={errors.phone}>
+          <Field label={t('Phone for the courier')} id="courier-phone" error={errors.phone}>
             {(p) => (
               <input
                 className="input tabular"
@@ -180,21 +184,21 @@ export function AddCourierForm({
               />
             )}
           </Field>
-          <Field label={purpose === 'collection' ? 'Collection window' : 'Delivery window'} id="courier-window" error={errors.window}>
+          <Field label={purpose === 'collection' ? t('Collection window') : t('Delivery window')} id="courier-window" error={errors.window}>
             {(p) => (
               <select className="select" {...p} value={input.window} onChange={(e) => set('window', e.target.value as CourierWindow)}>
                 {COURIER_WINDOWS.map((w) => (
                   <option key={w} value={w}>
-                    {COURIER_WINDOW_LABELS[w]}
+                    {t(COURIER_WINDOW_LABELS[w])}
                   </option>
                 ))}
               </select>
             )}
           </Field>
           <Field
-            label="Preferred date"
+            label={t('Preferred date')}
             id="courier-preferredDate"
-            hint="Optional. Leave empty for the first available day."
+            hint={t('Optional. Leave empty for the first available day.')}
             error={errors.preferredDate}
           >
             {(p) => (
@@ -210,9 +214,9 @@ export function AddCourierForm({
             )}
           </Field>
           <Field
-            label="Instructions for the courier"
+            label={t('Instructions for the courier')}
             id="courier-instructions"
-            hint="Optional, e.g. a gate code or where to park. Don't include passwords or account details."
+            hint={t("Optional, e.g. a gate code or where to park. Don't include passwords or account details.")}
             error={errors.instructions}
             className="span-2"
           >
@@ -228,15 +232,17 @@ export function AddCourierForm({
             )}
           </Field>
         </div>
-        <p className="small muted">The date and window are a preference. The courier confirms the {word} time with you by phone.</p>
+        <p className="small muted">
+          {t('The date and window are a preference. The courier confirms the')} {word} {t('time with you by phone.')}
+        </p>
         {serverError ? <Notice tone={serverError.notConfigured ? 'warn' : 'danger'} title={serverError.message} role="alert" /> : null}
         <div className="row">
           <button type="button" className="btn btn--secondary" onClick={submit} disabled={busy}>
-            {busy ? 'Checking the area…' : `Save ${word} address`}
+            {busy ? t('Checking the area…') : t('Save {0} address', [word])}
           </button>
           {onCancel ? (
             <button type="button" className="btn btn--ghost" onClick={onCancel}>
-              Cancel
+              {t('Cancel')}
             </button>
           ) : null}
         </div>

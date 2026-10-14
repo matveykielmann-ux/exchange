@@ -1,4 +1,5 @@
 import { ORDER_STAGE_LABEL, ORDER_STAGE_PATH, type OrderStage } from '@/domain/order';
+import { t } from '@/i18n';
 
 /**
  * The five-stage progress indicator (New → Awaiting Payment → Payment Review →
@@ -12,20 +13,20 @@ export function StageTrack({ stage, label = 'Order stage' }: { stage: OrderStage
   const held = stage === 'on_hold';
   return (
     <div className="stack" style={{ gap: 8 }}>
-      <ol className={`stage-track${held ? ' is-held' : ''}`} aria-label={label}>
+      <ol className={`stage-track${held ? ' is-held' : ''}`} aria-label={t(label)}>
         {ORDER_STAGE_PATH.map((s, i) => {
           const state = offPath ? 'upcoming' : i < index || stage === 'completed' ? 'done' : i === index ? 'current' : 'upcoming';
           return (
             <li key={s} className={`is-${state}`} aria-current={state === 'current' ? 'step' : undefined}>
               <span className="stage-track__bar" aria-hidden="true" />
-              <span>{ORDER_STAGE_LABEL[s]}</span>
+              <span>{t(ORDER_STAGE_LABEL[s])}</span>
             </li>
           );
         })}
       </ol>
       {offPath ? (
         <p className="small">
-          <span className="badge badge--warn">{ORDER_STAGE_LABEL[stage]}</span>
+          <span className="badge badge--warn">{t(ORDER_STAGE_LABEL[stage])}</span>
         </p>
       ) : null}
     </div>

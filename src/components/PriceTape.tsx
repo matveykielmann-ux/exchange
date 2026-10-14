@@ -5,15 +5,16 @@ import { formatPriceMicros } from '@/lib/format';
 import { gsap, REDUCED_OK, useGSAP } from '@/lib/motion';
 import { useServices } from '@/state/services';
 import { MockBadge } from './ui';
+import { t } from '@/i18n';
 
 type Row = { price: bigint; prev: bigint | null };
 
 /** Change since the previous refresh, in hundredths of a percent (integer maths, display only). */
 function changeText(row: Row): string {
-  if (row.prev === null || row.prev === 0n) return 'Updates every ' + PRICING_POLICY.indicativeRefreshMs / 1000 + 's';
+  if (row.prev === null || row.prev === 0n) return t('Updates every {0}s', [PRICING_POLICY.indicativeRefreshMs / 1000]);
   const bp = Number(((row.price - row.prev) * 10_000n) / row.prev);
-  if (bp === 0) return 'Unchanged since last update';
-  return `${bp > 0 ? '▲' : '▼'} ${(Math.abs(bp) / 100).toFixed(2)}% since last update`;
+  if (bp === 0) return t('Unchanged since last update');
+  return t('{0} {1}% since last update', [bp > 0 ? '▲' : '▼', (Math.abs(bp) / 100).toFixed(2)]);
 }
 
 /**
@@ -69,7 +70,7 @@ export function PriceTape() {
   );
 
   return (
-    <div className="tape" ref={ref} role="region" aria-label="Reference prices">
+    <div className="tape" ref={ref} role="region" aria-label={t('Reference prices')}>
       {ASSET_ORDER.map((a) => {
         const row = rows[a];
         return (
@@ -79,12 +80,12 @@ export function PriceTape() {
               {ASSETS[a].name} · {a}
             </span>
             <span className="tape__price">{row ? formatPriceMicros(row.price, a) : '—'}</span>
-            <span className="tape__change">{row ? changeText(row) : 'Loading'}</span>
+            <span className="tape__change">{row ? changeText(row) : t('Loading')}</span>
           </div>
         );
       })}
       <div className="tape__badge">
-        <MockBadge label="Sandbox prices" />
+        <MockBadge label={t('Sandbox prices')} />
       </div>
     </div>
   );

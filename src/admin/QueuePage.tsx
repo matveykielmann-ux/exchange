@@ -20,6 +20,7 @@ import { useServices } from '@/state/services';
 import { useLiveEvents } from '@/state/useLive';
 import { AdminHead, LoadError, Pager } from './shared';
 import { useLoad } from './lib';
+import { t } from '@/i18n';
 
 const PRIORITY_TONE = { high: 'danger', medium: 'warn', low: 'neutral' } as const;
 
@@ -79,13 +80,13 @@ export function QueuePage() {
 
   return (
     <div className="stack stack--lg">
-      <AdminHead title="Orders" lead="Search by reference, customer email or name, deposit transaction hash or payout reference.">
-        <MockBadge label="Sandbox data" />
+      <AdminHead title={t('Orders')} lead={t('Search by reference, customer email or name, deposit transaction hash or payout reference.')}>
+        <MockBadge label={t('Sandbox data')} />
       </AdminHead>
 
-      <div className="chip-row" role="group" aria-label="Pipeline stage">
+      <div className="chip-row" role="group" aria-label={t('Pipeline stage')}>
         <button type="button" className="chip" aria-pressed={!query.stage?.length} onClick={() => set({ stage: null })}>
-          All stages
+          {t('All stages')}
         </button>
         {ORDER_STAGES.map((st) => (
           <button
@@ -95,24 +96,24 @@ export function QueuePage() {
             aria-pressed={query.stage?.length === 1 && query.stage[0] === st}
             onClick={() => set({ stage: st })}
           >
-            {ORDER_STAGE_LABEL[st]}
+            {t(ORDER_STAGE_LABEL[st])}
           </button>
         ))}
       </div>
 
-      <div className="chip-row" role="group" aria-label="Saved views">
+      <div className="chip-row" role="group" aria-label={t('Saved views')}>
         {PRESETS.map((p) => {
           const keys = [...params.keys()].filter((k) => k !== 'page');
           const active = keys.length === Object.keys(p.params).length && Object.entries(p.params).every(([k, v]) => params.get(k) === v);
           return (
             <button
-              key={p.label}
+              key={t(p.label)}
               type="button"
               className="chip"
               aria-pressed={active}
               onClick={() => setParams(new URLSearchParams(p.params))}
             >
-              {p.label}
+              {t(p.label)}
             </button>
           );
         })}
@@ -121,7 +122,7 @@ export function QueuePage() {
       <form className="filters" onSubmit={onSearch} role="search">
         <div className="field filters__search">
           <label className="field__label" htmlFor="q">
-            Search
+            {t('Search')}
           </label>
           <div className="input-with-button">
             <input
@@ -129,16 +130,16 @@ export function QueuePage() {
               className="input"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="CBX-…, email, name, tx hash"
+              placeholder={t('CBX-…, email, name, tx hash')}
             />
-            <button type="submit" className="btn btn--secondary" aria-label="Search">
+            <button type="submit" className="btn btn--secondary" aria-label={t('Search')}>
               <Icon name="search" width={18} height={18} />
             </button>
           </div>
         </div>
         <div className="field">
           <label className="field__label" htmlFor="f-status">
-            Status
+            {t('Status')}
           </label>
           <select
             id="f-status"
@@ -146,22 +147,22 @@ export function QueuePage() {
             value={query.status?.length === 1 ? query.status[0] : query.status?.length ? 'multi' : ''}
             onChange={(e) => set({ status: e.target.value || null })}
           >
-            <option value="">Any status</option>
+            <option value="">{t('Any status')}</option>
             {query.status && query.status.length > 1 ? (
               <option value="multi" disabled>
-                {query.status.map((s) => ORDER_STATUS_LABEL[s]).join(', ')}
+                {query.status.map((s) => t(ORDER_STATUS_LABEL[s])).join(', ')}
               </option>
             ) : null}
             {ORDER_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {ORDER_STATUS_LABEL[s]}
+                {t(ORDER_STATUS_LABEL[s])}
               </option>
             ))}
           </select>
         </div>
         <div className="field">
           <label className="field__label" htmlFor="f-method">
-            Payout
+            {t('Payout')}
           </label>
           <select
             id="f-method"
@@ -169,17 +170,17 @@ export function QueuePage() {
             value={query.payoutMethod}
             onChange={(e) => set({ payoutMethod: e.target.value || null })}
           >
-            <option value="">Any method</option>
+            <option value="">{t('Any method')}</option>
             {PAYOUT_ORDER.map((m) => (
               <option key={m} value={m}>
-                {PAYOUT_METHODS[m].name}
+                {t(PAYOUT_METHODS[m].name)}
               </option>
             ))}
           </select>
         </div>
         <div className="field">
           <label className="field__label" htmlFor="f-assigned">
-            Assigned
+            {t('Assigned')}
           </label>
           <select
             id="f-assigned"
@@ -187,14 +188,14 @@ export function QueuePage() {
             value={query.assigned}
             onChange={(e) => set({ assigned: e.target.value === 'any' ? null : e.target.value })}
           >
-            <option value="any">Anyone</option>
-            <option value="me">Me</option>
-            <option value="unassigned">Unassigned</option>
+            <option value="any">{t('Anyone')}</option>
+            <option value="me">{t('Me')}</option>
+            <option value="unassigned">{t('Unassigned')}</option>
           </select>
         </div>
         <div className="field">
           <label className="field__label" htmlFor="f-sort">
-            Sort
+            {t('Sort')}
           </label>
           <select
             id="f-sort"
@@ -205,12 +206,12 @@ export function QueuePage() {
               set({ sort: sort ?? null, dir: dir ?? null });
             }}
           >
-            <option value="created_at:desc">Newest first</option>
-            <option value="created_at:asc">Oldest first</option>
-            <option value="updated_at:desc">Recently updated</option>
-            <option value="priority:desc">Priority</option>
-            <option value="net_cents:desc">Largest payout</option>
-            <option value="net_cents:asc">Smallest payout</option>
+            <option value="created_at:desc">{t('Newest first')}</option>
+            <option value="created_at:asc">{t('Oldest first')}</option>
+            <option value="updated_at:desc">{t('Recently updated')}</option>
+            <option value="priority:desc">{t('Priority')}</option>
+            <option value="net_cents:desc">{t('Largest payout')}</option>
+            <option value="net_cents:asc">{t('Smallest payout')}</option>
           </select>
         </div>
         <label className="check filters__check" htmlFor="f-overdue">
@@ -220,7 +221,7 @@ export function QueuePage() {
             checked={!!query.overdue}
             onChange={(e) => set({ overdue: e.target.checked ? 'true' : null })}
           />
-          <span>Overdue only</span>
+          <span>{t('Overdue only')}</span>
         </label>
         <label className="check filters__check" htmlFor="f-review">
           <input
@@ -229,31 +230,31 @@ export function QueuePage() {
             checked={query.review === 'open'}
             onChange={(e) => set({ review: e.target.checked ? 'open' : null })}
           />
-          <span>Open review</span>
+          <span>{t('Open review')}</span>
         </label>
       </form>
 
       <LoadError error={error} />
       {data ? (
         <>
-          <div className="table-wrap" tabIndex={0} role="region" aria-label="Orders">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label={t('Orders')}>
             <table className="data-table admin-table">
-              <caption className="visually-hidden">Orders</caption>
+              <caption className="visually-hidden">{t('Orders')}</caption>
               <thead>
                 <tr>
-                  <th scope="col">Reference</th>
-                  <th scope="col">Stage</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Priority</th>
-                  <th scope="col">Customer</th>
+                  <th scope="col">{t('Reference')}</th>
+                  <th scope="col">{t('Stage')}</th>
+                  <th scope="col">{t('Status')}</th>
+                  <th scope="col">{t('Priority')}</th>
+                  <th scope="col">{t('Customer')}</th>
                   <th scope="col" className="num">
-                    Amount
+                    {t('Amount')}
                   </th>
                   <th scope="col" className="num">
-                    Payout
+                    {t('Payout')}
                   </th>
-                  <th scope="col">Assigned</th>
-                  <th scope="col">Created</th>
+                  <th scope="col">{t('Assigned')}</th>
+                  <th scope="col">{t('Created')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -266,13 +267,15 @@ export function QueuePage() {
                       {o.source === 'sandbox' ? <MockBadge label="SBX" force /> : null}
                     </th>
                     <td>
-                      <span className={`badge ${o.onHold ? 'badge--warn' : 'badge--info'}`}>{ORDER_STAGE_LABEL[o.stage]}</span>
+                      <span className={`badge ${o.onHold ? 'badge--warn' : 'badge--info'}`}>{t(ORDER_STAGE_LABEL[o.stage])}</span>
                     </td>
                     <td>
-                      <StatusBadge tone={orderTone(o.status)}>{orderStatusLabel(o.status, o.direction)}</StatusBadge>
-                      {o.direction === 'buy' ? <span className="small muted block">Buy · cash collection</span> : null}
+                      <StatusBadge tone={orderTone(o.status)}>{t(orderStatusLabel(o.status, o.direction))}</StatusBadge>
+                      {o.direction === 'buy' ? <span className="small muted block">{t('Buy · cash collection')}</span> : null}
                       {o.depositException ? (
-                        <span className="small muted block">Exception: {o.depositException.replace('_', ' ')}</span>
+                        <span className="small muted block">
+                          {t('Exception:')} {o.depositException.replace('_', ' ')}
+                        </span>
                       ) : null}
                     </td>
                     <td>
@@ -286,17 +289,19 @@ export function QueuePage() {
                     <td className="num">
                       {formatUsd(o.netCents)}
                       <span className="small muted block">
-                        {o.direction === 'buy' ? 'Crypto transfer' : PAYOUT_METHODS[o.payoutMethod].name}
+                        {o.direction === 'buy' ? t('Crypto transfer') : t(PAYOUT_METHODS[o.payoutMethod].name)}
                       </span>
                     </td>
-                    <td className="small">{o.assignedTo ? (o.assignedTo.email ?? 'Staff') : <span className="muted">Unassigned</span>}</td>
+                    <td className="small">
+                      {o.assignedTo ? (o.assignedTo.email ?? t('Staff')) : <span className="muted">{t('Unassigned')}</span>}
+                    </td>
                     <td className="small tabular">{formatDateTime(o.createdAt)}</td>
                   </tr>
                 ))}
                 {data.items.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="muted">
-                      No orders match these filters.
+                      {t('No orders match these filters.')}
                     </td>
                   </tr>
                 ) : null}
@@ -306,7 +311,7 @@ export function QueuePage() {
           <Pager page={data.page} pageSize={data.pageSize} total={data.total} onPage={(p) => set({ page: String(p) })} />
         </>
       ) : !error ? (
-        <p className="muted">Loading…</p>
+        <p className="muted">{t('Loading…')}</p>
       ) : null}
     </div>
   );

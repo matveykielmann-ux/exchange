@@ -9,6 +9,7 @@ import { headingRanks, parseMarkdown, type MdBlock } from '@/content/legal/markd
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { useIsSandbox } from '@/state/config';
 import { NotFoundPage } from './ContentPages';
+import { t } from '@/i18n';
 
 const fill = (text: string) =>
   text
@@ -50,8 +51,8 @@ function ReviewNotes({ doc, sandbox }: { doc: LegalDocument; sandbox: boolean })
   return (
     <details className="legal-notes">
       <summary>
-        Reviewer notes: {doc.reviewNotes.length} points where this document and the current site differ or details are missing (shown in the
-        sandbox only)
+        {t('Reviewer notes:')} {doc.reviewNotes.length}{' '}
+        {t('points where this document and the current site differ or details are missing (shown in the sandbox only)')}
       </summary>
       <ul>
         {doc.reviewNotes.map((n) => (
@@ -81,9 +82,11 @@ export function LegalIndexPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Legal"
-        title="Legal documents."
-        lead="The terms, policies and disclosures that apply to your account and your orders. Each one is versioned, and we keep a record of the version you accepted."
+        eyebrow={t('Legal')}
+        title={t('Legal documents.')}
+        lead={t(
+          'The terms, policies and disclosures that apply to your account and your orders. Each one is versioned, and we keep a record of the version you accepted.',
+        )}
       />
       <div className="container section--tight stack stack--lg" style={{ maxWidth: 'calc(960px + 2 * var(--gutter))' }}>
         <PendingReviewNotice sandbox={sandbox} />
@@ -94,8 +97,10 @@ export function LegalIndexPage() {
                 <span className="title">{d.title}</span>
                 <span className="muted small">{fill(d.summary)}</span>
                 <span className="legal-index__meta small">
-                  <span>Version {d.version}</span>
-                  {d.acceptance ? <span>{ACCEPTANCE_LABEL[d.acceptance]}</span> : <span>For your information</span>}
+                  <span>
+                    {t('Version')} {d.version}
+                  </span>
+                  {d.acceptance ? <span>{t(ACCEPTANCE_LABEL[d.acceptance])}</span> : <span>{t('For your information')}</span>}
                 </span>
               </Link>
             </li>
@@ -109,12 +114,18 @@ export function LegalIndexPage() {
 function PendingReviewNotice({ sandbox, doc }: { sandbox: boolean; doc?: LegalDocument }) {
   if (doc && !hasReviewItems(doc)) return null;
   return (
-    <Notice tone="warn" title="Pending legal review">
+    <Notice tone="warn" title={t('Pending legal review')}>
       <p>
         {doc
-          ? `This document is a draft awaiting review by counsel${doc.effectiveDate ? ' and may change before it takes effect.' : ' and has no effective date yet.'}`
-          : 'These documents are drafts awaiting review by counsel and have no effective date yet.'}{' '}
-        {sandbox ? 'Highlighted notes mark facts the owner or counsel still has to supply.' : 'Some details are still to be confirmed.'}
+          ? t(
+              doc.effectiveDate
+                ? 'This document is a draft awaiting review by counsel and may change before it takes effect.'
+                : 'This document is a draft awaiting review by counsel and has no effective date yet.',
+            )
+          : t('These documents are drafts awaiting review by counsel and have no effective date yet.')}{' '}
+        {sandbox
+          ? t('Highlighted notes mark facts the owner or counsel still has to supply.')
+          : t('Some details are still to be confirmed.')}
       </p>
     </Notice>
   );
@@ -129,9 +140,9 @@ function Block({ block, sandbox }: { block: LegalBlock; sandbox: boolean }): Rea
         </p>
       );
     case 'list': {
-      const items = block.items.map((t, i) => (
+      const items = block.items.map((item, i) => (
         <li key={i}>
-          <Filled text={t} />
+          <Filled text={item} />
         </li>
       ));
       return block.ordered ? <ol>{items}</ol> : <ul>{items}</ul>;
@@ -141,7 +152,7 @@ function Block({ block, sandbox }: { block: LegalBlock; sandbox: boolean }): Rea
     case 'review':
       // Unresolved facts are shown to reviewers in the sandbox only; production pages omit them.
       return sandbox ? (
-        <aside className="legal-review" aria-label={`Review item ${block.id}`}>
+        <aside className="legal-review" aria-label={t('Review item {0}', [block.id])}>
           <span className="legal-review__id">{block.id}</span> {block.text}
         </aside>
       ) : null;
@@ -164,36 +175,36 @@ export function LegalDocumentPage() {
   const toc = blocks ? markdownToc(blocks) : doc.sections.map((s) => ({ id: s.id, heading: s.heading }));
   return (
     <>
-      <PageHeader eyebrow="Legal" title={doc.title} lead={fill(doc.summary)}>
+      <PageHeader eyebrow={t('Legal')} title={doc.title} lead={fill(doc.summary)}>
         <dl className="legal-meta">
           <div>
-            <dt>Version</dt>
+            <dt>{t('Version')}</dt>
             <dd>{doc.version}</dd>
           </div>
           <div>
-            <dt>Effective</dt>
-            <dd>{doc.effectiveDate ? formatIsoDate(doc.effectiveDate) : 'Not yet in effect'}</dd>
+            <dt>{t('Effective')}</dt>
+            <dd>{doc.effectiveDate ? formatIsoDate(doc.effectiveDate) : t('Not yet in effect')}</dd>
           </div>
           <div>
-            <dt>Last updated</dt>
+            <dt>{t('Last updated')}</dt>
             <dd>{formatIsoDate(doc.lastUpdated)}</dd>
           </div>
           <div>
-            <dt>Acceptance</dt>
-            <dd>{doc.acceptance ? ACCEPTANCE_LABEL[doc.acceptance] : 'For your information'}</dd>
+            <dt>{t('Acceptance')}</dt>
+            <dd>{doc.acceptance ? t(ACCEPTANCE_LABEL[doc.acceptance]) : t('For your information')}</dd>
           </div>
         </dl>
       </PageHeader>
       <div className="container content-grid">
-        <nav className="toc" aria-label="On this page">
-          <p className="eyebrow">On this page</p>
+        <nav className="toc" aria-label={t('On this page')}>
+          <p className="eyebrow">{t('On this page')}</p>
           {toc.map((s) => (
             <a key={s.id} href={`#${s.id}`}>
               {s.heading}
             </a>
           ))}
           <Link to="/legal" className="toc__back">
-            All legal documents
+            {t('All legal documents')}
           </Link>
         </nav>
         <article className={blocks ? 'prose prose--legal-md' : 'prose'}>

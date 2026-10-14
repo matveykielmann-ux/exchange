@@ -6,6 +6,7 @@ import { formatAsset } from '@/lib/format';
 import { ChoiceSelect } from './ChoiceSelect';
 import { Field } from './Field';
 import { Notice } from './ui';
+import { t } from '@/i18n';
 
 export function AssetNetworkFields({
   asset,
@@ -23,7 +24,7 @@ export function AssetNetworkFields({
   const networks = ASSETS[asset].networks;
   return (
     <div className="form-grid">
-      <Field label="Asset" id={`${idPrefix}-asset`}>
+      <Field label={t('Asset')} id={`${idPrefix}-asset`}>
         {(p) => (
           <ChoiceSelect
             field={p}
@@ -47,12 +48,12 @@ export function AssetNetworkFields({
         )}
       </Field>
       <Field
-        label="Network"
+        label={t('Network')}
         id={`${idPrefix}-network`}
         hint={
           networks.length > 1
-            ? 'Must match the network your wallet sends on.'
-            : `${asset} is accepted on the ${NETWORKS[network].name} network only.`
+            ? t('Must match the network your wallet sends on.')
+            : t('{0} is accepted on the {1} network only.', [asset, NETWORKS[network].name])
         }
       >
         {(p) =>
@@ -64,7 +65,7 @@ export function AssetNetworkFields({
               choices={networks.map((n) => ({
                 value: n.network,
                 label: networkLabel(asset, n.network),
-                detail: `${NETWORKS[n.network].confirmationsRequired} confirmations required`,
+                detail: t('{0} confirmations required', [NETWORKS[n.network].confirmationsRequired]),
               }))}
             />
           ) : (
@@ -93,7 +94,7 @@ export function AmountField({
 }) {
   const error = touched ? validateCryptoAmount(value, asset) : null;
   return (
-    <Field label="Amount to sell" id={id} error={error}>
+    <Field label={t('Amount to sell')} id={id} error={error}>
       {(p) => (
         <div className="amount-input" data-invalid={error ? 'true' : undefined}>
           <input
@@ -123,20 +124,25 @@ export function QuoteIssues({ issues, asset }: { issues: QuoteIssue[]; asset: As
         switch (issue.code) {
           case 'below_minimum':
             return (
-              <Notice key={issue.code} tone="warn" title={`Minimum is ${formatUsd(issue.minimumCents)}`}>
-                <p>That is about {formatAsset(issue.minimumAtomic, asset)} at the current mock price.</p>
+              <Notice key={issue.code} tone="warn" title={t('Minimum is {0}', [formatUsd(issue.minimumCents)])}>
+                <p>
+                  {t('That is about')} {formatAsset(issue.minimumAtomic, asset)} {t('at the current mock price.')}
+                </p>
               </Notice>
             );
           case 'payout_ineligible':
             return (
-              <Notice key={issue.code} tone="warn" title="Payout method not available for this amount">
-                <p>{issue.reason}. Choose a different payout method.</p>
+              <Notice key={issue.code} tone="warn" title={t('Payout method not available for this amount')}>
+                <p>
+                  {issue.reason}
+                  {t('. Choose a different payout method.')}
+                </p>
               </Notice>
             );
           case 'non_positive_payout':
-            return <Notice key={issue.code} tone="warn" title="Fees would exceed the value of this amount." />;
+            return <Notice key={issue.code} tone="warn" title={t('Fees would exceed the value of this amount.')} />;
           case 'unsupported_network':
-            return <Notice key={issue.code} tone="danger" title="That network isn't supported for this asset." />;
+            return <Notice key={issue.code} tone="danger" title={t("That network isn't supported for this asset.")} />;
           case 'zero_amount':
             return null;
         }

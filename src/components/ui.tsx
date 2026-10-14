@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { OrderTone as StatusTone } from '@/domain/order';
 import { useIsSandbox } from '@/state/config';
 import { Icon, type IconName } from './Icon';
+import { t, tNode } from '@/i18n';
 
 /**
  * Marks simulated data. Rendered whenever the server runs in sandbox mode (or
@@ -12,8 +13,8 @@ export function MockBadge({ label = 'Sandbox', force = false }: { label?: string
   const sandbox = useIsSandbox();
   if (!sandbox && !force) return null;
   return (
-    <span className="badge badge--mock" title="Simulated sandbox data: not a real price, quote, deposit or payout">
-      {label}
+    <span className="badge badge--mock" title={t('Simulated sandbox data: not a real price, quote, deposit or payout')}>
+      {t(label)}
     </span>
   );
 }
@@ -30,7 +31,7 @@ export function StatusBadge({ tone, children }: { tone: StatusTone; children: Re
   return (
     <span className={`badge badge--${tone}`}>
       <Icon name={TONE_ICON[tone]} />
-      {children}
+      {tNode(children)}
     </span>
   );
 }
@@ -53,7 +54,7 @@ export function Notice({
     <div className={`notice notice--${tone}`} role={role}>
       <Icon name={NOTICE_ICON[tone]} />
       <div>
-        {title ? <p className="notice__title">{title}</p> : null}
+        {title ? <p className="notice__title">{tNode(title)}</p> : null}
         {children ? (
           <div className="stack" style={{ gap: 6 }}>
             {children}
@@ -78,9 +79,9 @@ export function PageHeader({
   return (
     <header className="page-header">
       <div className="container">
-        {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
-        <h1 className="display-l">{title}</h1>
-        {lead ? <p className="lead">{lead}</p> : null}
+        {eyebrow ? <p className="eyebrow">{t(eyebrow)}</p> : null}
+        <h1 className="display-l">{tNode(title)}</h1>
+        {lead ? <p className="lead">{tNode(lead)}</p> : null}
         {children}
       </div>
     </header>

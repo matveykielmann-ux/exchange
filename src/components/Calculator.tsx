@@ -12,6 +12,7 @@ import { Field } from './Field';
 import { Icon } from './Icon';
 import { QuoteBreakdown } from './QuoteBreakdown';
 import { MockBadge, Notice } from './ui';
+import { t } from '@/i18n';
 
 /** Homepage calculator. Writes straight into the exchange draft so "Continue" resumes at step 2. */
 export function Calculator() {
@@ -25,8 +26,8 @@ export function Calculator() {
   return (
     <section className="panel panel--raised calculator" aria-labelledby="calc-title">
       <div className="panel__head">
-        <h2 id="calc-title">Sell crypto for USD</h2>
-        <MockBadge label="Sandbox pricing" />
+        <h2 id="calc-title">{t('Sell crypto for USD')}</h2>
+        <MockBadge label={t('Sandbox pricing')} />
       </div>
       <div className="panel__body stack">
         <AssetNetworkFields
@@ -45,9 +46,9 @@ export function Calculator() {
           onBlur={() => setTouched(true)}
         />
         <Field
-          label="Receive by"
+          label={t('Receive by')}
           id="calc-payout"
-          hint={`${PAYOUT_METHODS[draft.payoutMethod].timingEstimate}. ${describeFee(PAYOUT_METHODS[draft.payoutMethod].fee)}.`}
+          hint={`${t(PAYOUT_METHODS[draft.payoutMethod].timingEstimate)}. ${t(describeFee(PAYOUT_METHODS[draft.payoutMethod].fee))}.`}
         >
           {(p) => (
             <ChoiceSelect
@@ -58,8 +59,8 @@ export function Calculator() {
                 const m = PAYOUT_METHODS[id];
                 return {
                   value: id,
-                  label: m.availability.available ? m.name : `${m.name} — not offered`,
-                  detail: m.availability.available ? m.timingEstimate : m.availability.reason,
+                  label: m.availability.available ? t(m.name) : t('{0} — not offered', [t(m.name)]),
+                  detail: m.availability.available ? t(m.timingEstimate) : t(m.availability.reason),
                   disabled: !m.availability.available,
                 };
               })}
@@ -75,7 +76,7 @@ export function Calculator() {
               <QuoteIssues issues={data.issues} asset={draft.asset} />
             </div>
           ) : state.status === 'idle' ? (
-            <p className="small muted">Enter an amount to see a full breakdown.</p>
+            <p className="small muted">{t('Enter an amount to see a full breakdown.')}</p>
           ) : state.status === 'loading' ? (
             <QuoteSkeleton rows={3} />
           ) : null}
@@ -90,11 +91,17 @@ export function Calculator() {
             navigate('/exchange');
           }}
         >
-          Continue <Icon name="arrowRight" width={18} height={18} />
+          {t('Continue')} <Icon name="arrowRight" width={18} height={18} />
         </button>
         <p className="quote-meta" style={{ marginTop: 0 }}>
-          <span>Indicative. Refreshes every {PRICING_POLICY.indicativeRefreshMs / 1000}s.</span>
-          {data ? <span className="tabular">Price as of {formatTime(data.price.asOf)}</span> : null}
+          <span>
+            {t('Indicative. Refreshes every')} {PRICING_POLICY.indicativeRefreshMs / 1000}s.
+          </span>
+          {data ? (
+            <span className="tabular">
+              {t('Price as of')} {formatTime(data.price.asOf)}
+            </span>
+          ) : null}
         </p>
       </div>
     </section>

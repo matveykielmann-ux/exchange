@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { gsap } from '@/lib/motion';
+import { t } from '@/i18n';
 
 const HOLD_SECONDS = 1;
 
@@ -70,7 +71,7 @@ export function HoldButton({
         <span className="hold__label">{children}</span>
       </button>
       <p className="small muted hold__hint" id="hold-hint">
-        {hint}
+        {t(hint)}
       </p>
     </div>
   );

@@ -7,6 +7,7 @@ import { useServices } from '@/state/services';
 import { useLiveEvents } from '@/state/useLive';
 import { AdminHead, LoadError } from './shared';
 import { useLoad } from './lib';
+import { t } from '@/i18n';
 
 const SCENARIOS: [string, string][] = [
   [
@@ -38,44 +39,44 @@ export function SandboxLabPage() {
 
   if (config.mode !== 'sandbox')
     return (
-      <Notice tone="neutral" title="Not available">
-        <p>The sandbox lab exists only in sandbox mode. Its routes are not registered in production.</p>
+      <Notice tone="neutral" title={t('Not available')}>
+        <p>{t('The sandbox lab exists only in sandbox mode. Its routes are not registered in production.')}</p>
       </Notice>
     );
 
   return (
     <div className="stack stack--lg">
       <AdminHead
-        title="Sandbox lab"
-        lead="Test-only controls. Every simulated provider event is signed and goes through the same webhook pipeline as a real one."
+        title={t('Sandbox lab')}
+        lead={t('Test-only controls. Every simulated provider event is signed and goes through the same webhook pipeline as a real one.')}
       >
-        <MockBadge label="Sandbox only" />
+        <MockBadge label={t('Sandbox only')} />
       </AdminHead>
       <section className="panel" aria-labelledby="lab-scenarios">
         <div className="panel__head">
-          <h2 id="lab-scenarios">Scenarios</h2>
+          <h2 id="lab-scenarios">{t('Scenarios')}</h2>
           <Link to="/admin/orders" className="small">
-            Open the order queue
+            {t('Open the order queue')}
           </Link>
         </div>
         <div className="panel__body">
           <dl className="dl">
             {SCENARIOS.map(([k, v]) => (
               <div key={k}>
-                <dt>{k}</dt>
-                <dd>{v}</dd>
+                <dt>{t(k)}</dt>
+                <dd>{t(v)}</dd>
               </div>
             ))}
           </dl>
           <p className="small muted">
-            The same scenarios run unattended with <code>pnpm server:scenarios</code>.
+            {t('The same scenarios run unattended with')} <code>pnpm server:scenarios</code>.
           </p>
         </div>
       </section>
       <section className="panel" aria-labelledby="lab-outbox">
         <div className="panel__head">
-          <h2 id="lab-outbox">Notification outbox</h2>
-          <span className="small muted">Emails are recorded here, never sent, in the sandbox</span>
+          <h2 id="lab-outbox">{t('Notification outbox')}</h2>
+          <span className="small muted">{t('Emails are recorded here, never sent, in the sandbox')}</span>
         </div>
         <div className="panel__body">
           <LoadError error={outbox.error} />
@@ -85,7 +86,7 @@ export function SandboxLabPage() {
                 {outbox.data.map((n) => (
                   <li key={n.id}>
                     <p className="note-list__meta small muted">
-                      {formatDateTime(n.createdAt)} · to {n.recipient} · {n.template} · {n.status}
+                      {formatDateTime(n.createdAt)} {t('· to')} {n.recipient} · {n.template} · {n.status}
                     </p>
                     <button
                       type="button"
@@ -95,12 +96,12 @@ export function SandboxLabPage() {
                     >
                       {n.subject}
                     </button>
-                    {open === n.id ? <pre className="audit-data">{n.body}</pre> : null}
+                    {open === n.id ? <pre className="audit-data">{t(n.body)}</pre> : null}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="small muted">Nothing yet.</p>
+              <p className="small muted">{t('Nothing yet.')}</p>
             )
           ) : null}
         </div>

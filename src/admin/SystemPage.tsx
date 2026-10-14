@@ -6,6 +6,7 @@ import type { ProviderState } from '@/services/types';
 import { useServices } from '@/state/services';
 import { AdminHead, LoadError, Pager } from './shared';
 import { shortId, useLoad } from './lib';
+import { t } from '@/i18n';
 
 const STATE: Record<ProviderState, { label: string; tone: string }> = {
   sandbox: { label: 'Sandbox', tone: 'mock' },
@@ -24,12 +25,12 @@ export function SystemPage() {
 
   return (
     <div className="stack stack--lg">
-      <AdminHead title="System" lead="Read-only. Configuration changes are made on the server and need a restart." />
+      <AdminHead title={t('System')} lead={t('Read-only. Configuration changes are made on the server and need a restart.')} />
       <LoadError error={sys.error} />
       {s ? (
         <>
           {s.warnings.length ? (
-            <Notice tone="warn" title="Configuration warnings">
+            <Notice tone="warn" title={t('Configuration warnings')}>
               <ul>
                 {s.warnings.map((w) => (
                   <li key={w}>{w}</li>
@@ -40,79 +41,83 @@ export function SystemPage() {
           <div className="admin-grid-2">
             <section className="panel" aria-labelledby="sys-mode">
               <div className="panel__head">
-                <h2 id="sys-mode">Runtime</h2>
+                <h2 id="sys-mode">{t('Runtime')}</h2>
               </div>
               <div className="panel__body">
                 <dl className="dl">
                   <div>
-                    <dt>Mode</dt>
-                    <dd>{s.mode === 'sandbox' ? 'Sandbox (simulated providers, isolated database)' : 'Production'}</dd>
+                    <dt>{t('Mode')}</dt>
+                    <dd>{s.mode === 'sandbox' ? t('Sandbox (simulated providers, isolated database)') : t('Production')}</dd>
                   </div>
                   <div>
-                    <dt>Real money</dt>
-                    <dd>{s.realMoneyEnabled ? 'Enabled' : 'Disabled (code constant REAL_MONEY_ENABLED = false)'}</dd>
+                    <dt>{t('Real money')}</dt>
+                    <dd>{s.realMoneyEnabled ? t('Enabled') : t('Disabled (code constant REAL_MONEY_ENABLED = false)')}</dd>
                   </div>
                   <div>
-                    <dt>Courier cash delivery</dt>
-                    <dd>{s.featureFlags.courierCashDelivery ? 'Enabled' : 'Disabled'}</dd>
+                    <dt>{t('Courier cash delivery')}</dt>
+                    <dd>{s.featureFlags.courierCashDelivery ? t('Enabled') : t('Disabled')}</dd>
                   </div>
                   <div>
-                    <dt>Staff two-step sign-in</dt>
-                    <dd>{s.requireStaffMfa ? 'Required' : 'Optional'}</dd>
+                    <dt>{t('Staff two-step sign-in')}</dt>
+                    <dd>{s.requireStaffMfa ? t('Required') : t('Optional')}</dd>
                   </div>
                   <div>
-                    <dt>Manual review above</dt>
+                    <dt>{t('Manual review above')}</dt>
                     <dd className="tabular">{formatUsd(BigInt(s.manualReviewThresholdCents))}</dd>
                   </div>
                   <div>
-                    <dt>Live connections</dt>
+                    <dt>{t('Live connections')}</dt>
                     <dd className="tabular">{s.liveConnections}</dd>
                   </div>
                   <div>
-                    <dt>Database migrations</dt>
+                    <dt>{t('Database migrations')}</dt>
                     <dd>
-                      {s.database.applied} applied
-                      {s.database.pending.length ? `, pending: ${s.database.pending.join(', ')}` : ', none pending'}
+                      {s.database.applied} {t('applied')}
+                      {s.database.pending.length ? t(', pending: {0}', [s.database.pending.join(', ')]) : t(', none pending')}
                     </dd>
                   </div>
                   <div>
-                    <dt>Audit chain</dt>
+                    <dt>{t('Audit chain')}</dt>
                     <dd>
                       {s.auditChain.ok ? (
-                        <span className="badge badge--success">Intact · {s.auditChain.count} entries</span>
+                        <span className="badge badge--success">
+                          {t('Intact ·')} {s.auditChain.count} {t('entries')}
+                        </span>
                       ) : (
-                        <span className="badge badge--danger">Broken at entry {s.auditChain.brokenAtId}</span>
+                        <span className="badge badge--danger">
+                          {t('Broken at entry')} {s.auditChain.brokenAtId}
+                        </span>
                       )}
                     </dd>
                   </div>
                   <div>
-                    <dt>Notifications</dt>
-                    <dd>{s.notifications.length ? s.notifications.map((n) => `${n.n} ${n.status}`).join(' · ') : 'None'}</dd>
+                    <dt>{t('Notifications')}</dt>
+                    <dd>{s.notifications.length ? s.notifications.map((n) => `${n.n} ${n.status}`).join(' · ') : t('None')}</dd>
                   </div>
                 </dl>
               </div>
             </section>
             <section className="panel" aria-labelledby="sys-providers">
               <div className="panel__head">
-                <h2 id="sys-providers">Providers</h2>
+                <h2 id="sys-providers">{t('Providers')}</h2>
               </div>
               <div className="panel__body">
                 <table className="data-table admin-table">
                   <thead>
                     <tr>
-                      <th scope="col">Provider</th>
-                      <th scope="col">State</th>
+                      <th scope="col">{t('Provider')}</th>
+                      <th scope="col">{t('State')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {s.providers.map((p) => (
                       <tr key={p.key}>
                         <th scope="row">
-                          {p.label}
-                          {p.detail ? <span className="small muted block">{p.detail}</span> : null}
+                          {t(p.label)}
+                          {p.detail ? <span className="small muted block">{t(p.detail)}</span> : null}
                         </th>
                         <td>
-                          <span className={`badge badge--${STATE[p.state].tone}`}>{STATE[p.state].label}</span>
+                          <span className={`badge badge--${STATE[p.state].tone}`}>{t(STATE[p.state].label)}</span>
                         </td>
                       </tr>
                     ))}
@@ -123,27 +128,27 @@ export function SystemPage() {
           </div>
         </>
       ) : !sys.error ? (
-        <p className="muted">Loading…</p>
+        <p className="muted">{t('Loading…')}</p>
       ) : null}
 
       <section className="panel" aria-labelledby="sys-hooks">
         <div className="panel__head">
-          <h2 id="sys-hooks">Provider webhooks</h2>
-          <span className="small muted">Signed, de-duplicated by provider and event id</span>
+          <h2 id="sys-hooks">{t('Provider webhooks')}</h2>
+          <span className="small muted">{t('Signed, de-duplicated by provider and event id')}</span>
         </div>
         <div className="panel__body stack">
           <LoadError error={hooks.error} />
           {hooks.data ? (
             <>
-              <div className="table-wrap" tabIndex={0} role="region" aria-label="Webhook log">
+              <div className="table-wrap" tabIndex={0} role="region" aria-label={t('Webhook log')}>
                 <table className="data-table admin-table">
                   <thead>
                     <tr>
-                      <th scope="col">Received</th>
-                      <th scope="col">Provider</th>
-                      <th scope="col">Type</th>
-                      <th scope="col">Event id</th>
-                      <th scope="col">Result</th>
+                      <th scope="col">{t('Received')}</th>
+                      <th scope="col">{t('Provider')}</th>
+                      <th scope="col">{t('Type')}</th>
+                      <th scope="col">{t('Event id')}</th>
+                      <th scope="col">{t('Result')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -166,7 +171,7 @@ export function SystemPage() {
                     {hooks.data.items.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="muted">
-                          No webhooks received yet.
+                          {t('No webhooks received yet.')}
                         </td>
                       </tr>
                     ) : null}

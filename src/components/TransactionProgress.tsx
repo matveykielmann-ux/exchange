@@ -4,6 +4,7 @@ import type { OrderStep, OrderStepState as StepState } from '@/domain/order';
 import type { OrderEventView } from '@/services/types';
 import { formatDateTime } from '@/lib/format';
 import { gsap, REDUCED_OK, useGSAP } from '@/lib/motion';
+import { t } from '@/i18n';
 
 const STATE_TEXT: Record<StepState, string> = { done: 'Completed', current: 'In progress', upcoming: 'Not started', failed: 'Stopped' };
 
@@ -53,8 +54,8 @@ export function StatusRail({ steps }: { steps: OrderStep[] }) {
             ) : null}
           </span>
           <div>
-            <p className="timeline__label">{s.label}</p>
-            <p className="timeline__state">{STATE_TEXT[s.state]}</p>
+            <p className="timeline__label">{t(s.label)}</p>
+            <p className="timeline__state">{t(STATE_TEXT[s.state])}</p>
           </div>
           {s.at ? (
             <time className="timeline__detail" dateTime={new Date(s.at).toISOString()}>
@@ -102,7 +103,7 @@ export function EventLog({ log }: { log: OrderEventView[] }) {
           <time className="event-log__time" dateTime={new Date(l.createdAt).toISOString()}>
             {formatDateTime(l.createdAt)}
           </time>
-          <span className="event-log__text">{l.detail}</span>
+          <span className="event-log__text">{t(l.detail)}</span>
         </li>
       ))}
     </ol>
@@ -128,14 +129,14 @@ export function OrderProgressBar({ steps }: { steps: OrderStep[] }) {
         aria-valuemin={0}
         aria-valuemax={steps.length}
         aria-valuenow={done}
-        aria-valuetext={`${done} of ${steps.length} steps completed${current ? `. Next: ${current.label}` : ''}`}
-        aria-label="Order progress"
+        aria-valuetext={t('{0} of {1} steps completed', [done, steps.length]) + (current ? `. ${t('Next')}: ${t(current.label)}` : '')}
+        aria-label={t('Order progress')}
       >
         <span className="order-progress__fill" style={{ width: `${pct}%` }} />
       </div>
       <p className="small muted order-progress__text">
-        {done} of {steps.length} steps completed
-        {current ? ` · ${current.state === 'failed' ? 'Stopped at' : 'Next'}: ${current.label}` : ''}
+        {t('{0} of {1} steps completed', [done, steps.length])}
+        {current ? ` · ${t(current.state === 'failed' ? 'Stopped at' : 'Next')}: ${t(current.label)}` : ''}
       </p>
     </div>
   );
