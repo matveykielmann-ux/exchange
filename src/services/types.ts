@@ -13,7 +13,7 @@ import type { AtomicAmount, Cents, Micros } from '@/domain/money';
 import type { OrderEventType, OrderStage, OrderStatus, OrderStep } from '@/domain/order';
 import type { PayoutMethodId } from '@/domain/payout';
 import type { CourierDeliveryInput, CourierWindow } from '@/domain/courier';
-import type { ExchangeDirection, Quote, QuoteIssue } from '@/domain/quote';
+import type { BuyPayIn, ExchangeDirection, Quote, QuoteIssue } from '@/domain/quote';
 
 export type AppMode = 'sandbox' | 'production';
 export type ProviderState = 'sandbox' | 'configured' | 'not_configured' | 'disabled_by_policy';
@@ -76,12 +76,14 @@ export interface SellQuoteInput {
   payoutMethod: PayoutMethodId;
 }
 
-/** Cash → crypto: the dollars the customer hands to the courier. */
+/** Cash or wire → crypto: the dollars the customer pays. */
 export interface BuyQuoteInput {
   direction: 'buy';
   asset: AssetCode;
   network: NetworkId;
   cashCents: Cents;
+  /** Cash handed to a courier (default) or a bank wire. */
+  payIn?: BuyPayIn;
 }
 
 export type QuoteInput = SellQuoteInput | BuyQuoteInput;
@@ -153,8 +155,10 @@ export interface OrderView {
   id: string;
   reference: string;
   source: 'sandbox' | 'live';
-  /** sell: crypto → USD. buy: cash collected by courier → crypto. */
+  /** sell: crypto → USD. buy: cash collected by courier, or a bank wire → crypto. */
   direction: ExchangeDirection;
+  /** Buy orders: how the dollars are paid. Null for a sell. */
+  payIn: BuyPayIn | null;
   status: OrderStatus;
   /** Pipeline stage derived on the server from the status and the hold flag. */
   stage: OrderStage;
@@ -190,6 +194,8 @@ export interface OrderView {
   refundAddressNeeded: boolean;
   /** Buy orders: the wallet that receives the crypto. */
   receiveAddress: string | null;
+  /** Wire buys, once issued: the wire instructions. Every bank field is a demo placeholder. */
+  wireInstructions: { label: string; value: string; placeholder: boolean }[] | null;
   documents: OrderDocumentView[];
   deposit: {
     address: string | null;

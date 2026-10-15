@@ -46,6 +46,7 @@ describe('Russian dictionary', () => {
     const labels = [
       ...Object.values(ORDER_STATUS_LABEL),
       ...ORDER_STATUSES.map((s) => orderStatusLabel(s, 'buy')),
+      ...ORDER_STATUSES.map((s) => orderStatusLabel(s, 'buy', 'wire')),
       ...Object.values(ORDER_STAGE_LABEL),
       ...Object.values(COURIER_WINDOW_LABELS),
       ...Object.values(ID_DOCUMENT_LABEL),

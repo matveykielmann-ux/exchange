@@ -11,6 +11,7 @@ import { RU_KYC } from './ru-kyc';
 import { RU_PUBLIC } from './ru-public';
 import { RU_PUBLIC2 } from './ru-public2';
 import { RU_PUBLIC3 } from './ru-public3';
+import { RU_WIRE } from './ru-wire';
 
 export const RU: Record<string, string> = {
   ...RU_KYC,
@@ -18,6 +19,7 @@ export const RU: Record<string, string> = {
   ...RU_PUBLIC,
   ...RU_PUBLIC2,
   ...RU_PUBLIC3,
+  ...RU_WIRE,
   ...RU_DOMAIN,
   ...RU_CRM,
   ...RU_FIXES,

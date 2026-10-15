@@ -743,6 +743,111 @@ async function buyJourney(browser, width, server) {
   await context.close();
 }
 
+/** Wire → crypto: pay-in by bank wire with placeholder instructions, the customer's "sent" step, autopilot, operator payout. */
+async function wireJourney(browser, width) {
+  const dir = `${OUT}/flow`;
+  await mkdir(dir, { recursive: true });
+  const options = { viewport: { width, height: HEIGHT[width] }, reducedMotion: 'reduce', colorScheme: SCHEME };
+  const context = await browser.newContext(options);
+  const page = await context.newPage();
+  const where = `wire journey @${width}`;
+  const sink = { consoleErrors: [], pageErrors: [], failedRequests: [] };
+  const flush = instrument(page, where, sink);
+  const shot = (p, name) => p.screenshot({ path: `${dir}/${width}-wire-${name}.png`, fullPage: true });
+  const step = (n, label) => report.flow.push({ width, wire: true, step: n, label });
+  const expectText = async (p, text, label, timeout = 8000) => {
+    try {
+      await p.getByText(text, { exact: false }).first().waitFor({ timeout });
+    } catch {
+      fail(where, `expected "${text}" (${label})`);
+    }
+  };
+
+  await go(page, BASE_URL + '/signup');
+  await page.getByLabel('Full legal name').fill('Wira Hoffmann');
+  await page.getByLabel('Email').fill(`wire${width}-${Date.now()}@example.test`);
+  await page.getByLabel('Country of residence').selectOption('DE');
+  await page.getByLabel('Password').fill('correct-horse-battery');
+  await page.locator('#signup-agree').check();
+  await page.locator('#signup-territory').check();
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await page.waitForURL('**/account');
+  step(1, 'customer signed up');
+
+  await go(page, BASE_URL + '/exchange?direction=buy&pay=wire');
+  if (!(await page.locator('#pay-wire').isChecked())) fail(where, 'pay=wire link must preselect the bank wire');
+  const amount = page.getByLabel('Dollars you wire (USD)');
+  await amount.fill('600');
+  await expectText(page, 'Paying by wire isn’t available for this amount', 'wire minimum');
+  await amount.fill('2000');
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('button[type=submit]')].some((b) => b.textContent.trim().startsWith('Continue') && !b.disabled),
+  );
+  await shot(page, '01-amount');
+  await page.getByRole('button', { name: /^Continue/ }).click();
+  step(2, 'wire chosen, quote shown with the wire fee');
+
+  await expectText(page, 'Where should we send the crypto?', 'wallet step without a collection address');
+  await page.getByLabel(/wallet address/).fill('TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE');
+  await page.getByRole('button', { name: /Review quote/ }).click();
+  await page.getByRole('button', { name: 'Verify my identity' }).click();
+  await expectText(page, 'Expires in', 'firm wire quote');
+  await expectText(page, 'I will wire exactly', 'wire acknowledgement');
+  await page.locator('#ack-cash').check();
+  await page.locator('#ack-buy-docs').check();
+  await shot(page, '02-review');
+  const confirm = page.getByRole('button', { name: /^Confirm exchange/ });
+  await confirm.hover();
+  await page.mouse.down();
+  await page.waitForTimeout(1300);
+  await page.mouse.up();
+  await page.waitForURL('**/orders/ord_*');
+  step(3, 'wire order placed');
+
+  // The sandbox autopilot issues the placeholder instructions (the CRM can do the same step).
+  await waitForHeading(page, 'Awaiting wire', where, 30_000);
+  await expectText(page, 'DEMO-ROUTING-NOT-ISSUED', 'routing number is a placeholder');
+  await expectText(page, 'Demo instructions. Do not send a wire.', 'instructions labelled as demo');
+  const reference = (await page.locator('.eyebrow .mono').first().textContent())?.trim();
+  await shot(page, '03-instructions');
+  await page.getByLabel('Your bank’s reference (optional)').fill('FED 20261015 0042');
+  await page.getByRole('button', { name: 'I’ve sent the wire' }).click();
+  await expectText(page, 'You marked the wire as sent', 'customer marked the wire sent');
+  step(4, `instructions shown for ${reference}; wire marked sent`);
+
+  await waitForHeading(page, 'Ready to send crypto', where, 60_000);
+  step(5, 'wire received and matched by signed bank events');
+
+  const staffCtx = await browser.newContext(options);
+  const admin = await staffCtx.newPage();
+  const adminSink = { consoleErrors: [], pageErrors: [], failedRequests: [] };
+  const adminFlush = instrument(admin, `${where} (admin)`, adminSink);
+  await signIn(admin, 'admin@arcvale.test');
+  await admin.waitForURL('**/admin/orders');
+  await go(admin, `${BASE_URL}/admin/orders/${page.url().split('/').pop()}`);
+  await expectText(admin, 'Buy · wire → crypto', 'admin sees the wire direction');
+  await admin.locator('.action-bar').getByRole('button', { name: 'Confirm payout' }).click();
+  await admin.locator('.dialog #reason-text').fill('Wire matched; sending USDT.');
+  await admin.locator('.dialog').getByRole('button', { name: 'Confirm payout' }).click();
+  await admin.locator('.order-status-line', { hasText: /Crypto transfer|Completed/ }).waitFor({ timeout: 15_000 });
+  await shot(admin, '04-admin');
+  step(6, 'operator authorized the crypto transfer');
+
+  await waitForHeading(page, 'Completed', where, 60_000);
+  await expectText(page, 'Paid by wire', 'wire success screen');
+  await expectText(page, 'nothing was wired, sent or broadcast', 'no real-transfer claim');
+  await shot(page, '05-completed');
+  const ov = await overflow(page);
+  if (ov) fail(where, `order page overflow ${ov.scrollWidth}px`);
+  step(7, 'success screen');
+
+  flush();
+  adminFlush();
+  report.flow.push({ width, wire: true, ...sink, admin: adminSink });
+  await staffCtx.close();
+  await context.close();
+}
+
 const server = await ensureServer();
 const browser = await chromium.launch();
 if (THEME === 'light') {
@@ -761,13 +866,17 @@ try {
   }
   if (LANG === 'ru') {
     // Journeys select controls by their English text.
-  } else if (process.env.QA_JOURNEY !== 'buy') {
+  } else if (!process.env.QA_JOURNEY || process.env.QA_JOURNEY === 'sell') {
     await journey(browser, 1440);
     await journey(browser, 390);
   }
-  if (LANG === 'en' && process.env.QA_JOURNEY !== 'sell') {
+  if (LANG === 'en' && (!process.env.QA_JOURNEY || process.env.QA_JOURNEY === 'buy')) {
     await buyJourney(browser, 1440, server);
     await buyJourney(browser, 390, server);
+  }
+  if (LANG === 'en' && (!process.env.QA_JOURNEY || process.env.QA_JOURNEY === 'wire')) {
+    // QA_WIRE_WIDTHS=1440 runs a single pass.
+    for (const w of (process.env.QA_WIRE_WIDTHS ?? '1440,390').split(',').map(Number)) await wireJourney(browser, w);
   }
 } catch (e) {
   fail('runner', e instanceof Error ? e.stack : String(e));

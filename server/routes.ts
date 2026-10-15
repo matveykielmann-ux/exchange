@@ -6,7 +6,7 @@
 import { ASSET_ORDER, NETWORKS, type AssetCode, type NetworkId } from '@/domain/assets';
 import { PAYOUT_ORDER, type PayoutMethodId } from '@/domain/payout';
 import { ORDER_STAGES, ORDER_STATUSES, type OrderStage, type OrderStatus } from '@/domain/order';
-import { PRICING_POLICY } from '@/domain/quote';
+import { BUY_PAY_INS, PRICING_POLICY, type BuyPayIn } from '@/domain/quote';
 import { COURIER_WINDOWS } from '@/domain/courier';
 import { formatUsd } from '@/domain/money';
 import { REAL_MONEY_ENABLED, FEATURE_FLAGS } from '@/config/runtime';
@@ -46,7 +46,15 @@ function quoteInput(raw: unknown): QuoteInput {
   if (direction === 'buy')
     return {
       direction,
-      ...parse(v.object({ asset: assetV, network: networkV, cashCents: v.bigintString({ max: 10n ** 15n }) }), raw),
+      ...parse(
+        v.object({
+          asset: assetV,
+          network: networkV,
+          cashCents: v.bigintString({ max: 10n ** 15n }),
+          payIn: v.optional(v.enum(BUY_PAY_INS as BuyPayIn[], 'payment method')),
+        }),
+        raw,
+      ),
     };
   return parse(
     v.object({ asset: assetV, network: networkV, amountAtomic: v.bigintString({ max: 10n ** 30n }), payoutMethod: methodV }),
@@ -515,7 +523,8 @@ export function registerRoutes(r: Router, app: AppContext) {
       const b = parse(
         v.object({
           quoteId: v.string({ max: 64 }),
-          destinationId: v.string({ max: 64 }),
+          // Empty for a buy paid by wire, which has no saved destination; createOrder checks it per order type.
+          destinationId: v.string({ min: 0, max: 64 }),
           refundAddress: v.optional(v.nullable(v.string({ max: 128, label: 'a refund address' }))),
           receiveAddress: v.optional(v.nullable(v.string({ max: 128, label: 'a wallet address' }))),
           accepted: acceptedV,
@@ -555,7 +564,8 @@ export function registerRoutes(r: Router, app: AppContext) {
   r.post(
     '/api/orders/:id/report-sent',
     (ctx) => {
-      const b = parse(v.object({ txHash: v.nullable(v.string({ max: 128, pattern: /^[\w-]+$/ })) }), ctx.body);
+      // A tx hash (sell) or the customer's own wire reference (wire buy); the service checks the format for the order type.
+      const b = parse(v.object({ txHash: v.nullable(v.string({ max: 128, pattern: /^[\w ./#-]+$/ })) }), ctx.body);
       return { body: orders.orderView(app, orders.reportSent(app, actorOf(ctx), me(ctx), ctx.params.id!, b.txHash)) };
     },
     { auth: 'user' },
@@ -753,7 +763,7 @@ function registerAdminRoutes(r: Router, app: AppContext) {
           order: orders.orderView(app, o, { internal: true }),
           customer: admin.customerSummary(app, o.user_id),
           courierDelivery:
-            o.payout_method === 'courier_cash'
+            o.payout_method === 'courier_cash' && o.payout_destination_id
               ? customers.courierDelivery(app, o.payout_destination_id, { masked: ctx.auth!.role === 'support' })
               : null,
           notes: ops.orderNotes(app, o.id),
@@ -1038,6 +1048,8 @@ function registerAdminRoutes(r: Router, app: AppContext) {
     return sandbox.simulatePayout(app, staffActor(ctx), id, b.outcome, b.reason);
   });
   lab('refund-complete', (ctx, id) => sandbox.simulateRefundCompleted(app, staffActor(ctx), id));
+  lab('wire-instructions', (ctx, id) => sandbox.markWireInstructionsIssued(app, staffActor(ctx), id));
+  lab('wire-received', (ctx, id) => sandbox.markWireReceived(app, staffActor(ctx), id));
   lab('replay', (ctx, id) => sandbox.replayLastWebhook(app, staffActor(ctx), id));
   lab('expire', (ctx, id) => sandbox.forceExpire(app, staffActor(ctx), id).status);
   r.get('/api/admin/sandbox/notifications', () => ({ body: { notifications: admin.sandboxNotifications(app) } }), staff(SUPPORT));

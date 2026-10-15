@@ -276,6 +276,8 @@ export async function createApiServices(base = ''): Promise<Services> {
       refundComplete: async (id) => toOutcome(await http.post(`/api/admin/sandbox/orders/${encodeURIComponent(id)}/refund-complete`)),
       replay: async (id) => toOutcome(await http.post(`/api/admin/sandbox/orders/${encodeURIComponent(id)}/replay`)),
       expire: async (id) => toOutcome(await http.post(`/api/admin/sandbox/orders/${encodeURIComponent(id)}/expire`)),
+      wireInstructions: async (id) => toOutcome(await http.post(`/api/admin/sandbox/orders/${encodeURIComponent(id)}/wire-instructions`)),
+      wireReceived: async (id) => toOutcome(await http.post(`/api/admin/sandbox/orders/${encodeURIComponent(id)}/wire-received`)),
       notifications: async () => (await http.get<J>('/api/admin/sandbox/notifications')).notifications,
     },
   };
@@ -333,7 +335,13 @@ export async function createApiServices(base = ''): Promise<Services> {
           await http.get(
             `/api/quotes/indicative${
               i.direction === 'buy'
-                ? qs({ direction: 'buy', asset: i.asset, network: i.network, cashCents: i.cashCents.toString() })
+                ? qs({
+                    direction: 'buy',
+                    asset: i.asset,
+                    network: i.network,
+                    cashCents: i.cashCents.toString(),
+                    payIn: i.payIn ?? 'courier_cash',
+                  })
                 : qs({ asset: i.asset, network: i.network, amountAtomic: i.amountAtomic.toString(), payoutMethod: i.payoutMethod })
             }`,
           ),

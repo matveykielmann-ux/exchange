@@ -45,8 +45,13 @@ export interface QuoteRequest {
 
 export type QuoteSource = 'mock' | 'sandbox' | 'live';
 
-/** sell: the customer sends crypto and receives USD. buy: the customer pays USD cash to a courier and receives crypto. */
+/** sell: the customer sends crypto and receives USD. buy: the customer pays USD (cash to a courier, or a bank wire) and receives crypto. */
 export type ExchangeDirection = 'sell' | 'buy';
+
+/** How the customer pays the dollars of a buy: cash handed to a courier, or a bank wire. */
+export type BuyPayIn = 'courier_cash' | 'wire';
+export const BUY_PAY_INS: readonly BuyPayIn[] = ['courier_cash', 'wire'];
+export const isBuyPayIn = (v: unknown): v is BuyPayIn => v === 'courier_cash' || v === 'wire';
 
 export type QuoteIssue =
   | { code: 'unsupported_network' }
@@ -154,9 +159,9 @@ export function calculateQuote(req: QuoteRequest): QuoteResult {
 }
 
 /**
- * Buy quote: the customer hands `cashCents` of US dollars to the courier and
- * receives crypto. The same lines as a sell, read the other way:
- * grossCents (cash paid) − spreadCents − payoutFeeCents (courier fee) = netCents,
+ * Buy quote: the customer pays `cashCents` of US dollars (cash to the courier,
+ * or a bank wire) and receives crypto. The same lines as a sell, read the other way:
+ * grossCents (dollars paid) − spreadCents − payoutFeeCents (courier or wire fee) = netCents,
  * the dollars converted at the reference price into `amountAtomic` (rounded
  * down to whole atomic units, so the customer is never promised more).
  */
@@ -164,13 +169,15 @@ export interface BuyQuoteRequest {
   asset: AssetCode;
   network: NetworkId;
   cashCents: Cents;
+  /** Defaults to cash by courier. */
+  payIn?: BuyPayIn;
   referencePriceMicros: Micros;
   now: number;
   source?: QuoteSource;
   id?: string;
 }
 
-/** The cash leg of a buy is always collected by courier. */
+/** The default pay-in of a buy: cash collected by courier. */
 export const BUY_CASH_METHOD: PayoutMethodId = 'courier_cash';
 
 export function calculateBuyQuote(req: BuyQuoteRequest): QuoteResult {
@@ -179,7 +186,9 @@ export function calculateBuyQuote(req: BuyQuoteRequest): QuoteResult {
   const grossCents = req.cashCents > 0n ? req.cashCents : 0n;
   const spreadBps = spreadBpsFor(req.asset, grossCents);
   const spreadCents = divRoundHalfUp(grossCents * BigInt(spreadBps), 10_000n);
-  const method = PAYOUT_METHODS[BUY_CASH_METHOD];
+  const payIn = req.payIn ?? BUY_CASH_METHOD;
+  // The pay-in reuses the matching method's fee and minimum (courier fee, or the wire fee).
+  const method = PAYOUT_METHODS[payIn];
   const feeCents = payoutFeeCents(method, grossCents);
   const netCents = grossCents - spreadCents - feeCents;
   const decimals = pow10(ASSETS[req.asset].decimals);
@@ -207,7 +216,7 @@ export function calculateBuyQuote(req: BuyQuoteRequest): QuoteResult {
       grossCents,
       spreadBps,
       spreadCents,
-      payoutMethod: BUY_CASH_METHOD,
+      payoutMethod: payIn,
       payoutFeeCents: feeCents,
       netCents,
       // Cash paid per whole unit received.

@@ -64,7 +64,7 @@ export function OrderCard({ id, headingLevel = 1 }: { id: string; headingLevel?:
           </H>
           <p className="small muted">
             {t('Created {0}', [formatDateTime(o.createdAt)])} ·{' '}
-            {o.direction === 'buy' ? t('Buy · cash → crypto') : t('Sell · crypto → USD')}
+            {o.direction === 'buy' ? (o.payIn === 'wire' ? t('Buy · wire → crypto') : t('Buy · cash → crypto')) : t('Sell · crypto → USD')}
           </p>
         </div>
         <div className="row" style={{ gap: 8 }}>
@@ -104,7 +104,7 @@ function MainBlock({ detail, onResult, reload }: { detail: AdminOrderDetail; onR
         {t('Essentials')}
       </h3>
       <div className="order-status-line">
-        <StatusBadge tone={orderTone(o.status)}>{t(orderStatusLabel(o.status, o.direction))}</StatusBadge>
+        <StatusBadge tone={orderTone(o.status)}>{t(orderStatusLabel(o.status, o.direction, o.payIn ?? undefined))}</StatusBadge>
         {o.onHold ? <span className="badge badge--warn">{t('On hold')}</span> : null}
         <span className="small muted">{t('Updated {0}', [formatDateTime(o.updatedAt)])}</span>
       </div>
@@ -135,7 +135,7 @@ function MainBlock({ detail, onResult, reload }: { detail: AdminOrderDetail; onR
           <dd className="tabular">
             {t('spread {0} · {1} {2}', [
               formatUsd(o.quote.spreadCents),
-              o.direction === 'buy' ? t('courier') : t('payout'),
+              o.direction === 'buy' ? (o.payIn === 'wire' ? t('wire') : t('courier')) : t('payout'),
               formatUsd(o.quote.payoutFeeCents),
             ])}
           </dd>
@@ -559,7 +559,11 @@ function HistoryBlock({ detail }: { detail: AdminOrderDetail }) {
       at: e.createdAt,
       kind: problem ? 'problem' : 'event',
       text: t(e.detail),
-      meta: [who, e.toStatus !== e.fromStatus && e.fromStatus ? t(orderStatusLabel(e.toStatus, o.direction)) : null, reason]
+      meta: [
+        who,
+        e.toStatus !== e.fromStatus && e.fromStatus ? t(orderStatusLabel(e.toStatus, o.direction, o.payIn ?? undefined)) : null,
+        reason,
+      ]
         .filter(Boolean)
         .join(' · '),
     });

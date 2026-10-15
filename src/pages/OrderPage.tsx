@@ -21,6 +21,7 @@ import {
   TERMINAL_ORDER_STATUSES,
 } from '@/domain/order';
 import { validateRefundAddress, validateTxHash } from '@/domain/validation';
+import { validateWireReference } from '@/domain/wire';
 import { ApiError } from '@/services/http';
 import { errorMessage } from '@/lib/errors';
 import { courierAddress, describeDestination, destinationLabel, formatAsset, formatDateTime, formatPriceMicros } from '@/lib/format';
@@ -60,11 +61,13 @@ function CopyButton({ value, label }: { value: string; label: string }) {
 
 /**
  * The sandbox autopilot moves an order on by itself once the customer has done
- * their part: a submitted tx hash (sell) or an uploaded ID (buy). Each step is
- * a signed sandbox webhook through the normal pipeline.
+ * their part: a submitted tx hash (sell), an uploaded ID (cash buy) or a wire
+ * marked as sent (wire buy). Each step is a signed sandbox webhook through the
+ * normal pipeline. A wire order's placeholder instructions are issued by it too.
  */
 function autopilotEngaged(order: OrderView, stepMs: number) {
   if (order.source !== 'sandbox' || stepMs <= 0) return false;
+  if (order.payIn === 'wire') return order.status === 'created' || order.deposit.customerReportedSentAt !== null;
   return order.direction === 'buy' ? order.documents.length > 0 : order.deposit.customerReportedSentAt !== null;
 }
 
@@ -82,12 +85,14 @@ function SandboxControls({ order, busy, run }: { order: OrderView; busy: boolean
   const confirming = order.status === 'deposit_observed' || order.status === 'confirming';
   const moving = awaiting || confirming || order.status === 'payout_submitted' || order.status === 'payout_processing';
   const buy = order.direction === 'buy';
+  const wire = order.payIn === 'wire';
   if (autopilotEngaged(order, config.sandboxAutopilotStepMs)) {
-    if (!moving) return null;
+    if (!moving && order.status !== 'created') return null;
     return (
       <p className="small muted autopilot-note" role="status">
-        <MockBadge label={t('Sandbox autopilot')} force /> {t('The sandbox')} {buy ? t('courier and cash desk') : t('deposit monitor')}{' '}
-        {t('moves this order one step about every')} {Math.round(config.sandboxAutopilotStepMs / 1000)}{' '}
+        <MockBadge label={t('Sandbox autopilot')} force /> {t('The sandbox')}{' '}
+        {wire ? t('bank desk') : buy ? t('courier and cash desk') : t('deposit monitor')} {t('moves this order one step about every')}{' '}
+        {Math.round(config.sandboxAutopilotStepMs / 1000)}{' '}
         {t('seconds using signed test events. Nothing real is collected, sent or broadcast.')}
       </p>
     );
@@ -96,18 +101,20 @@ function SandboxControls({ order, busy, run }: { order: OrderView; busy: boolean
   return (
     <section className="mock-controls" aria-labelledby="mock-controls-title">
       <h2 id="mock-controls-title">
-        <MockBadge label={t('Sandbox controls')} force /> {buy ? t('Simulate the courier') : t('Simulate the blockchain')}
+        <MockBadge label={t('Sandbox controls')} force />{' '}
+        {wire ? t('Simulate the bank') : buy ? t('Simulate the courier') : t('Simulate the blockchain')}
       </h2>
       <p className="small muted">
-        {t('These buttons send a signed test event from the sandbox')} {buy ? t('cash provider') : t('deposit monitor')}
+        {t('These buttons send a signed test event from the sandbox')}{' '}
+        {wire ? t('bank provider') : buy ? t('cash provider') : t('deposit monitor')}
         {t('. The server checks the signature and moves the order through the same rules a real')}{' '}
-        {buy ? t('cash collection') : t('deposit')} {t('would. They don’t exist outside the sandbox.')}
+        {wire ? t('wire') : buy ? t('cash collection') : t('deposit')} {t('would. They don’t exist outside the sandbox.')}
       </p>
       <div className="row">
         {awaiting ? (
           <>
             <button type="button" className="btn" disabled={busy} onClick={() => run(() => sandbox.deposit(order.id, 'exact'))}>
-              {buy ? t('Courier collects the exact cash') : t('Deposit the exact amount')}
+              {wire ? t('The exact wire arrives') : buy ? t('Courier collects the exact cash') : t('Deposit the exact amount')}
             </button>
             <button
               type="button"
@@ -115,14 +122,14 @@ function SandboxControls({ order, busy, run }: { order: OrderView; busy: boolean
               disabled={busy}
               onClick={() => run(() => sandbox.deposit(order.id, 'short'))}
             >
-              {buy ? t('Cash is short') : t('Deposit too little')}
+              {wire ? t('The wire is short') : buy ? t('Cash is short') : t('Deposit too little')}
             </button>
           </>
         ) : null}
         {confirming ? (
           <>
             <button type="button" className="btn" disabled={busy} onClick={() => run(() => sandbox.confirmations(order.id, true))}>
-              {buy ? t('Finish the cash count') : t('Reach final confirmations')}
+              {wire ? t('Match the wire') : buy ? t('Finish the cash count') : t('Reach final confirmations')}
             </button>
             {!buy ? (
               <button
@@ -216,6 +223,114 @@ function TxHashForm({ order, busy, run }: { order: OrderView; busy: boolean; run
         </button>
       </div>
     </form>
+  );
+}
+
+/**
+ * Wire buys: the instructions (demo placeholders for every bank field) and the
+ * "I've sent the wire" step with an optional reference from the customer's bank.
+ */
+function WireInstructions({ order, busy, run }: { order: OrderView; busy: boolean; run: Run }) {
+  const { orders } = useServices();
+  const [ref, setRef] = useState('');
+  const [touched, setTouched] = useState(false);
+  const lines = order.wireInstructions ?? [];
+  const sent = order.deposit.customerReportedSentAt;
+  const error = touched ? validateWireReference(ref) : null;
+  return (
+    <section className="stack" aria-labelledby="wire-title">
+      <h2 id="wire-title" className="flow__step-title">
+        {t('Wire')} {formatUsd(order.quote.grossCents)}
+      </h2>
+      <div className="deposit-box">
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <strong>{t('Wire instructions')}</strong>
+          <Countdown to={order.deposit.deadline} prefix={t('Window closes in')} ended={t('Window closed')} />
+        </div>
+        <dl className="dl">
+          <div>
+            <dt>{t('Amount')}</dt>
+            <dd className="tabular">{formatUsd(order.quote.grossCents)}</dd>
+          </div>
+          {lines.map((l) => (
+            <div key={l.label}>
+              <dt>{t(l.label)}</dt>
+              <dd className="mono" style={{ overflowWrap: 'anywhere' }}>
+                {l.value} {l.placeholder ? <MockBadge label={t('Placeholder')} force /> : <CopyButton value={l.value} label={t('Copy')} />}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <p className="small">
+          <strong>{t('Demo instructions. Do not send a wire.')}</strong>{' '}
+          {t(
+            'The exchange is simulated: no bank account exists for these placeholders, and real bank details are issued only after launch.',
+          )}
+        </p>
+      </div>
+      <Notice tone="warn" title={t('Use only the instructions on this page')}>
+        <p>
+          {t(
+            'Send the wire from a US bank account in your own name and quote the order number as the reference. Nobody from this service will send you bank details by email, chat or phone. If anything seems wrong, stop and contact support.',
+          )}
+        </p>
+      </Notice>
+      {sent ? (
+        <Notice tone="neutral" title={t('You marked the wire as sent')}>
+          <p>
+            {t('Received at')} {formatDateTime(sent)}
+            {order.deposit.customerTxHash ? t(' · your reference {0}', [order.deposit.customerTxHash]) : ''}.{' '}
+            {t('This does not confirm a payment: the order moves on only when the bank reports the wire.')}
+          </p>
+        </Notice>
+      ) : canRaise(order.status, 'CUSTOMER_REPORTED_SENT', 'customer') ? (
+        <form
+          className="stack tx-hash-form"
+          noValidate
+          onSubmit={(e: FormEvent) => {
+            e.preventDefault();
+            setTouched(true);
+            if (validateWireReference(ref)) {
+              document.getElementById('wire-ref')?.focus();
+              return;
+            }
+            run(() => orders.reportSent(order.id, ref.trim() || null));
+          }}
+        >
+          <h3 className="title">{t('Sent the wire? Let us know')}</h3>
+          <div className="field" data-invalid={error ? 'true' : undefined}>
+            <label className="field__label" htmlFor="wire-ref">
+              {t('Your bank’s reference (optional)')}
+            </label>
+            <input
+              id="wire-ref"
+              className="input mono"
+              value={ref}
+              onChange={(e) => setRef(e.target.value)}
+              onBlur={() => ref && setTouched(true)}
+              maxLength={64}
+              autoComplete="off"
+              spellCheck={false}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? 'wire-ref-error wire-ref-hint' : 'wire-ref-hint'}
+            />
+            {error ? (
+              <p className="field__error" id="wire-ref-error">
+                <Icon name="alert" /> {t(error)}
+              </p>
+            ) : null}
+            <p className="field__hint" id="wire-ref-hint">
+              {t('For example the Fed or confirmation number your bank shows. It helps us find the wire; it doesn’t confirm it.')}
+            </p>
+          </div>
+          <div>
+            <button type="submit" className="btn btn--secondary" disabled={busy}>
+              {busy ? t('Submitting…') : t('I’ve sent the wire')}
+            </button>
+          </div>
+        </form>
+      ) : null}
+    </section>
   );
 }
 
@@ -389,6 +504,7 @@ function IdUpload({ order, onChange }: { order: OrderView; onChange: () => void 
 /** Explanations for each state, worded for the order's direction. Processing states say what is happening and who acts next. */
 function StatusNotice({ order }: { order: OrderView }) {
   const buy = order.direction === 'buy';
+  const wire = order.payIn === 'wire';
   const sandbox = order.source === 'sandbox';
   const demo = sandbox ? t(' (sandbox simulation)') : '';
   const help = (
@@ -399,26 +515,40 @@ function StatusNotice({ order }: { order: OrderView }) {
   switch (order.status) {
     case 'created':
       return (
-        <Notice tone="info" title={buy ? t('Arranging the courier') : t('Preparing your deposit address')} role="status">
+        <Notice
+          tone="info"
+          title={wire ? t('Preparing your wire instructions') : buy ? t('Arranging the courier') : t('Preparing your deposit address')}
+          role="status"
+        >
           <p>{t('This usually takes a moment. The page updates by itself.')}</p>
         </Notice>
       );
     case 'deposit_observed':
     case 'confirming':
       return (
-        <Notice tone="info" title={buy ? t('Cash collected{0}', [demo]) : t('Deposit seen{0}', [demo])} role="status">
+        <Notice
+          tone="info"
+          title={wire ? t('Wire received{0}', [demo]) : buy ? t('Cash collected{0}', [demo]) : t('Deposit seen{0}', [demo])}
+          role="status"
+        >
           <p>
-            {buy
-              ? t('The courier reported collecting the cash. It is now counted and checked before any crypto is sent.')
-              : t('Deposit monitoring reported a transfer for this order. It becomes final after {0} network confirmations.', [
-                  order.deposit.confirmations.required,
-                ])}
+            {wire
+              ? t('The bank reported a wire for this order. It is now matched and checked before any crypto is sent.')
+              : buy
+                ? t('The courier reported collecting the cash. It is now counted and checked before any crypto is sent.')
+                : t('Deposit monitoring reported a transfer for this order. It becomes final after {0} network confirmations.', [
+                    order.deposit.confirmations.required,
+                  ])}
           </p>
         </Notice>
       );
     case 'deposit_confirmed':
       return (
-        <Notice tone="info" title={buy ? t('Cash verified{0}', [demo]) : t('Deposit final{0}', [demo])} role="status">
+        <Notice
+          tone="info"
+          title={wire ? t('Wire verified{0}', [demo]) : buy ? t('Cash verified{0}', [demo]) : t('Deposit final{0}', [demo])}
+          role="status"
+        >
           <p>{t('Automatic checks are running. This page updates by itself.')}</p>
         </Notice>
       );
@@ -437,11 +567,13 @@ function StatusNotice({ order }: { order: OrderView }) {
       return (
         <Notice tone="info" title={buy ? t('Approved: waiting for the transfer to be authorized') : t('Approved for payout')} role="status">
           <p>
-            {buy
-              ? t('The cash is verified and checks are complete. A member of our team authorizes each crypto transfer before it is sent.')
-              : t(
-                  'Your deposit is final and checks are complete. A member of our team authorizes each payout before it goes to the payout provider.',
-                )}
+            {wire
+              ? t('The wire is verified and checks are complete. A member of our team authorizes each crypto transfer before it is sent.')
+              : buy
+                ? t('The cash is verified and checks are complete. A member of our team authorizes each crypto transfer before it is sent.')
+                : t(
+                    'Your deposit is final and checks are complete. A member of our team authorizes each payout before it goes to the payout provider.',
+                  )}
           </p>
           {help}
         </Notice>
@@ -478,14 +610,24 @@ function StatusNotice({ order }: { order: OrderView }) {
       return (
         <Notice
           tone="warn"
-          title={buy ? t('Cash return in progress') : order.refundAddressNeeded ? t('Refund address needed') : t('Refund in progress')}
+          title={
+            wire
+              ? t('Wire return in progress')
+              : buy
+                ? t('Cash return in progress')
+                : order.refundAddressNeeded
+                  ? t('Refund address needed')
+                  : t('Refund in progress')
+          }
         >
           <p>
-            {buy
-              ? t('The courier will return your cash to you after an ID check. ')
-              : order.refundAddressNeeded
-                ? t('We need a refund address to return your {0}: enter it below. ', [order.asset])
-                : t('We are returning your {0} on-chain to the refund address you gave. ', [order.asset])}
+            {wire
+              ? t('The wire will be returned to the bank account it came from. ')
+              : buy
+                ? t('The courier will return your cash to you after an ID check. ')
+                : order.refundAddressNeeded
+                  ? t('We need a refund address to return your {0}: enter it below. ', [order.asset])
+                  : t('We are returning your {0} on-chain to the refund address you gave. ', [order.asset])}
             {t('Return fees and timeframes are set by Section 9 of the Service Rules; see the')}{' '}
             <Link to="/legal/refunds">{t('refund policy')}</Link>.
           </p>
@@ -496,14 +638,27 @@ function StatusNotice({ order }: { order: OrderView }) {
       return (
         <Notice tone="neutral" title={t('Refunded')}>
           <p>
-            {buy ? t('The provider reported your cash as returned.') : t('Your {0} was returned to your refund address.', [order.asset])}
+            {wire
+              ? t('The bank reported your wire as returned to the sending account.')
+              : buy
+                ? t('The provider reported your cash as returned.')
+                : t('Your {0} was returned to your refund address.', [order.asset])}
           </p>
         </Notice>
       );
     case 'expired':
       return (
-        <Notice tone="neutral" title={buy ? t('The collection window closed') : t('The deposit window closed')}>
-          {buy ? (
+        <Notice
+          tone="neutral"
+          title={wire ? t('The wire window closed') : buy ? t('The collection window closed') : t('The deposit window closed')}
+        >
+          {wire ? (
+            <p>
+              {t('No wire was received in time, so this order expired. If you already sent a wire,')}{' '}
+              <Link to="/support">{t('contact support')}</Link>
+              {t(': it is returned under Section 9 of the Service Rules.')}
+            </p>
+          ) : buy ? (
             <p>
               {t('The cash wasn’t collected in time, so this order expired. Nothing was taken. Start a new exchange or')}{' '}
               <Link to="/support">{t('contact support')}</Link>.
@@ -544,6 +699,7 @@ function StatusNotice({ order }: { order: OrderView }) {
 function SuccessPanel({ order, animate }: { order: OrderView; animate: boolean }) {
   const ref = useRef<HTMLElement>(null);
   const buy = order.direction === 'buy';
+  const wire = order.payIn === 'wire';
   const sandbox = order.source === 'sandbox';
   useGSAP(
     () => {
@@ -579,7 +735,7 @@ function SuccessPanel({ order, animate }: { order: OrderView; animate: boolean }
         </div>
         <dl className="dl">
           <div>
-            <dt>{buy ? t('Cash paid') : t('You sent')}</dt>
+            <dt>{wire ? t('Paid by wire') : buy ? t('Cash paid') : t('You sent')}</dt>
             <dd className="tabular">{buy ? formatUsd(order.quote.grossCents) : formatAsset(order.amountAtomic, order.asset)}</dd>
           </div>
           <div>
@@ -604,7 +760,7 @@ function SuccessPanel({ order, animate }: { order: OrderView; animate: boolean }
         {sandbox ? (
           <p className="small">
             <MockBadge force /> {t('This is a sandbox demo. The amounts are simulated and nothing was')}{' '}
-            {buy ? t('collected, sent or broadcast') : t('received or paid out')}.
+            {wire ? t('wired, sent or broadcast') : buy ? t('collected, sent or broadcast') : t('received or paid out')}.
           </p>
         ) : (
           <p className="small">
@@ -627,7 +783,7 @@ function SuccessPanel({ order, animate }: { order: OrderView; animate: boolean }
             </li>
           </ul>
           <div className="row">
-            <Link className="btn" to={buy ? '/exchange?direction=buy' : '/exchange'}>
+            <Link className="btn" to={wire ? '/exchange?direction=buy&pay=wire' : buy ? '/exchange?direction=buy' : '/exchange'}>
               {t('Start another exchange')}
             </Link>
             <Link className="btn btn--secondary" to="/orders">
@@ -649,10 +805,11 @@ const courierStep = <T extends { key: string; label: string }>(step: T): T => ({
 
 function Receipt({ order }: { order: OrderView }) {
   const buy = order.direction === 'buy';
+  const wire = order.payIn === 'wire';
   return (
     <dl className="dl">
       <div>
-        <dt>{buy ? t('You pay in cash') : t('You send')}</dt>
+        <dt>{wire ? t('You pay by wire') : buy ? t('You pay in cash') : t('You send')}</dt>
         <dd className="tabular">{buy ? formatUsd(order.quote.grossCents) : formatAsset(order.amountAtomic, order.asset)}</dd>
       </div>
       <div>
@@ -678,7 +835,7 @@ function Receipt({ order }: { order: OrderView }) {
         </div>
       ) : null}
       <div>
-        <dt>{t(buy ? 'Courier fee' : feeLineLabel(order.payout.method))}</dt>
+        <dt>{t(buy && !wire ? 'Courier fee' : feeLineLabel(order.payout.method))}</dt>
         <dd className="tabular">−{formatUsd(order.quote.payoutFeeCents)}</dd>
       </div>
       <div>
@@ -740,7 +897,7 @@ function Receipt({ order }: { order: OrderView }) {
       ) : null}
       {order.deposit.amountAtomic !== null && order.deposit.amountAtomic !== (buy ? order.quote.grossCents : order.amountAtomic) ? (
         <div>
-          <dt>{buy ? t('Cash counted') : t('Amount received')}</dt>
+          <dt>{wire ? t('Wire received') : buy ? t('Cash counted') : t('Amount received')}</dt>
           <dd className="tabular">{buy ? formatUsd(order.deposit.amountAtomic) : formatAsset(order.deposit.amountAtomic, order.asset)}</dd>
         </div>
       ) : null}
@@ -754,6 +911,12 @@ function Receipt({ order }: { order: OrderView }) {
         <div>
           <dt>{t('Refund to')}</dt>
           <dd className="mono">{order.refundAddress}</dd>
+        </div>
+      ) : null}
+      {wire && order.deposit.customerTxHash ? (
+        <div>
+          <dt>{t('Your wire ref.')}</dt>
+          <dd className="mono">{order.deposit.customerTxHash}</dd>
         </div>
       ) : null}
       {order.refundTxHash ? (
@@ -854,12 +1017,13 @@ export function OrderPage() {
     );
 
   const buy = order.direction === 'buy';
+  const wire = order.payIn === 'wire';
   const network = NETWORKS[order.network];
   const address = order.deposit.address;
   // In the sandbox the address must be an obvious placeholder; anything else is withheld.
   const showAddress = !!address && (config.mode !== 'sandbox' || isPreviewDepositAddress(address));
   const sandboxOrder = order.source === 'sandbox';
-  const label = t(orderStatusLabel(order.status, order.direction));
+  const label = t(orderStatusLabel(order.status, order.direction, order.payIn ?? undefined));
   const steps = !buy && order.payout.method === 'courier_cash' ? order.steps.map(courierStep) : order.steps;
 
   return (
@@ -872,9 +1036,11 @@ export function OrderPage() {
           <div className="stack" style={{ gap: 8 }}>
             <h1 className="display-l">{label}</h1>
             <p className="muted">
-              {buy
-                ? t('Buying {0} for {1} in cash', [formatAsset(order.amountAtomic, order.asset), formatUsd(order.quote.grossCents)])
-                : t('Selling {0} for {1}', [formatAsset(order.amountAtomic, order.asset), formatUsd(order.quote.netCents)])}{' '}
+              {wire
+                ? t('Buying {0} for {1} by bank wire', [formatAsset(order.amountAtomic, order.asset), formatUsd(order.quote.grossCents)])
+                : buy
+                  ? t('Buying {0} for {1} in cash', [formatAsset(order.amountAtomic, order.asset), formatUsd(order.quote.grossCents)])
+                  : t('Selling {0} for {1}', [formatAsset(order.amountAtomic, order.asset), formatUsd(order.quote.netCents)])}{' '}
               {t('· created')} {formatDateTime(order.createdAt)}
             </p>
           </div>
@@ -896,16 +1062,20 @@ export function OrderPage() {
       {justCreated && order.status !== 'completed' ? (
         <div className="stack" style={{ marginBottom: 24 }}>
           <AcceptedBanner reference={order.reference} detailsId="order-details" />
-          {order.status === 'awaiting_deposit' ? (
+          {order.status === 'awaiting_deposit' || (wire && order.status === 'created') ? (
             <Notice tone="info" title={t('Order {0} placed', [order.reference])}>
               <p>
-                {buy
-                  ? t('Your rate is held for the cash amount shown. The courier will call to confirm the collection time.')
-                  : t('Your rate is held for a deposit of exactly the quoted amount that arrives in the window below.')}
+                {wire
+                  ? t('Your rate is held for a wire of exactly the amount shown that arrives in the window.')
+                  : buy
+                    ? t('Your rate is held for the cash amount shown. The courier will call to confirm the collection time.')
+                    : t('Your rate is held for a deposit of exactly the quoted amount that arrives in the window below.')}
                 {sandboxOrder
-                  ? buy
-                    ? t(' This is a sandbox order: no courier will come and no crypto will be sent.')
-                    : t(' This is a sandbox order: the deposit address is a placeholder. Do not send funds to it.')
+                  ? wire
+                    ? t(' This is a sandbox order: the wire instructions are placeholders. Do not send a wire.')
+                    : buy
+                      ? t(' This is a sandbox order: no courier will come and no crypto will be sent.')
+                      : t(' This is a sandbox order: the deposit address is a placeholder. Do not send funds to it.')
                   : ''}
               </p>
             </Notice>
@@ -961,7 +1131,11 @@ export function OrderPage() {
             </section>
           ) : null}
 
-          {order.status === 'awaiting_deposit' && buy ? (
+          {wire && order.wireInstructions && order.status === 'awaiting_deposit' ? (
+            <WireInstructions order={order} busy={busy} run={run} />
+          ) : null}
+
+          {order.status === 'awaiting_deposit' && buy && !wire ? (
             <section className="stack" aria-labelledby="collect-title">
               <h2 id="collect-title" className="flow__step-title">
                 {t('Have')} {formatUsd(order.quote.grossCents)} {t('in cash ready')}
@@ -997,7 +1171,7 @@ export function OrderPage() {
             </section>
           ) : null}
 
-          {buy ? <IdUpload order={order} onChange={load} /> : null}
+          {buy && !wire ? <IdUpload order={order} onChange={load} /> : null}
 
           <StatusNotice order={order} />
           <RefundAddressForm order={order} busy={busy} run={run} />
@@ -1034,9 +1208,11 @@ export function OrderPage() {
                 onClick={() => {
                   if (
                     window.confirm(
-                      buy
-                        ? 'Cancel this order? Only before the courier collects the cash.'
-                        : 'Cancel this order? Only do this if you have not sent any funds.',
+                      wire
+                        ? t('Cancel this order? Only if you have not sent the wire.')
+                        : buy
+                          ? 'Cancel this order? Only before the courier collects the cash.'
+                          : 'Cancel this order? Only do this if you have not sent any funds.',
                     )
                   )
                     run(() => services.orders.cancel(order.id));
@@ -1045,7 +1221,12 @@ export function OrderPage() {
                 {t('Cancel this order')}
               </button>
               <p className="small muted" style={{ marginTop: 8 }}>
-                {buy ? (
+                {wire ? (
+                  <>
+                    {t('Only before you send the wire. Already sent it? Contact support: returns are handled under Section 9 of the')}{' '}
+                    <Link to="/legal/refunds">{t('Service Rules')}</Link>.
+                  </>
+                ) : buy ? (
                   <>
                     {t(
                       'Only before the courier collects the cash. After that, contact support: returns are handled under Section 9 of the',

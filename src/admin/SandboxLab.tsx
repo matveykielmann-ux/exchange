@@ -12,6 +12,7 @@ export function SandboxLab({ detail, onDone }: { detail: AdminOrderDetail; onDon
   const [msg, setMsg] = useState<{ tone: 'info' | 'danger'; text: string } | null>(null);
   const s = detail.order.status;
   const id = detail.order.id;
+  const wire = detail.order.payIn === 'wire';
   const run = async (label: string, fn: () => Promise<unknown>) => {
     setBusy(true);
     setMsg(null);
@@ -26,6 +27,9 @@ export function SandboxLab({ detail, onDone }: { detail: AdminOrderDetail; onDon
     }
   };
   const buttons: { label: string; show: boolean; fn: () => Promise<unknown> }[] = [
+    // Wire buys: the two desk steps, in demo terms. The instructions are placeholders; the wire is a signed test event.
+    { label: 'Mark wire instructions issued (demo)', show: wire && s === 'created', fn: () => admin.sandbox.wireInstructions(id) },
+    { label: 'Mark wire received (demo)', show: wire && s === 'awaiting_deposit', fn: () => admin.sandbox.wireReceived(id) },
     { label: 'Deposit exact amount', show: s === 'awaiting_deposit', fn: () => admin.sandbox.deposit(id, 'exact') },
     { label: 'Deposit short amount', show: s === 'awaiting_deposit', fn: () => admin.sandbox.deposit(id, 'short') },
     {

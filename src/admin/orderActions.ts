@@ -27,6 +27,7 @@ interface OrderLike {
   status: OrderStatus;
   onHold: boolean;
   direction?: 'sell' | 'buy';
+  payIn?: 'courier_cash' | 'wire' | null;
   /** Sell: a pending refund waits for the customer's refund address. */
   refundAddressNeeded?: boolean;
 }
@@ -99,7 +100,9 @@ export function actionPlan(o: OrderLike, available: readonly ActionAvailability[
       ? null
       : o.refundAddressNeeded
         ? 'Waiting for the customer’s refund address'
-        : (WAITING[o.status] ?? null);
+        : o.payIn === 'wire' && o.status === 'created'
+          ? 'Waiting for wire instructions to be issued'
+          : (WAITING[o.status] ?? null);
   return { primary, secondary, more, waitingFor };
 }
 
@@ -208,11 +211,11 @@ export function notifyTemplates(status: OrderStatus, onHold: boolean): { id: str
 }
 
 /** What the customer sends and receives, in their own terms. */
-export function exchangeSides(o: Pick<OrderView, 'direction' | 'asset' | 'amountAtomic' | 'networkLabel' | 'quote' | 'payout'>) {
+export function exchangeSides(o: Pick<OrderView, 'direction' | 'payIn' | 'asset' | 'amountAtomic' | 'networkLabel' | 'quote' | 'payout'>) {
   return o.direction === 'buy'
     ? {
         sends: formatUsd(o.quote.grossCents),
-        sendsNote: t('Cash by courier'),
+        sendsNote: o.payIn === 'wire' ? t('Bank wire') : t('Cash by courier'),
         receives: formatAsset(o.amountAtomic, o.asset),
         receivesNote: o.networkLabel,
       }

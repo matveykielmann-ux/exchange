@@ -1,11 +1,12 @@
 /**
- * Buy flow (cash → crypto): the customer states the US dollars they will hand
- * to a courier, where the courier should collect them, and the wallet that
- * receives the crypto. The server prices it, stores a firm quote and creates
- * the order; the crypto is sent only after the cash is counted and verified.
+ * Buy flow (cash or wire → crypto): the customer states the US dollars they
+ * will pay, how (cash handed to a courier, or a bank wire), where the courier
+ * should collect cash, and the wallet that receives the crypto. The server
+ * prices it, stores a firm quote and creates the order; the crypto is sent
+ * only after the cash is counted or the wire is matched and verified.
  */
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AddCourierForm } from '@/components/AddCourierForm';
 import { Checkbox } from '@/components/Checkbox';
 import { Countdown } from '@/components/Countdown';
@@ -21,8 +22,9 @@ import { MockBadge, Notice } from '@/components/ui';
 import { defaultNetwork, isAssetCode, isSupportedPair, NETWORKS, networkLabel, type AssetCode, type NetworkId } from '@/domain/assets';
 import { CASH_COLLECTION_WINDOW_MS } from '@/domain/courier';
 import { formatUsd, parseDecimal } from '@/domain/money';
-import { PAYOUT_METHODS } from '@/domain/payout';
-import { PRICING_POLICY, type QuoteIssue } from '@/domain/quote';
+import { describeFee, PAYOUT_METHODS } from '@/domain/payout';
+import { isBuyPayIn, PRICING_POLICY, type BuyPayIn, type QuoteIssue } from '@/domain/quote';
+import { WIRE_RECEIPT_WINDOW_MS } from '@/domain/wire';
 import { validateCashAmount, validateReceiveAddress } from '@/domain/validation';
 import { errorMessage } from '@/lib/errors';
 import { courierAddress, describeDestination, formatAsset } from '@/lib/format';
@@ -39,6 +41,8 @@ import { t } from '@/i18n';
 export interface BuyDraft {
   asset: AssetCode;
   network: NetworkId;
+  /** How the dollars are paid: cash to a courier, or a bank wire. */
+  payIn: BuyPayIn;
   /** US dollars as typed, e.g. "1,500". */
   cash: string;
   destinationId: string | null;
@@ -47,7 +51,15 @@ export interface BuyDraft {
 }
 
 const KEY = 'cryptobit.v1.buyDraft';
-const INITIAL: BuyDraft = { asset: 'USDT', network: 'tron', cash: '1000', destinationId: null, receiveAddress: '', step: 1 };
+const INITIAL: BuyDraft = {
+  asset: 'USDT',
+  network: 'tron',
+  payIn: 'courier_cash',
+  cash: '1000',
+  destinationId: null,
+  receiveAddress: '',
+  step: 1,
+};
 
 /** Session storage is user-editable: every field is validated before it is trusted. */
 function loadDraft(): BuyDraft {
@@ -58,6 +70,7 @@ function loadDraft(): BuyDraft {
     const ok =
       isAssetCode(d.asset) &&
       isSupportedPair(d.asset, d.network) &&
+      isBuyPayIn(d.payIn) &&
       typeof d.cash === 'string' &&
       d.cash.length <= 20 &&
       (d.destinationId === null || typeof d.destinationId === 'string') &&
@@ -104,18 +117,18 @@ function useBuyQuote(draft: BuyDraft, { firm, enabled = true }: { firm: boolean;
   const [nonce, setNonce] = useState(0);
   const [stored, setStored] = useState<{ key: string; data: QuoteData | null; error: string | null } | null>(null);
   const cents = cashCents(draft.cash);
-  const key = cents === null || !enabled ? null : `${draft.asset}|${draft.network}|${cents}|${firm}|${nonce}`;
+  const key = cents === null || !enabled ? null : `${draft.asset}|${draft.network}|${draft.payIn}|${cents}|${firm}|${nonce}`;
   useEffect(() => {
     if (key === null || cents === null) return;
     let cancelled = false;
-    const input = { direction: 'buy' as const, asset: draft.asset, network: draft.network, cashCents: cents };
+    const input = { direction: 'buy' as const, asset: draft.asset, network: draft.network, cashCents: cents, payIn: draft.payIn };
     (firm ? quotes.firm(input) : quotes.indicative(input))
       .then((data) => !cancelled && setStored({ key, data, error: null }))
       .catch((e: unknown) => !cancelled && setStored({ key, data: null, error: errorMessage(e) }));
     return () => {
       cancelled = true;
     };
-  }, [quotes, key, cents, firm, draft.asset, draft.network]);
+  }, [quotes, key, cents, firm, draft.asset, draft.network, draft.payIn]);
   useEffect(() => {
     if (firm || !enabled) return;
     const t = window.setInterval(() => setNonce((n) => n + 1), PRICING_POLICY.indicativeRefreshMs);
@@ -132,7 +145,7 @@ function useBuyQuote(draft: BuyDraft, { firm, enabled = true }: { firm: boolean;
   };
 }
 
-function BuyIssues({ issues }: { issues: QuoteIssue[] }) {
+function BuyIssues({ issues, payIn = 'courier_cash' }: { issues: QuoteIssue[]; payIn?: BuyPayIn }) {
   if (!issues.length) return null;
   return (
     <div className="stack" style={{ gap: 8 }}>
@@ -142,7 +155,15 @@ function BuyIssues({ issues }: { issues: QuoteIssue[] }) {
             return <Notice key={issue.code} tone="warn" title={t('Minimum is {0}', [formatUsd(issue.minimumCents)])} />;
           case 'payout_ineligible':
             return (
-              <Notice key={issue.code} tone="warn" title={t('Cash collection isn’t available for this amount')}>
+              <Notice
+                key={issue.code}
+                tone="warn"
+                title={
+                  payIn === 'wire'
+                    ? t('Paying by wire isn’t available for this amount')
+                    : t('Cash collection isn’t available for this amount')
+                }
+              >
                 <p>{issue.reason}.</p>
               </Notice>
             );
@@ -159,11 +180,12 @@ function BuyIssues({ issues }: { issues: QuoteIssue[] }) {
 }
 
 const STEPS = ['Amount', 'Collection & wallet', 'Review'] as const;
+const WIRE_STEPS = ['Amount', 'Wallet', 'Review'] as const;
 
-function Stepper({ current }: { current: number }) {
+function Stepper({ current, payIn }: { current: number; payIn: BuyPayIn }) {
   return (
     <ol className="stepper" aria-label={t('Exchange progress')}>
-      {STEPS.map((label, i) => {
+      {(payIn === 'wire' ? WIRE_STEPS : STEPS).map((label, i) => {
         const n = i + 1;
         const state = n < current ? 'done' : n === current ? 'current' : 'upcoming';
         return (
@@ -190,6 +212,7 @@ function AmountStep({ draft, update, quote, onNext }: DraftProps & { quote: Retu
   const fieldError = touched || draft.cash !== '' ? validateCashAmount(draft.cash) : null;
   const issues = quote.data?.issues.filter((i) => i.code !== 'zero_amount') ?? [];
   const ready = !validateCashAmount(draft.cash) && !!quote.data && !quote.loading && issues.length === 0;
+  const wire = draft.payIn === 'wire';
   return (
     <form
       className="flow__main"
@@ -210,13 +233,41 @@ function AmountStep({ draft, update, quote, onNext }: DraftProps & { quote: Retu
         }
         onNetwork={(network) => update({ network, receiveAddress: '' })}
       />
+      <fieldset className="option-list">
+        <legend className="field__label">{t('How you pay')}</legend>
+        {(['courier_cash', 'wire'] as const).map((id) => {
+          const m = PAYOUT_METHODS[id];
+          return (
+            <label className="option" key={id} htmlFor={`pay-${id}`}>
+              <input id={`pay-${id}`} type="radio" name="pay-in" checked={draft.payIn === id} onChange={() => update({ payIn: id })} />
+              <span>
+                <span className="option__title">{id === 'wire' ? t('Bank wire') : t('Cash by courier')}</span>
+                <span className="option__meta" style={{ display: 'block' }}>
+                  {id === 'wire'
+                    ? t('You send a wire from your own US bank account. No wallet or card needed on our side.')
+                    : t('A courier collects US dollar cash from you after an ID check.')}
+                </span>
+              </span>
+              <span className="option__aside small tabular">
+                {t(describeFee(m.fee))} · {t('min {0}', [formatUsd(m.minCents, { whole: true })])}
+              </span>
+            </label>
+          );
+        })}
+      </fieldset>
       <Field
-        label={t('Cash you pay (USD)')}
+        label={wire ? t('Dollars you wire (USD)') : t('Cash you pay (USD)')}
         id="buy-cash"
         error={fieldError}
-        hint={t('Paid in person to the courier. Minimum {0}; cash collection has its own minimum.', [
-          formatUsd(PRICING_POLICY.minimumCents, { whole: true }),
-        ])}
+        hint={
+          wire
+            ? t('Sent by bank wire to the instructions on your order page. Minimum {0}; wires have their own minimum.', [
+                formatUsd(PRICING_POLICY.minimumCents, { whole: true }),
+              ])
+            : t('Paid in person to the courier. Minimum {0}; cash collection has its own minimum.', [
+                formatUsd(PRICING_POLICY.minimumCents, { whole: true }),
+              ])
+        }
       >
         {(p) => (
           <div className="amount-input" data-invalid={fieldError ? 'true' : undefined}>
@@ -247,7 +298,7 @@ function AmountStep({ draft, update, quote, onNext }: DraftProps & { quote: Retu
             </div>
           </Notice>
         ) : (
-          <BuyIssues issues={issues} />
+          <BuyIssues issues={issues} payIn={draft.payIn} />
         )}
       </div>
       <div className="flow__actions">
@@ -261,33 +312,64 @@ function AmountStep({ draft, update, quote, onNext }: DraftProps & { quote: Retu
 }
 
 /* ---------------- Step 2 ---------------- */
+function SignInStep({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="flow__main">
+      <h2 className="flow__step-title">{t('Sign in to continue')}</h2>
+      <p>{t('You need an account to confirm an exchange. Your amount and choices are kept.')}</p>
+      <div className="row">
+        <Link className="btn btn--lg" to="/signin" state={{ from: '/exchange?direction=buy' }}>
+          {t('Sign in')}
+        </Link>
+        <Link className="btn btn--lg btn--secondary" to="/signup" state={{ from: '/exchange?direction=buy' }}>
+          {t('Create an account')}
+        </Link>
+      </div>
+      <div className="flow__actions">
+        <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
+          <Icon name="arrowLeft" width={18} height={18} /> {t('Back')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ReceiveAddressField({ draft, update, error, onBlur }: DraftProps & { error: string | null; onBlur: () => void }) {
+  return (
+    <Field
+      label={t('Your {0} wallet address', [networkLabel(draft.asset, draft.network)])}
+      id="receive-address"
+      error={error}
+      hint={t(
+        draft.payIn === 'wire'
+          ? 'We send the {0} here once the wire is matched and verified. Use a wallet you control on {1}; transfers can’t be reversed.'
+          : 'We send the {0} here once the cash is counted and verified. Use a wallet you control on {1}; transfers can’t be reversed.',
+        [draft.asset, NETWORKS[draft.network].name],
+      )}
+    >
+      {(p) => (
+        <input
+          className="input mono"
+          {...p}
+          value={draft.receiveAddress}
+          onChange={(e) => update({ receiveAddress: e.target.value.trim() })}
+          onBlur={onBlur}
+          placeholder={NETWORKS[draft.network].addressExample}
+          autoComplete="off"
+          spellCheck={false}
+        />
+      )}
+    </Field>
+  );
+}
+
 function DetailsStep({ draft, update, onBack, onNext }: DraftProps & { onBack: () => void; onNext: () => void }) {
   const user = useUser();
   const { list: destinations, reload } = useDestinations();
   const [touched, setTouched] = useState(false);
   const [adding, setAdding] = useState(false);
 
-  if (!user) {
-    return (
-      <div className="flow__main">
-        <h2 className="flow__step-title">{t('Sign in to continue')}</h2>
-        <p>{t('You need an account to arrange a cash collection and confirm an exchange. Your amount and choices are kept.')}</p>
-        <div className="row">
-          <Link className="btn btn--lg" to="/signin" state={{ from: '/exchange?direction=buy' }}>
-            {t('Sign in')}
-          </Link>
-          <Link className="btn btn--lg btn--secondary" to="/signup" state={{ from: '/exchange?direction=buy' }}>
-            {t('Create an account')}
-          </Link>
-        </div>
-        <div className="flow__actions">
-          <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
-            <Icon name="arrowLeft" width={18} height={18} /> {t('Back')}
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (!user) return <SignInStep onBack={onBack} />;
 
   const usable = destinations?.filter((d) => d.kind === 'courier') ?? [];
   const addressError = touched || draft.receiveAddress ? validateReceiveAddress(draft.receiveAddress, draft.network) : null;
@@ -362,29 +444,44 @@ function DetailsStep({ draft, update, onBack, onNext }: DraftProps & { onBack: (
         {t('The courier collects the cash only from you, the verified account holder, after checking your photo ID.')}
       </p>
 
-      <Field
-        label={t('Your {0} wallet address', [networkLabel(draft.asset, draft.network)])}
-        id="receive-address"
-        error={addressError}
-        hint={t(
-          'We send the {0} here once the cash is counted and verified. Use a wallet you control on {1}; transfers can’t be reversed.',
-          [draft.asset, NETWORKS[draft.network].name],
-        )}
-      >
-        {(p) => (
-          <input
-            className="input mono"
-            {...p}
-            value={draft.receiveAddress}
-            onChange={(e) => update({ receiveAddress: e.target.value.trim() })}
-            onBlur={() => setTouched(true)}
-            placeholder={NETWORKS[draft.network].addressExample}
-            autoComplete="off"
-            spellCheck={false}
-          />
-        )}
-      </Field>
+      <ReceiveAddressField draft={draft} update={update} error={addressError} onBlur={() => setTouched(true)} />
 
+      <div className="flow__actions">
+        <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
+          <Icon name="arrowLeft" width={18} height={18} /> {t('Back')}
+        </button>
+        <button className="btn btn--lg" type="submit">
+          {t('Review quote')} <Icon name="arrowRight" width={18} height={18} />
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Step 2 for a wire: only the receiving wallet. The wire instructions come with the order. */
+function WireDetailsStep({ draft, update, onBack, onNext }: DraftProps & { onBack: () => void; onNext: () => void }) {
+  const user = useUser();
+  const [touched, setTouched] = useState(false);
+  if (!user) return <SignInStep onBack={onBack} />;
+  const addressError = touched || draft.receiveAddress ? validateReceiveAddress(draft.receiveAddress, draft.network) : null;
+  return (
+    <form
+      className="flow__main"
+      noValidate
+      onSubmit={(e: FormEvent) => {
+        e.preventDefault();
+        setTouched(true);
+        if (!validateReceiveAddress(draft.receiveAddress, draft.network)) onNext();
+        else document.getElementById('receive-address')?.focus();
+      }}
+    >
+      <h2 className="flow__step-title">{t('Where should we send the crypto?')}</h2>
+      <ReceiveAddressField draft={draft} update={update} error={addressError} onBlur={() => setTouched(true)} />
+      <p className="small muted">
+        {t(
+          'After you confirm, the wire instructions appear on your order page. Send the wire from a US bank account in your own name and quote the order number as the reference.',
+        )}
+      </p>
       <div className="flow__actions">
         <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
           <Icon name="arrowLeft" width={18} height={18} /> {t('Back')}
@@ -416,12 +513,21 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
   const keyRef = useRef<{ quoteId: string; key: string } | null>(null);
 
   if (!user) return null;
+  const wire = draft.payIn === 'wire';
   const verified = user.verification.status === 'verified';
   const canConfirm =
-    !!locked && !expired && !firm.loading && locked.issues.length === 0 && verified && ackCash && ackDocs && !!destination && !submitting;
+    !!locked &&
+    !expired &&
+    !firm.loading &&
+    locked.issues.length === 0 &&
+    verified &&
+    ackCash &&
+    ackDocs &&
+    (wire || !!destination) &&
+    !submitting;
 
   async function confirm() {
-    if (!locked || !destination) return;
+    if (!locked || (!wire && !destination)) return;
     if (keyRef.current?.quoteId !== locked.quote.id) keyRef.current = { quoteId: locked.quote.id, key: clientId('order') };
     setSubmitting(true);
     setError(null);
@@ -429,7 +535,8 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
       const order = await services.orders.create(
         {
           quoteId: locked.quote.id,
-          destinationId: destination.id,
+          // A wire has no saved destination; the server ignores this field for it.
+          destinationId: destination?.id ?? '',
           receiveAddress: draft.receiveAddress,
           accepted: orderDocs.map((d) => ({ slug: d.slug, version: d.version })),
         },
@@ -467,7 +574,7 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
             {locked ? (
               <>
                 <BuyQuoteBreakdown quote={locked.quote} loading={firm.loading} />
-                <BuyIssues issues={locked.issues} />
+                <BuyIssues issues={locked.issues} payIn={draft.payIn} />
               </>
             ) : firm.error ? (
               <Notice tone="warn" title={t('We couldn’t lock a quote')} role="alert">
@@ -497,9 +604,13 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
         </section>
 
         <p className="small muted">
-          {t(
-            'The exchange rate, courier fee, minimum, quote validity and collection window shown here are the conditions of this exchange. Under clause 4.24 of the',
-          )}{' '}
+          {wire
+            ? t(
+                'The exchange rate, wire fee, minimum, quote validity and wire window shown here are the conditions of this exchange. Under clause 4.24 of the',
+              )
+            : t(
+                'The exchange rate, courier fee, minimum, quote validity and collection window shown here are the conditions of this exchange. Under clause 4.24 of the',
+              )}{' '}
           <Link to="/legal/terms#clause-4-24">{t('Service Rules')}</Link>
           {t(
             ', continuing with this Exchange Request signifies your agreement with them. Submitting it is acceptance of the public offer (Section 3).',
@@ -508,8 +619,20 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
         <fieldset className="stack" style={{ border: 0, padding: 0, margin: 0 }}>
           <legend className="visually-hidden">{t('Acknowledgements')}</legend>
           <Checkbox id="ack-cash" checked={ackCash} onChange={setAckCash}>
-            {t('I will hand exactly')} {locked ? formatUsd(locked.quote.grossCents) : t('the quoted amount')}{' '}
-            {t('in US dollar cash to the courier in person, after the courier checks my photo ID. The')} {draft.asset}{' '}
+            {wire ? (
+              <>
+                {t('I will wire exactly')} {locked ? formatUsd(locked.quote.grossCents) : t('the quoted amount')}{' '}
+                {t(
+                  'from a US bank account in my own name, only to the instructions on my order page, with the order number as the reference. The',
+                )}{' '}
+                {draft.asset}
+              </>
+            ) : (
+              <>
+                {t('I will hand exactly')} {locked ? formatUsd(locked.quote.grossCents) : t('the quoted amount')}{' '}
+                {t('in US dollar cash to the courier in person, after the courier checks my photo ID. The')} {draft.asset}
+              </>
+            )}{' '}
             {t('goes only to the')} <strong>{networkLabel(draft.asset, draft.network)}</strong>{' '}
             {t('wallet address I gave, which I control. Blockchain transfers can’t be reversed.')}
           </Checkbox>
@@ -551,10 +674,17 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
           </div>
           <div className="panel__body">
             <dl className="dl">
-              <div>
-                <dt>{t('Cash collected at')}</dt>
-                <dd>{destination ? collectionAddress(destination) : '—'}</dd>
-              </div>
+              {wire ? (
+                <div>
+                  <dt>{t('You pay by')}</dt>
+                  <dd>{t('Bank wire. Instructions appear on your order page after you confirm.')}</dd>
+                </div>
+              ) : (
+                <div>
+                  <dt>{t('Cash collected at')}</dt>
+                  <dd>{destination ? collectionAddress(destination) : '—'}</dd>
+                </div>
+              )}
               <div>
                 <dt>{t('Crypto sent to')}</dt>
                 <dd className="mono">{draft.receiveAddress}</dd>
@@ -564,9 +694,10 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
                 <dd>{networkLabel(draft.asset, draft.network)}</dd>
               </div>
               <div>
-                <dt>{t('Collection window')}</dt>
+                <dt>{wire ? t('Wire window') : t('Collection window')}</dt>
                 <dd>
-                  {t('Within')} {CASH_COLLECTION_WINDOW_MS / 3_600_000} {t('hours after you confirm (estimated)')}
+                  {t('Within')} {(wire ? WIRE_RECEIPT_WINDOW_MS : CASH_COLLECTION_WINDOW_MS) / 3_600_000}{' '}
+                  {t('hours after you confirm (estimated)')}
                 </dd>
               </div>
             </dl>
@@ -581,6 +712,12 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
 /* ---------------- Flow ---------------- */
 export function BuyFlow({ header }: { header: ReactNode }) {
   const { draft, update, reset } = useBuyDraft();
+  // A link such as /exchange?direction=buy&pay=wire preselects the payment method.
+  const [params] = useSearchParams();
+  const payParam = params.get('pay');
+  useEffect(() => {
+    if (payParam === 'wire' || payParam === 'cash') update({ payIn: payParam === 'wire' ? 'wire' : 'courier_cash' });
+  }, [payParam, update]);
   const user = useUser();
   const cents = cashCents(draft.cash);
   const reachable = cents === null ? 1 : !user ? 2 : 3;
@@ -605,9 +742,9 @@ export function BuyFlow({ header }: { header: ReactNode }) {
     <>
       <div className="flow__head">
         {header}
-        <Stepper current={step} />
+        <Stepper current={step} payIn={draft.payIn} />
       </div>
-      {!courier.availability.available ? (
+      {draft.payIn === 'courier_cash' && !courier.availability.available ? (
         <Notice tone="warn" title={t('Buying with cash isn’t available right now')}>
           <p>{t('Cash collection by courier is switched off. You can still sell crypto for USD.')}</p>
         </Notice>
@@ -619,7 +756,12 @@ export function BuyFlow({ header }: { header: ReactNode }) {
         <div className="flow__grid">
           <div ref={headingRef} className="flow__step" key={`step-${step}`}>
             {step === 1 && <AmountStep draft={draft} update={update} quote={quote} onNext={() => go(2)} />}
-            {step === 2 && <DetailsStep draft={draft} update={update} onBack={() => go(1)} onNext={() => go(3)} />}
+            {step === 2 &&
+              (draft.payIn === 'wire' ? (
+                <WireDetailsStep draft={draft} update={update} onBack={() => go(1)} onNext={() => go(3)} />
+              ) : (
+                <DetailsStep draft={draft} update={update} onBack={() => go(1)} onNext={() => go(3)} />
+              ))}
           </div>
           <aside className="flow__aside" aria-label={t('Quote summary')}>
             {quote.data ? (
