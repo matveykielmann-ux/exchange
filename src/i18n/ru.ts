@@ -6,11 +6,13 @@
 import { RU_ADMIN } from './ru-admin';
 import { RU_CRM } from './ru-crm';
 import { RU_DOMAIN } from './ru-domain';
+import { RU_KYC } from './ru-kyc';
 import { RU_PUBLIC } from './ru-public';
 import { RU_PUBLIC2 } from './ru-public2';
 import { RU_PUBLIC3 } from './ru-public3';
 
 export const RU: Record<string, string> = {
+  ...RU_KYC,
   ...RU_ADMIN,
   ...RU_PUBLIC,
   ...RU_PUBLIC2,

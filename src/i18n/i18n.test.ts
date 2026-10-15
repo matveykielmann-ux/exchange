@@ -1,4 +1,5 @@
 import { COURIER_WINDOW_LABELS } from '@/domain/courier';
+import { ID_DOCUMENT_LABEL, KYC_FILE_LABEL } from '@/domain/identity';
 import { ORDER_STAGE_LABEL, ORDER_STATUS_LABEL, ORDER_STATUSES, orderStatusLabel } from '@/domain/order';
 import { PAYOUT_METHODS, describeFee } from '@/domain/payout';
 import {
@@ -47,6 +48,8 @@ describe('Russian dictionary', () => {
       ...ORDER_STATUSES.map((s) => orderStatusLabel(s, 'buy')),
       ...Object.values(ORDER_STAGE_LABEL),
       ...Object.values(COURIER_WINDOW_LABELS),
+      ...Object.values(ID_DOCUMENT_LABEL),
+      ...Object.values(KYC_FILE_LABEL),
       ...Object.values(PAYOUT_METHODS).flatMap((m) => [m.name, m.summary, m.timingEstimate]),
       describeFee({ kind: 'none' }),
       // CRM labels and texts kept in tables

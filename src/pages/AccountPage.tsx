@@ -25,14 +25,18 @@ const KYC: Record<KycStatus, { label: string; tone: 'neutral' | 'success' | 'inf
   unverified: {
     label: 'Not verified',
     tone: 'neutral',
-    body: 'Verify your identity before your first exchange. You only need to do this once.',
+    body: 'Verify your identity before your first exchange: upload a photo ID, a selfie and a proof of address. You only need to do this once.',
   },
-  pending: { label: 'In progress', tone: 'info', body: 'We are checking your details. This page updates when the result arrives.' },
+  pending: {
+    label: 'In review',
+    tone: 'info',
+    body: 'Our team is reviewing your documents. We will notify you when the review is finished.',
+  },
   verified: { label: 'Verified', tone: 'success', body: 'You can place online exchanges up to the per-order limit.' },
   needs_info: {
     label: 'More information needed',
     tone: 'warn',
-    body: 'Our team needs more information to finish verifying you. Check your support messages.',
+    body: 'Our team needs more information to finish verifying you. Open your documents to see the reviewer’s note.',
   },
   rejected: {
     label: 'Not approved',
@@ -179,23 +183,9 @@ function ProfileSection({ user }: { user: User }) {
 }
 
 function VerificationSection({ user }: { user: User }) {
-  const { account, config } = useServices();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { config } = useServices();
   const k = KYC[user.verification.status];
-
-  async function start() {
-    setBusy(true);
-    setError(null);
-    try {
-      const r = await account.startVerification();
-      if (r.hostedUrl) window.location.assign(r.hostedUrl);
-    } catch (e) {
-      setError(isNotConfigured(e) ? t('Identity verification is not available yet: the provider is not connected.') : errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const status = user.verification.status;
 
   return (
     <Section
@@ -204,28 +194,26 @@ function VerificationSection({ user }: { user: User }) {
       aside={<StatusBadge tone={k.tone === 'danger' ? 'danger' : k.tone}>{t(k.label)}</StatusBadge>}
     >
       <p>{t(k.body)}</p>
-      {config.mode === 'sandbox' ? (
+      {config.mode === 'sandbox' && status !== 'verified' ? (
         <p className="small muted">
-          {t(
-            'Sandbox: results come from test rules based on your name (“Review” needs more information, “Reject” is rejected, “Sanctioned” fails screening). No documents are collected.',
-          )}{' '}
-          <MockBadge />
+          {t('Sandbox: upload test images, not real documents. A reviewer decides in the CRM.')} <MockBadge />
         </p>
       ) : null}
-      {user.verification.status === 'unverified' ? (
-        <div>
-          <button type="button" className="btn" disabled={busy} onClick={start}>
-            {busy ? t('Starting…') : t('Verify my identity')}
-          </button>
-        </div>
-      ) : user.verification.status === 'needs_info' || user.verification.status === 'rejected' ? (
-        <div>
+      <div>
+        {status === 'rejected' ? (
           <Link className="btn btn--secondary" to="/support">
             {t('Open support messages')}
           </Link>
-        </div>
-      ) : null}
-      {error ? <Notice tone={error.includes('not available yet') ? 'warn' : 'danger'} title={error} role="alert" /> : null}
+        ) : (
+          <Link className={status === 'unverified' || status === 'needs_info' ? 'btn' : 'btn btn--secondary'} to="/verification">
+            {status === 'unverified'
+              ? t('Verify my identity')
+              : status === 'needs_info'
+                ? t('Update my documents')
+                : t('View my documents')}
+          </Link>
+        )}
+      </div>
     </Section>
   );
 }

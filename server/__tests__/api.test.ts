@@ -574,6 +574,104 @@ describe('API', () => {
     expect((await c.get('/api/me')).body).toMatchObject({ countryOfResidence: 'DE', stateOfResidence: null });
   });
 
+  it('verifies identity by documents: encrypted files, reviewer-only access, decisions with a reason', async () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]).toString('base64');
+    const pdf = Buffer.from('%PDF-1.4 test').toString('base64');
+    const file = (kind: string, dataBase64 = png, contentType = 'image/png') => ({
+      kind,
+      fileName: `${kind}.png`,
+      contentType,
+      dataBase64,
+    });
+    const c = env.client();
+    await c.post('/api/auth/signup', {
+      email: 'kyc@example.test',
+      password: SANDBOX_PASSWORD,
+      fullName: 'Jordan Lee',
+      countryOfResidence: 'US',
+      stateOfResidence: 'NY',
+      notInRestrictedTerritory: true,
+      accepted: docs('signup'),
+    });
+    expect((await c.get('/api/me/kyc')).body).toMatchObject({ status: 'unverified', submission: null });
+    // The ID type comes first; a file before it is refused.
+    expect((await c.post('/api/me/kyc/files', file('selfie'))).status).toBe(400);
+    expect((await c.put('/api/me/kyc/id-type', { idType: 'drivers_license' })).body.submission.missing).toEqual([
+      'id_front',
+      'id_back',
+      'selfie',
+      'proof_of_address',
+    ]);
+    // Real file checks: a PDF selfie, mismatched types and garbage are refused.
+    expect((await c.post('/api/me/kyc/files', file('selfie', pdf, 'application/pdf'))).status).toBe(415);
+    expect((await c.post('/api/me/kyc/files', file('id_front', png, 'image/jpeg'))).status).toBe(415);
+    expect((await c.post('/api/me/kyc/files', file('id_front', 'not base64!'))).status).toBe(400);
+    for (const k of ['id_front', 'id_back', 'selfie']) expect((await c.post('/api/me/kyc/files', file(k))).status).toBe(201);
+    expect((await c.post('/api/me/kyc/submit')).status).toBe(400);
+    const poa = await c.post('/api/me/kyc/files', file('proof_of_address', pdf, 'application/pdf'));
+    expect(poa.body.submission.missing).toEqual([]);
+
+    // Stored encrypted: the raw column holds no plaintext.
+    const row = env.ctx.db.get<{ content_enc: string }>("SELECT content_enc FROM kyc_files WHERE kind = 'proof_of_address'")!;
+    expect(row.content_enc.startsWith('v1:')).toBe(true);
+    expect(row.content_enc).not.toContain(pdf);
+    const own = poa.body.submission.files.find((f: { kind: string }) => f.kind === 'proof_of_address');
+    expect((await c.get(`/api/me/kyc/files/${own.id}`)).body.dataBase64).toBe(pdf);
+    const other = env.client();
+    await customer(other, 'other@example.test');
+    expect((await other.get(`/api/me/kyc/files/${own.id}`)).status).toBe(404);
+
+    const sent = await c.post('/api/me/kyc/submit');
+    expect(sent.body).toMatchObject({ status: 'pending', submission: { status: 'submitted' } });
+    expect((await c.post('/api/me/kyc/files', file('selfie'))).status).toBe(409);
+    const id = sent.body.submission.id;
+
+    // Support cannot see documents; a reviewer can, and each view is audited.
+    const support = await staff(env.app, env.base, 'support');
+    expect((await support.get('/api/admin/kyc')).status).toBe(403);
+    expect((await support.get(`/api/admin/kyc/${id}/files/${own.id}`)).status).toBe(403);
+    const reviewer = await staff(env.app, env.base, 'reviewer');
+    expect((await reviewer.get('/api/admin/kyc')).body.items.map((x: { id: string }) => x.id)).toEqual([id]);
+    const detail = await reviewer.get(`/api/admin/kyc/${id}`);
+    expect(detail.body).toMatchObject({ idType: 'drivers_license', customer: { name: 'Jordan Lee', kycStatus: 'pending' } });
+    expect((await reviewer.get(`/api/admin/kyc/${id}/files/${own.id}`)).body.dataBase64).toBe(pdf);
+    expect(env.ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM audit_events WHERE action = 'kyc.file_viewed'")!.n).toBe(1);
+
+    // Needs info: the customer sees the note, replaces a file and sends again; then approval verifies the account.
+    expect((await reviewer.post(`/api/admin/kyc/${id}/decision`, { decision: 'needs_info', reason: '' })).status).toBe(400);
+    await reviewer.post(`/api/admin/kyc/${id}/decision`, { decision: 'needs_info', reason: 'The selfie is blurry.' });
+    expect((await c.get('/api/me/kyc')).body).toMatchObject({ status: 'needs_info', submission: { reason: 'The selfie is blurry.' } });
+    expect((await c.post('/api/me/kyc/files', file('selfie'))).status).toBe(201);
+    expect((await c.post('/api/me/kyc/submit')).body.status).toBe('pending');
+    const ok = await reviewer.post(`/api/admin/kyc/${id}/decision`, { decision: 'approve', reason: 'Documents match the profile.' });
+    expect(ok.body.status).toBe('approved');
+    expect((await c.get('/api/me')).body.verification).toEqual({ status: 'verified', level: 'basic' });
+    expect((await c.get('/api/me/kyc')).body.submission.reason).toBeNull();
+    expect((await reviewer.post(`/api/admin/kyc/${id}/decision`, { decision: 'reject', reason: 'Changed my mind' })).status).toBe(409);
+  });
+
+  it('rejects a document verification that fails sanctions screening', async () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9]).toString('base64');
+    const c = env.client();
+    await c.post('/api/auth/signup', {
+      email: 'blocked@example.test',
+      password: SANDBOX_PASSWORD,
+      fullName: 'Sanctioned Person',
+      countryOfResidence: 'US',
+      stateOfResidence: 'NY',
+      notInRestrictedTerritory: true,
+      accepted: docs('signup'),
+    });
+    await c.put('/api/me/kyc/id-type', { idType: 'passport' });
+    expect(
+      (await c.post('/api/me/kyc/files', { kind: 'id_back', fileName: 'b.png', contentType: 'image/png', dataBase64: png })).status,
+    ).toBe(400);
+    for (const kind of ['id_front', 'selfie', 'proof_of_address'])
+      await c.post('/api/me/kyc/files', { kind, fileName: `${kind}.png`, contentType: 'image/png', dataBase64: png });
+    const r = await c.post('/api/me/kyc/submit');
+    expect(r.body).toMatchObject({ status: 'rejected', submission: { status: 'rejected', reason: null } });
+  });
+
   it('isolates customers from each other', async () => {
     const a = env.client();
     const { bankId } = await customer(a, 'a1@example.test');

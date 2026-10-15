@@ -944,3 +944,38 @@
     justify-self: start;
   }
 }
+
+/* ---------- Identity verification review ---------- */
+.kyc-review {
+  display: grid;
+  gap: var(--s-5);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  align-items: start;
+}
+.kyc-docs {
+  display: grid;
+  gap: var(--s-4);
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+.kyc-doc {
+  margin: 0;
+  display: grid;
+  gap: var(--s-2);
+  align-content: start;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.kyc-doc__img {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-sunken);
+}
+@media (max-width: 900px) {
+  .kyc-review {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

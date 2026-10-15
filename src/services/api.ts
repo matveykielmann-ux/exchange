@@ -17,6 +17,7 @@ import type {
   PublicConfig,
   QuoteData,
   QuoteInput,
+  KycState,
   ReferencePrice,
   Services,
   SessionStore,
@@ -257,6 +258,12 @@ export async function createApiServices(base = ''): Promise<Services> {
     setUserStatus: (id, status, reason) => http.post(`/api/admin/users/${encodeURIComponent(id)}/status`, { status, reason }),
     audit: (q) => http.get(`/api/admin/audit${qs(q)}`),
     webhooks: (page) => http.get(`/api/admin/webhooks${qs({ page })}`),
+    kyc: {
+      queue: (q) => http.get(`/api/admin/kyc${qs({ status: q.status, page: q.page })}`),
+      get: (id) => http.get(`/api/admin/kyc/${encodeURIComponent(id)}`),
+      file: (id, fileId) => http.get(`/api/admin/kyc/${encodeURIComponent(id)}/files/${encodeURIComponent(fileId)}`),
+      decide: (id, decision, reason) => http.post(`/api/admin/kyc/${encodeURIComponent(id)}/decision`, { decision, reason }),
+    },
     system: () => http.get('/api/admin/system'),
     largeDesk: (page) => http.get(`/api/admin/large-desk${qs({ page })}`),
     sandbox: {
@@ -344,6 +351,22 @@ export async function createApiServices(base = ''): Promise<Services> {
         const r = await http.post<J>('/api/me/verification');
         await refresh();
         return r;
+      },
+      kyc: {
+        // Each read also refreshes the session, so a reviewer's decision reaches the exchange gate.
+        async get() {
+          const r = await http.get<KycState>('/api/me/kyc');
+          if (r.status !== session.current()?.verification.status) await refresh();
+          return r;
+        },
+        setIdType: (idType) => http.put('/api/me/kyc/id-type', { idType }),
+        upload: (file) => http.post('/api/me/kyc/files', file),
+        file: (id) => http.get(`/api/me/kyc/files/${encodeURIComponent(id)}`),
+        async submit() {
+          const r = await http.post<KycState>('/api/me/kyc/submit');
+          await refresh();
+          return r;
+        },
       },
       destinations: async () => (await http.get<{ destinations: Destination[] }>('/api/me/destinations')).destinations,
       addBankAccount: (input) => http.post('/api/me/destinations/bank', input),

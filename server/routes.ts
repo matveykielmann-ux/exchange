@@ -29,6 +29,8 @@ import * as ops from './services/operations';
 import * as orders from './services/orders';
 import { firmQuote, indicativeQuote, referencePrice, type QuoteInput } from './services/quotes';
 import { DOCUMENT_TYPES, uploadOrderDocument } from './services/documents';
+import * as kyc from './services/kyc';
+import { ID_DOCUMENT_TYPES, KYC_FILE_KINDS, KYC_FILE_MAX_BYTES } from '@/domain/identity';
 import { COUNTRY_CODES } from '@/domain/residence';
 import * as sandbox from './services/sandbox';
 import * as support from './services/support';
@@ -358,6 +360,38 @@ export function registerRoutes(r: Router, app: AppContext) {
     { auth: 'user', rateLimit: WRITE_LIMIT },
   );
   r.post('/api/me/verification', async (ctx) => ({ body: await customers.startVerification(app, actorOf(ctx), me(ctx)) }), {
+    auth: 'user',
+    rateLimit: { bucket: 'kyc', max: 5, windowMs: 60 * 60_000 },
+  });
+  /* Identity verification by documents (Service Rules 8.1). */
+  const KYC_BODY_BYTES = Math.ceil((KYC_FILE_MAX_BYTES * 4) / 3) + 64 * 1024;
+  r.get('/api/me/kyc', (ctx) => ({ body: kyc.customerKyc(app, me(ctx)) }), { auth: 'user' });
+  r.put(
+    '/api/me/kyc/id-type',
+    (ctx) => {
+      const b = parse(v.object({ idType: v.enum(ID_DOCUMENT_TYPES, 'ID type') }), ctx.body);
+      return { body: kyc.setIdType(app, actorOf(ctx), me(ctx), b.idType) };
+    },
+    { auth: 'user', rateLimit: WRITE_LIMIT },
+  );
+  r.post(
+    '/api/me/kyc/files',
+    (ctx) => {
+      const b = parse(
+        v.object({
+          kind: v.enum(KYC_FILE_KINDS, 'document'),
+          fileName: v.string({ max: 200, label: 'a file name' }),
+          contentType: v.enum(DOCUMENT_TYPES, 'file type'),
+          dataBase64: v.string({ max: KYC_BODY_BYTES, trim: false, label: 'the file' }),
+        }),
+        ctx.body,
+      );
+      return { status: 201, body: kyc.uploadKycFile(app, actorOf(ctx), me(ctx), b) };
+    },
+    { auth: 'user', maxBodyBytes: KYC_BODY_BYTES, rateLimit: { bucket: 'kyc-files', max: 30, windowMs: 60 * 60_000 } },
+  );
+  r.get('/api/me/kyc/files/:id', (ctx) => ({ body: kyc.customerFile(app, me(ctx), ctx.params.id!) }), { auth: 'user' });
+  r.post('/api/me/kyc/submit', async (ctx) => ({ body: await kyc.submitKyc(app, actorOf(ctx), me(ctx)) }), {
     auth: 'user',
     rateLimit: { bucket: 'kyc', max: 5, windowMs: 60 * 60_000 },
   });
@@ -929,6 +963,37 @@ function registerAdminRoutes(r: Router, app: AppContext) {
       };
     },
     staff(REVIEWER),
+  );
+  /* Identity verification review: reviewers and admins only, never support. */
+  r.get(
+    '/api/admin/kyc',
+    (ctx) => {
+      const status = parse(
+        v.optional(v.enum(['submitted', 'needs_info', 'approved', 'rejected', 'all'] as const, 'status')),
+        ctx.query.get('status') ?? undefined,
+      );
+      return { body: kyc.kycQueue(app, { status: status ?? 'submitted', ...pageV(ctx.query) }) };
+    },
+    staff(REVIEWER),
+  );
+  r.get('/api/admin/kyc/:id', (ctx) => ({ body: kyc.kycDetail(app, ctx.params.id!) }), staff(REVIEWER));
+  r.get('/api/admin/kyc/:id/files/:fileId', (ctx) => ({ body: kyc.staffFile(app, actorOf(ctx), ctx.params.id!, ctx.params.fileId!) }), {
+    ...staff(REVIEWER),
+    rateLimit: { bucket: 'kyc-view', max: 300, windowMs: 60 * 60_000 },
+  });
+  r.post(
+    '/api/admin/kyc/:id/decision',
+    (ctx) => {
+      const b = parse(
+        v.object({
+          decision: v.enum(['approve', 'needs_info', 'reject'] as const, 'decision'),
+          reason: v.string({ min: 4, max: 500, label: 'a reason' }),
+        }),
+        ctx.body,
+      );
+      return { body: kyc.decide(app, actorOf(ctx), ctx.params.id!, b.decision, b.reason) };
+    },
+    { ...staff(REVIEWER), rateLimit: WRITE_LIMIT },
   );
   r.get('/api/admin/webhooks', (ctx) => ({ body: admin.webhookLog(app, pageV(ctx.query).page, pageV(ctx.query).pageSize) }), staff(ADMIN));
   r.get('/api/admin/system', () => ({ body: admin.systemStatus(app) }), staff(ADMIN));
