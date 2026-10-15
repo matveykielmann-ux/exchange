@@ -108,7 +108,9 @@ export function registerRoutes(r: Router, app: AppContext) {
 
   r.get('/api/prices', async () => {
     const prices = await Promise.all(ASSET_ORDER.map((a) => referencePrice(app, a)));
-    return { body: { prices: prices.map((p) => ({ asset: p.asset, priceMicros: p.priceMicros, asOf: p.asOf, source: p.source })) } };
+    return {
+      body: { prices: prices.map((p) => ({ asset: p.asset, priceMicros: p.priceMicros, asOf: p.asOf, source: p.source, feed: p.feed })) },
+    };
   });
 
   r.get(

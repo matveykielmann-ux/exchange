@@ -60,6 +60,8 @@ export interface ReferencePrice {
   priceMicros: bigint;
   asOf: number;
   source: 'sandbox' | 'live';
+  /** Market-data feed the number came from, when it is a public feed rather than the contracted rates provider. */
+  feed?: 'coingecko';
 }
 export interface RateProvider extends Provider {
   getReferencePrice(asset: AssetCode): Promise<ReferencePrice>;

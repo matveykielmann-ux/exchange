@@ -48,6 +48,26 @@ Fill in `.env.production`:
 - `SESSION_SECRET` and `DATA_ENCRYPTION_KEY`. **Store the encryption key in your password manager too.** Without it, payout details and MFA secrets in the database and in every backup are unreadable.
 - Provider blocks only for providers you have contracts with ([`docs/providers.md`](docs/providers.md)).
 
+### Exchange rates (CoinGecko)
+
+To show market prices instead of the sandbox price schedule, add to `.env.production`:
+
+```bash
+RATES_SOURCE=coingecko
+# optional, recommended: a free Demo key from https://www.coingecko.com/en/api
+COINGECKO_API_KEY=CG-...
+# COINGECKO_API_PLAN=demo        # or pro (then the key is required)
+# COINGECKO_CACHE_SECONDS=30     # 10-55
+```
+
+- **Server side only.** The app server calls CoinGecko; browsers only call `/api/prices`, so the CSP stays `connect-src 'self'` and the key never reaches the client.
+- **Outbound network.** The VPS must allow outbound HTTPS (TCP 443) to `api.coingecko.com` (`pro-api.coingecko.com` on the pro plan). Check it with `docker compose --env-file .env.production exec app node -e "fetch('https://api.coingecko.com/api/v3/ping').then(r=>console.log(r.status))"`; expect `200`.
+- **Rate limits.** One request fetches all four assets and is cached for `COINGECKO_CACHE_SECONDS`, and requests are only made while someone is viewing prices, so the server makes at most ~2 requests a minute. A 429 pauses requests for the `Retry-After` period (at least a minute). The free Demo plan has a monthly call allowance; on a busy site raise the cache time or use a paid plan.
+- **No fake numbers.** A cached price is served for at most 60 seconds. After that, quotes fail with "Pricing is temporarily unavailable" and the price strip shows "Rate unavailable" until CoinGecko answers again. The admin **System** page shows the last CoinGecko error.
+- **Sandbox stays sandbox.** With `APP_MODE=sandbox` only the price is real: deposit addresses, payouts and orders remain simulated and keep their sandbox labels.
+- **Rules.** CoinGecko is an aggregated, indicative source. The service rules (section 5, `/legal/terms`) say rates are determined from Binance, Coinbase, OKX and Kraken; the owner should update that clause or describe CoinGecko as indicative before using these prices for real quotes.
+- **Local run.** `RATES_SOURCE=coingecko pnpm dev` (PowerShell: `$env:RATES_SOURCE="coingecko"; pnpm dev`).
+
 For a sandbox staging site, set `APP_MODE=sandbox`, remove the provider blocks, and enable `basic_auth` in `deploy/Caddyfile`.
 
 Check the configuration without starting anything:
@@ -135,6 +155,7 @@ If the new version applied a migration, roll back the database too, using the pr
 | Caddy cannot get a certificate | DNS does not point at the server yet, or ports 80/443 are blocked. `docker compose logs caddy`. |
 | Live updates show "Reconnecting" | A proxy is buffering `/api/events`. Keep `flush_interval -1` in the Caddyfile. Pages fall back to polling meanwhile. |
 | Everyone shares one rate-limit bucket | `TRUST_PROXY` is off behind the proxy. It is set in `compose.yaml`; keep it. |
+| Price strip shows "Rate unavailable" with `RATES_SOURCE=coingecko` | The server cannot reach CoinGecko or is rate limited. Check outbound HTTPS to `api.coingecko.com` and the System page; add `COINGECKO_API_KEY` or raise `COINGECKO_CACHE_SECONDS` if it says 429. |
 | Quotes fail with "not available yet" | The rates provider is `NOT_CONFIGURED`. Expected in production until a rates contract exists. |
 | Staff cannot sign in | Production requires an authenticator code. Re-create the account with `create-user` to get a new secret. |
 | Permission denied writing backups | `sudo chown 1000:1000 backups`. |

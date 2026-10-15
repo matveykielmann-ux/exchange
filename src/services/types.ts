@@ -63,6 +63,8 @@ export interface ReferencePrice {
   priceMicros: Micros;
   asOf: number;
   source: 'sandbox' | 'live';
+  /** Set when the price comes from a public market-data feed (indicative). */
+  feed?: 'coingecko';
 }
 
 export interface SellQuoteInput {

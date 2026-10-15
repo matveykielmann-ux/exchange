@@ -1,12 +1,19 @@
 import type { AppConfig } from '../config';
 import type { Logger } from '../logger';
+import { createCoinGeckoRates } from './coingecko';
 import { createProductionProviders } from './production';
 import { createSandboxProviders } from './sandbox';
 import type { ProviderInfo, Providers, WebhookSource } from './types';
 
-/** Sandbox mode gets sandbox providers; production mode gets production adapters only. There is no mixing. */
+/**
+ * Sandbox mode gets sandbox providers; production mode gets production adapters only. The one exception
+ * is RATES_SOURCE=coingecko, which swaps in read-only public market prices in either mode. It moves no
+ * money, and in sandbox mode quotes and orders stay marked as sandbox.
+ */
 export function createProviders(config: AppConfig, log: Logger, now: () => number): Providers {
-  return config.mode === 'sandbox' ? createSandboxProviders(config, now) : createProductionProviders(config, log);
+  const providers = config.mode === 'sandbox' ? createSandboxProviders(config, now) : createProductionProviders(config, log);
+  if (!config.coingecko) return providers;
+  return { ...providers, rates: createCoinGeckoRates({ settings: config.coingecko, mode: config.mode, log, now }) };
 }
 
 export function providerInfos(p: Providers): ProviderInfo[] {
