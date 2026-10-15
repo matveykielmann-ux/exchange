@@ -45,9 +45,10 @@ function ModeBanner() {
       <div className="preview-banner" role="region" aria-label={t('Service notice')}>
         <div className="container">
           <span>
-            <strong>{t('Internal testing instance.')}</strong> {t('Do not transfer real funds to addresses shown here.')}
+            <strong>{t('Do not transfer real funds.')}</strong>{' '}
+            {t('Addresses and payment details shown here must not be used for live transfers.')}
           </span>
-          <Link to="/security#status">{t('Provider status')}</Link>
+          <Link to="/help">{t('Help')}</Link>
         </div>
       </div>
     );
@@ -60,7 +61,7 @@ function ModeBanner() {
             <strong>{t('Exchanges require connected providers.')}</strong>{' '}
             {t('Custody, payout and verification services must be configured before funds can move.')}
           </span>
-          <Link to="/security#status">{t('Provider status')}</Link>
+          <Link to="/help">{t('Help')}</Link>
         </div>
       </div>
     );

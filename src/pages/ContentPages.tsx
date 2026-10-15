@@ -1,11 +1,9 @@
-import { SupportContact } from '@/components/SupportContact';
+import { SupportContact, TelegramLink } from '@/components/SupportContact';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Icon } from '@/components/Icon';
 import { Notice, PageHeader } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
-import { useConfig } from '@/state/config';
-import { BRAND } from '@/config/brand';
+import { BRAND, SUPPORT } from '@/config/brand';
 import { FAQ, FaqList, type FaqItem } from '@/content/faq';
 import { NETWORKS } from '@/domain/assets';
 import { formatUsd } from '@/domain/money';
@@ -252,129 +250,101 @@ export function FeesPage() {
 }
 
 /* ---------------- Security ---------------- */
-function SecurityStatus() {
-  const config = useConfig();
-  if (config.mode === 'sandbox')
-    return (
-      <Notice tone="warn" title={t('Internal testing instance')}>
-        <p>
-          {t(
-            'Identity verification, screening, deposits and payouts use test providers on this instance. Server controls still run; provider outcomes are not live.',
-          )}
-        </p>
-      </Notice>
-    );
-  const missing = config.providers.filter((p) => p.state !== 'configured');
-  return (
-    <Notice
-      tone={missing.length ? 'warn' : 'info'}
-      title={missing.length ? t('Some providers are not connected yet') : t('Providers connected')}
-    >
-      {missing.length ? (
-        <p>
-          {t('Not yet connected:')} {missing.map((p) => p.label).join(', ')}
-          {t(". Orders that need them can't be placed until they are.")}
-        </p>
-      ) : (
-        <p>{t('Every provider this service relies on is configured.')}</p>
-      )}
-    </Notice>
-  );
-}
-
 export function SecurityPage() {
   useDocumentTitle('Security');
   return (
     <>
       <PageHeader
         eyebrow={t('Security')}
-        title={t('How the product protects you.')}
-        lead={t('How accounts, data and transactions are protected, what is still being set up, and how to protect yourself from scams.')}
+        title={t('Account security and customer protection')}
+        lead={t(
+          'CryptoBit Exchange focuses on protecting accounts, personal data and the security of exchange operations. We apply technical and organisational measures to protect information and control exchange operations.',
+        )}
       />
       <WithToc
         toc={[
-          ['status', 'Current status'],
           ['account', 'Your account'],
           ['data', 'Your data'],
-          ['transactions', 'Transactions'],
-          ['scams', 'Scams'],
-          ['report', 'Report an issue'],
+          ['operations', 'Exchange operation security'],
+          ['scams', 'How to protect yourself from fraud'],
+          ['contact', 'Contact support'],
         ]}
       >
-        <h2 id="status">{t('Current status')}</h2>
-        <SecurityStatus />
         <h2 id="account">{t('Your account')}</h2>
         <ul>
-          <li>{t('Passwords are stored only as salted, slow hashes. Repeated failed sign-ins lock the account for a short time.')}</li>
-          <li>{t('Sessions are held on our server and referenced by a secure, HTTP-only cookie. They expire after 12 hours.')}</li>
+          <li>{t('Passwords are protected with strong hashing.')}</li>
+          <li>{t('Sessions are protected by authentication and access-control mechanisms.')}</li>
           <li>
-            {t(
-              'You can add an authenticator app for two-step sign-in, see your active sessions and sign out the others from your account.',
-            )}
+            {t('When two-step authentication is enabled, you can further protect sign-in to your account.')}
           </li>
-          <li>{t('Changing your password signs out every other session.')}</li>
+          <li>{t('When you change your password, the system applies its safeguards for active sessions.')}</li>
         </ul>
         <h2 id="data">{t('Your data')}</h2>
         <ul>
-          <li>{t('Bank account details are encrypted in our database and shown back only as the last four digits.')}</li>
-          <li>{t('Card numbers are never typed into this site, and security codes (CVV) are never collected or stored.')}</li>
-          <li>
-            {t('Staff see masked contact details by default, and every staff action on an order is recorded in an append-only audit log.')}
-          </li>
-          <li>{t('No analytics, advertising or third-party scripts are loaded. Fonts are served from this site.')}</li>
+          <li>{t('Access to personal data is limited according to access rights.')}</li>
+          <li>{t('Payment details are handled with the protection measures in place.')}</li>
+          <li>{t('Staff receive access to the information needed to process orders.')}</li>
+          <li>{t('Staff actions on orders are recorded in the audit system.')}</li>
+          <li>{t('We aim to minimise the collection and disclosure of confidential information.')}</li>
         </ul>
-        <h2 id="transactions">{t('Transactions')}</h2>
+        <h2 id="operations">{t('Exchange operation security')}</h2>
         <ul>
-          <li>{t("Each exchange moves through a fixed sequence of states. A payout can't be sent before the deposit is final.")}</li>
-          <li>{t('Quotes are stored when issued, can be used once, and are refused after they expire.')}</li>
-          <li>
-            {t('A deposit counts only when our blockchain monitoring reports it. Saying "I sent it" doesn\'t move an order forward.')}
-          </li>
-          <li>{t('Refund addresses are screened before any refund is sent.')}</li>
+          <li>{t('Orders follow the processing stages provided by the system.')}</li>
+          <li>{t('The exchange rate and terms are fixed in accordance with the service rules.')}</li>
           <li>
             {t(
-              'Payouts above the review threshold, or with any exception, need a person on our team to approve them, with a recorded reason.',
+              'Crypto deposits are confirmed on the basis of transaction data received by the monitoring system when the relevant integration is available.',
+            )}
+          </li>
+          <li>
+            {t('Payouts are made after the required checks and confirmation of the applicable operation conditions.')}
+          </li>
+          <li>
+            {t(
+              'If questions arise or a situation is non-standard, an order may be sent for additional review.',
             )}
           </li>
         </ul>
-        <h2 id="scams">{t('Protect yourself from scams')}</h2>
-        <Notice tone="danger" title={t('We will never ask you to send crypto')}>
+        <h2 id="scams">{t('How to protect yourself from fraud')}</h2>
+        <Notice
+          tone="danger"
+          title={t('Never send funds at the request of unknown persons posing as support staff.')}
+        >
           <p>
-            {t('Nobody from')} {BRAND.name}{' '}
             {t(
-              'will call, text, or message you asking you to buy or send crypto, move money to "protect" it, or share a sign-in code. Government agencies and banks don\'t ask for that either.',
+              'Do not share passwords, sign-in codes or account-recovery details with anyone. Do not transfer funds to “protect an account”, unlock money, or meet demands from unknown persons.',
             )}
           </p>
         </Notice>
         <ul>
+          <li>{t('Do not share passwords, sign-in codes or account-recovery details with anyone.')}</li>
           <li>
-            {t('Only contacts listed on this website are official (clause 4.21 of the')}{' '}
-            <Link to="/legal/terms#clause-4-21">{t('Service Rules')}</Link>
-            ).
+            {t(
+              'Do not transfer funds to “protect an account”, unlock money, or meet demands from unknown persons.',
+            )}
           </li>
-          <li>{t('Be wary of anyone who contacts you first and creates urgency.')}</li>
-          <li>{t('Don\'t send crypto to pay a debt, a fine, a "security fee" or for a romance or investment opportunity.')}</li>
+          <li>{t('Check the website address before signing in and creating an order.')}</li>
           <li>
-            {t("If you think you've been targeted, stop, contact your bank, and report it at")}{' '}
-            <a href="https://reportfraud.ftc.gov/" rel="noopener noreferrer" target="_blank">
-              {t('reportfraud.ftc.gov')}{' '}
-              <Icon name="external" width={14} height={14} style={{ display: 'inline', verticalAlign: '-2px' }} />
-              <span className="visually-hidden">{t('(opens in a new tab)')}</span>
-            </a>{' '}
-            {t('or')}{' '}
-            <a href="https://www.ic3.gov/" rel="noopener noreferrer" target="_blank">
-              {t('ic3.gov')} <Icon name="external" width={14} height={14} style={{ display: 'inline', verticalAlign: '-2px' }} />
-              <span className="visually-hidden">{t('(opens in a new tab)')}</span>
-            </a>
-            .
+            {t('If you suspect fraud, stop the operation and contact support through an official channel.')}
           </li>
         </ul>
-        <h2 id="report">{t('Report a security issue')}</h2>
+        <h2 id="contact">{t('Contact support')}</h2>
         <p>
-          {t('Send details to')} <span className="mono">{BRAND.supportEmail}</span> {t('or through')}{' '}
-          <Link to="/support">{t('support messages')}</Link>
-          {t('. A vulnerability disclosure policy will be published here before launch.')}
+          {t(
+            'If you have questions about an exchange, an order or account security, contact our support team.',
+          )}
         </p>
+        <ul>
+          <li>
+            <strong>{t('Telegram:')}</strong>{' '}
+            <TelegramLink>{SUPPORT.telegramUrl}</TelegramLink>
+          </li>
+          <li>
+            <strong>{t('On-site support:')}</strong>{' '}
+            <Link to="/support">{t('Use the support messages section')}</Link>.
+          </li>
+        </ul>
+        <SupportContact title={t('Need help with security?')} />
       </WithToc>
     </>
   );
@@ -454,9 +424,9 @@ export function HelpPage() {
           <div style={{ marginTop: 64, maxWidth: 720 }}>
             <SupportContact title={t('Contacting support')}>
               {t('Message us on Telegram, or, signed in,')} <Link to="/support">{t('send us a message')}</Link>{' '}
-              {t("and link it to an order if it's about one; replies appear in your account. You can also write to")}{' '}
-              <span className="mono">{BRAND.supportEmail}</span>
-              {t('. Never share your password, codes, private keys or seed phrase with anyone, including us.')}
+              {t(
+                "and link it to an order if it's about one; replies appear in your account. Never share your password, codes, private keys or seed phrase with anyone, including us.",
+              )}
             </SupportContact>
           </div>
         </div>

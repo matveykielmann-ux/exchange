@@ -343,66 +343,64 @@ export const RU_PUBLIC2: Record<string, string> = {
   'Worked example': 'Пример расчёта',
   'Selling 0.10 BTC at an illustrative reference price of': 'Продажа 0,10 BTC по условной справочной цене',
   ', paid by bank transfer:': ', выплата банковским переводом:',
-  'Internal testing instance': 'Внутренний тестовый экземпляр',
-  'Identity verification, screening, deposits and payouts use test providers on this instance. Server controls still run; provider outcomes are not live.':
-    'Проверка личности, скрининг, депозиты и выплаты на этом экземпляре используют тестовых провайдеров. Серверные контроли работают; результаты провайдеров не являются боевыми.',
-  'Identity verification, screening, deposits and payouts are simulated by test providers. The controls below run for real on the server; the outcomes they act on are simulated.':
-    'Проверка личности, скрининг, депозиты и выплаты имитируются тестовыми провайдерами. Описанные ниже механизмы реально работают на сервере, но результаты, на которые они реагируют, имитируются.',
-  'Some providers are not connected yet': 'Некоторые провайдеры ещё не подключены',
-  'Providers connected': 'Провайдеры подключены',
-  'Not yet connected:': 'Ещё не подключены:',
-  ". Orders that need them can't be placed until they are.": '. Заявки, которым они нужны, нельзя оформить, пока они не подключены.',
-  'Every provider this service relies on is configured.': 'Все провайдеры, от которых зависит сервис, настроены.',
-  'How the product protects you.': 'Как сервис вас защищает.',
-  'How accounts, data and transactions are protected, what is still being set up, and how to protect yourself from scams.':
-    'Как защищены аккаунты, данные и операции, что ещё настраивается и как уберечься от мошенников.',
-  'Current status': 'Текущее состояние',
+  'Account security and customer protection': 'Безопасность и защита клиентов',
+  'CryptoBit Exchange focuses on protecting accounts, personal data and the security of exchange operations. We apply technical and organisational measures to protect information and control exchange operations.':
+    'CryptoBit Exchange уделяет внимание защите аккаунтов, персональных данных и безопасности операций. Мы применяем технические и организационные меры для защиты информации и контроля операций обмена.',
   'Your account': 'Ваш аккаунт',
-  'Passwords are stored only as salted, slow hashes. Repeated failed sign-ins lock the account for a short time.':
-    'Пароли хранятся только в виде медленных хешей с солью. После нескольких неудачных попыток входа аккаунт ненадолго блокируется.',
-  'Sessions are held on our server and referenced by a secure, HTTP-only cookie. They expire after 12 hours.':
-    'Сеансы хранятся на нашем сервере и привязаны к защищённой cookie с флагом HTTP-only. Они истекают через 12 часов.',
-  'You can add an authenticator app for two-step sign-in, see your active sessions and sign out the others from your account.':
-    'В аккаунте можно подключить приложение-аутентификатор для двухэтапного входа, посмотреть активные сеансы и завершить остальные.',
-  'Changing your password signs out every other session.': 'Смена пароля завершает все остальные сеансы.',
+  'Passwords are protected with strong hashing.': 'Пароли защищены с использованием стойкого хеширования.',
+  'Sessions are protected by authentication and access-control mechanisms.':
+    'Сеансы защищены механизмами аутентификации и контроля доступа.',
+  'When two-step authentication is enabled, you can further protect sign-in to your account.':
+    'При наличии двухэтапной аутентификации пользователь может дополнительно защитить вход в аккаунт.',
+  'When you change your password, the system applies its safeguards for active sessions.':
+    'При изменении пароля действуют предусмотренные системой меры защиты активных сеансов.',
   'Your data': 'Ваши данные',
+  'Access to personal data is limited according to access rights.':
+    'Доступ к персональным данным ограничивается в соответствии с правами доступа.',
+  'Payment details are handled with the protection measures in place.':
+    'Платёжные реквизиты обрабатываются с учётом действующих мер защиты.',
+  'Staff receive access to the information needed to process orders.':
+    'Сотрудники получают доступ к информации, необходимой для обработки заявок.',
+  'Staff actions on orders are recorded in the audit system.':
+    'Действия сотрудников с заявками регистрируются в системе аудита.',
+  'We aim to minimise the collection and disclosure of confidential information.':
+    'Мы стремимся минимизировать сбор и раскрытие конфиденциальной информации.',
+  'Exchange operation security': 'Безопасность операций обмена',
+  'Orders follow the processing stages provided by the system.':
+    'Заявки проходят предусмотренные системой этапы обработки.',
+  'The exchange rate and terms are fixed in accordance with the service rules.':
+    'Курс и условия обмена фиксируются в соответствии с правилами сервиса.',
+  'Crypto deposits are confirmed on the basis of transaction data received by the monitoring system when the relevant integration is available.':
+    'Зачисление криптовалюты подтверждается на основании данных о транзакции, полученных системой мониторинга, если соответствующая интеграция доступна.',
+  'Payouts are made after the required checks and confirmation of the applicable operation conditions.':
+    'Выплаты выполняются после необходимых проверок и подтверждения предусмотренных условий операции.',
+  'If questions arise or a situation is non-standard, an order may be sent for additional review.':
+    'При возникновении вопросов или нестандартной ситуации заявка может быть направлена на дополнительную проверку.',
+  'How to protect yourself from fraud': 'Как защитить себя от мошенников',
+  'Never send funds at the request of unknown persons posing as support staff.':
+    'Никогда не отправляйте средства по просьбе неизвестных лиц, представляющихся сотрудниками поддержки.',
+  'Do not share passwords, sign-in codes or account-recovery details with anyone. Do not transfer funds to “protect an account”, unlock money, or meet demands from unknown persons.':
+    'Не сообщайте никому пароли, коды входа и данные для восстановления доступа. Не переводите средства для «защиты счёта», разблокировки денег или выполнения требований неизвестных лиц.',
+  'Do not share passwords, sign-in codes or account-recovery details with anyone.':
+    'Не сообщайте никому пароли, коды входа и данные для восстановления доступа.',
+  'Do not transfer funds to “protect an account”, unlock money, or meet demands from unknown persons.':
+    'Не переводите средства для «защиты счёта», разблокировки денег или выполнения требований неизвестных лиц.',
+  'Check the website address before signing in and creating an order.':
+    'Проверяйте адрес сайта перед входом и созданием заявки.',
+  'If you suspect fraud, stop the operation and contact support through an official channel.':
+    'При подозрении на мошенничество прекратите операцию и обратитесь в поддержку через официальный канал.',
+  'Contact support': 'Связаться с поддержкой',
+  'If you have questions about an exchange, an order or account security, contact our support team.':
+    'Если у вас возникли вопросы по обмену, заявке или безопасности аккаунта, свяжитесь с нашей службой поддержки.',
+  'Telegram:': 'Telegram:',
+  'On-site support:': 'Поддержка на сайте:',
+  'Use the support messages section': 'используйте раздел сообщений поддержки',
+  'Need help with security?': 'Нужна помощь по безопасности?',
+  'support messages': 'сообщения поддержки',
   'Bank account details are encrypted in our database and shown back only as the last four digits.':
     'Банковские реквизиты зашифрованы в базе и показываются только последними четырьмя цифрами.',
   'Card numbers are never typed into this site, and security codes (CVV) are never collected or stored.':
     'Номера карт никогда не вводятся на этом сайте, а коды безопасности (CVV) не собираются и не хранятся.',
-  'Staff see masked contact details by default, and every staff action on an order is recorded in an append-only audit log.':
-    'Сотрудники по умолчанию видят частично скрытые контакты, а каждое их действие с заявкой записывается в неизменяемый журнал аудита.',
-  'No analytics, advertising or third-party scripts are loaded. Fonts are served from this site.':
-    'Аналитика, реклама и сторонние скрипты не загружаются. Шрифты отдаются с этого сайта.',
-  Transactions: 'Операции',
-  "Each exchange moves through a fixed sequence of states. A payout can't be sent before the deposit is final.":
-    'Каждый обмен проходит фиксированную последовательность состояний. Выплату нельзя отправить до окончательного подтверждения депозита.',
-  'Quotes are stored when issued, can be used once, and are refused after they expire.':
-    'Котировки сохраняются при выдаче, используются один раз и не принимаются после истечения срока.',
-  'A deposit counts only when our blockchain monitoring reports it. Saying "I sent it" doesn\'t move an order forward.':
-    'Депозит засчитывается, только когда его фиксирует наш мониторинг блокчейна. Сообщение «я отправил» заявку не продвигает.',
-  'Payouts above the review threshold, or with any exception, need a person on our team to approve them, with a recorded reason.':
-    'Выплаты выше порога проверки или с любыми исключениями должен одобрить сотрудник с записью причины.',
-  'Protect yourself from scams': 'Защитите себя от мошенников',
-  'We will never ask you to send crypto': 'Мы никогда не просим отправить криптовалюту',
-  'Nobody from': 'Никто из',
-  'will call, text, or message you asking you to buy or send crypto, move money to "protect" it, or share a sign-in code. Government agencies and banks don\'t ask for that either.':
-    'не будет звонить или писать вам с просьбой купить или отправить криптовалюту, перевести деньги, чтобы «защитить» их, или сообщить код входа. Госорганы и банки тоже так не делают.',
-  'Only contacts listed on this website are official (clause 4.21 of the': 'Официальны только контакты, указанные на этом сайте (п. 4.21',
-  'Be wary of anyone who contacts you first and creates urgency.': 'Остерегайтесь тех, кто связывается с вами первым и торопит.',
-  'Don\'t send crypto to pay a debt, a fine, a "security fee" or for a romance or investment opportunity.':
-    'Не отправляйте криптовалюту в счёт долга, штрафа, «платы за безопасность», ради знакомства или «инвестиционной возможности».',
-  "If you think you've been targeted, stop, contact your bank, and report it at":
-    'Если вы подозреваете мошенничество, остановитесь, свяжитесь с банком и сообщите на',
-  'reportfraud.ftc.gov': 'reportfraud.ftc.gov',
-  or: 'или',
-  'ic3.gov': 'ic3.gov',
-  'Report a security issue': 'Сообщить о проблеме безопасности',
-  'Send details to': 'Отправьте подробности на',
-  'or through': 'или через',
-  'support messages': 'сообщения поддержки',
-  '. A vulnerability disclosure policy will be published here before launch.':
-    '. Политика раскрытия уязвимостей будет опубликована здесь до запуска.',
   'Frequently asked questions.': 'Частые вопросы.',
   FAQ: 'Вопросы и ответы',
   'How can we help?': 'Чем помочь?',
@@ -410,10 +408,8 @@ export const RU_PUBLIC2: Record<string, string> = {
   'Contacting support': 'Связь с поддержкой',
   'Message us on Telegram, or, signed in,': 'Напишите нам в Telegram или, войдя в аккаунт,',
   'send us a message': 'отправьте сообщение',
-  "and link it to an order if it's about one; replies appear in your account. You can also write to":
-    'и привяжите его к заявке, если вопрос по ней; ответы появятся в аккаунте. Также можно написать на',
-  '. Never share your password, codes, private keys or seed phrase with anyone, including us.':
-    '. Никогда никому не сообщайте пароль, коды, приватные ключи или сид-фразу — даже нам.',
+  "and link it to an order if it's about one; replies appear in your account. Never share your password, codes, private keys or seed phrase with anyone, including us.":
+    'и привяжите его к заявке, если вопрос по ней; ответы появятся в аккаунте. Никогда никому не сообщайте пароль, коды, приватные ключи или сид-фразу — даже нам.',
   "We couldn't find that page.": 'Страница не найдена.',
   'The link may be out of date.': 'Возможно, ссылка устарела.',
   'Go home': 'На главную',

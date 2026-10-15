@@ -123,9 +123,9 @@ export const RU_PUBLIC: Record<string, string> = {
 
   // Header, footer
   'Service notice': 'Уведомление сервиса',
-  'Internal testing instance.': 'Внутренний тестовый экземпляр.',
-  'Do not transfer real funds to addresses shown here.': 'Не переводите реальные средства на адреса, показанные здесь.',
-  'Provider status': 'Статус провайдеров',
+  'Do not transfer real funds.': 'Не переводите реальные средства.',
+  'Addresses and payment details shown here must not be used for live transfers.':
+    'Адреса и платёжные реквизиты, показанные здесь, нельзя использовать для реальных переводов.',
   'Exchanges require connected providers.': 'Для обменов нужны подключённые провайдеры.',
   'Custody, payout and verification services must be configured before funds can move.':
     'Кастодиальные, выплатные и проверочные сервисы должны быть настроены, прежде чем средства смогут перемещаться.',
