@@ -130,6 +130,8 @@ export interface QuoteRow {
 }
 
 export function quoteFromRow(r: QuoteRow): Quote {
+  const issues = JSON.parse(r.issues) as { code?: string }[];
+  const feePending = issues.some((i) => i.code === 'courier_fee_pending');
   return {
     id: r.id,
     direction: r.direction,
@@ -145,9 +147,21 @@ export function quoteFromRow(r: QuoteRow): Quote {
     payoutFeeCents: BigInt(r.payout_fee_cents),
     netCents: BigInt(r.net_cents),
     effectiveRateMicros: BigInt(r.effective_rate_micros),
+    feePending: feePending || undefined,
     createdAt: r.created_at,
     expiresAt: r.expires_at,
   };
+}
+
+/** Issues that block accepting a firm quote (courier fee pending is allowed through to the order). */
+export function hasBlockingQuoteIssues(issuesJson: string): boolean {
+  const issues = JSON.parse(issuesJson) as { code?: string }[];
+  return issues.some((i) => i.code !== 'courier_fee_pending');
+}
+
+export function quoteHasCourierFeePending(issuesJson: string): boolean {
+  const issues = JSON.parse(issuesJson) as { code?: string }[];
+  return issues.some((i) => i.code === 'courier_fee_pending');
 }
 
 export function loadQuote(ctx: AppContext, id: string, userId: string): QuoteRow {

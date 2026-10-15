@@ -177,6 +177,14 @@ export interface OrderView {
     spreadCents: Cents;
     payoutFeeCents: Cents;
     netCents: Cents;
+    /** True while an operator has not yet set the per-order courier fee. */
+    feePending?: boolean;
+  };
+  /** Courier delivery/collection fee lifecycle for cash-by-courier orders. */
+  courierFee?: {
+    pending: boolean;
+    acceptedAt: number | null;
+    awaitingAcceptance: boolean;
   };
   payout: {
     method: PayoutMethodId;
@@ -447,6 +455,8 @@ export interface OrdersApi {
   get(id: string): Promise<OrderView>;
   cancel(id: string): Promise<OrderView>;
   reportSent(id: string, txHash: string | null): Promise<OrderView>;
+  /** Accept the operator-quoted courier fee so deposit/collection can proceed. */
+  acceptCourierFee(id: string): Promise<OrderView>;
   /** Sell orders with a pending refund: the address the deposit is returned to. Can be set once. */
   setRefundAddress(id: string, refundAddress: string): Promise<OrderView>;
   /** Demo ID upload for a cash handover. The sandbox checks and discards the file. */

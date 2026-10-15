@@ -72,7 +72,7 @@ export const FEE_DISCLOSURE: LegalDocument = {
             'ACH bank transfer: no payout fee.',
             'Domestic bank wire: a flat fee per payout.',
             'Debit card: a percentage of the payout amount, subject to a minimum and a maximum fee.',
-            'Cash by courier: a flat fee per delivery.',
+            'Cash by courier: delivery cost calculated individually for each order (shown on the quote before you confirm).',
           ],
         },
         {

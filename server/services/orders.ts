@@ -35,7 +35,7 @@ import { ProviderError, ProviderNotConfiguredError, type PayoutProvider, type We
 import { audit } from './audit';
 import { courierDelivery, getProfile, payoutDetails, type DestinationRow } from './customers';
 import { notify } from './notifications';
-import { loadQuote, quoteFromRow } from './quotes';
+import { hasBlockingQuoteIssues, loadQuote, quoteFromRow, quoteHasCourierFeePending } from './quotes';
 import { recordAcceptances, requireAcceptance } from './auth';
 import { formatAssetPlain } from './format';
 
@@ -84,6 +84,10 @@ export interface OrderRow {
   customer_reported_sent_at: number | null;
   /** 1 while an operator holds the order (migration 4). */
   on_hold: number;
+  /** 1 until an operator sets the per-order courier delivery fee (migration 9). */
+  courier_fee_pending: number;
+  /** When the customer accepted the priced courier fee (migration 9). */
+  courier_fee_accepted_at: number | null;
   created_at: number;
   updated_at: number;
   closed_at: number | null;
@@ -347,8 +351,9 @@ export async function createOrder(
 
   if (quoteRow.used_at) throw conflict('This quote has already been used. Get a new quote.', 'quote_used');
   if (isQuoteExpired(quote, now)) throw new ApiError(409, 'quote_expired', 'This quote has expired. Get a new quote to continue.');
-  const issues = JSON.parse(quoteRow.issues) as unknown[];
-  if (issues.length) throw new ApiError(422, 'quote_issues', 'This quote cannot be accepted. Change the amount or payout method.');
+  if (hasBlockingQuoteIssues(quoteRow.issues))
+    throw new ApiError(422, 'quote_issues', 'This quote cannot be accepted. Change the amount or payout method.');
+  const feePending = quoteHasCourierFeePending(quoteRow.issues);
   const eligibility = payoutEligibility(PAYOUT_METHODS[quote.payoutMethod], quote.grossCents);
   if (!eligibility.eligible) throw new ApiError(422, 'method_unavailable', eligibility.reason);
 
@@ -394,8 +399,8 @@ export async function createOrder(
     ctx.db.run(
       `INSERT INTO orders (id, reference, user_id, quote_id, status, source, asset, network, amount_atomic, reference_price_micros, gross_cents, spread_bps,
          spread_cents, payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label, payout_last4, refund_address, deposit_deadline,
-         confirmations_required, review_reason, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'created', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         confirmations_required, review_reason, courier_fee_pending, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'created', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         reference,
@@ -419,6 +424,7 @@ export async function createOrder(
         deadline,
         required,
         screening?.result === 'review' ? `Refund address screening: ${screening.note}` : null,
+        feePending ? 1 : 0,
         now,
         now,
       ],
@@ -441,14 +447,44 @@ export async function createOrder(
     });
   });
 
-  // Deposit instructions come from the custody provider. Sandbox addresses are invalid on every chain.
+  // Courier fee must be set and accepted before deposit instructions are issued.
+  if (feePending) {
+    const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [userId])!.email;
+    notify(ctx, {
+      userId,
+      to: email,
+      template: 'order_created',
+      vars: {
+        reference,
+        amount: formatAssetPlain(quote.amountAtomic, quote.asset),
+        network: networkLabel(quote.asset, quote.network),
+        deadline: new Date(deadline).toISOString(),
+      },
+    });
+    return getOrderRow(ctx, id);
+  }
+
+  await issueSellDepositInstructions(ctx, id, userId, quote, reference, deadline);
+  return getOrderRow(ctx, id);
+}
+
+/** Issue custody deposit instructions for a sell order (after courier fee is accepted, when applicable). */
+export async function issueSellDepositInstructions(
+  ctx: AppContext,
+  orderId: string,
+  userId: string,
+  quote: Pick<Quote, 'asset' | 'network' | 'amountAtomic'>,
+  reference: string,
+  deadline: number,
+): Promise<void> {
+  if (ctx.db.get('SELECT 1 FROM deposit_instructions WHERE order_id = ?', [orderId])) return;
   try {
     const instr = await ctx.providers.custody.createDepositInstructions({
-      orderId: id,
+      orderId,
       asset: quote.asset,
       network: quote.network,
       amountAtomic: quote.amountAtomic,
-      idempotencyKey: `deposit:${id}`,
+      idempotencyKey: `deposit:${orderId}`,
     });
     if (ctx.config.mode === 'sandbox' && !isPreviewDepositAddress(instr.address))
       throw new Error('Sandbox custody returned an address that could be valid on a real chain.');
@@ -457,7 +493,7 @@ export async function createOrder(
         'INSERT INTO deposit_instructions (id, order_id, provider, provider_ref, address, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [
           newId('dep'),
-          id,
+          orderId,
           ctx.config.mode === 'sandbox' ? 'sandbox' : 'custody',
           instr.providerRef,
           instr.address,
@@ -465,7 +501,7 @@ export async function createOrder(
           ctx.clock.now(),
         ],
       );
-      applyOrderEvent(ctx, id, { type: 'DEPOSIT_INSTRUCTIONS_ISSUED' }, { type: 'system', id: null, role: null, ip: null });
+      applyOrderEvent(ctx, orderId, { type: 'DEPOSIT_INSTRUCTIONS_ISSUED' }, { type: 'system', id: null, role: null, ip: null });
       const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [userId])!.email;
       notify(ctx, {
         userId,
@@ -480,10 +516,10 @@ export async function createOrder(
       });
     });
   } catch (e) {
-    ctx.log.error('deposit instructions failed', { orderId: id, error: e instanceof Error ? e.message : String(e) });
+    ctx.log.error('deposit instructions failed', { orderId, error: e instanceof Error ? e.message : String(e) });
     applyOrderEvent(
       ctx,
-      id,
+      orderId,
       { type: 'DEPOSIT_INSTRUCTIONS_FAILED', reason: e instanceof ProviderError ? e.message : 'Provider error' },
       { type: 'system', id: null, role: null, ip: null },
     );
@@ -493,7 +529,6 @@ export async function createOrder(
       'We could not issue deposit instructions. Nothing was sent; get a new quote and try again.',
     );
   }
-  return getOrderRow(ctx, id);
 }
 
 /**
@@ -524,8 +559,9 @@ async function createBuyOrder(
 
   if (usedAt) throw conflict('This quote has already been used. Get a new quote.', 'quote_used');
   if (isQuoteExpired(quote, now)) throw new ApiError(409, 'quote_expired', 'This quote has expired. Get a new quote to continue.');
-  if ((JSON.parse(issuesJson) as unknown[]).length)
+  if (hasBlockingQuoteIssues(issuesJson))
     throw new ApiError(422, 'quote_issues', 'This quote cannot be accepted. Change the amount.');
+  const feePending = !wire && quoteHasCourierFeePending(issuesJson);
   const eligibility = payoutEligibility(PAYOUT_METHODS[wire ? 'wire' : 'courier_cash'], quote.grossCents);
   if (!eligibility.eligible) throw new ApiError(422, 'method_unavailable', eligibility.reason);
 
@@ -570,8 +606,8 @@ async function createBuyOrder(
     ctx.db.run(
       `INSERT INTO orders (id, reference, user_id, quote_id, status, source, direction, asset, network, amount_atomic, reference_price_micros, gross_cents,
          spread_bps, spread_cents, payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label, payout_last4, refund_address,
-         deposit_deadline, confirmations_required, review_reason, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'created', ?, 'buy', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+         deposit_deadline, confirmations_required, review_reason, courier_fee_pending, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'created', ?, 'buy', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
       [
         id,
         reference,
@@ -594,6 +630,7 @@ async function createBuyOrder(
         receiveAddress,
         deadline,
         screening.result === 'review' ? `Receiving address screening: ${screening.note}` : null,
+        feePending ? 1 : 0,
         now,
         now,
       ],
@@ -624,6 +661,8 @@ async function createBuyOrder(
 
   // A wire order waits for its instructions to be issued (in the CRM, or by the sandbox autopilot): see issueWireInstructions.
   if (wire || !dest) return getOrderRow(ctx, id);
+  // Courier collection waits until an operator sets the fee and the customer accepts it.
+  if (feePending) return getOrderRow(ctx, id);
 
   try {
     const destination = payoutDetails(ctx, dest.id);
@@ -851,6 +890,13 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
       spreadCents: String(o.spread_cents),
       payoutFeeCents: String(o.payout_fee_cents),
       netCents: String(o.net_cents),
+      feePending: o.courier_fee_pending === 1,
+    },
+    courierFee: {
+      pending: o.courier_fee_pending === 1,
+      acceptedAt: o.courier_fee_accepted_at,
+      /** True when the fee is set but the customer has not yet accepted the priced quote. */
+      awaitingAcceptance: o.payout_method === 'courier_cash' && o.courier_fee_pending === 0 && o.courier_fee_accepted_at === null,
     },
     payout: (() => {
       const pi = ctx.db.get<{

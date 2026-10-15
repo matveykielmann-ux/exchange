@@ -165,7 +165,7 @@ export function HomePage() {
                   <h3>{t('Exchange fee')}</h3>
                   <p>
                     {t(
-                      '3% of the value, for bank transfer, wire and debit card. Cash by courier uses a provisional courier fee pending confirmation.',
+                      '3% of the value, for bank transfer, wire and debit card. Cash by courier: delivery cost is calculated individually for each order.',
                     )}
                   </p>
                 </div>

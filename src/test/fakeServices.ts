@@ -93,6 +93,7 @@ export function createFakeServices(overrides: Partial<Services> = {}): Services 
       get: unused,
       cancel: unused,
       reportSent: unused,
+      acceptCourierFee: unused,
       setRefundAddress: unused,
       uploadDocument: unused,
     },

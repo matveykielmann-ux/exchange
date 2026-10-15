@@ -146,7 +146,7 @@ export function FeesPage() {
         eyebrow={t('Fees')}
         title={t('One fee, shown on the quote.')}
         lead={t(
-          'A 3% exchange fee on every payout method except cash by courier, which has a provisional courier fee pending confirmation. There is no spread: you get the market rate. Return fees apply only if funds have to be returned.',
+          'A 3% exchange fee on every payout method except cash by courier, where delivery cost is calculated individually for each order. There is no spread: you get the market rate. Return fees apply only if funds have to be returned.',
         )}
       />
       <WithToc
@@ -160,10 +160,10 @@ export function FeesPage() {
           ['example', 'Worked example'],
         ]}
       >
-        <Notice tone="warn" title={t('Courier fee pending confirmation')}>
+        <Notice tone="warn" title={t('Courier fee calculated per order')}>
           <p>
             {t(
-              'The 3% exchange fee for bank transfer, wire and debit card is the configured schedule. The cash-by-courier flat fee is provisional until the owner confirms the operational amount. Whatever applies to your sale is shown on the quote before you confirm.',
+              'The 3% exchange fee for bank transfer, wire and debit card is the configured schedule. Cash-by-courier delivery cost depends on the order: an operator sets it and you confirm the amount on the quote before the exchange continues. No fixed courier tariff is published.',
             )}
           </p>
         </Notice>

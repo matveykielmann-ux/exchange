@@ -699,4 +699,25 @@ ALTER TABLE payout_instructions ADD COLUMN recorded_by TEXT REFERENCES users(id)
 ALTER TABLE payout_instructions ADD COLUMN completed_at INTEGER;
 `,
   },
+  {
+    id: 9,
+    name: 'courier_fee_per_order',
+    sql: `
+-- Courier delivery cost is quoted per order (no published flat tariff). While
+-- courier_fee_pending=1 the fee/net snapshot may be updated once when an
+-- operator sets the fee; the customer then accepts before deposit proceeds.
+ALTER TABLE orders ADD COLUMN courier_fee_pending INTEGER NOT NULL DEFAULT 0
+  CHECK (courier_fee_pending IN (0,1));
+ALTER TABLE orders ADD COLUMN courier_fee_accepted_at INTEGER;
+
+DROP TRIGGER IF EXISTS orders_snapshot_immutable;
+CREATE TRIGGER orders_snapshot_immutable BEFORE UPDATE OF
+  quote_id, user_id, source, asset, network, amount_atomic, reference_price_micros, gross_cents, spread_bps, spread_cents,
+  payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label, payout_last4,
+  deposit_deadline, confirmations_required, reference, created_at, direction
+ON orders
+WHEN NOT (OLD.courier_fee_pending = 1 AND NEW.courier_fee_pending = 0)
+BEGIN SELECT RAISE(ABORT, 'order snapshot fields are immutable'); END;
+`,
+  },
 ];

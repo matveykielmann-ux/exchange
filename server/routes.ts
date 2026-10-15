@@ -582,6 +582,15 @@ export function registerRoutes(r: Router, app: AppContext) {
   );
 
   r.post(
+    '/api/orders/:id/accept-courier-fee',
+    async (ctx) => {
+      const o = await ops.acceptCourierFee(app, actorOf(ctx), me(ctx), ctx.params.id!);
+      return { body: orders.orderView(app, o) };
+    },
+    { auth: 'user', rateLimit: { bucket: 'accept-courier-fee', max: 20, windowMs: 60_000 } },
+  );
+
+  r.post(
     '/api/orders/:id/documents',
     (ctx) => {
       const b = parse(
@@ -837,6 +846,16 @@ function registerAdminRoutes(r: Router, app: AppContext) {
   orderAction('retry-payout', ADMIN, (ctx, id) => ops.retryPayout(app, staffActor(ctx), id, parse(reasonV, ctx.body).reason));
   orderAction('refund', ADMIN, (ctx, id) => ops.initiateRefund(app, staffActor(ctx), id, parse(reasonV, ctx.body).reason));
   orderAction('resubmit-refund', ADMIN, (ctx, id) => ops.submitRefund(app, staffActor(ctx), id, parse(reasonV, ctx.body).reason));
+  orderAction('set-courier-fee', REVIEWER, (ctx, id) => {
+    const b = parse(
+      v.object({
+        feeCents: v.int({ min: 0, max: 10_000_000 }),
+        reason: v.string({ min: 4, max: 500, label: 'a reason' }),
+      }),
+      ctx.body,
+    );
+    return ops.setCourierFee(app, staffActor(ctx), id, b.feeCents, b.reason);
+  });
 
   /* ---------- Support inbox ---------- */
   r.get(

@@ -21,6 +21,7 @@ import {
   TERMINAL_ORDER_STATUSES,
 } from '@/domain/order';
 import { validateRefundAddress, validateTxHash } from '@/domain/validation';
+import { TxHashLink } from '@/components/TxHashLink';
 import { validateWireReference } from '@/domain/wire';
 import { ApiError } from '@/services/http';
 import { errorMessage } from '@/lib/errors';
@@ -59,6 +60,53 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   );
 }
 
+/** Customer confirms the operator-quoted courier fee before deposit/collection proceeds. */
+function AcceptCourierFee({ order, onAccepted }: { order: OrderView; onAccepted: () => void }) {
+  const { orders } = useServices();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <Notice tone="info" title={t('Confirm courier fee')}>
+      <p>
+        {t('Courier fee for this order:')} <strong className="tabular">{formatUsd(order.quote.payoutFeeCents)}</strong>
+        {order.direction === 'sell' ? (
+          <>
+            {' '}
+            {t('· You receive')} <strong className="tabular">{formatUsd(order.quote.netCents)}</strong>
+          </>
+        ) : (
+          <>
+            {' '}
+            {t('· You receive')} <strong>{formatAsset(order.amountAtomic, order.asset)}</strong>
+          </>
+        )}
+      </p>
+      <p className="small muted">
+        {t('Accepting confirms the delivery cost shown above. Deposit or collection instructions follow after acceptance.')}
+      </p>
+      {err ? <p className="notice notice--danger small">{err}</p> : null}
+      <div>
+        <button
+          type="button"
+          className="btn"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            setErr(null);
+            orders
+              .acceptCourierFee(order.id)
+              .then(() => onAccepted())
+              .catch((e: unknown) => setErr(errorMessage(e)))
+              .finally(() => setBusy(false));
+          }}
+        >
+          {t('Accept courier fee and continue')}
+        </button>
+      </div>
+    </Notice>
+  );
+}
+
 /** Sell orders: the customer submits the transaction hash of their transfer for the team to review. */
 function TxHashForm({ order, busy, run }: { order: OrderView; busy: boolean; run: Run }) {
   const { orders } = useServices();
@@ -68,8 +116,8 @@ function TxHashForm({ order, busy, run }: { order: OrderView; busy: boolean; run
     return (
       <Notice tone="neutral" title={t('Transaction hash submitted for review')}>
         {order.deposit.customerTxHash ? (
-          <p className="mono small" style={{ overflowWrap: 'anywhere' }}>
-            {order.deposit.customerTxHash}
+          <p className="small" style={{ overflowWrap: 'anywhere' }}>
+            <TxHashLink txHash={order.deposit.customerTxHash} network={order.network} />
           </p>
         ) : null}
         <p>
@@ -745,12 +793,22 @@ function Receipt({ order }: { order: OrderView }) {
       ) : null}
       <div>
         <dt>{t(buy && !wire ? 'Courier fee' : feeLineLabel(order.payout.method))}</dt>
-        <dd className="tabular">−{formatUsd(order.quote.payoutFeeCents)}</dd>
+        <dd className="tabular">
+          {order.courierFee?.pending || order.quote.feePending
+            ? t('Calculated individually')
+            : `−${formatUsd(order.quote.payoutFeeCents)}`}
+        </dd>
       </div>
       <div>
         <dt>{t('You receive')}</dt>
         <dd className="tabular">
-          <strong>{buy ? formatAsset(order.amountAtomic, order.asset) : formatUsd(order.quote.netCents)}</strong>
+          <strong>
+            {order.courierFee?.pending || order.quote.feePending
+              ? t('After courier fee')
+              : buy
+                ? formatAsset(order.amountAtomic, order.asset)
+                : formatUsd(order.quote.netCents)}
+          </strong>
         </dd>
       </div>
       {buy ? (
@@ -801,7 +859,9 @@ function Receipt({ order }: { order: OrderView }) {
       {!buy && order.deposit.txHash ? (
         <div>
           <dt>{t('Deposit tx')}</dt>
-          <dd className="mono">{order.deposit.txHash}</dd>
+          <dd>
+            <TxHashLink txHash={order.deposit.txHash} network={order.network} />
+          </dd>
         </div>
       ) : null}
       {order.deposit.amountAtomic !== null && order.deposit.amountAtomic !== (buy ? order.quote.grossCents : order.amountAtomic) ? (
@@ -831,7 +891,9 @@ function Receipt({ order }: { order: OrderView }) {
       {order.refundTxHash ? (
         <div>
           <dt>{buy ? t('Return ref.') : t('Refund tx')}</dt>
-          <dd className="mono">{order.refundTxHash}</dd>
+          <dd>
+            {buy ? <span className="mono">{order.refundTxHash}</span> : <TxHashLink txHash={order.refundTxHash} network={order.network} />}
+          </dd>
         </div>
       ) : null}
     </dl>
@@ -962,6 +1024,16 @@ export function OrderPage() {
             <p>{t('Our team is checking it. Nothing moves until the hold is released; we will message you if we need anything.')}</p>
           </Notice>
         ) : null}
+        {order.courierFee?.pending ? (
+          <Notice tone="warn" title={t('Courier fee not set yet')}>
+            <p>
+              {t(
+                'Delivery cost is calculated for your order. An operator will set the fee; you will confirm the final amount here before the exchange continues.',
+              )}
+            </p>
+          </Notice>
+        ) : null}
+        {order.courierFee?.awaitingAcceptance ? <AcceptCourierFee order={order} onAccepted={load} /> : null}
       </div>
 
       {/* Shown after creation until the final screen takes over. */}

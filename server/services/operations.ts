@@ -11,7 +11,8 @@
 import { networkLabel } from '@/domain/assets';
 import { PAYOUT_METHODS } from '@/domain/payout';
 import { HOLDABLE_STATUSES, type OrderStatus } from '@/domain/order';
-import { formatUsd } from '@/domain/money';
+import { formatUsd, type Cents } from '@/domain/money';
+import { requoteWithCourierFee } from '@/domain/quote';
 import { validateRefundAddress } from '@/domain/validation';
 import type { Actor, AppContext } from '../context';
 import { ApiError, badRequest, conflict, notConfigured, notFound } from '../http/errors';
@@ -27,12 +28,14 @@ import {
   customerOrder,
   getOrderRow,
   insertEvent,
+  issueSellDepositInstructions,
   openReview,
   screenAddress,
   type OrderRow,
 } from './orders';
 import { postSystemMessage } from './support';
 import { formatAssetPlain } from './format';
+import { quoteFromRow, type QuoteRow } from './quotes';
 
 const STAFF = ['support', 'reviewer', 'admin', 'owner'];
 
@@ -642,8 +645,159 @@ export function availableActions(ctx: AppContext, o: OrderRow, role: string) {
               refund?.status === 'submitted' ? 'Refund already submitted; waiting for the provider.' : 'Only while a refund is pending.',
             ),
     },
+    {
+      action: 'set_courier_fee',
+      label: 'Set courier fee',
+      unavailable: why(
+        o.payout_method === 'courier_cash' && o.courier_fee_pending === 1 && ['created', 'awaiting_deposit'].includes(s),
+        isReviewer,
+        'reviewer',
+        o.payout_method !== 'courier_cash'
+          ? 'Only for cash-by-courier orders.'
+          : o.courier_fee_pending !== 1
+            ? 'Courier fee is already set.'
+            : 'Only before the deposit window progresses.',
+      ),
+    },
   ];
   return list;
+}
+
+/**
+ * Operator quotes the courier delivery/collection cost for this order and
+ * recalculates net payout (and crypto amount for buys). The customer must
+ * accept the priced terms before deposit/collection proceeds.
+ */
+export function setCourierFee(ctx: AppContext, actor: Actor, orderId: string, feeCentsRaw: number | string, reason: string) {
+  const r = requireReason(reason);
+  const o = getOrderRow(ctx, orderId);
+  if (o.payout_method !== 'courier_cash') throw conflict('Only cash-by-courier orders have a courier fee.', 'invalid_transition');
+  if (o.courier_fee_pending !== 1) throw conflict('The courier fee for this order is already set.', 'courier_fee_set');
+  if (!['created', 'awaiting_deposit'].includes(o.status))
+    throw conflict('The courier fee can only be set before the order progresses further.', 'invalid_transition');
+  const feeCents = BigInt(feeCentsRaw) as Cents;
+  if (feeCents < 0n || feeCents > 100_000_00n) throw badRequest('Enter a courier fee between $0 and $100,000.', { field: 'feeCents' });
+
+  const quoteRow = ctx.db.get<QuoteRow>('SELECT * FROM quotes WHERE id = ?', [o.quote_id]);
+  if (!quoteRow) throw notFound('Quote not found.');
+  const base = quoteFromRow(quoteRow);
+  const now = ctx.clock.now();
+  const { quote, issues } = requoteWithCourierFee(base, feeCents, now);
+  if (issues.some((i) => i.code !== 'courier_fee_pending'))
+    throw badRequest(issues.find((i) => i.code === 'non_positive_payout') ? 'That fee leaves no payout.' : 'That fee cannot be applied.');
+
+  ctx.db.tx(() => {
+    ctx.db.run(
+      `UPDATE orders SET payout_fee_cents = ?, net_cents = ?, amount_atomic = ?, courier_fee_pending = 0, updated_at = ?
+       WHERE id = ? AND courier_fee_pending = 1`,
+      [Number(quote.payoutFeeCents), Number(quote.netCents), quote.amountAtomic.toString(), now, orderId],
+    );
+    ctx.db.run(
+      `UPDATE quotes SET payout_fee_cents = ?, net_cents = ?, amount_atomic = ?, effective_rate_micros = ?, issues = ?
+       WHERE id = ?`,
+      [
+        Number(quote.payoutFeeCents),
+        Number(quote.netCents),
+        quote.amountAtomic.toString(),
+        quote.effectiveRateMicros.toString(),
+        JSON.stringify(issues.filter((i) => i.code !== 'courier_fee_pending'), (_k, v) => (typeof v === 'bigint' ? v.toString() : v)),
+        o.quote_id,
+      ],
+    );
+    insertEvent(ctx, orderId, {
+      type: 'COURIER_FEE_SET',
+      from: o.status,
+      to: o.status,
+      actor,
+      visibility: 'customer',
+      detail: `Courier fee set to ${formatUsd(quote.payoutFeeCents)}. Confirm the updated quote to continue.`,
+      data: { payoutFeeCents: quote.payoutFeeCents.toString(), netCents: quote.netCents.toString(), reason: r },
+    });
+    audit(ctx, actor, {
+      action: 'order.courier_fee_set',
+      targetType: 'order',
+      targetId: orderId,
+      data: { feeCents: quote.payoutFeeCents.toString(), netCents: quote.netCents.toString(), reason: r },
+    });
+    notify(ctx, {
+      userId: o.user_id,
+      to: emailOf(ctx, o.user_id),
+      template: 'info_requested',
+      vars: { reference: o.reference },
+    });
+  });
+  return getOrderRow(ctx, orderId);
+}
+
+/** Customer accepts the operator-quoted courier fee; then deposit/collection can proceed. */
+export async function acceptCourierFee(ctx: AppContext, actor: Actor, userId: string, orderId: string) {
+  const o = customerOrder(ctx, userId, orderId);
+  if (o.payout_method !== 'courier_cash') throw conflict('This order has no courier fee to accept.', 'invalid_transition');
+  if (o.courier_fee_pending === 1)
+    throw conflict('The courier fee has not been set yet. Wait for an updated quote.', 'courier_fee_pending');
+  if (o.courier_fee_accepted_at !== null) throw conflict('You have already accepted the courier fee.', 'courier_fee_accepted');
+  const now = ctx.clock.now();
+  ctx.db.tx(() => {
+    const { changes } = ctx.db.run(
+      'UPDATE orders SET courier_fee_accepted_at = ?, updated_at = ? WHERE id = ? AND courier_fee_accepted_at IS NULL AND courier_fee_pending = 0',
+      [now, now, orderId],
+    );
+    if (changes !== 1) throw conflict('You have already accepted the courier fee.', 'courier_fee_accepted');
+    insertEvent(ctx, orderId, {
+      type: 'COURIER_FEE_ACCEPTED',
+      from: o.status,
+      to: o.status,
+      actor,
+      visibility: 'customer',
+      detail: 'Courier fee accepted. The exchange can continue.',
+      data: { payoutFeeCents: o.payout_fee_cents, netCents: o.net_cents },
+    });
+    audit(ctx, actor, { action: 'order.courier_fee_accepted', targetType: 'order', targetId: orderId });
+  });
+
+  if (o.direction === 'sell') {
+    await issueSellDepositInstructions(
+      ctx,
+      o.id,
+      userId,
+      {
+        asset: o.asset,
+        network: o.network,
+        amountAtomic: BigInt(o.amount_atomic),
+      },
+      o.reference,
+      o.deposit_deadline,
+    );
+  } else if (o.payout_destination_id) {
+    const existing = ctx.db.get('SELECT 1 FROM deposit_instructions WHERE order_id = ?', [o.id]);
+    if (!existing) {
+      const destination = payoutDetails(ctx, o.payout_destination_id);
+      if (destination.kind === 'courier') {
+        try {
+          const { providerRef } = await ctx.providers.cash.scheduleCollection({
+            orderId: o.id,
+            amountCents: BigInt(o.gross_cents),
+            destination,
+            idempotencyKey: `collection:${o.id}`,
+          });
+          ctx.db.tx(() => {
+            ctx.db.run(
+              'INSERT INTO deposit_instructions (id, order_id, provider, provider_ref, address, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              [newId('dep'), o.id, ctx.config.mode === 'sandbox' ? 'sandbox' : 'cash', providerRef, 'courier-collection', null, ctx.clock.now()],
+            );
+            applyOrderEvent(ctx, o.id, { type: 'DEPOSIT_INSTRUCTIONS_ISSUED' }, { type: 'system', id: null, role: null, ip: null });
+          });
+        } catch (e) {
+          ctx.log.error('collection schedule failed after fee accept', {
+            orderId: o.id,
+            error: e instanceof Error ? e.message : String(e),
+          });
+          throw new ApiError(503, 'provider_unavailable', 'We could not arrange cash collection. Contact support.');
+        }
+      }
+    }
+  }
+  return getOrderRow(ctx, orderId);
 }
 
 export function orderNotes(ctx: AppContext, orderId: string) {

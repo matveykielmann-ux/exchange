@@ -5,19 +5,23 @@ import type { LegalDocument } from './types';
 import SERVICE_RULES_MARKDOWN from './source/CRYPTOBIT_EXCHANGE_SERVICE_RULES.md?raw';
 
 /** SHA-256 of the supplied file. A test fails if the text in the repository drifts from it. */
-export const SERVICE_RULES_SHA256 = 'e07c55512792ec39b7543ec6992c5174da7f5a744b5c71600b4cc718ca38447e';
+export const SERVICE_RULES_SHA256 = 'e8ee5f080f689e749ba4cdfc56aeeac1ec62b84c1bd449ebe7d42ad0b543345c';
 
 export const SERVICE_RULES: LegalDocument = {
   slug: 'terms',
   title: 'Service Rules',
-  version: '2.0.0',
+  version: '2.1.0',
   effectiveDate: null,
-  lastUpdated: '2026-03-27',
+  lastUpdated: '2026-10-15',
   summary:
     'The public offer of the {{brand}} service, published in full. Submitting an Exchange Request is acceptance of this offer (Section 3).',
   acceptance: 'order',
   markdown: SERVICE_RULES_MARKDOWN,
   reviewNotes: [
+    {
+      id: 'LR-44',
+      text: 'Section 5 (v2.1.0) names CoinGecko, Coinbase and Kraken as possible reference market-data sources. This deployment fetches live reference prices from CoinGecko only; Coinbase and Kraken are not connected as backends.',
+    },
     {
       id: 'LR-34',
       text: 'Section 5 fixes the rate when the required confirmations arrive, during working hours, after proof of sending within 30 minutes. This site instead locks a quote for 60 seconds and holds that rate for a deposit that arrives within a 30-minute window.',

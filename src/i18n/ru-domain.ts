@@ -150,6 +150,7 @@ export const RU_DOMAIN: Record<string, string> = {
   '3%': '3%',
   '$35.00 flat (provisional — pending confirmation)':
     '$35.00 фиксированно (предварительно — ожидает подтверждения)',
+  'Calculated individually for each order': 'Рассчитывается индивидуально для каждой заявки',
   'Enter an amount first.': 'Сначала введите сумму.',
 
   // Courier windows and validation

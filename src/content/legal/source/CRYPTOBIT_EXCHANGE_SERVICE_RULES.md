@@ -111,7 +111,7 @@ The terms of the Exchange Request take effect upon the full receipt of cryptoass
 
 ### 5. Rules for Rate Fixation
 
-The Service uses cryptocurrency exchanges [Binance](https://www.binance.com/en), [Coinbase](https://www.coinbase.com/), [OKX](https://www.okx.com/) and [Kraken](https://www.kraken.com/) to determine the current cryptoasset rates. The exchange rate is fixed at the moment the required number of confirmations is received in the respective network, exclusively during Service working hours, and only after providing proof of sending cryptoassets to the Service operator within 30 minutes from the creation of the Request. The Service hedges Requests via market orders; rate volatility may reach up to 5%.
+For indicative (reference) market prices of cryptoassets, the Service may use market data from [CoinGecko](https://www.coingecko.com/), [Coinbase](https://www.coinbase.com/) and [Kraken](https://www.kraken.com/). These sources provide reference market information only; they do not guarantee that an Exchange Request will be executed at any displayed reference price. The final quote offered to the User is calculated by the Service from the applicable reference market price together with the Service’s fees and the other conditions of the Exchange Request, and is shown to the User before the User accepts those conditions. The exchange rate applicable to an Exchange Request is fixed at the moment the required number of confirmations is received in the respective network, exclusively during Service working hours, and only after providing proof of sending cryptoassets to the Service operator within 30 minutes from the creation of the Request. The Service hedges Requests via market orders; rate volatility may reach up to 5%.
 
 **Required confirmations for various cryptoassets are as follows:**
 
@@ -135,7 +135,7 @@ The Service commission is calculated using the formula:\
 **L** — market value of the asset at the time it is credited, determined:\
 
 
-- **For cryptoassets** — based on cryptocurrency exchange data ([Binance](https://www.binance.com/en), [Coinbase](https://www.coinbase.com/), [OKX](https://www.okx.com/) and [Kraken](https://www.kraken.com/));
+- **For cryptoassets** — based on reference market data that may be obtained from [CoinGecko](https://www.coingecko.com/), [Coinbase](https://www.coinbase.com/) and/or [Kraken](https://www.kraken.com/) (indicative sources; not a guarantee of execution price);
 - **For fiat funds** — based on market cross-rate (during high volatility, cross-rate may be fixed according to [www.xe.com](https://www.xe.com/)).
 
 This formula is used to calculate the percentage commission retained by the Service for performing the exchange operation.

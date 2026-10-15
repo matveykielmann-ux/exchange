@@ -60,17 +60,33 @@ describe('calculateQuote', () => {
   });
 
   it('has no maximum: large amounts quote cleanly on every payout method', () => {
-    for (const payoutMethod of ['ach', 'wire', 'instant_debit', 'courier_cash'] as const) {
+    for (const payoutMethod of ['ach', 'wire', 'instant_debit'] as const) {
       const { issues } = calculateQuote({ ...base, payoutMethod, amountAtomic: 1_000_000_000n }); // 10 BTC ≈ $684k
       expect(issues).toEqual([]);
     }
+    const courier = calculateQuote({
+      ...base,
+      payoutMethod: 'courier_cash',
+      amountAtomic: 1_000_000_000n,
+      quotedFeeCents: 50_00n,
+    });
+    expect(courier.issues).toEqual([]);
+    expect(courier.quote.payoutFeeCents).toBe(50_00n);
+  });
+
+  it('marks courier fee pending when no operator fee is supplied', () => {
+    const { quote, issues } = calculateQuote({ ...base, payoutMethod: 'courier_cash', amountAtomic: 10_000_000n });
+    expect(issues.map((i) => i.code)).toContain('courier_fee_pending');
+    expect(quote.feePending).toBe(true);
   });
 
   it('flags payout methods below their minimum', () => {
     expect(calculateQuote({ ...base, payoutMethod: 'wire', amountAtomic: 1_000_000n }).issues[0]).toMatchObject({
       code: 'payout_ineligible',
     });
-    expect(calculateQuote({ ...base, payoutMethod: 'courier_cash', amountAtomic: 100_000n }).issues[0]).toMatchObject({
+    expect(
+      calculateQuote({ ...base, payoutMethod: 'courier_cash', amountAtomic: 100_000n, quotedFeeCents: 10_00n }).issues[0],
+    ).toMatchObject({
       code: 'payout_ineligible',
     });
   });
@@ -102,23 +118,32 @@ describe('payout fees', () => {
     expect(payoutFeeCents(m, 50_00n)).toBe(1_00n);
     expect(payoutFeeCents(m, 5_000_00n)).toBe(25_00n);
   });
-  it('offers courier cash delivery with a flat fee', () => {
+  it('quotes courier cash delivery individually (no published flat fee)', () => {
     expect(PAYOUT_METHODS.courier_cash.availability.available).toBe(true);
-    expect(payoutFeeCents(PAYOUT_METHODS.courier_cash, 2_000_00n)).toBe(35_00n);
+    expect(PAYOUT_METHODS.courier_cash.fee).toEqual({ kind: 'quoted' });
+    expect(payoutFeeCents(PAYOUT_METHODS.courier_cash, 2_000_00n)).toBeNull();
+    expect(payoutFeeCents(PAYOUT_METHODS.courier_cash, 2_000_00n, 45_00n)).toBe(45_00n);
   });
 });
 
 describe('calculateBuyQuote', () => {
   const buy = { asset: 'USDT' as const, network: 'tron' as const, referencePriceMicros: 1_000_000n, now: 1_000 };
 
+  it('leaves courier fee pending until an operator quotes it', () => {
+    const pending = calculateBuyQuote({ ...buy, cashCents: 1_000_00n });
+    expect(pending.issues.map((i) => i.code)).toContain('courier_fee_pending');
+    expect(pending.quote.feePending).toBe(true);
+    expect(pending.quote.payoutFeeCents).toBe(0n);
+  });
+
   it('reconciles cash − spread − courier fee and converts the rest, rounding the crypto down', () => {
-    const { quote, issues } = calculateBuyQuote({ ...buy, cashCents: 1_000_00n });
+    const { quote, issues } = calculateBuyQuote({ ...buy, cashCents: 1_000_00n, quotedFeeCents: 35_00n });
     expect(issues).toEqual([]);
     expect(quote.direction).toBe('buy');
     expect(quote.payoutMethod).toBe('courier_cash');
     expect(quote.grossCents).toBe(1_000_00n);
     expect(quote.spreadBps).toBe(spreadBpsFor('USDT', 1_000_00n));
-    expect(quote.payoutFeeCents).toBe(payoutFeeCents(PAYOUT_METHODS.courier_cash, 1_000_00n));
+    expect(quote.payoutFeeCents).toBe(35_00n);
     expect(quote.grossCents - quote.spreadCents - quote.payoutFeeCents).toBe(quote.netCents);
     // $1 per USDT, 6 decimals: one cent is 10,000 atomic units.
     expect(quote.amountAtomic).toBe(quote.netCents * 10_000n);
@@ -130,14 +155,17 @@ describe('calculateBuyQuote', () => {
       referencePriceMicros: 68_000_000_000n,
       now: 1,
       cashCents: 1_234_56n,
+      quotedFeeCents: 35_00n,
     });
     const exact = (btc.quote.netCents * 10_000n * 100_000_000n) / 68_000_000_000n;
     expect(btc.quote.amountAtomic).toBe(exact); // floor
   });
 
   it('flags amounts below the minimum and below the courier minimum', () => {
-    expect(calculateBuyQuote({ ...buy, cashCents: 0n }).issues.map((i) => i.code)).toEqual(['zero_amount']);
-    expect(calculateBuyQuote({ ...buy, cashCents: 10_00n }).issues.map((i) => i.code)).toEqual(['below_minimum']);
-    expect(calculateBuyQuote({ ...buy, cashCents: 400_00n }).issues.map((i) => i.code)).toContain('payout_ineligible');
+    expect(calculateBuyQuote({ ...buy, cashCents: 0n, quotedFeeCents: 0n }).issues.map((i) => i.code)).toEqual(['zero_amount']);
+    expect(calculateBuyQuote({ ...buy, cashCents: 10_00n, quotedFeeCents: 0n }).issues.map((i) => i.code)).toEqual(['below_minimum']);
+    expect(calculateBuyQuote({ ...buy, cashCents: 400_00n, quotedFeeCents: 10_00n }).issues.map((i) => i.code)).toContain(
+      'payout_ineligible',
+    );
   });
 });

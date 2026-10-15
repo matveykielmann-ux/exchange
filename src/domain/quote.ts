@@ -24,7 +24,7 @@ export const PRICING_POLICY = {
   depositWindowMs: 30 * 60_000,
   /**
    * No spread (owner decision, 2026-10-15): the rate on the quote is the market reference price. The
-   * commission is the 3% exchange fee on the method (see PAYOUT_METHODS); courier orders pay the courier fee.
+   * commission is the 3% exchange fee on ACH/wire/debit; courier delivery cost is quoted per order.
    * The spread fields stay on quotes and orders, always 0, so stored quotes keep their shape.
    */
   spreadBps: 0,
@@ -41,6 +41,11 @@ export interface QuoteRequest {
   source?: QuoteSource;
   /** Server-assigned id; generated locally when omitted. */
   id?: string;
+  /**
+   * Required for courier_cash once an operator has quoted the delivery cost.
+   * Omit (or null) to leave the fee pending — never invent a courier fee.
+   */
+  quotedFeeCents?: Cents | null;
 }
 
 export type QuoteSource = 'mock' | 'sandbox' | 'live';
@@ -58,7 +63,9 @@ export type QuoteIssue =
   | { code: 'zero_amount' }
   | { code: 'below_minimum'; minimumCents: Cents; minimumAtomic: AtomicAmount }
   | { code: 'payout_ineligible'; reason: string }
-  | { code: 'non_positive_payout' };
+  | { code: 'non_positive_payout' }
+  /** Courier delivery cost is set per order by an operator; no published tariff is applied. */
+  | { code: 'courier_fee_pending' };
 
 export interface Quote {
   id: string;
@@ -73,10 +80,19 @@ export interface Quote {
   spreadBps: number;
   spreadCents: Cents;
   payoutMethod: PayoutMethodId;
+  /**
+   * When `feePending` is true, this is 0 and must not be shown as a real fee —
+   * the courier delivery cost has not been quoted yet.
+   */
   payoutFeeCents: Cents;
   netCents: Cents;
   /** Net USD micros received per whole unit of the asset. */
   effectiveRateMicros: Micros;
+  /**
+   * True when the method uses an individually quoted courier fee that has not
+   * been set yet. Net figures are incomplete until an operator sets the fee.
+   */
+  feePending?: boolean;
   createdAt: number;
   expiresAt: number;
 }
@@ -116,7 +132,10 @@ export function calculateQuote(req: QuoteRequest): QuoteResult {
   const spreadBps = spreadBpsFor(req.asset, grossCents);
   const spreadCents = divRoundHalfUp(grossCents * BigInt(spreadBps), 10_000n);
   const method = PAYOUT_METHODS[req.payoutMethod];
-  const feeCents = payoutFeeCents(method, grossCents);
+  const resolvedFee = payoutFeeCents(method, grossCents, req.quotedFeeCents);
+  const feePending = resolvedFee === null;
+  if (feePending) issues.push({ code: 'courier_fee_pending' });
+  const feeCents = resolvedFee ?? 0n;
   const netCents = grossCents - spreadCents - feeCents;
 
   if (req.amountAtomic <= 0n) {
@@ -130,11 +149,13 @@ export function calculateQuote(req: QuoteRequest): QuoteResult {
   } else {
     const eligibility = payoutEligibility(method, grossCents);
     if (!eligibility.eligible) issues.push({ code: 'payout_ineligible', reason: eligibility.reason });
-    if (netCents <= 0n) issues.push({ code: 'non_positive_payout' });
+    if (!feePending && netCents <= 0n) issues.push({ code: 'non_positive_payout' });
   }
 
   const effectiveRateMicros =
-    req.amountAtomic > 0n && netCents > 0n ? (netCents * MICROS_PER_CENT * pow10(ASSETS[req.asset].decimals)) / req.amountAtomic : 0n;
+    req.amountAtomic > 0n && !feePending && netCents > 0n
+      ? (netCents * MICROS_PER_CENT * pow10(ASSETS[req.asset].decimals)) / req.amountAtomic
+      : 0n;
 
   return {
     quote: {
@@ -151,6 +172,7 @@ export function calculateQuote(req: QuoteRequest): QuoteResult {
       payoutFeeCents: feeCents,
       netCents,
       effectiveRateMicros,
+      feePending: feePending || undefined,
       createdAt: req.now,
       expiresAt: req.now + PRICING_POLICY.quoteTtlMs,
     },
@@ -175,6 +197,8 @@ export interface BuyQuoteRequest {
   now: number;
   source?: QuoteSource;
   id?: string;
+  /** Operator-quoted courier fee for cash collection; omit while pending. */
+  quotedFeeCents?: Cents | null;
 }
 
 /** The default pay-in of a buy: cash collected by courier. */
@@ -189,11 +213,16 @@ export function calculateBuyQuote(req: BuyQuoteRequest): QuoteResult {
   const payIn = req.payIn ?? BUY_CASH_METHOD;
   // The pay-in reuses the matching method's fee and minimum (courier fee, or the wire fee).
   const method = PAYOUT_METHODS[payIn];
-  const feeCents = payoutFeeCents(method, grossCents);
+  const resolvedFee = payoutFeeCents(method, grossCents, req.quotedFeeCents);
+  const feePending = resolvedFee === null;
+  if (feePending) issues.push({ code: 'courier_fee_pending' });
+  const feeCents = resolvedFee ?? 0n;
   const netCents = grossCents - spreadCents - feeCents;
   const decimals = pow10(ASSETS[req.asset].decimals);
   const amountAtomic =
-    netCents > 0n && req.referencePriceMicros > 0n ? (netCents * MICROS_PER_CENT * decimals) / req.referencePriceMicros : 0n;
+    !feePending && netCents > 0n && req.referencePriceMicros > 0n
+      ? (netCents * MICROS_PER_CENT * decimals) / req.referencePriceMicros
+      : 0n;
 
   if (grossCents <= 0n) issues.push({ code: 'zero_amount' });
   else if (grossCents < PRICING_POLICY.minimumCents)
@@ -201,7 +230,7 @@ export function calculateBuyQuote(req: BuyQuoteRequest): QuoteResult {
   else {
     const eligibility = payoutEligibility(method, grossCents);
     if (!eligibility.eligible) issues.push({ code: 'payout_ineligible', reason: eligibility.reason });
-    if (netCents <= 0n || amountAtomic <= 0n) issues.push({ code: 'non_positive_payout' });
+    if (!feePending && (netCents <= 0n || amountAtomic <= 0n)) issues.push({ code: 'non_positive_payout' });
   }
 
   return {
@@ -221,6 +250,7 @@ export function calculateBuyQuote(req: BuyQuoteRequest): QuoteResult {
       netCents,
       // Cash paid per whole unit received.
       effectiveRateMicros: amountAtomic > 0n ? (grossCents * MICROS_PER_CENT * decimals) / amountAtomic : 0n,
+      feePending: feePending || undefined,
       createdAt: req.now,
       expiresAt: req.now + PRICING_POLICY.quoteTtlMs,
     },
@@ -230,7 +260,36 @@ export function calculateBuyQuote(req: BuyQuoteRequest): QuoteResult {
 
 /** Issues about the amount itself (vs. the chosen payout method), which block step 1 of the flow. */
 export function amountIssues(issues: QuoteIssue[]): QuoteIssue[] {
-  return issues.filter((i) => i.code !== 'payout_ineligible');
+  return issues.filter((i) => i.code !== 'payout_ineligible' && i.code !== 'courier_fee_pending');
+}
+
+/** Recalculate a stored quote after an operator sets the courier delivery fee. */
+export function requoteWithCourierFee(quote: Quote, quotedFeeCents: Cents, now: number): QuoteResult {
+  if (quotedFeeCents < 0n) throw new Error('Courier fee cannot be negative.');
+  if (quote.direction === 'buy') {
+    return calculateBuyQuote({
+      asset: quote.asset,
+      network: quote.network,
+      cashCents: quote.grossCents,
+      payIn: quote.payoutMethod === 'wire' ? 'wire' : 'courier_cash',
+      referencePriceMicros: quote.referencePriceMicros,
+      now,
+      source: quote.source,
+      id: quote.id,
+      quotedFeeCents,
+    });
+  }
+  return calculateQuote({
+    asset: quote.asset,
+    network: quote.network,
+    amountAtomic: quote.amountAtomic,
+    payoutMethod: quote.payoutMethod,
+    referencePriceMicros: quote.referencePriceMicros,
+    now,
+    source: quote.source,
+    id: quote.id,
+    quotedFeeCents,
+  });
 }
 
 /**

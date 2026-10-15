@@ -30,6 +30,7 @@ import {
   SUCCESS,
   type CardAction,
 } from './orderActions';
+import { TxHashLink } from '@/components/TxHashLink';
 import { LoadError } from './shared';
 import { SandboxLab } from './SandboxLab';
 
@@ -133,14 +134,19 @@ function MainBlock({ detail, onResult, reload }: { detail: AdminOrderDetail; onR
         <div>
           <dt>{t('Fees')}</dt>
           <dd className="tabular">
-            {t('spread {0} · {1} {2}', [
-              formatUsd(o.quote.spreadCents),
-              o.direction === 'buy' ? (o.payIn === 'wire' ? t('wire') : t('courier')) : t('payout'),
-              formatUsd(o.quote.payoutFeeCents),
-            ])}
+            {o.courierFee?.pending || o.quote.feePending
+              ? t('Courier fee: calculated individually (not set yet)')
+              : t('spread {0} · {1} {2}', [
+                  formatUsd(o.quote.spreadCents),
+                  o.direction === 'buy' ? (o.payIn === 'wire' ? t('wire') : t('courier')) : t('payout'),
+                  formatUsd(o.quote.payoutFeeCents),
+                ])}
           </dd>
         </div>
       </dl>
+      {o.courierFee?.awaitingAcceptance ? (
+        <p className="notice notice--info small">{t('Waiting for the customer to accept the courier fee.')}</p>
+      ) : null}
       {o.reviewReason ? (
         <p className="small order-card__flag">
           <Icon name="alert" width={14} height={14} /> {t('Review reason')}: {t(o.reviewReason)}
@@ -153,7 +159,14 @@ function MainBlock({ detail, onResult, reload }: { detail: AdminOrderDetail; onR
 
 function ActionBar({ detail, onResult, reload }: { detail: AdminOrderDetail; onResult(r: Result): void; reload(): void }) {
   const o = detail.order;
-  const plan = actionPlan(o, detail.actions);
+  const plan = actionPlan(
+    {
+      ...o,
+      payoutMethod: o.payout.method,
+      courierFeePending: o.courierFee?.pending,
+    },
+    detail.actions,
+  );
   const [open, setOpen] = useState<CardAction | null>(null);
   const [menu, setMenu] = useState(false);
   const why = (a: CardAction) => detail.actions.find((x) => x.action === a)?.unavailable;
@@ -248,6 +261,7 @@ function ActionDialog({
   );
   const [evidenceRef, setEvidenceRef] = useState('');
   const [evidenceNote, setEvidenceNote] = useState('');
+  const [courierFeeUsd, setCourierFeeUsd] = useState('');
   const [template, setTemplate] = useState(templates[0]!.id);
   const [rejectReason, setRejectReason] = useState(REJECT_REASONS[0]!);
   const [assignee, setAssignee] = useState(detail.order.assignedOperatorId ?? '');
@@ -276,6 +290,15 @@ function ActionDialog({
       setErr(t('Provide an evidence reference (at least 4 characters).'));
       return;
     }
+    let feeCents: number | undefined;
+    if (action === 'set_courier_fee') {
+      const m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(courierFeeUsd.trim());
+      if (!m) {
+        setErr(t('Enter the courier fee in US dollars, for example 45 or 45.00.'));
+        return;
+      }
+      feeCents = Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0'));
+    }
     setBusy(true);
     setErr(null);
     const expectedStatus = o.status;
@@ -291,6 +314,8 @@ function ActionDialog({
           evidenceNote: evidenceNote.trim() || undefined,
           expectedStatus,
         });
+      else if (action === 'set_courier_fee')
+        await admin.act(o.id, action, { feeCents, reason: reasonText.trim() || t('Courier fee quoted for this order.'), expectedStatus });
       else await admin.act(o.id, action, { reason: reasonText.trim(), expectedStatus });
       onDone({ tone: 'success', text: t(SUCCESS[action] ?? 'Done.') });
     } catch (x) {
@@ -398,6 +423,29 @@ function ActionDialog({
               onChange={setText}
               rows={3}
             />
+          ) : action === 'set_courier_fee' ? (
+            <>
+              <p className="notice notice--info small">
+                {t(
+                  'Courier delivery cost depends on the order. Enter the fee for this order only. The customer must accept the recalculated quote before the exchange continues.',
+                )}
+              </p>
+              <div className="field">
+                <label className="field__label" htmlFor="courier-fee-usd">
+                  {t('Courier fee (USD)')}
+                </label>
+                <input
+                  id="courier-fee-usd"
+                  className="input"
+                  inputMode="decimal"
+                  value={courierFeeUsd}
+                  onChange={(e) => setCourierFeeUsd(e.target.value)}
+                  placeholder="45.00"
+                  required
+                />
+              </div>
+              <TextField id="courier-fee-reason" label={t('Reason (recorded in the audit log)')} value={text} onChange={setText} rows={2} />
+            </>
           ) : action === 'record_manual_payout' ? (
             <>
               <p className="notice notice--warn small">
@@ -531,7 +579,11 @@ function ClientBlock({ detail }: { detail: AdminOrderDetail }) {
                 {!buy ? (
                   <span className="small muted block">
                     {t('{0} of {1} confirmations', [o.deposit.confirmations.count, o.deposit.confirmations.required])}
-                    {o.deposit.txHash ? <span className="mono break block">{o.deposit.txHash}</span> : null}
+                    {o.deposit.txHash ? (
+                      <span className="block">
+                        <TxHashLink txHash={o.deposit.txHash} network={o.network} className="mono small" />
+                      </span>
+                    ) : null}
                   </span>
                 ) : null}
               </>
@@ -542,7 +594,7 @@ function ClientBlock({ detail }: { detail: AdminOrderDetail }) {
           </Row>
           {!buy && o.deposit.customerTxHash ? (
             <Row term={t('Customer tx hash')}>
-              <span className="mono small break">{o.deposit.customerTxHash}</span>
+              <TxHashLink txHash={o.deposit.customerTxHash} network={o.network} className="mono small" />
               <span className="small muted block">{t('Format checked only, not proof of deposit')}</span>
             </Row>
           ) : null}
@@ -676,7 +728,9 @@ function MoreDetails({ detail, reload }: { detail: AdminOrderDetail; reload(): v
           {detail.refund ? (
             <Row term={t('Refund')}>
               {detail.refund.status} · {detail.refund.reason}
-              {detail.refund.txHash ? <span className="mono small block break">{detail.refund.txHash}</span> : null}
+              {detail.refund.txHash ? (
+                <TxHashLink txHash={detail.refund.txHash} network={o.network} className="mono small" />
+              ) : null}
             </Row>
           ) : null}
           {detail.reviews.map((r) => (

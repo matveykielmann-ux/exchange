@@ -152,7 +152,7 @@ function PayoutStep({ grossCents, onBack, onNext }: { grossCents: bigint | null;
                   <span className="badge badge--neutral">{m.availability.available ? t('Not eligible') : t('Not offered')}</span>
                 ) : (
                   <>
-                    <strong>{feeLabel(feeCents)}</strong>
+                    <strong>{feeCents === null ? t('Calculated individually') : feeLabel(feeCents)}</strong>
                     {m.fee.kind === 'percent' ? t(describeFee(m.fee, m.feeStatus)) : null}
                   </>
                 )}
@@ -415,7 +415,7 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
     !!locked &&
     !expired &&
     !firm.loading &&
-    locked.issues.length === 0 &&
+    locked.issues.every((i) => i.code === 'courier_fee_pending') &&
     verified &&
     ackNetwork &&
     ackDocs &&

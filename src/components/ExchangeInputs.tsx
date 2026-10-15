@@ -143,6 +143,16 @@ export function QuoteIssues({ issues, asset }: { issues: QuoteIssue[]; asset: As
             return <Notice key={issue.code} tone="warn" title={t('Fees would exceed the value of this amount.')} />;
           case 'unsupported_network':
             return <Notice key={issue.code} tone="danger" title={t("That network isn't supported for this asset.")} />;
+          case 'courier_fee_pending':
+            return (
+              <Notice key={issue.code} tone="warn" title={t('Courier fee calculated individually')}>
+                <p>
+                  {t(
+                    'There is no fixed courier tariff. An operator sets the delivery cost for your order; you confirm the amount before the exchange continues.',
+                  )}
+                </p>
+              </Notice>
+            );
           case 'zero_amount':
             return null;
         }

@@ -10,10 +10,12 @@ import { t } from '@/i18n';
 /**
  * The quote anatomy. Rows reconcile exactly: value at the market rate − fee = net (there is no spread).
  * `loading` greys the figures while a refresh is in flight.
+ * When the courier fee is pending, fee and net show as individually calculated — never a fabricated amount.
  */
 export function QuoteBreakdown({ quote, loading = false, compact = false }: { quote: Quote; loading?: boolean; compact?: boolean }) {
   const method = PAYOUT_METHODS[quote.payoutMethod];
   const sk = loading ? ' skeleton' : '';
+  const feePending = !!quote.feePending;
   return (
     <div aria-busy={loading || undefined}>
       <dl className="quote-lines">
@@ -58,15 +60,20 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
             </span>
             <small>{t(method.name)}</small>
           </dt>
-          <dd className={sk}>{formatUsd(-quote.payoutFeeCents)}</dd>
+          <dd className={sk}>{feePending ? t('Calculated individually') : formatUsd(-quote.payoutFeeCents)}</dd>
         </div>
       </dl>
       <div className="quote-total">
         <span className="quote-total__label">{t('You receive')}</span>
         <span className={`quote-total__value${sk}`} aria-live="off">
-          <RollingAmount cents={quote.netCents} />
+          {feePending ? t('After courier fee') : <RollingAmount cents={quote.netCents} />}
         </span>
       </div>
+      {feePending ? (
+        <p className="small muted" style={{ marginTop: 12 }}>
+          {t('Courier delivery cost depends on the order and is confirmed before you accept the final quote.')}
+        </p>
+      ) : null}
       {!compact && (
         <p className="small muted" style={{ marginTop: 12 }}>
           {t('Your wallet charges its own')} {NETWORKS[quote.network].name} {t('network fee to send. It is not included above.')}
@@ -83,6 +90,7 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
 export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; loading?: boolean }) {
   const method = PAYOUT_METHODS[quote.payoutMethod];
   const sk = loading ? ' skeleton' : '';
+  const feePending = !!quote.feePending;
   return (
     <div aria-busy={loading || undefined}>
       <dl className="quote-lines">
@@ -103,7 +111,7 @@ export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; lo
             </span>
             <small>{t('Cash collection')}</small>
           </dt>
-          <dd className={sk}>{formatUsd(-quote.payoutFeeCents)}</dd>
+          <dd className={sk}>{feePending ? t('Calculated individually') : formatUsd(-quote.payoutFeeCents)}</dd>
         </div>
         <div>
           <dt>
@@ -113,17 +121,27 @@ export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; lo
               {t(', market rate')}
             </small>
           </dt>
-          <dd className={sk}>{formatPriceMicros(buyRateMicros(quote), quote.asset)}</dd>
+          <dd className={sk}>
+            {feePending ? '—' : formatPriceMicros(buyRateMicros(quote), quote.asset)}
+          </dd>
         </div>
       </dl>
       <div className="quote-total">
         <span className="quote-total__label">{t('You receive')}</span>
-        <span className={`quote-total__value tabular${sk}`}>{formatAsset(quote.amountAtomic, quote.asset)}</span>
+        <span className={`quote-total__value tabular${sk}`}>
+          {feePending ? t('After courier fee') : formatAsset(quote.amountAtomic, quote.asset)}
+        </span>
       </div>
-      <p className="small muted" style={{ marginTop: 12 }}>
-        {t('Sent on')} {networkLabel(quote.asset, quote.network)}{' '}
-        {t('to the wallet address you give, after the cash is counted and verified.')}
-      </p>
+      {feePending ? (
+        <p className="small muted" style={{ marginTop: 12 }}>
+          {t('Courier collection cost depends on the order and is confirmed before you accept the final quote.')}
+        </p>
+      ) : (
+        <p className="small muted" style={{ marginTop: 12 }}>
+          {t('Sent on')} {networkLabel(quote.asset, quote.network)}{' '}
+          {t('to the wallet address you give, after the cash is counted and verified.')}
+        </p>
+      )}
     </div>
   );
 }

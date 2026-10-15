@@ -446,4 +446,43 @@ export const RU_PUBLIC3: Record<string, string> = {
   'Exchange fee': 'Комиссия за обмен',
   '3% of the value, for bank transfer, wire and debit card. Cash by courier has a courier fee instead.':
     '3% от суммы для банковского перевода, wire и дебетовой карты. Для наличных с курьером вместо неё стоимость курьера.',
+  '3% of the value, for bank transfer, wire and debit card. Cash by courier: delivery cost is calculated individually for each order.':
+    '3% от суммы для банковского перевода, wire и дебетовой карты. Для наличных с курьером стоимость доставки рассчитывается индивидуально для каждой заявки.',
+  'A 3% exchange fee on every payout method except cash by courier, where delivery cost is calculated individually for each order. There is no spread: you get the market rate. Return fees apply only if funds have to be returned.':
+    'Комиссия за обмен 3% на все способы выплаты, кроме наличных с курьером: там стоимость доставки рассчитывается индивидуально для каждой заявки. Спреда нет, вы получаете рыночный курс. Комиссии за возврат применяются, только если средства приходится возвращать.',
+  'Courier fee calculated per order': 'Комиссия курьера рассчитывается по заявке',
+  'The 3% exchange fee for bank transfer, wire and debit card is the configured schedule. Cash-by-courier delivery cost depends on the order: an operator sets it and you confirm the amount on the quote before the exchange continues. No fixed courier tariff is published.':
+    'Комиссия за обмен 3% для банковского перевода, wire и дебетовой карты — настроенный тариф. Стоимость доставки наличных с курьером зависит от заявки: оператор назначает её, и вы подтверждаете сумму в расчёте до продолжения обмена. Фиксированный тариф курьера не публикуется.',
+  'Calculated individually': 'Рассчитывается индивидуально',
+  'After courier fee': 'После комиссии курьера',
+  'Courier fee calculated individually': 'Комиссия курьера рассчитывается индивидуально',
+  'There is no fixed courier tariff. An operator sets the delivery cost for your order; you confirm the amount before the exchange continues.':
+    'Фиксированного тарифа курьера нет. Оператор назначает стоимость доставки для вашей заявки; вы подтверждаете сумму до продолжения обмена.',
+  'Courier delivery cost depends on the order and is confirmed before you accept the final quote.':
+    'Стоимость курьерской доставки зависит от заявки и подтверждается до принятия окончательного расчёта.',
+  'Courier collection cost depends on the order and is confirmed before you accept the final quote.':
+    'Стоимость забора наличных зависит от заявки и подтверждается до принятия окончательного расчёта.',
+  'View on blockchain explorer': 'Открыть в блокчейн-эксплорере',
+  'Set courier fee': 'Назначить комиссию курьера',
+  'Sets the courier delivery or collection cost for this order and recalculates the quote. The customer must accept the updated amount before the exchange continues. There is no published flat courier tariff.':
+    'Назначает стоимость курьерской доставки или забора для этой заявки и пересчитывает котировку. Клиент должен принять обновлённую сумму до продолжения обмена. Опубликованного фиксированного тарифа курьера нет.',
+  'Courier fee quoted for this order.': 'Комиссия курьера назначена для этой заявки.',
+  'Courier fee set. The customer must accept the updated quote.':
+    'Комиссия курьера назначена. Клиент должен принять обновлённый расчёт.',
+  'Courier delivery cost depends on the order. Enter the fee for this order only. The customer must accept the recalculated quote before the exchange continues.':
+    'Стоимость курьерской доставки зависит от заявки. Укажите комиссию только для этой заявки. Клиент должен принять пересчитанный расчёт до продолжения обмена.',
+  'Courier fee (USD)': 'Комиссия курьера (USD)',
+  'Enter the courier fee in US dollars, for example 45 or 45.00.':
+    'Введите комиссию курьера в долларах США, например 45 или 45.00.',
+  'Courier fee: calculated individually (not set yet)': 'Комиссия курьера: рассчитывается индивидуально (ещё не назначена)',
+  'Waiting for the customer to accept the courier fee.': 'Ожидание принятия клиентом комиссии курьера.',
+  'Courier fee not set yet': 'Комиссия курьера ещё не назначена',
+  'Delivery cost is calculated for your order. An operator will set the fee; you will confirm the final amount here before the exchange continues.':
+    'Стоимость доставки рассчитывается для вашей заявки. Оператор назначит комиссию; вы подтвердите итоговую сумму здесь до продолжения обмена.',
+  'Confirm courier fee': 'Подтвердите комиссию курьера',
+  'Courier fee for this order:': 'Комиссия курьера по этой заявке:',
+  '· You receive': '· Вы получаете',
+  'Accepting confirms the delivery cost shown above. Deposit or collection instructions follow after acceptance.':
+    'Принятие подтверждает стоимость доставки выше. Инструкции по депозиту или забору появятся после подтверждения.',
+  'Accept courier fee and continue': 'Принять комиссию курьера и продолжить',
 };

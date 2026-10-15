@@ -11,7 +11,9 @@ export type PayoutMethodId = 'ach' | 'wire' | 'instant_debit' | 'courier_cash';
 export type FeeSchedule =
   | { kind: 'none' }
   | { kind: 'flat'; cents: Cents }
-  | { kind: 'percent'; bps: number; minCents: Cents | null; maxCents: Cents | null };
+  | { kind: 'percent'; bps: number; minCents: Cents | null; maxCents: Cents | null }
+  /** No schedule: an operator quotes the fee per order before the customer accepts the final terms. */
+  | { kind: 'quoted' };
 
 /** The exchange fee on every method except courier cash (owner decision, 2026-10-15). There is no spread. */
 export const EXCHANGE_FEE: FeeSchedule = { kind: 'percent', bps: 300, minCents: null, maxCents: null };
@@ -25,10 +27,9 @@ export interface PayoutMethod {
   timingEstimate: string;
   fee: FeeSchedule;
   /**
-   * When set, the fee amount is configured in code but not confirmed as the operational fee.
-   * Shown next to the fee on customer fee schedules; calculation still uses `fee`.
+   * When set, the fee is not a fixed published tariff. Shown on customer fee schedules.
    */
-  feeStatus?: 'provisional';
+  feeStatus?: 'quoted_individually';
   /** Minimum gross USD value the method accepts. There is no maximum (owner decision, 2026-10-14). */
   minCents: Cents;
   availability: Availability;
@@ -67,9 +68,9 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
     name: 'Cash by courier',
     summary: 'US dollars in cash, handed to you at your address after an ID check.',
     timingEstimate: 'Estimated 1–2 business days after your deposit is final',
-    // Provisional fee and minimum until the owner confirms operational values (OWNER INPUT REQUIRED).
-    fee: { kind: 'flat', cents: 35_00n },
-    feeStatus: 'provisional',
+    // No published tariff: delivery cost depends on the order and is set by an operator.
+    fee: { kind: 'quoted' },
+    feeStatus: 'quoted_individually',
     minCents: 500_00n,
     availability: FEATURE_FLAGS.courierCashDelivery
       ? { available: true }
@@ -82,13 +83,20 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
 
 export const PAYOUT_ORDER: PayoutMethodId[] = ['ach', 'wire', 'instant_debit', 'courier_cash'];
 
-export function payoutFeeCents(method: PayoutMethod, grossCents: Cents): Cents {
+/**
+ * Fee in cents for a method and gross value.
+ * For `quoted` methods, pass `quotedFeeCents` once an operator has set it; otherwise returns null
+ * (do not invent a number).
+ */
+export function payoutFeeCents(method: PayoutMethod, grossCents: Cents, quotedFeeCents?: Cents | null): Cents | null {
   const fee = method.fee;
   switch (fee.kind) {
     case 'none':
       return 0n;
     case 'flat':
       return fee.cents;
+    case 'quoted':
+      return quotedFeeCents === undefined || quotedFeeCents === null ? null : quotedFeeCents;
     case 'percent': {
       const raw = divRoundHalfUp(grossCents * BigInt(fee.bps), 10_000n);
       if (fee.minCents !== null && raw < fee.minCents) return fee.minCents;
@@ -99,22 +107,21 @@ export function payoutFeeCents(method: PayoutMethod, grossCents: Cents): Cents {
 }
 
 export function describeFee(fee: FeeSchedule, status?: PayoutMethod['feeStatus']): string {
-  let base: string;
   switch (fee.kind) {
     case 'none':
-      base = 'No payout fee';
-      break;
-    case 'flat':
-      base = `${formatUsd(fee.cents)} flat`;
-      break;
+      return 'No payout fee';
+    case 'quoted':
+      return 'Calculated individually for each order';
+    case 'flat': {
+      const base = `${formatUsd(fee.cents)} flat`;
+      return status === 'quoted_individually' ? `${base} (calculated individually)` : base;
+    }
     case 'percent': {
       const caps = [fee.minCents !== null && `min ${formatUsd(fee.minCents)}`, fee.maxCents !== null && `max ${formatUsd(fee.maxCents)}`];
       const c = caps.filter(Boolean).join(', ');
-      base = c ? `${formatBps(fee.bps)} (${c})` : `${fee.bps / 100}%`;
-      break;
+      return c ? `${formatBps(fee.bps)} (${c})` : `${fee.bps / 100}%`;
     }
   }
-  return status === 'provisional' ? `${base} (provisional — pending confirmation)` : base;
 }
 
 export type PayoutEligibility = { eligible: true } | { eligible: false; reason: string };
@@ -128,14 +135,15 @@ export function payoutEligibility(method: PayoutMethod, grossCents: Cents): Payo
 export interface PayoutOption {
   method: PayoutMethod;
   eligibility: PayoutEligibility;
-  feeCents: Cents;
+  /** Null when the method is quoted individually and no fee has been set yet. */
+  feeCents: Cents | null;
 }
 
 /** Every payout method with its eligibility and fee for a given sale value (null = no amount yet). */
 export function payoutOptions(grossCents: Cents | null): PayoutOption[] {
   return PAYOUT_ORDER.map((id) => {
     const method = PAYOUT_METHODS[id];
-    if (grossCents === null) return { method, eligibility: { eligible: false, reason: 'Enter an amount first.' }, feeCents: 0n };
+    if (grossCents === null) return { method, eligibility: { eligible: false, reason: 'Enter an amount first.' }, feeCents: null };
     return { method, eligibility: payoutEligibility(method, grossCents), feeCents: payoutFeeCents(method, grossCents) };
   });
 }

@@ -516,7 +516,7 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
     !!locked &&
     !expired &&
     !firm.loading &&
-    locked.issues.length === 0 &&
+    locked.issues.every((i) => i.code === 'courier_fee_pending') &&
     verified &&
     ackCash &&
     ackDocs &&

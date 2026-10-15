@@ -443,7 +443,7 @@ describe('API', () => {
 
     const q = await c.post('/api/quotes', { asset: 'USDC', network: 'ethereum', amountAtomic: '2500000000', payoutMethod: 'courier_cash' });
     expect(q.status).toBe(201);
-    expect(q.body.issues).toEqual([]);
+    expect(q.body.issues.map((i: { code: string }) => i.code)).toContain('courier_fee_pending');
     const o = await c.post(
       '/api/orders',
       { quoteId: q.body.quote.id, destinationId: saved.body.id, refundAddress: TEST_ETH_ADDRESS, accepted: docs('order') },
@@ -451,9 +451,22 @@ describe('API', () => {
     );
     expect(o.status).toBe(201);
     const id = o.body.id as string;
+    expect(o.body.courierFee.pending).toBe(true);
     expect(o.body.payout.delivery).toMatchObject({ recipient: 'Alex Morgan', line1: '200 Example Street', window: 'afternoon' });
 
     const adminForCourier = await staff(env.app, env.base, 'admin', 'courier-admin@arcvale.test');
+    const priced = await adminForCourier.post(`/api/admin/orders/${id}/set-courier-fee`, {
+      feeCents: 4500,
+      reason: 'Quoted for Manhattan delivery.',
+    });
+    expect(priced.status).toBe(200);
+    expect(priced.body.courierFee).toMatchObject({ pending: false, awaitingAcceptance: true });
+    expect(priced.body.quote.payoutFeeCents).toBe('4500');
+    const accepted = await c.post(`/api/orders/${id}/accept-courier-fee`);
+    expect(accepted.status).toBe(200);
+    expect(accepted.body.courierFee.awaitingAcceptance).toBe(false);
+    expect(accepted.body.status).toBe('awaiting_deposit');
+
     await adminForCourier.post(`/api/admin/sandbox/orders/${id}/deposit`, { scenario: 'exact' });
     expect((await adminForCourier.post(`/api/admin/sandbox/orders/${id}/confirmations`, { toFinal: true })).body.order.status).toBe(
       'ready_for_payout',
@@ -499,9 +512,8 @@ describe('API', () => {
 
     const indicative = await c.get('/api/quotes/indicative?direction=buy&asset=USDT&network=tron&cashCents=100000');
     expect(indicative.status).toBe(200);
-    expect(indicative.body.quote).toMatchObject({ direction: 'buy', grossCents: '100000', payoutMethod: 'courier_cash' });
-    expect(BigInt(indicative.body.quote.amountAtomic)).toBeGreaterThan(0n);
-    expect(indicative.body.issues).toEqual([]);
+    expect(indicative.body.quote).toMatchObject({ direction: 'buy', grossCents: '100000', payoutMethod: 'courier_cash', feePending: true });
+    expect(indicative.body.issues.map((i: { code: string }) => i.code)).toContain('courier_fee_pending');
 
     const q = await c.post('/api/quotes', { direction: 'buy', asset: 'USDT', network: 'tron', cashCents: '100000' });
     expect(q.status).toBe(201);
@@ -513,10 +525,21 @@ describe('API', () => {
     expect(badWallet.body.error.details.field).toBe('receiveAddress');
     const o = await c.post('/api/orders', body, { 'idempotency-key': 'buy-order-1' });
     expect(o.status).toBe(201);
-    expect(o.body).toMatchObject({ direction: 'buy', status: 'awaiting_deposit', refundAddress: null, receiveAddress: wallet });
+    expect(o.body).toMatchObject({ direction: 'buy', status: 'created', refundAddress: null, receiveAddress: wallet });
+    expect(o.body.courierFee.pending).toBe(true);
     expect(o.body.reference).toMatch(/^CBX-/);
     expect(o.body.deposit.address).toBeNull();
     const id = o.body.id as string;
+
+    const reviewer = await staff(env.app, env.base, 'reviewer', 'buy-fee@arcvale.test');
+    expect(
+      (await reviewer.post(`/api/admin/orders/${id}/set-courier-fee`, { feeCents: 2500, reason: 'Collection fee for NYC.' })).status,
+    ).toBe(200);
+    const acceptedBuy = await c.post(`/api/orders/${id}/accept-courier-fee`);
+    expect(acceptedBuy.status).toBe(200);
+    expect(acceptedBuy.body.status).toBe('awaiting_deposit');
+    expect(acceptedBuy.body.quote.payoutFeeCents).toBe('2500');
+    expect(BigInt(acceptedBuy.body.amountAtomic)).toBeGreaterThan(0n);
     // A retried confirm returns the same order.
     expect((await c.post('/api/orders', body, { 'idempotency-key': 'buy-order-1' })).body.id).toBe(id);
     expect(env.ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM orders WHERE direction = 'buy'")!.n).toBe(1);

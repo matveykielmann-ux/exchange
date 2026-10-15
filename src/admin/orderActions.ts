@@ -28,6 +28,8 @@ interface OrderLike {
   onHold: boolean;
   direction?: 'sell' | 'buy';
   payIn?: 'courier_cash' | 'wire' | null;
+  payoutMethod?: string;
+  courierFeePending?: boolean;
   /** Sell: a pending refund waits for the customer's refund address. */
   refundAddressNeeded?: boolean;
 }
@@ -35,6 +37,8 @@ interface OrderLike {
 /** Preferred primary and secondary action for each situation, before checking what the server allows. */
 function preferred(o: OrderLike): [CardAction[], CardAction[]] {
   if (o.onHold) return [['release_hold'], ['reject', 'notify']];
+  const needsCourierFee =
+    o.courierFeePending && (o.payoutMethod === 'courier_cash' || o.payIn === 'courier_cash');
   switch (o.status) {
     case 'compliance_review':
       return [
@@ -51,9 +55,9 @@ function preferred(o: OrderLike): [CardAction[], CardAction[]] {
     case 'refund_pending':
       return [['resubmit_refund'], ['notify']];
     case 'created':
-      return [['notify'], ['reject']];
+      return needsCourierFee ? [['set_courier_fee'], ['notify', 'reject']] : [['notify'], ['reject']];
     case 'awaiting_deposit':
-      return [['notify'], ['reject']];
+      return needsCourierFee ? [['set_courier_fee'], ['notify', 'reject']] : [['notify'], ['reject']];
     default:
       return [[], ['notify']];
   }
@@ -77,6 +81,7 @@ export const WAITING: Partial<Record<OrderStatus, string>> = {
 
 /** Actions that stay in the "More" menu even when allowed, in this order. */
 const MENU_ORDER: CardAction[] = [
+  'set_courier_fee',
   'request_info',
   'notify',
   'hold',
@@ -145,6 +150,7 @@ export const ACTION_LABEL: Record<CardAction, string> = {
   resubmit_refund: 'Resubmit refund to provider',
   assign: 'Assign',
   note: 'Add internal note',
+  set_courier_fee: 'Set courier fee',
 };
 
 /** What each confirming action does, shown in its dialog. */
@@ -161,6 +167,8 @@ export const ACTION_EXPLAIN: Partial<Record<CardAction, string>> = {
   retry_payout: 'The order goes back to “ready for payout”; confirm the payout again to resend it.',
   refund: 'A refund of the received funds is started instead of a payout.',
   resubmit_refund: 'The refund instruction is sent to the provider again with the same idempotency key.',
+  set_courier_fee:
+    'Sets the courier delivery or collection cost for this order and recalculates the quote. The customer must accept the updated amount before the exchange continues. There is no published flat courier tariff.',
 };
 
 /** Default reasons recorded in the audit log; the operator can edit them. */
@@ -170,6 +178,7 @@ export const DEFAULT_REASON: Partial<Record<CardAction, string>> = {
   release_hold: 'Checks completed.',
   retry_payout: 'Retrying after the provider failure.',
   resubmit_refund: 'Resubmitting the refund.',
+  set_courier_fee: 'Courier fee quoted for this order.',
 };
 
 export const REJECT_REASONS = [
@@ -251,6 +260,7 @@ export const SUCCESS: Partial<Record<CardAction, string>> = {
   resubmit_refund: 'The refund was sent to the provider again.',
   assign: 'Assignment saved.',
   note: 'Note added.',
+  set_courier_fee: 'Courier fee set. The customer must accept the updated quote.',
 };
 
 /** How a notification's delivery is described in the order history. */

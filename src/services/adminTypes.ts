@@ -93,7 +93,8 @@ export type OrderActionKey =
   | 'resubmit_refund'
   | 'message'
   | 'hold'
-  | 'release_hold';
+  | 'release_hold'
+  | 'set_courier_fee';
 
 export interface ActionAvailability {
   action: OrderActionKey;

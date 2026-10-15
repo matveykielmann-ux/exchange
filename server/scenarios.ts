@@ -70,6 +70,12 @@ export async function sandboxOperator(
   return { type: 'operator', id, role, ip: meta.ip };
 }
 
+/** Operator quotes courier fee and the customer accepts it (required before deposit/collection). */
+async function priceAndAcceptCourierFee(ctx: AppContext, op: Actor, c: ScenarioCustomer, orderId: string, feeCents = 4500) {
+  ops.setCourierFee(ctx, op, orderId, feeCents, 'Scenario courier fee for this order.');
+  await ops.acceptCourierFee(ctx, c.actor, c.userId, orderId);
+}
+
 export async function placeOrder(
   ctx: AppContext,
   c: ScenarioCustomer,
@@ -81,6 +87,8 @@ export async function placeOrder(
     /** null: no refund address up front, as in the web app; it is asked for if a refund is needed. */
     refundAddress?: string | null;
     destinationId?: string;
+    /** When method is courier_cash, the operator actor that sets the fee (required for deposit). */
+    operator?: Actor;
   } = {},
 ) {
   const method = opts.method ?? 'ach';
@@ -90,12 +98,18 @@ export async function placeOrder(
     amountAtomic: opts.amountAtomic ?? 2_500_000_000n,
     payoutMethod: method,
   });
-  return createOrder(ctx, c.actor, c.userId, {
+  const order = await createOrder(ctx, c.actor, c.userId, {
     quoteId: quote.id,
     destinationId: opts.destinationId ?? (method === 'instant_debit' ? c.cardId : c.bankId),
     refundAddress: opts.refundAddress === undefined ? TEST_ETH_ADDRESS : opts.refundAddress,
     accepted: ORDER_DOCS(),
   });
+  if (method === 'courier_cash') {
+    if (!opts.operator) throw new Error('courier_cash placeOrder needs an operator to set the fee.');
+    await priceAndAcceptCourierFee(ctx, opts.operator, c, order.id);
+    return getOrderRow(ctx, order.id);
+  }
+  return order;
 }
 
 export interface ScenarioResult {
@@ -166,7 +180,8 @@ export const SCENARIOS: Scenario[] = [
       }
       const dest = await addCourierAddress(ctx, c.actor, c.userId, address);
       step(`delivery address saved: ${dest.label}`);
-      const o = await placeOrder(ctx, c, { method: 'courier_cash', destinationId: dest.id });
+      const o = await placeOrder(ctx, c, { method: 'courier_cash', destinationId: dest.id, operator: op });
+      step(`courier fee set and accepted: fee ${o.payout_fee_cents}¢`);
       sandbox.simulateDeposit(ctx, op, o.id, 'exact');
       sandbox.simulateConfirmations(ctx, op, o.id, { toFinal: true });
       await ops.authorizePayout(ctx, op, o.id, 'Checks passed; courier delivery booked with the carrier.');
@@ -197,13 +212,15 @@ export const SCENARIOS: Scenario[] = [
         instructions: '',
       });
       const { quote } = await firmQuote(ctx, c.userId, { direction: 'buy', asset: 'USDT', network: 'tron', cashCents: 1_000_00n });
-      const o = await createOrder(ctx, c.actor, c.userId, {
+      let o = await createOrder(ctx, c.actor, c.userId, {
         quoteId: quote.id,
         destinationId: dest.id,
         receiveAddress: 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE',
         accepted: ORDER_DOCS(),
       });
-      step(`buy order ${o.reference} ${status(ctx, o.id)}`);
+      await priceAndAcceptCourierFee(ctx, op, c, o.id, 2500);
+      o = getOrderRow(ctx, o.id);
+      step(`buy order ${o.reference} ${status(ctx, o.id)} (courier fee ${o.payout_fee_cents}¢)`);
       sandbox.simulateDeposit(ctx, op, o.id, 'exact');
       step(`cash collected: ${status(ctx, o.id)}`);
       sandbox.simulateConfirmations(ctx, op, o.id, { toFinal: true });
