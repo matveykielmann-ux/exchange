@@ -147,4 +147,7 @@ export const RU_CRM: Record<string, string> = {
   'We could not complete order {ref}. Contact us on Telegram or in your messages for details.':
     'Нам не удалось выполнить заявку {ref}. Подробности — в Telegram или в сообщениях на сайте.',
   'Custom message': 'Своё сообщение',
+  'Not given yet. Asked for only if a refund is needed.': 'Ещё не указан. Запрашивается, только если нужен возврат.',
+  'Waiting for the customer’s refund address': 'Ждём адрес для возврата от клиента',
+  'Waiting for the customer’s refund address.': 'Ждём адрес для возврата от клиента.',
 };

@@ -78,7 +78,8 @@ export async function placeOrder(
     network?: NetworkId;
     amountAtomic?: bigint;
     method?: PayoutMethodId;
-    refundAddress?: string;
+    /** null: no refund address up front, as in the web app; it is asked for if a refund is needed. */
+    refundAddress?: string | null;
     destinationId?: string;
   } = {},
 ) {
@@ -92,7 +93,7 @@ export async function placeOrder(
   return createOrder(ctx, c.actor, c.userId, {
     quoteId: quote.id,
     destinationId: opts.destinationId ?? (method === 'instant_debit' ? c.cardId : c.bankId),
-    refundAddress: opts.refundAddress ?? TEST_ETH_ADDRESS,
+    refundAddress: opts.refundAddress === undefined ? TEST_ETH_ADDRESS : opts.refundAddress,
     accepted: ORDER_DOCS(),
   });
 }
@@ -325,6 +326,26 @@ export const SCENARIOS: Scenario[] = [
       step(`late deposit: ${status(ctx, o.id)} (${getOrderRow(ctx, o.id).deposit_exception})`);
       sandbox.simulateConfirmations(ctx, op, o.id, { toFinal: true });
       await ops.rejectOrder(ctx, op, o.id, 'Deposit arrived after the window closed.');
+      sandbox.simulateRefundCompleted(ctx, op, o.id);
+      return status(ctx, o.id);
+    },
+  },
+  {
+    name: 'refund-address-later',
+    description:
+      'An order placed without a refund address is rejected after the deposit; the refund waits for the address, then completes.',
+    expected: 'refunded',
+    async run(ctx, op, step, n) {
+      const c = await sandboxCustomer(ctx, `later${n}@example.test`);
+      const o = await placeOrder(ctx, c, { refundAddress: null });
+      sandbox.simulateDeposit(ctx, op, o.id, 'exact');
+      sandbox.simulateConfirmations(ctx, op, o.id, { toFinal: true });
+      await ops.rejectOrder(ctx, op, o.id, 'Checks not passed.');
+      const waiting = ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM refunds WHERE order_id = ?', [o.id])!.n;
+      if (waiting !== 0) throw new Error('A refund was submitted without a refund address.');
+      step(`after rejection: ${status(ctx, o.id)}, waiting for the refund address`);
+      await ops.setRefundAddress(ctx, c.actor, c.userId, o.id, TEST_ETH_ADDRESS);
+      step('refund address given, screened and the refund submitted');
       sandbox.simulateRefundCompleted(ctx, op, o.id);
       return status(ctx, o.id);
     },

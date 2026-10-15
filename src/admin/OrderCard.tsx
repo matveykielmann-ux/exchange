@@ -514,7 +514,11 @@ function ClientBlock({ detail }: { detail: AdminOrderDetail }) {
             </Row>
           ) : (
             <Row term={t('Refund address')}>
-              <span className="mono small break">{o.refundAddress}</span>
+              {o.refundAddress ? (
+                <span className="mono small break">{o.refundAddress}</span>
+              ) : (
+                <span className="small muted">{t('Not given yet. Asked for only if a refund is needed.')}</span>
+              )}
             </Row>
           )}
         </dl>

@@ -24,6 +24,7 @@ export type Template =
   | 'order_completed'
   | 'order_failed'
   | 'refund_started'
+  | 'refund_address_needed'
   | 'refund_completed'
   | 'support_reply'
   | 'verification_updated'
@@ -84,6 +85,10 @@ const TEMPLATES: Record<Template, (v: Vars) => { subject: string; body: string }
   refund_started: (v) => ({
     subject: `Order ${v.reference}: refund started`,
     body: `We started returning your deposit for order ${v.reference} to your refund address. Return fees under Section 9 of the Service Rules may be deducted.`,
+  }),
+  refund_address_needed: (v) => ({
+    subject: `Order ${v.reference}: where should we return your deposit?`,
+    body: `We need to return your deposit for order ${v.reference}. Open the order page and enter a refund address on the ${v.network} network. The refund is sent after the address is checked.`,
   }),
   refund_completed: (v) => ({
     subject: `Order ${v.reference}: refund sent`,

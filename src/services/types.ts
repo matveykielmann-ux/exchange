@@ -181,8 +181,10 @@ export interface OrderView {
     /** Courier orders, customer view only. */
     delivery?: CourierDeliveryView | null;
   };
-  /** Sell orders: where crypto is returned. Null for a buy. */
+  /** Sell orders: where crypto is returned, once the customer has given it (asked for only when a refund is needed). Null for a buy. */
   refundAddress: string | null;
+  /** Sell orders: a refund is pending and waits for the customer's refund address. */
+  refundAddressNeeded: boolean;
   /** Buy orders: the wallet that receives the crypto. */
   receiveAddress: string | null;
   documents: OrderDocumentView[];
@@ -383,8 +385,6 @@ export interface OrdersApi {
     input: {
       quoteId: string;
       destinationId: string;
-      /** Sell orders. */
-      refundAddress?: string;
       /** Buy orders. */
       receiveAddress?: string;
       accepted: { slug: string; version: string }[];
@@ -395,6 +395,8 @@ export interface OrdersApi {
   get(id: string): Promise<OrderView>;
   cancel(id: string): Promise<OrderView>;
   reportSent(id: string, txHash: string | null): Promise<OrderView>;
+  /** Sell orders with a pending refund: the address the deposit is returned to. Can be set once. */
+  setRefundAddress(id: string, refundAddress: string): Promise<OrderView>;
   /** Demo ID upload for a cash handover. The sandbox checks and discards the file. */
   uploadDocument(
     id: string,

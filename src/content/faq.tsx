@@ -66,11 +66,11 @@ export const FAQ: FaqItem[] = [
   },
   {
     group: 'Deposits',
-    q: 'Why do you need a refund address?',
+    q: 'When do you ask for a refund address?',
     a: (
       <p>
         {t(
-          "If an exchange can't be completed, for example after a failed review, the crypto is returned to the refund address you provide. Returns follow Section 9 of the",
+          "Only if an exchange can't be completed, for example after a failed review. You don't give one up front: we then ask for it on the order page, check it and return the crypto there. Returns follow Section 9 of the",
         )}{' '}
         <Link to="/legal/refunds">{t('Service Rules')}</Link>
         {t(', including the return fees in clauses 9.7 and 9.8.')}

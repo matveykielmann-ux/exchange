@@ -92,6 +92,7 @@ export function createFakeServices(overrides: Partial<Services> = {}): Services 
       get: unused,
       cancel: unused,
       reportSent: unused,
+      setRefundAddress: unused,
       uploadDocument: unused,
     },
     support: { list: async () => [], create: unused, get: unused, send: unused, markRead: async () => undefined },

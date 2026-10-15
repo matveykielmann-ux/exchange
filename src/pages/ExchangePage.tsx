@@ -4,16 +4,14 @@ import { AmountField, AssetNetworkFields, QuoteIssues } from '@/components/Excha
 import { HoldButton } from '@/components/HoldButton';
 import { QuoteSkeleton } from '@/components/QuoteSkeleton';
 import { RateRing } from '@/components/RateRing';
-import { Field } from '@/components/Field';
 import { Icon } from '@/components/Icon';
 import { QuoteBreakdown } from '@/components/QuoteBreakdown';
 import { MockBadge, Notice } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
-import { ASSETS, NETWORKS, networkLabel, parseAssetAmount } from '@/domain/assets';
+import { ASSETS, networkLabel, parseAssetAmount } from '@/domain/assets';
 import { formatUsd } from '@/domain/money';
 import { describeFee, feeLabel, PAYOUT_METHODS, payoutOptions } from '@/domain/payout';
 import { amountIssues } from '@/domain/quote';
-import { validateRefundAddress } from '@/domain/validation';
 import { AddBankForm } from '@/components/AddBankForm';
 import { AddCourierForm } from '@/components/AddCourierForm';
 import { errorMessage, isNotConfigured } from '@/lib/errors';
@@ -215,14 +213,13 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
   }
 
   const usable = destinations?.filter((d) => d.methods.includes(draft.payoutMethod)) ?? [];
-  const refundError = touched ? validateRefundAddress(draft.refundAddress, draft.network) : null;
   const destinationError =
     touched && !usable.some((d) => d.id === draft.destinationId)
       ? draft.payoutMethod === 'courier_cash'
         ? 'Save or choose a delivery address.'
         : 'Choose where to send your dollars.'
       : null;
-  const valid = !validateRefundAddress(draft.refundAddress, draft.network) && usable.some((d) => d.id === draft.destinationId);
+  const valid = usable.some((d) => d.id === draft.destinationId);
 
   return (
     <form
@@ -357,29 +354,6 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
         </div>
       )}
 
-      <Field
-        label={t('Refund address ({0})', [NETWORKS[draft.network].name])}
-        id="refund-address"
-        error={refundError}
-        hint={t("If we can't complete the exchange, we return your {0} here. It must be a {1} address you control.", [
-          draft.asset,
-          networkLabel(draft.asset, draft.network),
-        ])}
-      >
-        {(p) => (
-          <input
-            className="input mono"
-            {...p}
-            value={draft.refundAddress}
-            onChange={(e) => update({ refundAddress: e.target.value.trim() })}
-            onBlur={() => setTouched(true)}
-            placeholder={NETWORKS[draft.network].addressExample}
-            autoComplete="off"
-            spellCheck={false}
-          />
-        )}
-      </Field>
-
       <div className="flow__actions">
         <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
           <Icon name="arrowLeft" width={18} height={18} /> {t('Back')}
@@ -467,7 +441,6 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
         {
           quoteId: locked.quote.id,
           destinationId: destination.id,
-          refundAddress: draft.refundAddress,
           accepted: orderDocs.map((d) => ({ slug: d.slug, version: d.version })),
         },
         keyRef.current.key,
@@ -603,10 +576,6 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
                     {t(PAYOUT_METHODS[draft.payoutMethod].timingEstimate)}
                   </span>
                 </dd>
-              </div>
-              <div>
-                <dt>{t('Refund address')}</dt>
-                <dd className="mono">{draft.refundAddress}</dd>
               </div>
               <div>
                 <dt>{t('Deposit window')}</dt>

@@ -32,8 +32,6 @@ export const RU_PUBLIC3: Record<string, string> = {
   'Save or choose a delivery address.': 'Сохраните или выберите адрес доставки.',
   'Choose where to send your dollars.': 'Выберите, куда отправить доллары.',
   'Refund address ({0})': 'Адрес для возврата ({0})',
-  "If we can't complete the exchange, we return your {0} here. It must be a {1} address you control.":
-    'Если обмен не удастся завершить, мы вернём ваши {0} на этот адрес. Это должен быть ваш адрес в сети {1}.',
   'The exchange rate, payout fee, minimum, quote validity and deposit window shown here are the conditions of this exchange. Under clause 4.24 of the':
     'Курс обмена, комиссия за выплату, минимум, срок действия котировки и окно депозита, указанные здесь, — условия этого обмена. Согласно п. 4.24',
   'I will send exactly': 'Я отправлю ровно',
@@ -102,8 +100,6 @@ export const RU_PUBLIC3: Record<string, string> = {
   'Customers verify their identity before their first exchange. High-risk transactions may need additional documents.':
     'Клиенты подтверждают личность перед первым обменом. Для операций с высоким риском могут понадобиться дополнительные документы.',
   Screening: 'Скрининг',
-  'Refund addresses and transactions are screened against sanctions and blockchain-risk data before payout.':
-    'Адреса возврата и транзакции до выплаты проверяются по санкционным спискам и данным о рисках в блокчейне.',
   'Account protection': 'Защита аккаунта',
   'Two-step sign-in, saved payout destinations stored only as the last four digits, and time-limited sessions.':
     'Двухэтапный вход, хранение реквизитов выплат только в виде последних четырёх цифр и сеансы с ограниченным сроком.',
@@ -377,4 +373,20 @@ export const RU_PUBLIC3: Record<string, string> = {
   Conversation: 'Переписка',
   'Start a conversation': 'Начать переписку',
   'Choose a conversation, or start a new one.': 'Выберите переписку или начните новую.',
+  'When do you ask for a refund address?': 'Когда нужен адрес для возврата?',
+  "Only if an exchange can't be completed, for example after a failed review. You don't give one up front: we then ask for it on the order page, check it and return the crypto there. Returns follow Section 9 of the":
+    'Только если обмен не удаётся завершить, например после неудачной проверки. Заранее указывать адрес не нужно: в этом случае мы попросим его на странице заявки, проверим и вернём криптовалюту на него. Возвраты выполняются по разделу 9',
+  "Sign in and choose or add the account that will receive dollars. No refund address is needed up front: if the exchange can't be completed, we ask for one on the order page.":
+    'Войдите и выберите или добавьте счёт для получения долларов. Адрес для возврата заранее не нужен: если обмен не удастся завершить, мы попросим его на странице заявки.',
+  'Refund addresses are screened before any refund is sent.': 'Адреса для возврата проверяются перед отправкой возврата.',
+  'Transactions are screened against sanctions and blockchain-risk data before payout, and refund addresses before any refund.':
+    'Транзакции до выплаты, а адреса возврата до возврата проверяются по санкционным спискам и данным о рисках в блокчейне.',
+  'Where should we return your deposit?': 'Куда вернуть ваш депозит?',
+  'This order can’t be completed, so your {0} will be returned. Enter an address on {1} that you control.':
+    'Эту заявку не удаётся завершить, поэтому ваши {0} будут возвращены. Укажите адрес в сети {1}, которым вы владеете.',
+  'We check the address before sending the refund. Once saved, it can’t be changed.':
+    'Мы проверим адрес перед отправкой возврата. После сохранения его нельзя изменить.',
+  'Save refund address': 'Сохранить адрес для возврата',
+  'We need a refund address to return your {0}: enter it below. ': 'Чтобы вернуть ваши {0}, нужен адрес для возврата: укажите его ниже. ',
+  'Refund address needed': 'Нужен адрес для возврата',
 };

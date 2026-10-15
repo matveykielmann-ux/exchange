@@ -349,7 +349,11 @@ export function HomePage() {
             <li>
               <Icon name="shield" />
               <h3>{t('Screening')}</h3>
-              <p>{t('Refund addresses and transactions are screened against sanctions and blockchain-risk data before payout.')}</p>
+              <p>
+                {t(
+                  'Transactions are screened against sanctions and blockchain-risk data before payout, and refund addresses before any refund.',
+                )}
+              </p>
             </li>
             <li>
               <Icon name="lock" />

@@ -135,18 +135,23 @@ const commands: Record<string, () => Promise<void> | void> = {
       await sandboxOperator(ctx, 'support@arcvale.test', 'support');
       const cust = await sandboxCustomer(ctx, 'customer@arcvale.test', 'Alex Morgan');
 
-      const waiting = await placeOrder(ctx, cust);
-      const review = await placeOrder(ctx, cust, { amountAtomic: 12_000_000_000n, method: 'wire' });
+      // Like the web app, seeded orders have no refund address until a refund needs one.
+      const waiting = await placeOrder(ctx, cust, { refundAddress: null });
+      const review = await placeOrder(ctx, cust, { amountAtomic: 12_000_000_000n, method: 'wire', refundAddress: null });
       sandbox.simulateDeposit(ctx, owner, review.id, 'exact');
       sandbox.simulateConfirmations(ctx, owner, review.id, { toFinal: true });
-      const done = await placeOrder(ctx, cust, { amountAtomic: 750_000_000n });
+      const done = await placeOrder(ctx, cust, { amountAtomic: 750_000_000n, refundAddress: null });
       sandbox.simulateDeposit(ctx, owner, done.id, 'exact');
       sandbox.simulateConfirmations(ctx, owner, done.id, { toFinal: true });
       await ops.authorizePayout(ctx, owner, done.id, 'Seed: checks passed.');
       sandbox.simulatePayout(ctx, owner, done.id, 'completed');
-      const confirming = await placeOrder(ctx, cust, { amountAtomic: 1_200_000_000n });
+      const confirming = await placeOrder(ctx, cust, { amountAtomic: 1_200_000_000n, refundAddress: null });
       sandbox.simulateDeposit(ctx, owner, confirming.id, 'exact');
       sandbox.simulateConfirmations(ctx, owner, confirming.id);
+      const refund = await placeOrder(ctx, cust, { amountAtomic: 900_000_000n, refundAddress: null });
+      sandbox.simulateDeposit(ctx, owner, refund.id, 'short');
+      sandbox.simulateConfirmations(ctx, owner, refund.id, { toFinal: true });
+      await ops.rejectOrder(ctx, owner, refund.id, 'Seed: the amount received does not match the order.');
       createConversation(ctx, cust.actor, cust.userId, {
         subject: 'Question about my wire',
         body: 'Hi, how long does the review take for a larger exchange?',
@@ -157,7 +162,7 @@ const commands: Record<string, () => Promise<void> | void> = {
       out('(These accounts exist only in this sandbox database.)');
       for (const e of ['owner', 'admin', 'reviewer', 'support', 'customer']) out(`  ${e}@arcvale.test`);
       out(
-        `Orders: ${waiting.reference} (awaiting deposit), ${review.reference} (compliance review), ${confirming.reference} (confirming), ${done.reference} (completed)`,
+        `Orders: ${waiting.reference} (awaiting deposit), ${review.reference} (compliance review), ${confirming.reference} (confirming), ${done.reference} (completed), ${refund.reference} (refund waiting for the refund address)`,
       );
     } finally {
       await app.close();

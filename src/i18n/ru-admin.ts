@@ -318,11 +318,7 @@ export const RU_ADMIN: Record<string, string> = {
   'A customer whose legal name contains “Decline” gets payouts rejected by the sandbox payout provider.':
     'Если имя клиента содержит «Decline», тестовый платёжный провайдер отклоняет его выплаты.',
   'Review and reject': 'Проверка и отклонение',
-  'Orders above the review threshold, or with a refund address ending in …bEEF, need review; use Reject or Approve.':
-    'Заявки выше порога проверки или с адресом возврата, оканчивающимся на …bEEF, требуют проверки; используйте «Отклонить» или «Одобрить».',
   'Blocked address': 'Заблокированный адрес',
-  'A refund address ending in …dEaD fails screening and the order is refused.':
-    'Адрес возврата, оканчивающийся на …dEaD, не проходит проверку, и заявка отклоняется.',
   'Identity outcomes': 'Результаты проверки личности',
   'Customer names containing “Review”, “Reject” or “Sanctioned” produce those verification results.':
     'Имена клиентов с «Review», «Reject» или «Sanctioned» дают соответствующие результаты проверки.',
@@ -380,4 +376,8 @@ export const RU_ADMIN: Record<string, string> = {
   Support: 'Поддержка',
   Reviewer: 'Проверяющий',
   'Master (owner)': 'Мастер-аккаунт (владелец)',
+  'Orders above the review threshold need review; use Reject or Approve. Rejecting after a deposit asks the customer for a refund address on the order page.':
+    'Заявки выше порога проверки требуют проверки; используйте «Отклонить» или «Одобрить». После отклонения заявки с депозитом клиента попросят указать адрес для возврата на странице заявки.',
+  'A refund address ending in …bEEF is flagged for review before the refund is sent; one ending in …dEaD fails screening and is refused.':
+    'Адрес возврата, оканчивающийся на …bEEF, отправляется на проверку до отправки возврата; оканчивающийся на …dEaD не проходит проверку и отклоняется.',
 };

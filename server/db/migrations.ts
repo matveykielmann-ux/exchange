@@ -506,4 +506,73 @@ CREATE INDEX notifications_order ON notifications(order_id, created_at);
 CREATE INDEX notifications_unread ON notifications(user_id, read_at);
 `,
   },
+  {
+    id: 5,
+    name: 'orders_refund_address_optional',
+    // Rebuilds orders (SQLite cannot alter a CHECK constraint); see Migration.disableForeignKeys.
+    disableForeignKeys: true,
+    sql: `
+-- A sell order no longer needs a refund address up front: it is asked for only if funds have to be
+-- returned, and can then be set once. A buy order still needs it (it is the wallet that receives the crypto).
+CREATE TABLE orders_v5 (
+  id TEXT PRIMARY KEY,
+  reference TEXT NOT NULL UNIQUE,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  quote_id TEXT NOT NULL UNIQUE REFERENCES quotes(id),
+  ${ORDER_STATUS_CHECK.replace('status IN', 'status TEXT NOT NULL CHECK (status IN')}),
+  version INTEGER NOT NULL DEFAULT 1,
+  source TEXT NOT NULL CHECK (source IN ('sandbox','live')),
+  asset TEXT NOT NULL,
+  network TEXT NOT NULL,
+  ${digits('amount_atomic')},
+  ${digits('reference_price_micros')},
+  ${cents('gross_cents')},
+  spread_bps INTEGER NOT NULL,
+  ${cents('spread_cents')},
+  ${cents('payout_fee_cents')},
+  ${cents('net_cents')},
+  payout_method TEXT NOT NULL CHECK (payout_method IN ('ach','wire','instant_debit','courier_cash')),
+  payout_destination_id TEXT NOT NULL REFERENCES payout_destinations(id),
+  payout_label TEXT NOT NULL,
+  payout_last4 TEXT NOT NULL,
+  refund_address TEXT CHECK (refund_address IS NULL OR length(refund_address) BETWEEN 20 AND 128),
+  deposit_deadline INTEGER NOT NULL,
+  confirmations_required INTEGER NOT NULL CHECK (confirmations_required > 0),
+  confirmations_count INTEGER NOT NULL DEFAULT 0 CHECK (confirmations_count >= 0),
+  deposit_tx_hash TEXT,
+  ${digits('deposit_amount_atomic', true)},
+  deposit_exception TEXT CHECK (deposit_exception IS NULL OR deposit_exception IN ('amount_mismatch','late','order_closed')),
+  review_reason TEXT,
+  payout_provider_ref TEXT,
+  refund_tx_hash TEXT,
+  assigned_operator_id TEXT REFERENCES users(id),
+  customer_reported_sent_at INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  closed_at INTEGER,
+  direction TEXT NOT NULL DEFAULT 'sell' CHECK (direction IN ('sell','buy')),
+  on_hold INTEGER NOT NULL DEFAULT 0 CHECK (on_hold IN (0,1)),
+  CHECK (gross_cents - spread_cents - payout_fee_cents = net_cents),
+  CHECK (direction = 'sell' OR refund_address IS NOT NULL)
+);
+INSERT INTO orders_v5 (id, reference, user_id, quote_id, status, version, source, asset, network, amount_atomic, reference_price_micros, gross_cents, spread_bps, spread_cents, payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label, payout_last4, refund_address, deposit_deadline, confirmations_required, confirmations_count, deposit_tx_hash, deposit_amount_atomic, deposit_exception, review_reason, payout_provider_ref, refund_tx_hash, assigned_operator_id, customer_reported_sent_at, created_at, updated_at, closed_at, direction, on_hold) SELECT id, reference, user_id, quote_id, status, version, source, asset, network, amount_atomic, reference_price_micros, gross_cents, spread_bps, spread_cents, payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label, payout_last4, refund_address, deposit_deadline, confirmations_required, confirmations_count, deposit_tx_hash, deposit_amount_atomic, deposit_exception, review_reason, payout_provider_ref, refund_tx_hash, assigned_operator_id, customer_reported_sent_at, created_at, updated_at, closed_at, direction, on_hold FROM orders;
+DROP TABLE orders;
+ALTER TABLE orders_v5 RENAME TO orders;
+CREATE INDEX orders_user ON orders(user_id, created_at DESC);
+CREATE INDEX orders_status ON orders(status, updated_at);
+CREATE INDEX orders_assigned ON orders(assigned_operator_id);
+CREATE INDEX orders_created ON orders(created_at DESC);
+CREATE INDEX orders_deadline ON orders(status, deposit_deadline);
+
+-- The accepted quote and amounts stay an immutable snapshot. The refund address can be set once, never changed.
+CREATE TRIGGER orders_snapshot_immutable BEFORE UPDATE OF
+  quote_id, user_id, source, asset, network, amount_atomic, reference_price_micros, gross_cents, spread_bps, spread_cents,
+  payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label, payout_last4,
+  deposit_deadline, confirmations_required, reference, created_at, direction
+ON orders BEGIN SELECT RAISE(ABORT, 'order snapshot fields are immutable'); END;
+CREATE TRIGGER orders_refund_address_once BEFORE UPDATE OF refund_address ON orders
+WHEN OLD.refund_address IS NOT NULL
+BEGIN SELECT RAISE(ABORT, 'the refund address is already set'); END;
+`,
+  },
 ];

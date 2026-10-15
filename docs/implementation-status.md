@@ -38,7 +38,7 @@ Arcvale has a working API server, database, admin panel, real-time support chat,
 1. Sign up: validation errors first, then an account with a country and state of residence, the clause 8.5 confirmation and accepted terms.
 2. Amount: below the minimum is refused, a large amount is accepted (no maximum), then a valid 2,500 USDC on Ethereum.
 3. Payout method: cash by courier asks for a delivery address; an empty form, then a ZIP outside the area, are refused and a valid address is saved. The journey then continues with a bank transfer.
-4. Details: bank account (routing checksum) and refund address.
+4. Details: bank account (routing checksum). No refund address up front: it is asked for on the order page only if a refund is needed.
 5. Identity verification (sandbox rules) and a firm quote.
 6. Acknowledgements and hold-to-confirm create the order.
 7. The customer submits the transaction hash for review: a malformed hash is refused next to the field; a well-formed one is recorded, and the order still waits for the deposit.

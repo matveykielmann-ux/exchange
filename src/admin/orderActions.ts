@@ -27,6 +27,8 @@ interface OrderLike {
   status: OrderStatus;
   onHold: boolean;
   direction?: 'sell' | 'buy';
+  /** Sell: a pending refund waits for the customer's refund address. */
+  refundAddressNeeded?: boolean;
 }
 
 /** Preferred primary and secondary action for each situation, before checking what the server allows. */
@@ -91,7 +93,13 @@ export function actionPlan(o: OrderLike, available: readonly ActionAvailability[
   const primary = primaryPrefs.find((a) => ok.has(a)) ?? null;
   const secondary = secondaryPrefs.find((a) => ok.has(a) && a !== primary) ?? null;
   const more = MENU_ORDER.filter((a) => ok.has(a) && a !== primary && a !== secondary);
-  const waitingFor = primary ? null : o.onHold ? null : (WAITING[o.status] ?? null);
+  const waitingFor = primary
+    ? null
+    : o.onHold
+      ? null
+      : o.refundAddressNeeded
+        ? 'Waiting for the customer’s refund address'
+        : (WAITING[o.status] ?? null);
   return { primary, secondary, more, waitingFor };
 }
 

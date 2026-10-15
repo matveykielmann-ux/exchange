@@ -304,4 +304,10 @@ export const RU_DOMAIN: Record<string, string> = {
   'the 6-digit code': '6-значный код',
   'a file name': 'имя файла',
   'the file': 'файл',
+  'Refund address provided.': 'Адрес для возврата указан.',
+  'Refund address provided by the customer.': 'Клиент указал адрес для возврата.',
+  'The refund address for this order is already set.': 'Адрес для возврата по этой заявке уже указан.',
+  'A refund address is needed only when a refund is pending.': 'Адрес для возврата нужен, только когда ожидается возврат.',
+  'We can’t send to this address. Contact support if you think this is a mistake.':
+    'Мы не можем отправить средства на этот адрес. Если считаете, что это ошибка, свяжитесь с поддержкой.',
 };

@@ -323,6 +323,58 @@ describe('API', () => {
     expect(events).toEqual(expect.arrayContaining(['HOLD_PLACED', 'HOLD_RELEASED']));
   });
 
+  it('asks for the refund address only when a refund is needed, screens it and then submits the refund', async () => {
+    const c = env.client();
+    const { bankId } = await customer(c, 'refund@example.test');
+    const q = await c.post('/api/quotes', { asset: 'USDC', network: 'ethereum', amountAtomic: '2500000000', payoutMethod: 'ach' });
+    const o = await c.post(
+      '/api/orders',
+      { quoteId: q.body.quote.id, destinationId: bankId, accepted: docs('order') },
+      { 'idempotency-key': 'no-refund-address' },
+    );
+    expect(o.status).toBe(201);
+    expect(o.body).toMatchObject({ status: 'awaiting_deposit', refundAddress: null, refundAddressNeeded: false });
+    const id = o.body.id as string;
+    // Nothing to return yet, so the address can't be set.
+    expect((await c.post(`/api/orders/${id}/refund-address`, { refundAddress: TEST_ETH_ADDRESS })).status).toBe(409);
+
+    await c.post(`/api/sandbox/orders/${id}/deposit`, { scenario: 'exact' });
+    expect((await c.post(`/api/sandbox/orders/${id}/confirmations`, { toFinal: true })).body.order.status).toBe('ready_for_payout');
+    const admin = await staff(env.app, env.base, 'admin', 'refund-admin@arcvale.test');
+    const rejected = await admin.post(`/api/admin/orders/${id}/reject`, { reason: 'Checks not passed' });
+    expect(rejected.body.status).toBe('refund_pending');
+
+    // The refund waits for the customer: no refund instruction yet, the admin can't resubmit, the customer is asked once.
+    let detail = await admin.get(`/api/admin/orders/${id}`);
+    expect(detail.body.refund).toBeNull();
+    const resubmit = detail.body.actions.find((x: { action: string }) => x.action === 'resubmit_refund');
+    expect(resubmit.unavailable).toMatch(/refund address/);
+    expect((await admin.post(`/api/admin/orders/${id}/resubmit-refund`, { reason: 'Trying again' })).status).toBe(200);
+    const view = await c.get(`/api/orders/${id}`);
+    expect(view.body).toMatchObject({ status: 'refund_pending', refundAddress: null, refundAddressNeeded: true });
+    const asked = (await c.get('/api/me/notifications')).body.notifications.filter(
+      (x: { template: string }) => x.template === 'refund_address_needed',
+    );
+    expect(asked).toHaveLength(1);
+    expect(asked[0].orderId).toBe(id);
+
+    // The customer gives the address: validated for the network, screened, saved once, and the refund is submitted.
+    const bad = await c.post(`/api/orders/${id}/refund-address`, { refundAddress: 'not-an-address' });
+    expect(bad.status).toBe(400);
+    expect(bad.body.error.details.field).toBe('refundAddress');
+    const saved = await c.post(`/api/orders/${id}/refund-address`, { refundAddress: TEST_ETH_ADDRESS });
+    expect(saved.status).toBe(200);
+    expect(saved.body).toMatchObject({ refundAddress: TEST_ETH_ADDRESS, refundAddressNeeded: false });
+    expect((await c.post(`/api/orders/${id}/refund-address`, { refundAddress: TEST_ETH_ADDRESS })).status).toBe(409);
+    expect(() =>
+      env.ctx.db.run("UPDATE orders SET refund_address = '0x0000000000000000000000000000000000000001' WHERE id = ?", [id]),
+    ).toThrow(/already set/);
+    detail = await admin.get(`/api/admin/orders/${id}`);
+    expect(detail.body.refund.status).toBe('submitted');
+    expect(detail.body.order.events.map((e: { type: string }) => e.type)).toContain('REFUND_ADDRESS_PROVIDED');
+    expect((await admin.post(`/api/admin/sandbox/orders/${id}/refund-complete`)).body.order.status).toBe('refunded');
+  });
+
   it('delivers cash by courier: validated address, carrier area check, masked staff view, signed courier webhooks', async () => {
     const c = env.client();
     await customer(c, 'courier@example.test');

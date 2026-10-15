@@ -60,7 +60,11 @@ export interface OrderRow {
   payout_destination_id: string;
   payout_label: string;
   payout_last4: string;
-  refund_address: string;
+  /**
+   * sell: where crypto is returned if the exchange cannot be completed. Not asked for up front: it stays null
+   * until a refund is needed and the customer gives it (set once, migration 5). buy: the receiving wallet.
+   */
+  refund_address: string | null;
   deposit_deadline: number;
   confirmations_required: number;
   confirmations_count: number;
@@ -138,7 +142,7 @@ function eventData(event: OrderEvent): Record<string, unknown> {
   return JSON.parse(JSON.stringify(rest, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
 }
 
-function insertEvent(
+export function insertEvent(
   ctx: AppContext,
   orderId: string,
   e: {
@@ -289,6 +293,15 @@ function payoutProviderFor(ctx: AppContext, method: PayoutMethodId): PayoutProvi
   return ctx.providers.cash;
 }
 
+export async function screenAddress(ctx: AppContext, network: NetworkId, address: string) {
+  try {
+    return await ctx.providers.screening.screenAddress(network, address);
+  } catch (e) {
+    if (e instanceof ProviderNotConfiguredError) throw notConfigured('Sanctions screening');
+    throw new ApiError(503, 'provider_unavailable', 'Screening is temporarily unavailable. Try again shortly.');
+  }
+}
+
 // Orders created before the rebrand keep their ARC- references.
 const newReference = () => `CBX-${randomId(8)}`;
 
@@ -299,7 +312,7 @@ export async function createOrder(
   input: {
     quoteId: string;
     destinationId: string;
-    /** Sell orders: where crypto is returned if the exchange cannot be completed. */
+    /** Sell orders, optional: where crypto is returned if the exchange cannot be completed. Asked for later if a refund is needed. */
     refundAddress?: string | null;
     /** Buy orders: the wallet that receives the crypto. */
     receiveAddress?: string | null;
@@ -328,9 +341,12 @@ export async function createOrder(
   if (!canConfirmExchange(profile.kyc_status === 'verified' ? 'verified' : 'unverified'))
     throw new ApiError(403, 'kyc_required', 'Verify your identity before confirming an exchange.');
 
-  const refundError = validateRefundAddress(input.refundAddress ?? '', quote.network);
-  if (refundError) throw badRequest(refundError, { field: 'refundAddress' });
-  const refundAddress = (input.refundAddress ?? '').trim();
+  // The refund address is optional: without one, it is asked for only if funds have to be returned.
+  const refundAddress = input.refundAddress?.trim() || null;
+  if (refundAddress) {
+    const refundError = validateRefundAddress(refundAddress, quote.network);
+    if (refundError) throw badRequest(refundError, { field: 'refundAddress' });
+  }
 
   const dest = ctx.db.get<DestinationRow>("SELECT * FROM payout_destinations WHERE id = ? AND user_id = ? AND status = 'active'", [
     input.destinationId,
@@ -342,14 +358,8 @@ export async function createOrder(
 
   const docs = requireAcceptance(input.accepted, 'order');
 
-  let screening;
-  try {
-    screening = await ctx.providers.screening.screenAddress(quote.network, refundAddress);
-  } catch (e) {
-    if (e instanceof ProviderNotConfiguredError) throw notConfigured('Sanctions screening');
-    throw new ApiError(503, 'provider_unavailable', 'Screening is temporarily unavailable. Try again shortly.');
-  }
-  if (screening.result === 'blocked') {
+  const screening = refundAddress ? await screenAddress(ctx, quote.network, refundAddress) : null;
+  if (screening?.result === 'blocked') {
     audit(ctx, actor, { action: 'order.blocked_by_screening', targetType: 'quote', targetId: quote.id, data: { network: quote.network } });
     throw new ApiError(422, 'screening_blocked', 'We can’t process this exchange. Contact support if you think this is a mistake.');
   }
@@ -393,7 +403,7 @@ export async function createOrder(
         refundAddress,
         deadline,
         required,
-        screening.result === 'review' ? `Refund address screening: ${screening.note}` : null,
+        screening?.result === 'review' ? `Refund address screening: ${screening.note}` : null,
         now,
         now,
       ],
@@ -522,13 +532,7 @@ async function createBuyOrder(
 
   const docs = requireAcceptance(input.accepted, 'order');
 
-  let screening;
-  try {
-    screening = await ctx.providers.screening.screenAddress(quote.network, receiveAddress);
-  } catch (e) {
-    if (e instanceof ProviderNotConfiguredError) throw notConfigured('Sanctions screening');
-    throw new ApiError(503, 'provider_unavailable', 'Screening is temporarily unavailable. Try again shortly.');
-  }
+  const screening = await screenAddress(ctx, quote.network, receiveAddress);
   if (screening.result === 'blocked') {
     audit(ctx, actor, { action: 'order.blocked_by_screening', targetType: 'quote', targetId: quote.id, data: { network: quote.network } });
     throw new ApiError(422, 'screening_blocked', 'We can’t process this exchange. Contact support if you think this is a mistake.');
@@ -782,8 +786,10 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
       // The customer sees the delivery details they gave; staff views add role-masked details separately.
       delivery: !internal && o.payout_method === 'courier_cash' ? courierDelivery(ctx, o.payout_destination_id) : null,
     },
-    /** Sell: where crypto is returned. Null for a buy, whose cash is returned by courier. */
+    /** Sell: where crypto is returned, once the customer has given it. Null for a buy, whose cash is returned by courier. */
     refundAddress: buy ? null : o.refund_address,
+    /** Sell: a refund is pending and waits for the customer's return address. */
+    refundAddressNeeded: !buy && o.status === 'refund_pending' && !o.refund_address,
     /** Buy: the wallet that receives the crypto. */
     receiveAddress: buy ? o.refund_address : null,
     documents: orderDocuments(ctx, o.id),

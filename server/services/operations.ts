@@ -8,9 +8,11 @@
  * accepts it, and only becomes completed or failed when the provider reports
  * so by webhook. Nobody can click an order to "completed".
  */
+import { networkLabel } from '@/domain/assets';
 import { PAYOUT_METHODS } from '@/domain/payout';
 import { HOLDABLE_STATUSES, type OrderStatus } from '@/domain/order';
 import { formatUsd } from '@/domain/money';
+import { validateRefundAddress } from '@/domain/validation';
 import type { Actor, AppContext } from '../context';
 import { ApiError, badRequest, conflict, notConfigured, notFound } from '../http/errors';
 import { newId } from '../lib/clock';
@@ -19,7 +21,16 @@ import { ProviderError, ProviderNotConfiguredError, type PayoutProvider } from '
 import { audit } from './audit';
 import { payoutDetails } from './customers';
 import { notify } from './notifications';
-import { afterDepositConfirmed, applyOrderEvent, getOrderRow, openReview, type OrderRow } from './orders';
+import {
+  afterDepositConfirmed,
+  applyOrderEvent,
+  customerOrder,
+  getOrderRow,
+  insertEvent,
+  openReview,
+  screenAddress,
+  type OrderRow,
+} from './orders';
 import { postSystemMessage } from './support';
 import { formatAssetPlain } from './format';
 
@@ -134,7 +145,7 @@ function payoutProvider(ctx: AppContext, o: OrderRow): { key: PayoutKey; provide
             orderId: req.orderId,
             asset: o.asset,
             network: o.network,
-            address: o.refund_address,
+            address: o.refund_address!,
             amountAtomic: BigInt(o.amount_atomic),
             idempotencyKey: req.idempotencyKey,
           }),
@@ -291,6 +302,22 @@ export async function submitRefund(ctx: AppContext, actor: Actor, orderId: strin
   if (o.status !== 'refund_pending')
     throw conflict('Refunds can be submitted only for orders with a pending refund.', 'invalid_transition');
   if (!o.deposit_amount_atomic) throw conflict('There is no observed deposit to refund.');
+  if (!buy && !o.refund_address) {
+    // The refund address is asked for only now, once: the refund is submitted when the customer gives it.
+    const asked = ctx.db.get("SELECT 1 FROM notifications WHERE order_id = ? AND template = 'refund_address_needed'", [orderId]);
+    if (!asked)
+      ctx.db.tx(() => {
+        audit(ctx, actor, { action: 'refund.awaiting_address', targetType: 'order', targetId: orderId, reason });
+        notify(ctx, {
+          userId: o.user_id,
+          to: emailOf(ctx, o.user_id),
+          template: 'refund_address_needed',
+          orderId,
+          vars: { reference: o.reference, network: networkLabel(o.asset, o.network) },
+        });
+      });
+    return { id: null, idempotency_key: null, status: 'awaiting_address' };
+  }
   let refund = ctx.db.get<{ id: string; idempotency_key: string; status: string }>('SELECT * FROM refunds WHERE order_id = ?', [orderId]);
   if (refund && (refund.status === 'submitted' || refund.status === 'completed')) return refund;
   if (!refund) {
@@ -337,7 +364,7 @@ export async function submitRefund(ctx: AppContext, actor: Actor, orderId: strin
         orderId,
         asset: o.asset,
         network: o.network,
-        address: o.refund_address,
+        address: o.refund_address!,
         amountAtomic: BigInt(o.deposit_amount_atomic),
         idempotencyKey: r.idempotency_key,
       }));
@@ -498,12 +525,15 @@ export function availableActions(ctx: AppContext, o: OrderRow, role: string) {
     {
       action: 'resubmit_refund',
       label: 'Resubmit refund to provider',
-      unavailable: why(
-        s === 'refund_pending' && refund?.status !== 'submitted',
-        isAdmin,
-        'admin',
-        refund?.status === 'submitted' ? 'Refund already submitted; waiting for the provider.' : 'Only while a refund is pending.',
-      ),
+      unavailable:
+        s === 'refund_pending' && o.direction === 'sell' && !o.refund_address
+          ? 'Waiting for the customer’s refund address.'
+          : why(
+              s === 'refund_pending' && refund?.status !== 'submitted',
+              isAdmin,
+              'admin',
+              refund?.status === 'submitted' ? 'Refund already submitted; waiting for the provider.' : 'Only while a refund is pending.',
+            ),
     },
   ];
   return list;
@@ -528,4 +558,55 @@ export function ensureOrder(ctx: AppContext, id: string) {
   const o = ctx.db.get<OrderRow>('SELECT * FROM orders WHERE id = ? OR reference = ?', [id, id]);
   if (!o) throw notFound('Order not found.');
   return o;
+}
+
+/**
+ * The customer gives the refund address their deposit is returned to. It is asked for
+ * only when a refund is pending, can be set once, and is screened like any
+ * address we send to. A clear result submits the refund; a flagged one leaves
+ * it for an admin to resubmit after review.
+ */
+export async function setRefundAddress(ctx: AppContext, actor: Actor, userId: string, orderId: string, address: string) {
+  const o = customerOrder(ctx, userId, orderId);
+  if (o.direction === 'buy') throw conflict('Cash is returned by courier; this order has no refund address.', 'invalid_transition');
+  if (o.refund_address) throw conflict('The refund address for this order is already set.', 'refund_address_set');
+  if (o.status !== 'refund_pending') throw conflict('A refund address is needed only when a refund is pending.', 'invalid_transition');
+  const value = address.trim();
+  const error = validateRefundAddress(value, o.network);
+  if (error) throw badRequest(error, { field: 'refundAddress' });
+  const screening = await screenAddress(ctx, o.network, value);
+  if (screening.result === 'blocked') {
+    audit(ctx, actor, { action: 'refund.address_blocked', targetType: 'order', targetId: orderId, data: { network: o.network } });
+    throw new ApiError(422, 'screening_blocked', 'We can’t send to this address. Contact support if you think this is a mistake.');
+  }
+  ctx.db.tx(() => {
+    const { changes } = ctx.db.run('UPDATE orders SET refund_address = ?, updated_at = ? WHERE id = ? AND refund_address IS NULL', [
+      value,
+      ctx.clock.now(),
+      orderId,
+    ]);
+    if (changes !== 1) throw conflict('The refund address for this order is already set.', 'refund_address_set');
+    insertEvent(ctx, orderId, {
+      type: 'REFUND_ADDRESS_PROVIDED',
+      from: o.status,
+      to: o.status,
+      actor,
+      visibility: 'customer',
+      detail: 'Refund address provided.',
+      data: { screening: screening.result },
+    });
+    if (screening.result === 'review')
+      insertEvent(ctx, orderId, {
+        type: 'REFUND_ADDRESS_REVIEW',
+        from: o.status,
+        to: o.status,
+        actor,
+        visibility: 'internal',
+        detail: `Refund address screening: ${screening.note}`,
+        data: {},
+      });
+    audit(ctx, actor, { action: 'refund.address_provided', targetType: 'order', targetId: orderId, data: { screening: screening.result } });
+  });
+  if (screening.result === 'clear') await submitRefund(ctx, actor, orderId, 'Refund address provided by the customer.');
+  return getOrderRow(ctx, orderId);
 }

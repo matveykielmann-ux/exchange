@@ -19,7 +19,7 @@ import {
   orderTone,
   TERMINAL_ORDER_STATUSES,
 } from '@/domain/order';
-import { validateTxHash } from '@/domain/validation';
+import { validateRefundAddress, validateTxHash } from '@/domain/validation';
 import { ApiError } from '@/services/http';
 import { errorMessage } from '@/lib/errors';
 import { courierAddress, describeDestination, destinationLabel, formatAsset, formatDateTime, formatPriceMicros } from '@/lib/format';
@@ -214,6 +214,73 @@ function TxHashForm({ order, busy, run }: { order: OrderView; busy: boolean; run
         </button>
       </div>
     </form>
+  );
+}
+
+/** Asked for only when a refund is pending and no refund address was given. The address can be saved once. */
+function RefundAddressForm({ order, busy, run }: { order: OrderView; busy: boolean; run: Run }) {
+  const { orders } = useServices();
+  const [address, setAddress] = useState('');
+  const [touched, setTouched] = useState(false);
+  if (!order.refundAddressNeeded) return null;
+  const error = touched ? validateRefundAddress(address, order.network) : null;
+  return (
+    <section className="panel" aria-labelledby="refund-address-title">
+      <div className="panel__head">
+        <h2 id="refund-address-title">{t('Where should we return your deposit?')}</h2>
+      </div>
+      <form
+        className="panel__body stack"
+        noValidate
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          setTouched(true);
+          if (validateRefundAddress(address, order.network)) {
+            document.getElementById('refund-address')?.focus();
+            return;
+          }
+          run(() => orders.setRefundAddress(order.id, address));
+        }}
+      >
+        <p>
+          {t('This order can’t be completed, so your {0} will be returned. Enter an address on {1} that you control.', [
+            order.asset,
+            networkLabel(order.asset, order.network),
+          ])}
+        </p>
+        <div className="field" data-invalid={error ? 'true' : undefined}>
+          <label className="field__label" htmlFor="refund-address">
+            {t('Refund address ({0})', [NETWORKS[order.network].name])}
+          </label>
+          <input
+            id="refund-address"
+            className="input mono"
+            value={address}
+            onChange={(e) => setAddress(e.target.value.trim())}
+            onBlur={() => address && setTouched(true)}
+            maxLength={128}
+            autoComplete="off"
+            spellCheck={false}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? 'refund-address-error refund-address-hint' : 'refund-address-hint'}
+            placeholder={NETWORKS[order.network].addressExample}
+          />
+          {error ? (
+            <p className="field__error" id="refund-address-error">
+              <Icon name="alert" /> {error}
+            </p>
+          ) : null}
+          <p className="field__hint" id="refund-address-hint">
+            {t('We check the address before sending the refund. Once saved, it can’t be changed.')}
+          </p>
+        </div>
+        <div>
+          <button type="submit" className="btn" disabled={busy}>
+            {busy ? t('Saving…') : t('Save refund address')}
+          </button>
+        </div>
+      </form>
+    </section>
   );
 }
 
@@ -416,11 +483,16 @@ function StatusNotice({ order }: { order: OrderView }) {
       );
     case 'refund_pending':
       return (
-        <Notice tone="warn" title={buy ? t('Cash return in progress') : t('Refund in progress')}>
+        <Notice
+          tone="warn"
+          title={buy ? t('Cash return in progress') : order.refundAddressNeeded ? t('Refund address needed') : t('Refund in progress')}
+        >
           <p>
             {buy
               ? t('The courier will return your cash to you after an ID check. ')
-              : t('We are returning your {0} on-chain to the refund address you gave. ', [order.asset])}
+              : order.refundAddressNeeded
+                ? t('We need a refund address to return your {0}: enter it below. ', [order.asset])
+                : t('We are returning your {0} on-chain to the refund address you gave. ', [order.asset])}
             {t('Return fees and timeframes are set by Section 9 of the Service Rules; see the')}{' '}
             <Link to="/legal/refunds">{t('refund policy')}</Link>.
           </p>
@@ -685,7 +757,7 @@ function Receipt({ order }: { order: OrderView }) {
           <dd className="mono">{order.payout.providerRef}</dd>
         </div>
       ) : null}
-      {!buy ? (
+      {!buy && order.refundAddress ? (
         <div>
           <dt>{t('Refund to')}</dt>
           <dd className="mono">{order.refundAddress}</dd>
@@ -935,6 +1007,7 @@ export function OrderPage() {
           {buy ? <IdUpload order={order} onChange={load} /> : null}
 
           <StatusNotice order={order} />
+          <RefundAddressForm order={order} busy={busy} run={run} />
 
           <section className="panel" aria-labelledby="progress-title">
             <div className="panel__head">

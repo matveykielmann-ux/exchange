@@ -43,7 +43,7 @@ The site states all of this plainly: the sitewide sandbox banner, the footer, `/
 ### 4. Sanctions
 - [ ] OFAC screening of customers, counterparties, IP geolocation and **blockchain addresses**, plus blockchain analytics with exposure lookback *(OFAC virtual-currency guidance, October 2021; verify)*. OFAC liability is strict.
 - [ ] Blocking and rejection procedures and reporting.
-- [ ] The current UI screens the refund address at confirmation and holds flagged transactions for review before payout (simulated).
+- [ ] The current UI screens the refund address when the customer gives it (it is asked for only when a refund is needed; a flagged address waits for an admin before the refund is sent) and holds flagged transactions for review before payout (simulated).
 
 ### 5. Consumer protection and disclosures
 - [ ] Counsel-approved Terms, Privacy Policy (GLBA and state privacy law), E-SIGN consent and complaint handling.

@@ -526,6 +526,16 @@ export function registerRoutes(r: Router, app: AppContext) {
   );
 
   r.post(
+    '/api/orders/:id/refund-address',
+    async (ctx) => {
+      const b = parse(v.object({ refundAddress: v.string({ max: 128, label: 'a refund address' }) }), ctx.body);
+      const o = await ops.setRefundAddress(app, actorOf(ctx), me(ctx), ctx.params.id!, b.refundAddress);
+      return { body: orders.orderView(app, o) };
+    },
+    { auth: 'user', rateLimit: { bucket: 'refund-address', max: 10, windowMs: 60_000 } },
+  );
+
+  r.post(
     '/api/orders/:id/documents',
     (ctx) => {
       const b = parse(

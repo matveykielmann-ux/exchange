@@ -13,7 +13,6 @@ export interface ExchangeDraft {
   amount: string;
   payoutMethod: PayoutMethodId;
   destinationId: string | null;
-  refundAddress: string;
   step: 1 | 2 | 3 | 4;
 }
 
@@ -25,7 +24,6 @@ export const INITIAL_DRAFT: ExchangeDraft = {
   amount: '0.05',
   payoutMethod: 'ach',
   destinationId: null,
-  refundAddress: '',
   step: 1,
 };
 
@@ -33,7 +31,9 @@ function load(): ExchangeDraft {
   try {
     const raw = window.sessionStorage.getItem(KEY);
     if (!raw) return INITIAL_DRAFT;
+    // Drafts saved before the refund address moved to the order page may still carry one: drop it.
     const raw_ = JSON.parse(raw) as Record<string, unknown>;
+    delete raw_.refundAddress;
     const d = { ...INITIAL_DRAFT, ...raw_ } as ExchangeDraft;
     // Session storage is user-editable: validate every field before trusting it.
     const valid =
@@ -43,8 +43,6 @@ function load(): ExchangeDraft {
       d.amount.length <= 40 &&
       Object.hasOwn(PAYOUT_METHODS, d.payoutMethod) &&
       (d.destinationId === null || typeof d.destinationId === 'string') &&
-      typeof d.refundAddress === 'string' &&
-      d.refundAddress.length <= 128 &&
       [1, 2, 3, 4].includes(d.step);
     return valid ? d : INITIAL_DRAFT;
   } catch {
@@ -76,9 +74,7 @@ export function DraftProvider({ children }: { children: ReactNode }) {
   const update = useCallback((patch: Partial<ExchangeDraft>) => setDraft((d) => persist({ ...d, ...patch })), [persist]);
   const setAsset = useCallback(
     (asset: AssetCode) =>
-      setDraft((d) =>
-        persist({ ...d, asset, network: isSupportedPair(asset, d.network) ? d.network : defaultNetwork(asset), refundAddress: '' }),
-      ),
+      setDraft((d) => persist({ ...d, asset, network: isSupportedPair(asset, d.network) ? d.network : defaultNetwork(asset) })),
     [persist],
   );
   const reset = useCallback(() => setDraft(persist(INITIAL_DRAFT)), [persist]);

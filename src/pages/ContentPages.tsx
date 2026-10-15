@@ -66,7 +66,7 @@ export function HowItWorksPage() {
         <h2 id="details">{t('3. Add your details')}</h2>
         <p>
           {t(
-            "Sign in, choose or add the account that will receive dollars, and give a refund address on the same network in case the exchange can't be completed.",
+            "Sign in and choose or add the account that will receive dollars. No refund address is needed up front: if the exchange can't be completed, we ask for one on the order page.",
           )}
         </p>
         <h2 id="confirm">{t('4. Review and confirm')}</h2>
@@ -373,7 +373,7 @@ export function SecurityPage() {
           <li>
             {t('A deposit counts only when our blockchain monitoring reports it. Saying "I sent it" doesn\'t move an order forward.')}
           </li>
-          <li>{t('Refund addresses are screened before an exchange is accepted.')}</li>
+          <li>{t('Refund addresses are screened before any refund is sent.')}</li>
           <li>
             {t(
               'Payouts above the review threshold, or with any exception, need a person on our team to approve them, with a recorded reason.',

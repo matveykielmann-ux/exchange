@@ -278,8 +278,6 @@ export const RU_PUBLIC2: Record<string, string> = {
   "Bank transfer (ACH), domestic wire, or debit card. Each shows its fee and estimated timing. Methods that can't take your amount are shown and explained, not hidden.":
     'Банковский перевод (ACH), внутренний wire-перевод или дебетовая карта. Для каждого указаны комиссия и ориентировочный срок. Способы, недоступные для вашей суммы, показываются с объяснением, а не скрываются.',
   '3. Add your details': '3. Укажите данные',
-  "Sign in, choose or add the account that will receive dollars, and give a refund address on the same network in case the exchange can't be completed.":
-    'Войдите, выберите или добавьте счёт для получения долларов и укажите адрес для возврата в той же сети на случай, если обмен не удастся завершить.',
   '4. Review and confirm': '4. Проверьте и подтвердите',
   'We lock a quote for': 'Мы фиксируем котировку на',
   'seconds while you review it. Your identity must be verified first. When you confirm, the rate holds for deposits that arrive within':
@@ -377,7 +375,6 @@ export const RU_PUBLIC2: Record<string, string> = {
     'Котировки сохраняются при выдаче, используются один раз и не принимаются после истечения срока.',
   'A deposit counts only when our blockchain monitoring reports it. Saying "I sent it" doesn\'t move an order forward.':
     'Депозит засчитывается, только когда его фиксирует наш мониторинг блокчейна. Сообщение «я отправил» заявку не продвигает.',
-  'Refund addresses are screened before an exchange is accepted.': 'Адреса для возврата проверяются до принятия обмена.',
   'Payouts above the review threshold, or with any exception, need a person on our team to approve them, with a recorded reason.':
     'Выплаты выше порога проверки или с любыми исключениями должен одобрить сотрудник с записью причины.',
   'Protect yourself from scams': 'Защитите себя от мошенников',

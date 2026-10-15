@@ -17,7 +17,7 @@ Every seeded account uses the password `sandbox-pass-2026`: `owner@`, `admin@`, 
 To try it: sign up, then go to `/exchange`. On the order page, the **sandbox deposit monitor** simulates the chain. As an admin, authorize the payout in `/admin` and use the **sandbox lab** on the order to have the provider report the result. Sandbox fixtures:
 - A legal name containing "Review", "Reject" or "Sanctioned" drives the KYC result. One containing "Decline" gets payouts declined.
 - Cash by courier serves every ZIP code except those starting with `999`.
-- Refund address `0x…bEEF` triggers address review, and `0x…dEaD` is blocked.
+- Refund address `0x…bEEF` triggers address review, and `0x…dEaD` is blocked. The refund address is asked for on the order page only when a refund is pending.
 - Routing number `011000015` is a valid test routing number.
 
 ## Checks

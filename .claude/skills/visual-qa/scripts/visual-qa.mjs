@@ -363,7 +363,7 @@ async function journey(browser, width) {
   await page.getByRole('button', { name: /Continue to details/ }).click();
   step(3, 'payout method chosen');
 
-  // 4. Details: bank account (checksum validated) and refund address.
+  // 4. Details: bank account (checksum validated). No refund address: it is asked for only if a refund is needed.
   await page.getByRole('button', { name: /Review quote/ }).click();
   await expectText(page, 'Choose where to send your dollars', 'destination required');
   await page.getByRole('button', { name: 'Add a bank account' }).click();
@@ -374,10 +374,7 @@ async function journey(browser, width) {
   await page.getByLabel('Routing number').fill('011000015');
   await page.getByRole('button', { name: 'Save bank account' }).click();
   await expectText(page, 'ending 6789', 'saved destination last4');
-  await page.getByLabel(/Refund address/).fill('not-an-address');
-  await page.getByLabel(/Refund address/).blur();
-  await expectText(page, "doesn't look like", 'refund address validation');
-  await page.getByLabel(/Refund address/).fill('0x52908400098527886E0F7030069857D2E4169EE7');
+  if (await page.getByLabel(/Refund address/).count()) fail(where, 'the exchange form must not ask for a refund address');
   await shot(page, '05-details');
   await page.getByRole('button', { name: /Review quote/ }).click();
   step(4, 'details entered');

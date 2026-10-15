@@ -360,6 +360,8 @@ export async function createApiServices(base = ''): Promise<Services> {
       get: async (id) => toOrder(await http.get(`/api/orders/${encodeURIComponent(id)}`)),
       cancel: async (id) => toOrder(await http.post(`/api/orders/${encodeURIComponent(id)}/cancel`)),
       reportSent: async (id, txHash) => toOrder(await http.post(`/api/orders/${encodeURIComponent(id)}/report-sent`, { txHash })),
+      setRefundAddress: async (id, refundAddress) =>
+        toOrder(await http.post(`/api/orders/${encodeURIComponent(id)}/refund-address`, { refundAddress })),
       uploadDocument: async (id, file) => (await http.post<J>(`/api/orders/${encodeURIComponent(id)}/documents`, file)).documents,
     },
     sandbox: sandbox

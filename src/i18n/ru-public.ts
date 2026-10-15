@@ -291,7 +291,6 @@ export const RU_PUBLIC: Record<string, string> = {
   'How is my payout calculated?': 'Как рассчитывается выплата?',
   'How long is a quote valid?': 'Сколько действует котировка?',
   'What happens if I send on the wrong network?': 'Что будет, если отправить в другой сети?',
-  'Why do you need a refund address?': 'Зачем нужен адрес для возврата?',
   'How many confirmations does a deposit need?': 'Сколько подтверждений нужно депозиту?',
   'Can I cancel after I have sent my crypto?': 'Можно ли отменить обмен после отправки криптовалюты?',
   'How fast will I receive dollars?': 'Как быстро я получу доллары?',
@@ -316,8 +315,6 @@ export const RU_PUBLIC: Record<string, string> = {
     'Всегда сверяйте сеть на экране депозита с сетью, из которой отправляет ваш кошелёк. Согласно п. 9.9',
   ', the possibility of a refund for crypto assets sent to the wrong network is determined on a case-by-case basis, and the Service reserves the right to refuse it.':
     ', возможность возврата криптоактивов, отправленных в другой сети, определяется в каждом случае отдельно, и Сервис вправе отказать в нём.',
-  "If an exchange can't be completed, for example after a failed review, the crypto is returned to the refund address you provide. Returns follow Section 9 of the":
-    'Если обмен не может быть завершён, например после неудачной проверки, криптовалюта возвращается на указанный вами адрес для возврата. Возвраты выполняются по разделу 9',
   ', including the return fees in clauses 9.7 and 9.8.': ', включая комиссии за возврат из пп. 9.7 и 9.8.',
   'Section 5 of the': 'Раздел 5',
   'sets 4 confirmations for BTC, and 21 for ETH and for USDT and USDC on TRC-20, ERC-20 and BEP-20. The count for your network is shown when you choose it.':

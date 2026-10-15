@@ -22,8 +22,14 @@ const SCENARIOS: [string, string][] = [
   ['Late deposit', 'Let the window expire (or “Expire deposit window now”), then “Deposit after window”.'],
   ['Payout failure', 'After payout is submitted, “Provider: payout failed”; then retry the payout or start a refund.'],
   ['Declined payout', 'A customer whose legal name contains “Decline” gets payouts rejected by the sandbox payout provider.'],
-  ['Review and reject', 'Orders above the review threshold, or with a refund address ending in …bEEF, need review; use Reject or Approve.'],
-  ['Blocked address', 'A refund address ending in …dEaD fails screening and the order is refused.'],
+  [
+    'Review and reject',
+    'Orders above the review threshold need review; use Reject or Approve. Rejecting after a deposit asks the customer for a refund address on the order page.',
+  ],
+  [
+    'Blocked address',
+    'A refund address ending in …bEEF is flagged for review before the refund is sent; one ending in …dEaD fails screening and is refused.',
+  ],
   ['Identity outcomes', 'Customer names containing “Review”, “Reject” or “Sanctioned” produce those verification results.'],
 ];
 
