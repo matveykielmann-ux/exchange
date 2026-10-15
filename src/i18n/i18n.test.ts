@@ -74,9 +74,10 @@ describe('Russian dictionary', () => {
 
   it('switches language, fills values and falls back to English', () => {
     expect(getLang()).toBe('en');
-    expect(t('Order {0} placed', ['CBX-1'])).toBe('Order CBX-1 placed');
+    expect(t('Order {0} placed', ['4829103746'])).toBe('Order 4829103746 placed');
     setLang('ru');
-    expect(t('Order {0} placed', ['CBX-1'])).toBe('Заявка CBX-1 оформлена');
+    expect(t('Order {0} placed', ['4829103746'])).toBe('Заявка 4829103746 оформлена');
+    expect(t('Order 4829103746')).toBe('Заявка 4829103746');
     expect(t('Request accepted')).toBe('Заявка принята');
     expect(t('3 of 6 network confirmations.')).toBe('3 из 6 подтверждений сети.');
     expect(t('Enter your email.')).toBe('Введите email.');

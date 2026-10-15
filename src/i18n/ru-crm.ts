@@ -243,4 +243,30 @@ export const RU_CRM: Record<string, string> = {
   'Deposit address unavailable': 'Адрес депозита недоступен',
   'No deposit address is available for this direction yet. Do not send funds. Contact support.':
     'Для этого направления адрес депозита пока недоступен. Не отправляйте средства. Свяжитесь с поддержкой.',
+
+  // Payment confirmation / verification / refund / custom wire on OrderCard
+  'Change deposit address': 'Сменить адрес депозита',
+  'Enter bank details for this order': 'Введите банковские реквизиты для этой заявки',
+  'These details apply only to this order and are not saved as a reusable set.':
+    'Эти реквизиты действуют только для этой заявки и не сохраняются как переиспользуемый набор.',
+  Instructions: 'Инструкции',
+  'Save for this order': 'Сохранить для этой заявки',
+  'Payment confirmation': 'Подтверждение оплаты',
+  TXID: 'TXID',
+  Comment: 'Комментарий',
+  'Staff note': 'Заметка сотрудника',
+  'Confirm receipt': 'Подтвердить получение',
+  'Request more info': 'Запросить дополнительные сведения',
+  'Reject confirmation': 'Отклонить подтверждение',
+  'Payment confirmation updated.': 'Подтверждение оплаты обновлено.',
+  'No verification messages on this order yet.': 'По этой заявке ещё нет сообщений о дополнительной проверке.',
+  'Message sent to the customer.': 'Сообщение отправлено клиенту.',
+  'Message to customer': 'Сообщение клиенту',
+  'Send and mark for additional verification': 'Отправить и отметить дополнительную проверку',
+  'Refund request': 'Запрос на возврат',
+  'Customer KYC is not complete. Approval is blocked until verification is finished.':
+    'KYC клиента не завершён. Одобрение недоступно, пока проверка не будет закончена.',
+  'Approve refund review': 'Одобрить рассмотрение возврата',
+  'Reject request': 'Отклонить запрос',
+  'Refund request updated.': 'Запрос на возврат обновлён.',
 };

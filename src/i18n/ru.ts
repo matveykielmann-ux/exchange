@@ -52,7 +52,7 @@ export const RU_PATTERNS: [RegExp, (g: string[], tr: Tr) => string][] = [
   [/^([\d.]+%) \(min (\$[\d,.]+), max (\$[\d,.]+)\)$/, ([p, a, b]) => `${p} (мин. ${a}, макс. ${b})`],
   [/^(\d+) networks?$/, ([n]) => `${n} ${ruPlural(Number(n), 'сеть', 'сети', 'сетей')}`],
   [/^Confirmations \((\d+) of (\d+)\)$/, ([a, b]) => `Подтверждения (${a} из ${b})`],
-  [/^Order (CBX-[A-Z0-9]+)$/, ([r]) => `Заявка ${r}`],
+  [/^Order (\d{6,})$/, ([r]) => `Заявка ${r}`],
   [/^clause ([\d.]+)$/, ([c]) => `п. ${c}`],
   [/^(\d+) of (\d+) network confirmations\.$/, ([a, b]) => `${a} из ${b} подтверждений сети.`],
   [/^A deposit needs (\d+) confirmations to be final\.$/, ([n]) => `Для окончательного подтверждения депозиту нужно ${n} подтверждений.`],

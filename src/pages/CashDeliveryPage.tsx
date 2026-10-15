@@ -72,7 +72,9 @@ export function CashDeliveryPage() {
             <p className="eyebrow">{t('How it works')}</p>
             <h2 className="display-m">{t('From deposit to handoff')}</h2>
             <p>
-              {t('The flat delivery fee and the minimum are shown in your quote before you confirm. Delivery times are estimates. See the')}{' '}
+              {t(
+                'Courier delivery cost is calculated for your order and shown on the quote before you confirm. There is no published minimum. Delivery times are estimates. See the',
+              )}{' '}
               <Link to="/legal/cash-delivery">{t('cash delivery terms')}</Link>.
             </p>
           </div>

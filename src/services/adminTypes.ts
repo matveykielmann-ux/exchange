@@ -171,6 +171,25 @@ export interface AdminOrderDetail {
   audit: AuditEntry[];
   actions: ActionAvailability[];
   sandboxControls: boolean;
+  paymentConfirmations?: {
+    id: string;
+    kind: string;
+    txid: string | null;
+    wireReference: string | null;
+    comment: string | null;
+    documentId: string | null;
+    status: string;
+    staffNote: string | null;
+    createdAt: number;
+  }[];
+  orderMessages?: { id: string; authorRole: string; body: string; documentId: string | null; createdAt: number }[];
+  refundRequests?: {
+    id: string;
+    reason: string;
+    status: string;
+    staffNote: string | null;
+    createdAt: number;
+  }[];
 }
 
 export interface StaffMember {
@@ -358,8 +377,34 @@ export interface AdminApi {
     setWalletStatus(id: string, status: 'active' | 'suspended'): Promise<CryptoWallet>;
     setWalletDefault(id: string): Promise<CryptoWallet>;
     assignWire(orderId: string, wireSetId: string, opts?: { confirmReplace?: boolean; reason?: string }): Promise<OrderView>;
+    assignCustomWire(
+      orderId: string,
+      input: {
+        beneficiary: string;
+        bankName: string;
+        accountNumber?: string | null;
+        routingNumber?: string | null;
+        swiftBic?: string | null;
+        bankAddress?: string | null;
+        instructions?: string | null;
+        confirmReplace?: boolean;
+        reason?: string;
+      },
+    ): Promise<OrderView>;
     assignWallet(orderId: string, walletId: string, opts?: { confirmReplace?: boolean; reason?: string }): Promise<OrderView>;
     issueWire(orderId: string, wireSetId?: string): Promise<OrderView>;
+    reviewPaymentConfirmation(
+      orderId: string,
+      body: { confirmationId: string; status: 'approved' | 'needs_info' | 'rejected'; staffNote?: string | null },
+    ): Promise<OrderView>;
+    postVerificationMessage(
+      orderId: string,
+      body: { body: string; file?: { fileName: string; contentType: string; dataBase64: string } | null },
+    ): Promise<OrderView>;
+    reviewRefundRequest(
+      orderId: string,
+      body: { requestId: string; status: 'needs_info' | 'approved' | 'rejected' | 'cancelled'; staffNote?: string | null },
+    ): Promise<OrderView>;
   };
   inbox(q: {
     status?: ConversationStatus | 'all';

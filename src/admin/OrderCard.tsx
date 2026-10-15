@@ -80,6 +80,9 @@ export function OrderCard({ id, headingLevel = 1 }: { id: string; headingLevel?:
 
       <MainBlock detail={data} onResult={setResult} reload={reload} />
       <CredentialsBlock detail={data} onResult={setResult} reload={reload} />
+      <PaymentReviewBlock detail={data} onResult={setResult} reload={reload} />
+      <VerificationBlock detail={data} onResult={setResult} reload={reload} />
+      <RefundRequestBlock detail={data} onResult={setResult} reload={reload} />
       <ClientBlock detail={data} />
       <HistoryBlock detail={data} />
       <MoreDetails detail={data} reload={reload} />
@@ -226,9 +229,16 @@ function CredentialsBlock({ detail, onResult, reload }: { detail: AdminOrderDeta
           </>
         ) : null}
         <button type="button" className="btn btn--secondary" disabled={!selected || busy || (revealed && (!confirmReplace || reason.trim().length < 4))} onClick={() => void assign()}>
-          {busy ? t('Saving…') : revealed ? t('Replace credentials') : t('Assign credentials')}
+          {busy
+            ? t('Saving…')
+            : revealed
+              ? wire
+                ? t('Replace credentials')
+                : t('Change deposit address')
+              : t('Assign credentials')}
         </button>
       </div>
+      {wire ? <CustomWireForm detail={detail} revealed={revealed} onResult={onResult} reload={reload} /> : null}
       {snap?.assignmentHistory?.length ? (
         <details className="small" style={{ marginTop: 12 }}>
           <summary>{t('Assignment history')}</summary>
@@ -241,6 +251,304 @@ function CredentialsBlock({ detail, onResult, reload }: { detail: AdminOrderDeta
             ))}
           </ul>
         </details>
+      ) : null}
+    </section>
+  );
+}
+
+function CustomWireForm({
+  detail,
+  revealed,
+  onResult,
+  reload,
+}: {
+  detail: AdminOrderDetail;
+  revealed: boolean;
+  onResult(r: Result): void;
+  reload(): void;
+}) {
+  const { admin } = useServices();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [confirmReplace, setConfirmReplace] = useState(false);
+  const [reason, setReason] = useState('');
+  const [form, setForm] = useState({
+    beneficiary: '',
+    bankName: '',
+    accountNumber: '',
+    routingNumber: '',
+    swiftBic: '',
+    bankAddress: '',
+    instructions: '',
+  });
+  if (!open) {
+    return (
+      <button type="button" className="btn btn--ghost" style={{ marginTop: 8 }} onClick={() => setOpen(true)}>
+        {t('Enter bank details for this order')}
+      </button>
+    );
+  }
+  return (
+    <form
+      className="stack"
+      style={{ gap: 8, marginTop: 12 }}
+      onSubmit={async (e: FormEvent) => {
+        e.preventDefault();
+        setBusy(true);
+        try {
+          await admin.credentials.assignCustomWire(detail.order.id, {
+            ...form,
+            accountNumber: form.accountNumber || null,
+            routingNumber: form.routingNumber || null,
+            swiftBic: form.swiftBic || null,
+            bankAddress: form.bankAddress || null,
+            instructions: form.instructions || null,
+            confirmReplace: revealed ? confirmReplace : undefined,
+            reason: revealed ? reason : undefined,
+          });
+          onResult({ tone: 'success', text: t('Credentials saved on this order.') });
+          setOpen(false);
+          reload();
+        } catch (err) {
+          onResult({ tone: 'danger', text: errorMessage(err) });
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <p className="small muted">{t('These details apply only to this order and are not saved as a reusable set.')}</p>
+      {(
+        [
+          ['beneficiary', t('Beneficiary')],
+          ['bankName', t('Bank')],
+          ['accountNumber', t('Account number')],
+          ['routingNumber', t('Routing number (ABA)')],
+          ['swiftBic', 'SWIFT / BIC'],
+          ['bankAddress', t('Bank address')],
+          ['instructions', t('Instructions')],
+        ] as const
+      ).map(([key, label]) => (
+        <label key={key} className="field">
+          <span className="field__label">{label}</span>
+          <input
+            className="input"
+            value={form[key]}
+            onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+            required={key === 'beneficiary' || key === 'bankName'}
+          />
+        </label>
+      ))}
+      {revealed ? (
+        <>
+          <label className="row" style={{ gap: 8 }}>
+            <input type="checkbox" checked={confirmReplace} onChange={(e) => setConfirmReplace(e.target.checked)} />
+            <span className="small">{t('I confirm replacing credentials the customer may already have')}</span>
+          </label>
+          <label className="field">
+            <span className="field__label">{t('Reason for replacement')}</span>
+            <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} required />
+          </label>
+        </>
+      ) : null}
+      <div className="row" style={{ gap: 8 }}>
+        <button type="submit" className="btn btn--secondary" disabled={busy || (revealed && (!confirmReplace || reason.trim().length < 4))}>
+          {busy ? t('Saving…') : t('Save for this order')}
+        </button>
+        <button type="button" className="btn btn--ghost" onClick={() => setOpen(false)}>
+          {t('Cancel')}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function PaymentReviewBlock({ detail, onResult, reload }: { detail: AdminOrderDetail; onResult(r: Result): void; reload(): void }) {
+  const { admin } = useServices();
+  const items = detail.paymentConfirmations ?? [];
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  if (!items.length) return null;
+  const latest = items[0]!;
+  return (
+    <section className="order-block" aria-labelledby="block-pay-confirm">
+      <h3 id="block-pay-confirm" className="order-block__title">
+        {t('Payment confirmation')}
+      </h3>
+      <dl className="dl dl--compact">
+        <Row term={t('Status')}>{t(latest.status)}</Row>
+        {latest.txid ? (
+          <Row term={t('TXID')}>
+            <span className="mono small break">{latest.txid}</span>
+          </Row>
+        ) : null}
+        {latest.wireReference ? (
+          <Row term={t('Bank payment reference')}>
+            <span className="mono small">{latest.wireReference}</span>
+          </Row>
+        ) : null}
+        {latest.comment ? <Row term={t('Comment')}>{latest.comment}</Row> : null}
+        <Row term={t('Submitted')}>{formatDateTime(latest.createdAt)}</Row>
+      </dl>
+      {latest.status === 'submitted' ? (
+        <div className="stack" style={{ gap: 8, marginTop: 12 }}>
+          <label className="field">
+            <span className="field__label">{t('Staff note')}</span>
+            <input className="input" value={note} onChange={(e) => setNote(e.target.value)} />
+          </label>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            {(
+              [
+                ['approved', t('Confirm receipt')],
+                ['needs_info', t('Request more info')],
+                ['rejected', t('Reject confirmation')],
+              ] as const
+            ).map(([status, label]) => (
+              <button
+                key={status}
+                type="button"
+                className={`btn ${status === 'approved' ? 'btn--primary' : 'btn--secondary'}`}
+                disabled={busy || (status !== 'approved' && note.trim().length < 4)}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await admin.credentials.reviewPaymentConfirmation(detail.order.id, {
+                      confirmationId: latest.id,
+                      status,
+                      staffNote: note || null,
+                    });
+                    onResult({ tone: 'success', text: t('Payment confirmation updated.') });
+                    reload();
+                  } catch (e) {
+                    onResult({ tone: 'danger', text: errorMessage(e) });
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function VerificationBlock({ detail, onResult, reload }: { detail: AdminOrderDetail; onResult(r: Result): void; reload(): void }) {
+  const { admin } = useServices();
+  const messages = detail.orderMessages ?? [];
+  const [body, setBody] = useState('');
+  const [busy, setBusy] = useState(false);
+  return (
+    <section className="order-block" aria-labelledby="block-verify">
+      <h3 id="block-verify" className="order-block__title">
+        {t('Additional verification')}
+      </h3>
+      {messages.length ? (
+        <ul className="stack" style={{ gap: 8, listStyle: 'none', padding: 0, marginBottom: 12 }}>
+          {messages.map((m) => (
+            <li key={m.id} className="small">
+              <strong>{t(m.authorRole)}</strong> · {formatDateTime(m.createdAt)}
+              <p>{m.body}</p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="small muted">{t('No verification messages on this order yet.')}</p>
+      )}
+      <form
+        className="stack"
+        style={{ gap: 8 }}
+        onSubmit={async (e: FormEvent) => {
+          e.preventDefault();
+          setBusy(true);
+          try {
+            await admin.credentials.postVerificationMessage(detail.order.id, { body });
+            onResult({ tone: 'success', text: t('Message sent to the customer.') });
+            setBody('');
+            reload();
+          } catch (err) {
+            onResult({ tone: 'danger', text: errorMessage(err) });
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <label className="field">
+          <span className="field__label">{t('Message to customer')}</span>
+          <textarea className="input" rows={3} value={body} onChange={(e) => setBody(e.target.value)} required minLength={1} />
+        </label>
+        <button type="submit" className="btn btn--secondary" disabled={busy || !body.trim()}>
+          {busy ? t('Sending…') : t('Send and mark for additional verification')}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function RefundRequestBlock({ detail, onResult, reload }: { detail: AdminOrderDetail; onResult(r: Result): void; reload(): void }) {
+  const { admin } = useServices();
+  const items = detail.refundRequests ?? [];
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  if (!items.length) return null;
+  const latest = items[0]!;
+  return (
+    <section className="order-block" aria-labelledby="block-refund-req">
+      <h3 id="block-refund-req" className="order-block__title">
+        {t('Refund request')}
+      </h3>
+      <dl className="dl dl--compact">
+        <Row term={t('Status')}>{t(latest.status)}</Row>
+        <Row term={t('Reason')}>{latest.reason}</Row>
+        <Row term={t('Submitted')}>{formatDateTime(latest.createdAt)}</Row>
+        {latest.staffNote ? <Row term={t('Staff note')}>{latest.staffNote}</Row> : null}
+      </dl>
+      {latest.status === 'submitted' || latest.status === 'needs_kyc' || latest.status === 'needs_info' ? (
+        <div className="stack" style={{ gap: 8, marginTop: 12 }}>
+          {latest.status === 'needs_kyc' ? (
+            <p className="small muted">{t('Customer KYC is not complete. Approval is blocked until verification is finished.')}</p>
+          ) : null}
+          <label className="field">
+            <span className="field__label">{t('Staff note')}</span>
+            <input className="input" value={note} onChange={(e) => setNote(e.target.value)} />
+          </label>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            {(
+              [
+                ['approved', t('Approve refund review')],
+                ['needs_info', t('Request more info')],
+                ['rejected', t('Reject request')],
+              ] as const
+            ).map(([status, label]) => (
+              <button
+                key={status}
+                type="button"
+                className="btn btn--secondary"
+                disabled={busy || (status !== 'approved' && note.trim().length < 4) || (status === 'approved' && latest.status === 'needs_kyc')}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await admin.credentials.reviewRefundRequest(detail.order.id, {
+                      requestId: latest.id,
+                      status,
+                      staffNote: note || null,
+                    });
+                    onResult({ tone: 'success', text: t('Refund request updated.') });
+                    reload();
+                  } catch (e) {
+                    onResult({ tone: 'danger', text: errorMessage(e) });
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
       ) : null}
     </section>
   );

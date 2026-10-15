@@ -93,7 +93,7 @@ export const CASH_DELIVERY_TERMS: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'A flat delivery fee applies to each cash delivery. It is shown in your quote before you confirm the order, and the amount handed to you is the amount in your receipt.',
+          text: 'Delivery cost is calculated individually for each cash delivery. The amount is set by an operator, shown on your quote, and must be accepted before the exchange continues. The amount handed to you is the amount in your receipt. There is no published minimum order amount.',
         },
         { type: 'rules', refs: ['4.23'] },
         {

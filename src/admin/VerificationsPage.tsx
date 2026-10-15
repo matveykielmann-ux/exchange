@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
-import { MockBadge, Notice } from '@/components/ui';
+import { Notice } from '@/components/ui';
 import { ID_DOCUMENT_LABEL, KYC_FILE_LABEL, type KycDecision, type KycSubmissionStatus } from '@/domain/identity';
 import { countryName } from '@/domain/residence';
 import { errorMessage } from '@/lib/errors';
@@ -9,7 +9,6 @@ import { base64ObjectUrl, formatFileSize } from '@/lib/files';
 import { formatDateTime } from '@/lib/format';
 import type { KycDetail, KycQueueFilter } from '@/services/adminTypes';
 import type { KycFileView } from '@/services/types';
-import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
 import { AdminHead, LoadError, Pager, ReasonForm } from './shared';
 import { useLoad } from './lib';
@@ -230,7 +229,6 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 export function VerificationDetailPage() {
   const { id = '' } = useParams();
   const { admin } = useServices();
-  const sandbox = useConfig().mode === 'sandbox';
   const { data, setData, error } = useLoad(() => admin.kyc.get(id), [id]);
   if (!data)
     return (
@@ -250,7 +248,6 @@ export function VerificationDetailPage() {
       </p>
       <AdminHead title={c.name || '—'} lead={`${c.email} · ${t(ID_DOCUMENT_LABEL[data.idType])}`}>
         <StatusChip status={data.status} />
-        {sandbox ? <MockBadge label={t('Test documents')} /> : null}
       </AdminHead>
       <div className="kyc-review">
         <section className="panel" aria-labelledby="kyc-customer-title">

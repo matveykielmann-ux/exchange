@@ -937,6 +937,23 @@ function registerAdminRoutes(r: Router, app: AppContext) {
       reason: b.reason,
     });
   });
+  orderAction('assign-custom-wire-credentials', SUPPORT, (ctx, id) => {
+    const b = parse(
+      v.object({
+        beneficiary: v.string({ min: 1, max: 200, label: 'a beneficiary' }),
+        bankName: v.string({ min: 1, max: 200, label: 'a bank name' }),
+        accountNumber: v.optional(v.nullable(v.string({ max: 64, label: 'an account number' }))),
+        routingNumber: v.optional(v.nullable(v.string({ max: 34, label: 'a routing number' }))),
+        swiftBic: v.optional(v.nullable(v.string({ max: 11, label: 'a SWIFT/BIC' }))),
+        bankAddress: v.optional(v.nullable(v.string({ max: 400, label: 'a bank address' }))),
+        instructions: v.optional(v.nullable(v.string({ max: 2000, label: 'instructions' }))),
+        confirmReplace: v.optional(v.bool()),
+        reason: v.optional(v.string({ max: 500, label: 'a reason' })),
+      }),
+      ctx.body,
+    );
+    return orders.assignCustomWireCredentials(app, staffActor(ctx), id, b);
+  });
   orderAction('assign-wallet-credentials', SUPPORT, (ctx, id) => {
     const b = parse(
       v.object({

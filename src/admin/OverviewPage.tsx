@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { MockBadge, StatusBadge } from '@/components/ui';
+import { StatusBadge } from '@/components/ui';
 import { ORDER_STATUS_LABEL, ORDER_STATUSES, orderTone } from '@/domain/order';
 import { formatDateTime } from '@/lib/format';
 import { useServices } from '@/state/services';
@@ -19,9 +19,7 @@ export function OverviewPage() {
   const peak = data ? Math.max(1, ...data.createdLast7Days.map((d) => d.n)) : 1;
   return (
     <div className="stack stack--lg">
-      <AdminHead title={t('Overview')} lead={data ? t('Counted from the database at {0}.', [formatDateTime(data.generatedAt)]) : undefined}>
-        <MockBadge label={t('Sandbox data')} />
-      </AdminHead>
+      <AdminHead title={t('Overview')} lead={data ? t('Counted from the database at {0}.', [formatDateTime(data.generatedAt)]) : undefined} />
       <LoadError error={error} />
       {data ? (
         <>

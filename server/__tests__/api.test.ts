@@ -704,6 +704,83 @@ describe('API', () => {
     expect(sources).toEqual(expect.arrayContaining(['bankPayout:deposit.observed', 'bankPayout:deposit.confirmed']));
   });
 
+  it('assigns custom wire credentials, reviews payment confirmation, verification messages, and refund requests', async () => {
+    const c = env.client();
+    await customer(c, 'payflow@example.test');
+    const admin = await staff(env.app, env.base, 'admin', 'payflow-admin@arcvale.test');
+
+    const q = await c.post('/api/quotes', { direction: 'buy', asset: 'USDT', network: 'tron', cashCents: '100000', payIn: 'wire' });
+    const o = await c.post(
+      '/api/orders',
+      {
+        quoteId: q.body.quote.id,
+        destinationId: '',
+        receiveAddress: 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE',
+        accepted: docs('order'),
+      },
+      { 'idempotency-key': 'payflow-wire-1' },
+    );
+    expect(o.status).toBe(201);
+    expect(o.body).toMatchObject({ status: 'created', wireCredentialsPending: true });
+    expect(o.body.reference).toMatch(/^\d{10}$/);
+    const id = o.body.id as string;
+
+    const custom = await admin.post(`/api/admin/orders/${id}/assign-custom-wire-credentials`, {
+      beneficiary: 'Custom Beneficiary LLC',
+      bankName: 'Custom Bank',
+      accountNumber: '998877665544',
+      routingNumber: '021000021',
+    });
+    expect(custom.status).toBe(200);
+    expect(custom.body.status).toBe('awaiting_deposit');
+    const issued = (await c.get(`/api/orders/${id}`)).body;
+    expect(issued.wireInstructions).toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: 'Beneficiary', value: 'Custom Beneficiary LLC' })]),
+    );
+
+    const confirm = await c.post(`/api/orders/${id}/payment-confirmation`, { wireReference: 'FED 20261015 PAYFLOW/1' });
+    expect(confirm.status).toBe(201);
+    expect(confirm.body.confirmations[0]).toMatchObject({ status: 'submitted', wireReference: 'FED 20261015 PAYFLOW/1' });
+    const confirmationId = confirm.body.confirmations[0].id as string;
+
+    expect(
+      (
+        await admin.post(`/api/admin/orders/${id}/review-payment-confirmation`, {
+          confirmationId,
+          status: 'approved',
+        })
+      ).status,
+    ).toBe(200);
+    const staffDetail = await admin.get(`/api/admin/orders/${id}`);
+    expect(staffDetail.body.paymentConfirmations[0]).toMatchObject({ id: confirmationId, status: 'approved' });
+
+    expect((await admin.post(`/api/admin/orders/${id}/verification-message`, { body: 'Please upload a clearer bank receipt.' })).status).toBe(
+      200,
+    );
+    expect((await admin.get(`/api/admin/orders/${id}`)).body.orderMessages).toEqual(
+      expect.arrayContaining([expect.objectContaining({ body: 'Please upload a clearer bank receipt.', authorRole: 'admin' })]),
+    );
+
+    const refund = await c.post(`/api/orders/${id}/refund-request`, { reason: 'I sent the wire twice by mistake.' });
+    expect(refund.status).toBe(201);
+    expect(refund.body.request).toMatchObject({ status: 'submitted' });
+    const requestId = refund.body.request.id as string;
+    expect(
+      (
+        await admin.post(`/api/admin/orders/${id}/review-refund-request`, {
+          requestId,
+          status: 'needs_info',
+          staffNote: 'Send the second wire confirmation.',
+        })
+      ).status,
+    ).toBe(200);
+    expect((await admin.get(`/api/admin/orders/${id}`)).body.refundRequests[0]).toMatchObject({
+      id: requestId,
+      status: 'needs_info',
+      staffNote: 'Send the second wire confirmation.',
+    });
+  });
+
   it('issues wire instructions and moves a wire buy once the customer marks it sent (sandbox autopilot)', async () => {
     const admin = await staff(env.app, env.base, 'admin', 'wire-auto-admin@arcvale.test');
     const wireSet = await admin.post('/api/admin/credentials/wire', { ...SAMPLE_WIRE, name: 'USD Wire — Autopilot' });

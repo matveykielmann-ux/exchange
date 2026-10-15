@@ -56,9 +56,9 @@ Arcvale has a working API server, database, admin panel, real-time support chat,
 ### The buy journey (cash → crypto, visual QA)
 
 1. A customer resident outside the US signs up; the clause 8.5 confirmation is required.
-2. Buy with cash: below the minimum and below the courier minimum are refused; a $1,000 USDT (TRC-20) quote is shown, and the draft survives a refresh.
+2. Buy with cash: there is no published minimum; a $1,000 USDT (TRC-20) quote is shown, and the draft survives a refresh. Courier delivery cost stays pending until an operator sets it.
 3. A collection address is saved and the receiving wallet is validated next to the field.
-4. Verification, firm quote, acknowledgements and hold-to-confirm create a `CBX-…` order.
+4. Verification, firm quote, acknowledgements and hold-to-confirm create a numeric order reference.
 5. A demo photo ID upload: a wrong file type is refused; a PNG is checked (type sniffed, size, SHA-256) and discarded, and only its record is kept.
 6. The server is restarted on the same database; the order and its progress are intact.
 7. The autopilot reports the cash collected and counted through signed `cash` webhooks.
@@ -69,10 +69,10 @@ Arcvale has a working API server, database, admin panel, real-time support chat,
 
 - **No real provider is connected.** That needs contracts and credentials. Adapters report `NOT_CONFIGURED` rather than faking results.
 - **Real money stays off.** This needs the compliance launch gate (`docs/compliance-readiness.md`) and a reviewed code change.
-- **Real cash deliveries** need a contracted carrier, `REAL_MONEY_ENABLED` and the checklist in `docs/compliance-readiness.md` §6. The courier fee ($35 flat) and minimum ($500) are placeholders. **[OWNER INPUT REQUIRED]**
+- **Real cash deliveries** need a contracted carrier, `REAL_MONEY_ENABLED` and the checklist in `docs/compliance-readiness.md` §6. Courier delivery cost is quoted per order (no published flat fee or minimum). **[OWNER INPUT REQUIRED]**
 - A database upgrade from migration 1 to 2 was checked by seeding with the previous build and migrating with this one (rows kept, no foreign key errors).
 - **Not deployed.** The deployment files are ready, but publishing needs your explicit approval. The Docker image build could not be tested here because this environment has no Docker daemon.
-- Email in sandbox goes to a notification outbox (admin sandbox lab) instead of being sent.
-- Policy values (spreads, minimums, fees, review threshold, confirmation counts) are placeholders. **[OWNER/COUNSEL INPUT REQUIRED]**
+- Email in sandbox goes to a notification outbox (admin sandbox API) instead of being sent. The CRM no longer ships a Sandbox Lab UI page.
+- Policy values (fees, review threshold, confirmation counts) are placeholders pending counsel. There is no published order minimum; quotes use market rate with no spread. **[OWNER/COUNSEL INPUT REQUIRED]**
 - Legal texts are drafts with placeholders and need counsel review (`LEGAL_REVIEW.md`).
 - The main JS chunk is about 555 kB (181 kB gzip), mostly GSAP and Radix. Trimming GSAP plugins is a follow-up.

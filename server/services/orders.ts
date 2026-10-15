@@ -865,6 +865,93 @@ export function assignWireCredentials(
   });
 }
 
+/**
+ * Staff: issue or replace wire credentials entered for this order only
+ * (not saved as a reusable CRM set). Snapshot is still immutable on the order.
+ */
+export function assignCustomWireCredentials(
+  ctx: AppContext,
+  actor: Actor,
+  orderId: string,
+  input: {
+    beneficiary: string;
+    bankName: string;
+    accountNumber?: string | null;
+    routingNumber?: string | null;
+    swiftBic?: string | null;
+    bankAddress?: string | null;
+    instructions?: string | null;
+    confirmReplace?: boolean;
+    reason?: string | null;
+  },
+): OrderRow {
+  const o = getOrderRow(ctx, orderId);
+  if (o.direction !== 'buy' || o.payout_method !== 'wire') throw conflict('Only wire buy orders accept bank credentials.', 'invalid_transition');
+  const beneficiary = input.beneficiary.trim();
+  const bankName = input.bankName.trim();
+  if (!beneficiary) throw badRequest('Enter the payment beneficiary.', { field: 'beneficiary' });
+  if (!bankName) throw badRequest('Enter the bank name.', { field: 'bankName' });
+  const accountNumber = input.accountNumber?.trim() || null;
+  const routingNumber = input.routingNumber?.trim() || null;
+  const swiftBic = input.swiftBic?.trim() || null;
+  if (!accountNumber && !routingNumber && !swiftBic)
+    throw badRequest('Provide an account number, routing number, or SWIFT/BIC.', { field: 'accountNumber' });
+
+  const existing = orderWireSnapshot(ctx, orderId);
+  const revealed = !!existing?.revealedToCustomer || o.status !== 'created';
+  if (existing?.revealedToCustomer && !input.confirmReplace)
+    throw conflict(
+      'The customer already has wire instructions. Confirm replacement and provide a reason to overwrite the snapshot.',
+      'confirm_replace_required',
+    );
+  if (existing?.revealedToCustomer && !input.reason?.trim())
+    throw badRequest('Enter a reason for replacing issued credentials.', { field: 'reason' });
+
+  const snap = {
+    wireSetId: null as string | null,
+    name: 'Order-specific wire details',
+    beneficiary,
+    bankName,
+    accountNumber,
+    routingNumber,
+    swiftBic,
+    bankAddress: input.bankAddress?.trim() || null,
+    instructions: input.instructions?.trim() || null,
+    currency: 'USD' as const,
+  };
+
+  return ctx.db.tx(() => {
+    const hadDeposit = !!ctx.db.get('SELECT 1 FROM deposit_instructions WHERE order_id = ?', [o.id]);
+    upsertWireSnapshot(ctx, o.id, snap, actor, true);
+    recordAssignment(ctx, o.id, 'wire', existing ? 'replaced' : 'assigned', actor, existing, snap, input.reason?.trim() || null);
+    if (!hadDeposit) {
+      ctx.db.run(
+        'INSERT INTO deposit_instructions (id, order_id, provider, provider_ref, address, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [newId('dep'), o.id, 'crm', `crm_wire_custom_${o.id.replace(/^ord_/, '')}`, 'wire-credentials', o.reference, ctx.clock.now()],
+      );
+      if (o.status === 'created') applyOrderEvent(ctx, o.id, { type: 'DEPOSIT_INSTRUCTIONS_ISSUED' }, SYSTEM);
+    }
+    audit(ctx, actor, {
+      action: existing ? 'order.wire_credentials_replaced' : 'order.wire_credentials_assigned',
+      targetType: 'order',
+      targetId: o.id,
+      reason: input.reason?.trim() || null,
+      data: { custom: true, name: snap.name },
+    });
+    if (!existing || !revealed) {
+      const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [o.user_id])!.email;
+      notify(ctx, {
+        userId: o.user_id,
+        to: email,
+        template: 'buy_wire_instructions',
+        orderId: o.id,
+        vars: { reference: o.reference, cash: formatUsd(BigInt(o.gross_cents)), deadline: new Date(o.deposit_deadline).toISOString() },
+      });
+    }
+    return getOrderRow(ctx, o.id);
+  });
+}
+
 /** Staff: assign or replace a CRM deposit wallet on a sell order. */
 export function assignWalletCredentials(
   ctx: AppContext,

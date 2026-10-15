@@ -6,7 +6,6 @@ import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { BRAND, SUPPORT } from '@/config/brand';
 import { FAQ, FaqList, type FaqItem } from '@/content/faq';
 import { NETWORKS } from '@/domain/assets';
-import { formatUsd } from '@/domain/money';
 import { describeFee, PAYOUT_METHODS, PAYOUT_ORDER } from '@/domain/payout';
 import { PRICING_POLICY } from '@/domain/quote';
 import { LiveQuoteExample } from '@/components/LiveQuoteExample';
@@ -194,7 +193,7 @@ export function FeesPage() {
                     <td data-label={t('Fee')}>{off ? t('Not offered') : t(describeFee(m.fee, m.feeStatus))}</td>
                     <td data-label={t('Timing')}>{t(m.timingEstimate)}</td>
                     <td data-label={t('Minimum')} className="tabular">
-                      {off ? '—' : t('{0}, no maximum', [formatUsd(m.minCents)])}
+                      {off ? '—' : t('No published minimum')}
                     </td>
                   </tr>
                 );
@@ -218,10 +217,7 @@ export function FeesPage() {
         <RulesQuote refs={['9.2', '9.7', '9.8']} />
         <h2 id="limits">{t('Limits')}</h2>
         <ul>
-          <li>
-            {t('Minimum sale:')} {formatUsd(PRICING_POLICY.minimumCents)} {t('in value.')}
-          </li>
-          <li>{t('No maximum per transaction, for every payout method.')}</li>
+          <li>{t('There is no published minimum and no maximum.')}</li>
           <li>{t('Any order may be held for review before payout.')}</li>
         </ul>
         <h2 id="commission">{t('Commission formula')}</h2>

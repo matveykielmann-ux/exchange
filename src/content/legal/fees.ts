@@ -37,28 +37,28 @@ export const FEE_DISCLOSURE: LegalDocument = {
           items: [
             'Reference price: the market price per unit of the asset that we use as the starting point for your quote, and the resulting US dollar value of the amount you are selling (the reference value).',
             'Spread: our charge, calculated as a percentage of the reference value and expressed in basis points (one basis point is 0.01%). It is deducted from the reference value.',
-            'Payout fee: our charge for the payout method you choose.',
-            'Net payout: the amount in US dollars you will receive, after the spread and payout fee are deducted.',
+            'Exchange fee: our charge for the payout or pay-in method you choose (shown as a separate line).',
+            'Net payout: the amount in US dollars you will receive after the exchange fee (and any bank processing fee) is deducted.',
           ],
         },
         {
           type: 'p',
-          text: 'The difference between the reference price and the rate you receive is a cost to you and revenue to {{brand}}. Prices from other providers may be higher or lower than ours.',
+          text: 'Your quote uses the market reference price with no spread. Prices from other providers may be higher or lower than ours.',
         },
         {
           type: 'p',
-          text: 'The spread, payout fee, minimum amount, quote validity and deposit window that apply to your order are shown when you create it. Clause 4.24 of the Service Rules provides:',
+          text: 'The exchange fee, any bank processing fee, quote validity and deposit window that apply to your order are shown when you create it. Clause 4.24 of the Service Rules provides:',
         },
         { type: 'rules', refs: ['4.24'] },
       ],
     },
     {
       id: 'spread',
-      heading: 'Spread',
+      heading: 'Exchange rate',
       blocks: [
         {
           type: 'p',
-          text: 'The spread is tiered. It depends on the type of asset (for example, volatile assets such as BTC and ETH have a different spread from stablecoins such as USDT and USDC) and on the size of the order. Current spread tiers are shown on the Fees page and the spread that applies to your order is shown in each quote.',
+          text: 'There is no spread. The quote uses the market reference price at the moment of the quote. The fee for your method is shown as a separate dollar line on the Fees page and in each quote.',
         },
       ],
     },
@@ -69,10 +69,10 @@ export const FEE_DISCLOSURE: LegalDocument = {
         {
           type: 'list',
           items: [
-            'ACH bank transfer: no payout fee.',
-            'Domestic bank wire: a flat fee per payout.',
-            'Debit card: a percentage of the payout amount, subject to a minimum and a maximum fee.',
-            'Cash by courier: delivery cost calculated individually for each order (shown on the quote before you confirm).',
+            'ACH bank transfer: a 3% exchange fee.',
+            'Domestic bank wire: a published bank processing fee ($30) plus a 3% exchange fee.',
+            'Debit card: a 3% exchange fee.',
+            'Cash by courier: delivery cost calculated individually for each order (set by an operator and shown on the quote before you confirm).',
           ],
         },
         {
@@ -87,7 +87,7 @@ export const FEE_DISCLOSURE: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'A locked quote is valid for a limited time, currently 60 seconds, and must be refreshed if it expires. When you confirm an order, the rate, spread, payout fee and net payout in the accepted quote apply to that order, provided that you send the quoted amount within the deposit window, currently 30 minutes. If the amount received differs, or funds arrive after the window, the Service Rules provide:',
+          text: 'A locked quote is valid for a limited time, currently 60 seconds, and must be refreshed if it expires. When you confirm an order, the rate, fees and net payout in the accepted quote apply to that order, provided that you send the quoted amount within the deposit window, currently 30 minutes. If the amount received differs, or funds arrive after the window, the Service Rules provide:',
         },
         { type: 'rules', refs: ['4.12', '4.14'] },
         {

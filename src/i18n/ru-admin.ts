@@ -260,7 +260,7 @@ export const RU_ADMIN: Record<string, string> = {
   'All stages': 'Все этапы',
   'Pipeline stage ': 'Этап ',
   'Saved views': 'Сохранённые фильтры',
-  'CBX-…, email, name, tx hash': 'CBX-…, email, имя, хеш',
+  'Order number, email, name, tx hash': 'Номер заявки, email, имя, хеш',
   'Any status': 'Любой статус',
   Payout: 'Выплата',
   'Any method': 'Любой способ',

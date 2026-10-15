@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { formatUsd } from '@/domain/money';
 import { PRICING_POLICY } from '@/domain/quote';
 import { t } from '@/i18n';
 

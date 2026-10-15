@@ -286,6 +286,8 @@ export async function createApiServices(base = ''): Promise<Services> {
             reason: opts?.reason,
           }),
         ),
+      assignCustomWire: async (orderId, input) =>
+        toOrder(await http.post(`/api/admin/orders/${encodeURIComponent(orderId)}/assign-custom-wire-credentials`, input)),
       assignWallet: async (orderId, walletId, opts) =>
         toOrder(
           await http.post(`/api/admin/orders/${encodeURIComponent(orderId)}/assign-wallet-credentials`, {
@@ -296,6 +298,12 @@ export async function createApiServices(base = ''): Promise<Services> {
         ),
       issueWire: async (orderId, wireSetId) =>
         toOrder(await http.post(`/api/admin/orders/${encodeURIComponent(orderId)}/issue-wire-instructions`, { wireSetId })),
+      reviewPaymentConfirmation: async (orderId, body) =>
+        toOrder(await http.post(`/api/admin/orders/${encodeURIComponent(orderId)}/review-payment-confirmation`, body)),
+      postVerificationMessage: async (orderId, body) =>
+        toOrder(await http.post(`/api/admin/orders/${encodeURIComponent(orderId)}/verification-message`, body)),
+      reviewRefundRequest: async (orderId, body) =>
+        toOrder(await http.post(`/api/admin/orders/${encodeURIComponent(orderId)}/review-refund-request`, body)),
     },
     sandbox: {
       deposit: async (id, scenario) =>

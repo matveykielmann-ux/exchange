@@ -237,6 +237,8 @@ export const RU_PUBLIC2: Record<string, string> = {
   'From deposit to handoff': 'От депозита до передачи',
   'The flat delivery fee and the minimum are shown in your quote before you confirm. Delivery times are estimates. See the':
     'Фиксированная плата за доставку и минимум показываются в котировке до подтверждения. Сроки доставки ориентировочные. См.',
+  'Courier delivery cost is calculated for your order and shown on the quote before you confirm. There is no published minimum. Delivery times are estimates. See the':
+    'Стоимость курьерской доставки рассчитывается для вашей заявки и показывается в котировке до подтверждения. Опубликованного минимума нет. Сроки доставки ориентировочные. См.',
   'cash delivery terms': 'условия доставки наличных',
   'When you receive the cash': 'Когда вы получаете наличные',
   'These safety rules apply to every cash handoff. They are quoted from the':
