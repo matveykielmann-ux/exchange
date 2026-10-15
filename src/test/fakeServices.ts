@@ -77,6 +77,7 @@ export function createFakeServices(overrides: Partial<Services> = {}): Services 
       profile: unused,
       updateProfile: unused,
       startVerification: unused,
+      kyc: { get: unused, setIdType: unused, upload: unused, file: unused, submit: unused },
       destinations: async () => [],
       addBankAccount: unused,
       addCard: unused,

@@ -575,4 +575,42 @@ WHEN OLD.refund_address IS NOT NULL
 BEGIN SELECT RAISE(ABORT, 'the refund address is already set'); END;
 `,
   },
+  {
+    id: 6,
+    name: 'kyc_documents',
+    sql: `
+-- Identity verification by documents (Service Rules 8.1): a photo ID, a selfie and a proof of address,
+-- reviewed by a reviewer or admin in the CRM. One submission per attempt; the files belong to it.
+CREATE TABLE kyc_submissions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  id_type TEXT NOT NULL CHECK (id_type IN ('drivers_license','state_id','passport')),
+  status TEXT NOT NULL CHECK (status IN ('draft','submitted','approved','needs_info','rejected')),
+  decision_reason TEXT CHECK (decision_reason IS NULL OR length(decision_reason) <= 500),
+  reviewed_by TEXT REFERENCES users(id),
+  reviewed_at INTEGER,
+  submitted_at INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX kyc_submissions_user ON kyc_submissions(user_id, created_at DESC);
+CREATE INDEX kyc_submissions_status ON kyc_submissions(status, submitted_at);
+
+-- The file content is AES-256-GCM ciphertext (the data encryption key); it is never returned in lists.
+CREATE TABLE kyc_files (
+  id TEXT PRIMARY KEY,
+  submission_id TEXT NOT NULL REFERENCES kyc_submissions(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('id_front','id_back','selfie','proof_of_address')),
+  file_name TEXT NOT NULL CHECK (length(file_name) BETWEEN 1 AND 120),
+  content_type TEXT NOT NULL CHECK (content_type IN ('image/jpeg','image/png','application/pdf')),
+  size_bytes INTEGER NOT NULL CHECK (size_bytes > 0),
+  sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
+  content_enc TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  UNIQUE (submission_id, kind)
+);
+CREATE INDEX kyc_files_user ON kyc_files(user_id);
+`,
+  },
 ];

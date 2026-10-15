@@ -19,18 +19,44 @@ export const DOCUMENT_TYPES = ['image/jpeg', 'image/png', 'application/pdf'] as 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 const MAX_PER_ORDER = 3;
 
-function sniff(bytes: Buffer): DocumentType | null {
+export function sniff(bytes: Buffer): DocumentType | null {
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
   if (bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
   if (bytes.length >= 5 && bytes.subarray(0, 5).toString('latin1') === '%PDF-') return 'application/pdf';
   return null;
 }
 
-function cleanName(name: string): string {
+export function cleanName(name: string): string {
   const base = name.split(/[\\/]/).pop() ?? '';
   // eslint-disable-next-line no-control-regex
   const clean = base.replace(/[\u0000-\u001f\u007f<>:"|?*]/g, '').trim();
   return (clean || 'document').slice(0, 120);
+}
+
+/**
+ * Decodes and checks an uploaded file: valid base64, not empty, within the size
+ * limit, and its magic bytes match both an allowed type and the declared type.
+ */
+export function decodeUpload(
+  input: { contentType: string; dataBase64: string },
+  { maxBytes, allowed }: { maxBytes: number; allowed: readonly DocumentType[] },
+): { bytes: Buffer; detected: DocumentType } {
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(input.dataBase64) || input.dataBase64.length % 4 !== 0)
+    throw badRequest('The file could not be read. Choose it again.', { field: 'file' });
+  const bytes = Buffer.from(input.dataBase64, 'base64');
+  if (!bytes.length) throw badRequest('The file is empty.', { field: 'file' });
+  const mb = Math.round(maxBytes / (1024 * 1024));
+  if (bytes.length > maxBytes) throw badRequest(`The file is larger than ${mb} MB. Use a smaller photo or scan.`, { field: 'file' });
+  const names = allowed.map((t) => (t === 'application/pdf' ? 'PDF' : t === 'image/png' ? 'PNG' : 'JPEG'));
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}` : names[0]!;
+  const detected = sniff(bytes);
+  if (!detected || !allowed.includes(detected))
+    throw new ApiError(415, 'unsupported_media_type', `Upload a ${list} file.`, { field: 'file' });
+  if (detected !== input.contentType)
+    throw new ApiError(415, 'unsupported_media_type', `The file’s contents don’t match its type. Upload a ${list} file.`, {
+      field: 'file',
+    });
+  return { bytes, detected };
 }
 
 export function uploadOrderDocument(
@@ -52,17 +78,7 @@ export function uploadOrderDocument(
   if (orderDocuments(ctx, o.id).length >= MAX_PER_ORDER)
     throw conflict(`An order can have at most ${MAX_PER_ORDER} uploads. Contact support if you need to replace one.`, 'too_many_documents');
 
-  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(input.dataBase64) || input.dataBase64.length % 4 !== 0)
-    throw badRequest('The file could not be read. Choose it again.', { field: 'file' });
-  const bytes = Buffer.from(input.dataBase64, 'base64');
-  if (!bytes.length) throw badRequest('The file is empty.', { field: 'file' });
-  if (bytes.length > DOCUMENT_MAX_BYTES) throw badRequest('The file is larger than 4 MB. Use a smaller photo or scan.', { field: 'file' });
-  const detected = sniff(bytes);
-  if (!detected) throw new ApiError(415, 'unsupported_media_type', 'Upload a JPEG, PNG or PDF file.', { field: 'file' });
-  if (detected !== input.contentType)
-    throw new ApiError(415, 'unsupported_media_type', 'The file’s contents don’t match its type. Upload a JPEG, PNG or PDF file.', {
-      field: 'file',
-    });
+  const { bytes, detected } = decodeUpload(input, { maxBytes: DOCUMENT_MAX_BYTES, allowed: DOCUMENT_TYPES });
 
   const id = newId('doc');
   const sha256 = createHash('sha256').update(bytes).digest('hex');

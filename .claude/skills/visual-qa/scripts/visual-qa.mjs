@@ -34,7 +34,16 @@ const PAGES = (
 )
   .split(',')
   .filter(Boolean);
-const ADMIN_PAGES = ['/admin/orders', '/admin/overview', '/admin/inbox', '/admin/audit', '/admin/users', '/admin/system', '/admin/sandbox'];
+const ADMIN_PAGES = [
+  '/admin/orders',
+  '/admin/overview',
+  '/admin/inbox',
+  '/admin/verification',
+  '/admin/audit',
+  '/admin/users',
+  '/admin/system',
+  '/admin/sandbox',
+];
 const STAFF_PASSWORD = 'sandbox-pass-2026';
 const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
@@ -278,6 +287,64 @@ async function keyboardChecks(browser) {
   await context.close();
 }
 
+/** A tiny valid PNG and PDF: test files for the identity upload (the server checks magic bytes). */
+const TEST_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAGAAAAA8CAIAAAAWtijjAAAAjUlEQVR42u3aMQ3AMAwAQePsUgaF0zkMiilLx2AIgw5WpFTySY/gBtuDo79DHwUCQIAAAQIECBAgAQIE6FdAd3vWBggQoF1Ax3ntDRAgQKWBDGlAgAABAuSSTq9zQIAAlQYypAEBAgQIkEs6scgBAQIEyJAGBAgQIECAAPlRBAQIECABAgQIECBAgAo0AShUa2LxiUirAAAAAElFTkSuQmCC',
+  'base64',
+);
+const TEST_PDF = Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n');
+
+/**
+ * Identity verification by documents: from the exchange gate the customer opens
+ * the verification page, uploads a driver's license (both sides), a selfie and
+ * a proof of address, and sends them; a reviewer approves in the CRM; the
+ * customer returns to the exchange at the same step.
+ */
+async function verifyByDocuments(browser, page, { options, shot, expectText, where }) {
+  const back = page.url();
+  await page.getByRole('link', { name: 'Verify my identity' }).click();
+  await page.waitForURL('**/verification');
+  await page.getByLabel(/Driver’s license/).check();
+  await page.locator('#kyc-id_front').waitFor();
+  for (const [kind, name, buffer, mimeType] of [
+    ['id_front', 'license-front.png', TEST_PNG, 'image/png'],
+    ['id_back', 'license-back.png', TEST_PNG, 'image/png'],
+    ['selfie', 'selfie.png', TEST_PDF, 'application/pdf'],
+    ['proof_of_address', 'utility-bill.pdf', TEST_PDF, 'application/pdf'],
+  ]) {
+    await page.locator(`#kyc-${kind}`).setInputFiles({ name, mimeType, buffer });
+    if (kind === 'selfie') {
+      // A PDF selfie is refused in the browser before upload; then a photo is accepted.
+      await expectText(page, 'Upload a JPEG or PNG file.', 'selfie must be a photo');
+      await page.locator('#kyc-selfie').setInputFiles({ name, mimeType: 'image/png', buffer: TEST_PNG });
+    }
+    await page.locator(`.kyc-slot[data-done="true"] #kyc-${kind}`).waitFor({ timeout: 8000 });
+  }
+  await shot(page, 'kyc-01-uploaded');
+  await page.getByRole('button', { name: 'Send for review' }).click();
+  await expectText(page, 'Your documents are being reviewed', 'kyc submitted');
+  await shot(page, 'kyc-02-in-review');
+
+  const ctx = await browser.newContext(options);
+  const rev = await ctx.newPage();
+  const sink = { consoleErrors: [], pageErrors: [], failedRequests: [] };
+  const flush = instrument(rev, `${where} (reviewer)`, sink);
+  await signIn(rev, 'reviewer@arcvale.test');
+  await go(rev, `${BASE_URL}/admin/verification`);
+  await rev.locator('.admin-table tbody tr').first().getByRole('link').click();
+  await rev.locator('.kyc-doc__img').first().waitFor({ timeout: 8000 });
+  await shot(rev, 'kyc-03-crm-review');
+  await rev.getByRole('button', { name: 'Approve', exact: true }).click();
+  await rev.locator('#kyc-reason').fill('Documents match the profile.');
+  await rev.getByRole('button', { name: 'Approve verification' }).click();
+  await expectText(rev, 'Decided: Approved', 'kyc approved in the CRM');
+  await flush();
+  await ctx.close();
+
+  await expectText(page, 'Your identity is verified', 'customer sees the approval live', 15_000);
+  await go(page, back);
+}
+
 /**
  * The sandbox journey, end to end, as a customer and an operator in two
  * browser contexts. Numbered steps match docs/implementation-status.md.
@@ -384,9 +451,9 @@ async function journey(browser, width) {
   await expectText(page, 'Verify your identity to confirm', 'kyc gate');
   const confirm = page.getByRole('button', { name: /^Confirm exchange/ });
   if (!(await confirm.isDisabled())) fail(where, 'confirm must be disabled before verification');
-  await page.getByRole('button', { name: 'Verify my identity' }).click();
+  await verifyByDocuments(browser, page, { options, shot, expectText, where });
   await expectText(page, 'Expires in', 'firm quote countdown');
-  step(5, 'verified and firm quote locked');
+  step(5, 'verified by documents and firm quote locked');
 
   // 6. Acknowledgements and hold-to-confirm.
   await page.locator('#ack-network').check();
@@ -599,7 +666,7 @@ async function buyJourney(browser, width, server) {
   await page.getByRole('button', { name: /Review quote/ }).click();
   step(3, 'collection address and wallet entered');
 
-  await page.getByRole('button', { name: 'Verify my identity' }).click();
+  await verifyByDocuments(browser, page, { options, shot, expectText, where });
   await expectText(page, 'Expires in', 'firm buy quote');
   await page.locator('#ack-cash').check();
   await page.locator('#ack-buy-docs').check();

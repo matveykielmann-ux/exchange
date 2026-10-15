@@ -31,6 +31,7 @@ import type { OrderView } from '@/services/types';
 import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
 import { useLiveEvents, useLiveState } from '@/state/useLive';
+import { readBase64 } from '@/lib/files';
 import { t } from '@/i18n';
 
 type Run = (fn: () => Promise<OrderView>) => void;
@@ -287,15 +288,6 @@ function RefundAddressForm({ order, busy, run }: { order: OrderView; busy: boole
 
 const ID_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const ID_MAX_BYTES = 4 * 1024 * 1024;
-
-function readBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result).replace(/^data:[^,]*,/, ''));
-    r.onerror = () => reject(new Error('The file could not be read. Choose it again.'));
-    r.readAsDataURL(file);
-  });
-}
 
 /** Buy orders: the photo ID the courier checks at the handover. A demo upload: the sandbox checks the file and discards it. */
 function IdUpload({ order, onChange }: { order: OrderView; onChange: () => void }) {

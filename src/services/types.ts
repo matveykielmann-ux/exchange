@@ -8,6 +8,7 @@
  * code keeps using the domain's exact money types.
  */
 import type { AssetCode, NetworkId } from '@/domain/assets';
+import type { IdDocumentType, KycFileKind, KycSubmissionStatus } from '@/domain/identity';
 import type { AtomicAmount, Cents, Micros } from '@/domain/money';
 import type { OrderEventType, OrderStage, OrderStatus, OrderStep } from '@/domain/order';
 import type { PayoutMethodId } from '@/domain/payout';
@@ -357,6 +358,34 @@ export interface SessionStore {
   subscribe(listener: () => void): () => void;
 }
 
+/* ---------- Identity verification by documents ---------- */
+export interface KycFileView {
+  id: string;
+  kind: KycFileKind;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: number;
+}
+export interface KycSubmissionView {
+  id: string;
+  idType: IdDocumentType;
+  status: KycSubmissionStatus;
+  /** The reviewer's note when more information is needed. */
+  reason: string | null;
+  submittedAt: number | null;
+  reviewedAt: number | null;
+  files: KycFileView[];
+  missing: KycFileKind[];
+}
+export interface KycState {
+  status: KycStatus;
+  submission: KycSubmissionView | null;
+}
+export interface KycFileContent extends KycFileView {
+  dataBase64: string;
+}
+
 export interface AccountApi {
   profile(): Promise<User>;
   updateProfile(patch: {
@@ -366,6 +395,13 @@ export interface AccountApi {
     stateOfResidence: string | null;
   }): Promise<User>;
   startVerification(): Promise<{ status: KycStatus; hostedUrl: string | null }>;
+  kyc: {
+    get(): Promise<KycState>;
+    setIdType(idType: IdDocumentType): Promise<KycState>;
+    upload(file: { kind: KycFileKind; fileName: string; contentType: string; dataBase64: string }): Promise<KycState>;
+    file(id: string): Promise<KycFileContent>;
+    submit(): Promise<KycState>;
+  };
   destinations(): Promise<Destination[]>;
   addBankAccount(input: {
     label: string;
