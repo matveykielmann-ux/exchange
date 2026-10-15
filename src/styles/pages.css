@@ -101,7 +101,8 @@
 }
 .stat strong {
   display: block;
-  font-size: 1.375rem;
+  font-size: clamp(1.0625rem, 0.92rem + 0.45vw, 1.375rem);
+  line-height: 1.25;
   letter-spacing: -0.02em;
   color: var(--ink-900);
   font-variant-numeric: tabular-nums;
@@ -557,6 +558,7 @@
 }
 .flow__head {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-6);
   margin-bottom: var(--s-10);
 }
@@ -568,6 +570,7 @@
 }
 .flow__main {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-8);
 }
 .flow__aside {
@@ -748,7 +751,7 @@
 }
 @media (max-width: 900px) {
   .account-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .account-nav {
     position: static;
@@ -803,7 +806,7 @@
 }
 @media (max-width: 900px) {
   .content-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--s-6);
   }
   .toc {
@@ -874,6 +877,16 @@
 /* Exchange direction, step transitions */
 .direction-switch button {
   min-height: 40px;
+}
+@media (max-width: 640px) {
+  /* Two long labels (especially in Russian): share the width and wrap inside the buttons. */
+  .direction-switch {
+    width: 100%;
+  }
+  .direction-switch button {
+    flex: 1 1 0;
+    min-width: 0;
+  }
 }
 .flow__step {
   animation: step-in 220ms var(--ease) both;
@@ -1016,4 +1029,8 @@
 .flow__support {
   margin-top: var(--s-8);
   max-width: 720px;
+}
+.rules-quote__lang {
+  display: block;
+  margin-top: var(--s-1);
 }

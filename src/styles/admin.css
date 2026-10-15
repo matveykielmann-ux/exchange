@@ -370,8 +370,13 @@
   gap: var(--s-3) var(--s-4);
   align-items: end;
 }
+.filters > * {
+  /* Long option labels (Russian) must not widen the grid. */
+  min-width: 0;
+}
 .filters .input,
 .filters .select {
+  width: 100%;
   min-height: 42px;
   padding-block: 8px;
 }
@@ -630,6 +635,11 @@
 }
 .queue-filters .filters {
   margin-top: var(--s-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));
+}
+/* Open filters take the full row, so the fields are not squeezed next to the search box. */
+.queue-filters[open] {
+  grid-column: 1 / -1;
 }
 @media (max-width: 760px) {
   .queue-tools {

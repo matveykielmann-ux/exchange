@@ -19,7 +19,7 @@ import { useUser } from '@/state/auth';
 import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
 import { useNotifications } from '@/state/useNotifications';
-import { t } from '@/i18n';
+import { getLang, t } from '@/i18n';
 
 const KYC: Record<KycStatus, { label: string; tone: 'neutral' | 'success' | 'info' | 'warn' | 'danger'; body: string }> = {
   unverified: {
@@ -60,7 +60,7 @@ function ProfileSection({ user }: { user: User }) {
   const [phone, setPhone] = useState(user.phone ?? '');
   const [country, setCountry] = useState(user.countryOfResidence ?? (user.stateOfResidence ? 'US' : ''));
   const [state, setState] = useState(user.stateOfResidence ?? '');
-  const countries = useMemo(() => countryOptions(), []);
+  const countries = useMemo(() => countryOptions(getLang()), []);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const locked = user.verification.status === 'verified' || user.verification.status === 'pending';
@@ -158,7 +158,7 @@ function ProfileSection({ user }: { user: User }) {
             </div>
             <div>
               <dt>{t('Country')}</dt>
-              <dd>{user.countryOfResidence ? countryName(user.countryOfResidence) : t('Not added')}</dd>
+              <dd>{user.countryOfResidence ? countryName(user.countryOfResidence, getLang()) : t('Not added')}</dd>
             </div>
             {user.stateOfResidence ? (
               <div>
@@ -566,7 +566,7 @@ function summarizeAgent(ua: string): string {
         ? 'Chrome'
         : /Safari\//.test(ua)
           ? 'Safari'
-          : 'Browser';
+          : t('Browser');
   const os = /iPhone|iPad/.test(ua)
     ? 'iOS'
     : /Android/.test(ua)
@@ -578,7 +578,7 @@ function summarizeAgent(ua: string): string {
           : /Linux/.test(ua)
             ? 'Linux'
             : '';
-  return os ? `${browser} on ${os}` : browser;
+  return os ? t('{browser} on {os}', { browser, os }) : browser;
 }
 
 function NotificationsSection() {

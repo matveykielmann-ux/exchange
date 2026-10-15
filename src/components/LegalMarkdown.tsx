@@ -2,7 +2,7 @@ import { createElement, Fragment, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { headingRanks, inlineText, type MdBlock, type MdInline } from '@/content/legal/markdown';
 import { rulesExcerpt } from '@/content/legal/rules';
-import { t } from '@/i18n';
+import { getLang, t } from '@/i18n';
 
 /** Internal links ("/en/privacy-policy") stay in the app; anything with a scheme opens in a new tab. */
 function MdLink({ href, children }: { href: string; children: ReactNode }) {
@@ -124,19 +124,21 @@ export function RulesQuote({ refs }: { refs: string[] }) {
   const parts = refs.map(rulesExcerpt);
   return (
     <figure className="rules-quote">
-      <blockquote cite="/legal/terms">
+      {/* The Service Rules exist only in English; the quote keeps the binding wording and says so in Russian. */}
+      <blockquote cite="/legal/terms" lang="en">
         {parts.map((p) => (
-          <LegalMarkdown key={p.ref} blocks={p.blocks} label={t('Service Rules, {0}', [p.label])} anchors={false} />
+          <LegalMarkdown key={p.ref} blocks={p.blocks} label={t('Service Rules, {0}', [t(p.label)])} anchors={false} />
         ))}
       </blockquote>
       <figcaption>
         {t('Service Rules,')}{' '}
         {parts.map((p, i) => (
           <Fragment key={p.ref}>
-            {i > 0 ? (i === parts.length - 1 ? ' and ' : ', ') : null}
-            <Link to={`/legal/terms#${p.anchor}`}>{p.label}</Link>
+            {i > 0 ? (i === parts.length - 1 ? ` ${t('and')} ` : ', ') : null}
+            <Link to={`/legal/terms#${p.anchor}`}>{t(p.label)}</Link>
           </Fragment>
         ))}
+        {getLang() === 'ru' ? <span className="rules-quote__lang">{t('Original English text of the Service Rules.')}</span> : null}
       </figcaption>
     </figure>
   );

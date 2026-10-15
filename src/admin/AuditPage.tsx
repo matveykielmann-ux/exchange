@@ -80,8 +80,8 @@ export function AuditPage() {
                     <td className="tabular small">{a.id}</td>
                     <td className="tabular small">{formatDateTime(a.at)}</td>
                     <td className="small">
-                      {a.actor.type}
-                      {a.actor.role ? ` (${a.actor.role})` : ''}
+                      {t(a.actor.type)}
+                      {a.actor.role ? ` (${t(a.actor.role)})` : ''}
                       {a.actor.id ? <span className="mono block">{a.actor.id}</span> : null}
                     </td>
                     <td className="mono small">{a.action}</td>

@@ -46,7 +46,7 @@ function Stepper({ current }: { current: number }) {
               <span className="stepper__num" aria-hidden="true">
                 {state === 'done' ? <Icon name="check" /> : n}
               </span>
-              <span className="stepper__text">{label}</span>
+              <span className="stepper__text">{t(label)}</span>
               {state === 'done' ? <span className="visually-hidden">{t('(completed)')}</span> : null}
             </span>
           </li>

@@ -67,8 +67,9 @@
   --silver: #e8e8e8;
 
   /* Type */
-  --font-display: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Montserrat (OFL, bundled, Latin and Cyrillic), chosen by the owner on 2026-10-15. */
+  --font-display: 'Montserrat Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Montserrat Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'Geist Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
   --fs-display-xl: clamp(2.5rem, 1.5rem + 3.9vw, 4.5rem);

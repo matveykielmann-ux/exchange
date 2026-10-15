@@ -87,7 +87,7 @@ The app follows the system color scheme and has a sun/moon toggle in the header;
 ### 4.2 Typography
 
 - **Display:** *Instrument Serif* (OFL, self-hosted), used only for H1 and H2 marketing headlines, at regular weight. It gives an editorial, established-institution tone that crypto templates lack.
-- **UI and figures:** *Geist* variable (OFL, self-hosted) with `font-variant-numeric: tabular-nums` on every money figure. Not Inter (a deliberate move away from the template default).
+- **UI, headings and figures:** *Montserrat* variable (OFL, bundled via @fontsource, Latin and Cyrillic; chosen by the owner on 2026-10-15) with `font-variant-numeric: tabular-nums` on every money figure.
 - **Mono:** *Geist Mono*, only for addresses, transaction IDs, hashes and the transaction event log.
 - Fonts are bundled via `@fontsource`, so there are no third-party font requests (better for privacy and CSP).
 

@@ -98,8 +98,8 @@ function SandboxControls({ order, busy, run }: { order: OrderView; busy: boolean
       </h2>
       <p className="small muted">
         {t('These buttons send a signed test event from the sandbox')} {buy ? t('cash provider') : t('deposit monitor')}
-        {t('. The server checks the signature and moves the order through the same rules a real')} {buy ? 'collection' : 'deposit'}{' '}
-        {t('would. They don’t exist outside the sandbox.')}
+        {t('. The server checks the signature and moves the order through the same rules a real')}{' '}
+        {buy ? t('cash collection') : t('deposit')} {t('would. They don’t exist outside the sandbox.')}
       </p>
       <div className="row">
         {awaiting ? (

@@ -59,7 +59,7 @@ export const RU_PUBLIC3: Record<string, string> = {
   'No maximum': 'Без максимума',
   From: 'От',
   'per exchange': 'за обмен',
-  '$0 ACH fee': 'Комиссия ACH — $0',
+  '$0 ACH fee': 'ACH без комиссии',
   'Get a quote': 'Получите котировку',
   'See exactly what you will receive.': 'Узнайте точно, сколько получите.',
   'One quote and one status page, from deposit to payout': 'Одна котировка и одна страница статуса — от депозита до выплаты',

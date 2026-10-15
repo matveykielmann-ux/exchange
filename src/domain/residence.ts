@@ -22,19 +22,21 @@ export function isCountryCode(v: unknown): v is CountryCode {
   return typeof v === 'string' && COUNTRY_CODES.includes(v);
 }
 
-let names: Intl.DisplayNames | null = null;
-export function countryName(code: string): string {
+const names = new Map<string, Intl.DisplayNames>();
+/** The country's name in the interface language (English by default), from the runtime. */
+export function countryName(code: string, lang = 'en'): string {
   try {
-    names ??= new Intl.DisplayNames(['en'], { type: 'region' });
-    return names.of(code) ?? code;
+    let n = names.get(lang);
+    if (!n) names.set(lang, (n = new Intl.DisplayNames([lang], { type: 'region' })));
+    return n.of(code) ?? code;
   } catch {
     return code;
   }
 }
 
-/** Countries sorted by English name, for a select. */
-export function countryOptions(): { code: CountryCode; name: string }[] {
-  return COUNTRY_CODES.map((code) => ({ code, name: countryName(code) })).sort((a, b) => a.name.localeCompare(b.name, 'en'));
+/** Countries sorted by name in the interface language, for a select. */
+export function countryOptions(lang = 'en'): { code: CountryCode; name: string }[] {
+  return COUNTRY_CODES.map((code) => ({ code, name: countryName(code, lang) })).sort((a, b) => a.name.localeCompare(b.name, lang));
 }
 
 /** The territories clause 8.5 of the Service Rules excludes, in its own words. */

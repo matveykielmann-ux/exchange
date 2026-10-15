@@ -154,9 +154,9 @@ export function HomePage() {
             </h2>
             <p className="lead">
               {t(
-                'We list the exchange rate and the payout fee separately, so you can check the math yourself. How the commission is defined is set out in Section 6 of the',
+                'We list the exchange rate and the payout fee separately, so you can check the math yourself. How the commission is defined is set out in',
               )}{' '}
-              <Link to="/legal/fees">{t('Service Rules')}</Link>.
+              <Link to="/legal/fees">{t('Section 6 of the Service Rules')}</Link>.
             </p>
           </div>
           <div className="anatomy__grid">
@@ -268,7 +268,11 @@ export function HomePage() {
                       </th>
                       <td data-label={t('Networks')}>{a.networks.map((n) => networkLabel(code, n.network)).join(', ')}</td>
                       <td data-label={t('Confirmations')} className="tabular">
-                        {a.networks.map((n) => `${NETWORKS[n.network].confirmationsRequired} on ${NETWORKS[n.network].name}`).join(' · ')}
+                        {a.networks
+                          .map((n) =>
+                            t('{n} on {network}', { n: NETWORKS[n.network].confirmationsRequired, network: NETWORKS[n.network].name }),
+                          )
+                          .join(' · ')}
                       </td>
                     </tr>
                   );

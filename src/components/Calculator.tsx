@@ -94,9 +94,7 @@ export function Calculator() {
           {t('Continue')} <Icon name="arrowRight" width={18} height={18} />
         </button>
         <p className="quote-meta" style={{ marginTop: 0 }}>
-          <span>
-            {t('Indicative. Refreshes every')} {PRICING_POLICY.indicativeRefreshMs / 1000}s.
-          </span>
+          <span>{t('Indicative. Refreshes every {0}s.', [PRICING_POLICY.indicativeRefreshMs / 1000])}</span>
           {data ? (
             <span className="tabular">
               {t('Price as of')} {formatTime(data.price.asOf)}

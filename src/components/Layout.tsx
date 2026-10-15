@@ -114,12 +114,19 @@ function useCompactHeader(inner: RefObject<HTMLDivElement | null>, key: string) 
     const el = inner.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
     // The observer reports once on observe, then on every size change.
-    const ro = new ResizeObserver(() => {
+    const check = () => {
       if (!compact && el.scrollWidth > el.clientWidth + 1) setState({ key, compact: true, needed: el.scrollWidth });
       else if (compact && el.clientWidth >= state.needed) setState({ key, compact: false, needed: 0 });
-    });
+    };
+    const ro = new ResizeObserver(check);
     ro.observe(el);
-    return () => ro.disconnect();
+    // Labels get wider when the web font arrives without the header changing size: measure again then.
+    let live = true;
+    void document.fonts?.ready.then(() => live && check());
+    return () => {
+      live = false;
+      ro.disconnect();
+    };
   }, [inner, compact, key, state.needed]);
   return compact;
 }
@@ -250,7 +257,7 @@ function SiteFooter() {
                 : t('Sell crypto for US dollars, or buy crypto with cash collected by courier.')}
             </p>
             <p className="small">
-              {t('Support:')} <TelegramLink /> · {SUPPORT.hours.label}
+              {t('Support:')} <TelegramLink /> · {t(SUPPORT.hours.label)}
             </p>
           </div>
           <div>

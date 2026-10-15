@@ -258,8 +258,6 @@ export const RU_PUBLIC: Record<string, string> = {
   'Visible to staff only': 'Видно только сотрудникам',
   'Write a message': 'Напишите сообщение',
   'Messages can be up to {0} characters.': 'Длина сообщения — до {0} символов.',
-  'Enter to send, Shift+Enter for a new line. Never share passwords, seed phrases or full card numbers.':
-    'Enter — отправить, Shift+Enter — новая строка. Никогда не сообщайте пароли, сид-фразы и полные номера карт.',
   Live: 'Онлайн',
   'Connecting…': 'Подключение…',
   'Reconnecting… (checking every 10 s)': 'Переподключение… (проверка каждые 10 с)',

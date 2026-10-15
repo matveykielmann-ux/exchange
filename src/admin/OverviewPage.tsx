@@ -55,7 +55,7 @@ export function OverviewPage() {
               <Stat
                 label={t('Unread conversations')}
                 value={data.totals.unreadConversations}
-                hint={`${data.totals.openConversations} open`}
+                hint={t('{0} open', [data.totals.openConversations])}
                 tone={data.totals.unreadConversations ? 'warn' : undefined}
               />
             </Link>
