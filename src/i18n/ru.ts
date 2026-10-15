@@ -45,6 +45,10 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** Server and domain texts with values inside. Each pattern matches the whole string. */
 export const RU_PATTERNS: [RegExp, (g: string[], tr: Tr) => string][] = [
   [/^(\$[\d,.]+) flat$/, ([a]) => `${a} фиксированно`],
+  [
+    /^(\$[\d,.]+) flat \(provisional — pending confirmation\)$/,
+    ([a]) => `${a} фиксированно (предварительно — ожидает подтверждения)`,
+  ],
   [/^([\d.]+%) \(min (\$[\d,.]+), max (\$[\d,.]+)\)$/, ([p, a, b]) => `${p} (мин. ${a}, макс. ${b})`],
   [/^(\d+) networks?$/, ([n]) => `${n} ${ruPlural(Number(n), 'сеть', 'сети', 'сетей')}`],
   [/^Confirmations \((\d+) of (\d+)\)$/, ([a, b]) => `Подтверждения (${a} из ${b})`],

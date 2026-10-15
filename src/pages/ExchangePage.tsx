@@ -153,7 +153,7 @@ function PayoutStep({ grossCents, onBack, onNext }: { grossCents: bigint | null;
                 ) : (
                   <>
                     <strong>{feeLabel(feeCents)}</strong>
-                    {m.fee.kind === 'percent' ? t(describeFee(m.fee)) : null}
+                    {m.fee.kind === 'percent' ? t(describeFee(m.fee, m.feeStatus)) : null}
                   </>
                 )}
               </span>

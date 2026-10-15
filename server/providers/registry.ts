@@ -6,9 +6,11 @@ import { createSandboxProviders } from './sandbox';
 import type { ProviderInfo, Providers, WebhookSource } from './types';
 
 /**
- * Sandbox mode gets sandbox providers; production mode gets production adapters only. The one exception
- * is RATES_SOURCE=coingecko, which swaps in read-only public market prices in either mode. It moves no
- * money, and in sandbox mode quotes and orders stay marked as sandbox.
+ * Sandbox mode gets sandbox providers; production mode gets production adapters only.
+ * Rates default to CoinGecko (`config.coingecko`) in either mode — read-only market prices,
+ * no fabricated fallback. When CoinGecko is not configured (`RATES_SOURCE=default`), sandbox
+ * uses the deterministic schedule and production uses RATES_PROVIDER_*. Live prices do not
+ * enable custody or payouts; in sandbox mode orders stay sandbox orders.
  */
 export function createProviders(config: AppConfig, log: Logger, now: () => number): Providers {
   const providers = config.mode === 'sandbox' ? createSandboxProviders(config, now) : createProductionProviders(config, log);

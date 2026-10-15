@@ -47,7 +47,7 @@ export function Calculator() {
         <Field
           label={t('Receive by')}
           id="calc-payout"
-          hint={`${t(PAYOUT_METHODS[draft.payoutMethod].timingEstimate)}. ${t(describeFee(PAYOUT_METHODS[draft.payoutMethod].fee))}.`}
+          hint={`${t(PAYOUT_METHODS[draft.payoutMethod].timingEstimate)}. ${t(describeFee(PAYOUT_METHODS[draft.payoutMethod].fee, PAYOUT_METHODS[draft.payoutMethod].feeStatus))}.`}
         >
           {(p) => (
             <ChoiceSelect

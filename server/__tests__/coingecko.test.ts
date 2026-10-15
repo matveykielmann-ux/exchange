@@ -118,8 +118,13 @@ describe('CoinGecko rates', () => {
 });
 
 describe('RATES_SOURCE configuration', () => {
-  it('is off by default and parses CoinGecko settings', () => {
+  it('defaults to CoinGecko; testConfig stays offline unless opted in', () => {
     expect(testConfig().coingecko).toBeNull();
+    expect(loadConfig({ APP_MODE: 'sandbox', DATABASE_PATH: ':memory:', SERVE_STATIC: 'false' }).coingecko).toEqual({
+      apiKey: null,
+      plan: 'demo',
+      cacheMs: 30_000,
+    });
     expect(testConfig({}, { RATES_SOURCE: 'coingecko', COINGECKO_API_KEY: 'CG-x', COINGECKO_CACHE_SECONDS: '20' }).coingecko).toEqual({
       apiKey: 'CG-x',
       plan: 'demo',

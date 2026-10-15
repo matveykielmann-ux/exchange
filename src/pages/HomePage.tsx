@@ -2,25 +2,18 @@ import { Link } from 'react-router-dom';
 import { Calculator } from '@/components/Calculator';
 import { HeroArt } from '@/components/HeroArt';
 import { Icon } from '@/components/Icon';
-import { QuoteBreakdown } from '@/components/QuoteBreakdown';
+import { LiveQuoteExample } from '@/components/LiveQuoteExample';
 import { AssetMark } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { FAQ, FaqList } from '@/content/faq';
 import { ASSET_ORDER, ASSETS, NETWORKS, networkLabel } from '@/domain/assets';
 import { formatUsd } from '@/domain/money';
 import { describeFee, PAYOUT_METHODS, PAYOUT_ORDER } from '@/domain/payout';
-import { calculateQuote, PRICING_POLICY } from '@/domain/quote';
+import { PRICING_POLICY } from '@/domain/quote';
 import { t } from '@/i18n';
 
-/** A fixed, computed example so the anatomy section never drifts from the real formula. */
-const EXAMPLE = calculateQuote({
-  asset: 'ETH',
-  network: 'ethereum',
-  amountAtomic: 1_500_000_000_000_000_000n, // 1.5 ETH
-  payoutMethod: 'ach',
-  referencePriceMicros: 3_400_000_000n, // $3,400.00 — illustrative
-  now: 0,
-}).quote;
+/** 1.5 ETH — amount only; the rate comes from the live pricing API. */
+const EXAMPLE_ETH_ATOMIC = 1_500_000_000_000_000_000n;
 
 const STEPS = [
   { title: 'Get a quote', body: 'Pick the asset and network, enter an amount, and see the full breakdown before anything else.' },
@@ -170,7 +163,11 @@ export function HomePage() {
                 <span className="anatomy__num">2</span>
                 <div>
                   <h3>{t('Exchange fee')}</h3>
-                  <p>{t('3% of the value, for bank transfer, wire and debit card. Cash by courier has a courier fee instead.')}</p>
+                  <p>
+                    {t(
+                      '3% of the value, for bank transfer, wire and debit card. Cash by courier uses a provisional courier fee pending confirmation.',
+                    )}
+                  </p>
                 </div>
               </li>
               <li>
@@ -181,17 +178,13 @@ export function HomePage() {
                 </div>
               </li>
             </ol>
-            <figure className="panel anatomy__example">
-              <div className="panel__head">
-                <h3>{t('Example quote')}</h3>
-              </div>
-              <div className="panel__body">
-                <QuoteBreakdown quote={EXAMPLE} />
-              </div>
-              <figcaption className="small muted anatomy__caption">
-                {t('Example only: 1.5 ETH at an illustrative $3,400.00, paid by bank transfer.')}
-              </figcaption>
-            </figure>
+            <LiveQuoteExample
+              asset="ETH"
+              network="ethereum"
+              amountAtomic={EXAMPLE_ETH_ATOMIC}
+              payoutMethod="ach"
+              caption={(rate) => t('Example only: 1.5 ETH at the current market rate of {0}, paid by bank transfer.', [rate])}
+            />
           </div>
         </div>
       </section>
@@ -307,7 +300,7 @@ export function HomePage() {
                     </div>
                     <div>
                       <dt>{t('Fee')}</dt>
-                      <dd>{off ? '—' : t(describeFee(m.fee))}</dd>
+                      <dd>{off ? '—' : t(describeFee(m.fee, m.feeStatus))}</dd>
                     </div>
                   </dl>
                   {off ? (

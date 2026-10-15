@@ -78,6 +78,20 @@ export const RU_PUBLIC3: Record<string, string> = {
   Illustrative: 'Для примера',
   'Example only: 1.5 ETH at an illustrative $3,400.00, paid by bank transfer.':
     'Только пример: 1,5 ETH по условной цене $3,400.00, выплата банковским переводом.',
+  'Example only: 1.5 ETH at the current market rate of {0}, paid by bank transfer.':
+    'Только пример: 1,5 ETH по текущему рыночному курсу {0}, выплата банковским переводом.',
+  'A live example cannot be shown until market prices are available.':
+    'Живой пример нельзя показать, пока недоступны рыночные курсы.',
+  'Selling 0.10 BTC at the current market rate, paid by bank transfer:':
+    'Продажа 0,10 BTC по текущему рыночному курсу, выплата банковским переводом:',
+  'Example uses the live market rate of {0}.': 'Пример использует живой рыночный курс {0}.',
+  'Courier fee pending confirmation': 'Комиссия курьера ожидает подтверждения',
+  'The 3% exchange fee for bank transfer, wire and debit card is the configured schedule. The cash-by-courier flat fee is provisional until the owner confirms the operational amount. Whatever applies to your sale is shown on the quote before you confirm.':
+    'Комиссия за обмен 3% для банковского перевода, wire и дебетовой карты — настроенный тариф. Фиксированная комиссия за наличные с курьером предварительная, пока владелец не подтвердит операционную сумму. Что применяется к вашей продаже, видно в расчёте до подтверждения.',
+  'A 3% exchange fee on every payout method except cash by courier, which has a provisional courier fee pending confirmation. There is no spread: you get the market rate. Return fees apply only if funds have to be returned.':
+    'Комиссия за обмен 3% на все способы выплаты, кроме наличных с курьером: там предварительная комиссия курьера, ожидающая подтверждения. Спреда нет, вы получаете рыночный курс. Комиссии за возврат применяются, только если средства приходится возвращать.',
+  '3% of the value, for bank transfer, wire and debit card. Cash by courier uses a provisional courier fee pending confirmation.':
+    '3% от суммы для банковского перевода, wire и дебетовой карты. Для наличных с курьером — предварительная комиссия курьера, ожидающая подтверждения.',
   'Four steps, one status page.': 'Четыре шага, одна страница статуса.',
   'Read the full walkthrough': 'Подробное описание',
   'Assets and networks': 'Активы и сети',

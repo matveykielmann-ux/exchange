@@ -8,8 +8,8 @@ import { FAQ, FaqList, type FaqItem } from '@/content/faq';
 import { NETWORKS } from '@/domain/assets';
 import { formatUsd } from '@/domain/money';
 import { describeFee, PAYOUT_METHODS, PAYOUT_ORDER } from '@/domain/payout';
-import { calculateQuote, PRICING_POLICY } from '@/domain/quote';
-import { QuoteBreakdown } from '@/components/QuoteBreakdown';
+import { PRICING_POLICY } from '@/domain/quote';
+import { LiveQuoteExample } from '@/components/LiveQuoteExample';
 import { RulesQuote } from '@/components/LegalMarkdown';
 import { t } from '@/i18n';
 
@@ -135,15 +135,8 @@ export function HowItWorksPage() {
 }
 
 /* ---------------- Fees ---------------- */
-/** Computed with the live formula so the example can never drift from the fee schedule. */
-const FEES_EXAMPLE = calculateQuote({
-  asset: 'BTC',
-  network: 'bitcoin',
-  amountAtomic: 10_000_000n, // 0.10 BTC
-  payoutMethod: 'ach',
-  referencePriceMicros: 68_000_000_000n, // $68,000.00 — illustrative
-  now: 0,
-}).quote;
+/** 0.10 BTC — amount only; the rate comes from the live pricing API. */
+const FEES_EXAMPLE_BTC_ATOMIC = 10_000_000n;
 
 export function FeesPage() {
   useDocumentTitle('Fees');
@@ -153,7 +146,7 @@ export function FeesPage() {
         eyebrow={t('Fees')}
         title={t('One fee, shown on the quote.')}
         lead={t(
-          'A 3% exchange fee on every payout method except cash by courier, which has a courier fee instead. There is no spread: you get the market rate. Return fees apply only if funds have to be returned.',
+          'A 3% exchange fee on every payout method except cash by courier, which has a provisional courier fee pending confirmation. There is no spread: you get the market rate. Return fees apply only if funds have to be returned.',
         )}
       />
       <WithToc
@@ -167,10 +160,10 @@ export function FeesPage() {
           ['example', 'Worked example'],
         ]}
       >
-        <Notice tone="warn" title={t('Draft schedule')}>
+        <Notice tone="warn" title={t('Courier fee pending confirmation')}>
           <p>
             {t(
-              'These values are the current draft schedule and will be confirmed before launch. Whatever applies to your sale is shown on the quote, line by line, before you confirm.',
+              'The 3% exchange fee for bank transfer, wire and debit card is the configured schedule. The cash-by-courier flat fee is provisional until the owner confirms the operational amount. Whatever applies to your sale is shown on the quote before you confirm.',
             )}
           </p>
         </Notice>
@@ -198,7 +191,7 @@ export function FeesPage() {
                 return (
                   <tr key={id}>
                     <th scope="row">{t(m.name)}</th>
-                    <td data-label={t('Fee')}>{off ? t('Not offered') : t(describeFee(m.fee))}</td>
+                    <td data-label={t('Fee')}>{off ? t('Not offered') : t(describeFee(m.fee, m.feeStatus))}</td>
                     <td data-label={t('Timing')}>{t(m.timingEstimate)}</td>
                     <td data-label={t('Minimum')} className="tabular">
                       {off ? '—' : t('{0}, no maximum', [formatUsd(m.minCents)])}
@@ -235,15 +228,14 @@ export function FeesPage() {
         <p>{t('The fee above is how the commission appears in your quote. The Service Rules define the commission as follows:')}</p>
         <RulesQuote refs={['6']} />
         <h2 id="example">{t('Worked example')}</h2>
-        <p>
-          {t('Selling 0.10 BTC at an illustrative reference price of')} {formatUsd(FEES_EXAMPLE.referencePriceMicros / 10_000n)}
-          {t(', paid by bank transfer:')}
-        </p>
-        <div className="panel">
-          <div className="panel__body">
-            <QuoteBreakdown quote={FEES_EXAMPLE} />
-          </div>
-        </div>
+        <p>{t('Selling 0.10 BTC at the current market rate, paid by bank transfer:')}</p>
+        <LiveQuoteExample
+          asset="BTC"
+          network="bitcoin"
+          amountAtomic={FEES_EXAMPLE_BTC_ATOMIC}
+          payoutMethod="ach"
+          caption={(rate) => t('Example uses the live market rate of {0}.', [rate])}
+        />
       </WithToc>
     </>
   );

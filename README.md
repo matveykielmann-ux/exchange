@@ -9,8 +9,10 @@ Sell BTC, ETH, USDT or USDC and receive US dollars by bank transfer, wire, debit
 ```bash
 pnpm install
 pnpm server:seed     # staff, a customer and orders in several states (sandbox database only)
-pnpm dev             # web on http://localhost:5173, API on :8787 (APP_MODE=sandbox by default)
+pnpm dev             # web on http://localhost:5173, API on :8787 (APP_MODE=sandbox; market prices from CoinGecko by default)
 ```
+
+Market reference prices for BTC, ETH, USDT and USDC come from CoinGecko (`RATES_SOURCE=coingecko`). There is no fallback to fabricated prices if the feed is down. Offline/tests: `RATES_SOURCE=default`. Live prices do not enable custody or payouts.
 
 Every seeded account uses the password `sandbox-pass-2026`: `owner@`, `admin@`, `reviewer@`, `support@` and `customer@arcvale.test`. In sandbox mode sign-in and reset codes are shown on screen.
 

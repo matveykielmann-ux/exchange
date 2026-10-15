@@ -8,6 +8,9 @@ const env = {
   APP_MODE: process.env.APP_MODE ?? 'sandbox',
   DATABASE_PATH: process.env.DATABASE_PATH ?? './data/arcvale-sandbox.db',
   SERVE_STATIC: 'false',
+  // Live market prices via CoinGecko (no fabricated fallback). Override with RATES_SOURCE=default for offline.
+  RATES_SOURCE: process.env.RATES_SOURCE ?? 'coingecko',
+  COINGECKO_CACHE_SECONDS: process.env.COINGECKO_CACHE_SECONDS ?? '30',
 };
 const children = [];
 const run = (cmd, args, extra = {}) => {

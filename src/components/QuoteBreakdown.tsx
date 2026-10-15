@@ -53,7 +53,7 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
             <span className="quote-lines__term">
               {t(feeLineLabel(quote.payoutMethod))}
               <InfoHint label={t('the fee')}>
-                {t(method.name)}: {t(describeFee(method.fee))}. {t(method.timingEstimate)}.
+                {t(method.name)}: {t(describeFee(method.fee, method.feeStatus))}. {t(method.timingEstimate)}.
               </InfoHint>
             </span>
             <small>{t(method.name)}</small>
@@ -98,7 +98,7 @@ export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; lo
             <span className="quote-lines__term">
               {t('Courier fee')}
               <InfoHint label={t('the courier fee')}>
-                {t(method.name)}: {t(describeFee(method.fee))}.
+                {t(method.name)}: {t(describeFee(method.fee, method.feeStatus))}.
               </InfoHint>
             </span>
             <small>{t('Cash collection')}</small>

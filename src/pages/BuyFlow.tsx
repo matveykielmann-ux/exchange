@@ -249,7 +249,7 @@ function AmountStep({ draft, update, quote, onNext }: DraftProps & { quote: Retu
                 </span>
               </span>
               <span className="option__aside small tabular">
-                {t(describeFee(m.fee))} · {t('min {0}', [formatUsd(m.minCents, { whole: true })])}
+                {t(describeFee(m.fee, m.feeStatus))} · {t('min {0}', [formatUsd(m.minCents, { whole: true })])}
               </span>
             </label>
           );

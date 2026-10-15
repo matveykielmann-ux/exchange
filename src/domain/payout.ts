@@ -24,6 +24,11 @@ export interface PayoutMethod {
   summary: string;
   timingEstimate: string;
   fee: FeeSchedule;
+  /**
+   * When set, the fee amount is configured in code but not confirmed as the operational fee.
+   * Shown next to the fee on customer fee schedules; calculation still uses `fee`.
+   */
+  feeStatus?: 'provisional';
   /** Minimum gross USD value the method accepts. There is no maximum (owner decision, 2026-10-14). */
   minCents: Cents;
   availability: Availability;
@@ -62,8 +67,9 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
     name: 'Cash by courier',
     summary: 'US dollars in cash, handed to you at your address after an ID check.',
     timingEstimate: 'Estimated 1–2 business days after your deposit is final',
-    // Placeholder fee and minimum [OWNER INPUT REQUIRED].
+    // Provisional fee and minimum until the owner confirms operational values (OWNER INPUT REQUIRED).
     fee: { kind: 'flat', cents: 35_00n },
+    feeStatus: 'provisional',
     minCents: 500_00n,
     availability: FEATURE_FLAGS.courierCashDelivery
       ? { available: true }
@@ -92,18 +98,23 @@ export function payoutFeeCents(method: PayoutMethod, grossCents: Cents): Cents {
   }
 }
 
-export function describeFee(fee: FeeSchedule): string {
+export function describeFee(fee: FeeSchedule, status?: PayoutMethod['feeStatus']): string {
+  let base: string;
   switch (fee.kind) {
     case 'none':
-      return 'No payout fee';
+      base = 'No payout fee';
+      break;
     case 'flat':
-      return `${formatUsd(fee.cents)} flat`;
+      base = `${formatUsd(fee.cents)} flat`;
+      break;
     case 'percent': {
       const caps = [fee.minCents !== null && `min ${formatUsd(fee.minCents)}`, fee.maxCents !== null && `max ${formatUsd(fee.maxCents)}`];
       const c = caps.filter(Boolean).join(', ');
-      return c ? `${formatBps(fee.bps)} (${c})` : `${fee.bps / 100}%`;
+      base = c ? `${formatBps(fee.bps)} (${c})` : `${fee.bps / 100}%`;
+      break;
     }
   }
+  return status === 'provisional' ? `${base} (provisional — pending confirmation)` : base;
 }
 
 export type PayoutEligibility = { eligible: true } | { eligible: false; reason: string };

@@ -50,23 +50,24 @@ Fill in `.env.production`:
 
 ### Exchange rates (CoinGecko)
 
-To show market prices instead of the sandbox price schedule, add to `.env.production`:
+**Default.** Reference prices for BTC, ETH, USDT and USDC come from CoinGecko unless you set `RATES_SOURCE=default` (offline/tests) or configure `RATES_PROVIDER_*`. Recommended `.env.production` / local settings:
 
 ```bash
 RATES_SOURCE=coingecko
 # optional, recommended: a free Demo key from https://www.coingecko.com/en/api
 COINGECKO_API_KEY=CG-...
 # COINGECKO_API_PLAN=demo        # or pro (then the key is required)
-# COINGECKO_CACHE_SECONDS=30     # 10-55
+COINGECKO_CACHE_SECONDS=30     # 10-55
 ```
 
-- **Server side only.** The app server calls CoinGecko; browsers only call `/api/prices`, so the CSP stays `connect-src 'self'` and the key never reaches the client.
+- **Server side only.** The app server calls CoinGecko; browsers only call `/api/prices` and `/api/quotes*`, so the CSP stays `connect-src 'self'` and the key never reaches the client.
 - **Outbound network.** The VPS must allow outbound HTTPS (TCP 443) to `api.coingecko.com` (`pro-api.coingecko.com` on the pro plan). Check it with `docker compose --env-file .env.production exec app node -e "fetch('https://api.coingecko.com/api/v3/ping').then(r=>console.log(r.status))"`; expect `200`.
 - **Rate limits.** One request fetches all four assets and is cached for `COINGECKO_CACHE_SECONDS`, and requests are only made while someone is viewing prices, so the server makes at most ~2 requests a minute. A 429 pauses requests for the `Retry-After` period (at least a minute). The free Demo plan has a monthly call allowance; on a busy site raise the cache time or use a paid plan.
-- **No fake numbers.** A cached price is served for at most 60 seconds. After that, quotes fail with "Pricing is temporarily unavailable" and the price strip shows "Rate unavailable" until CoinGecko answers again. The admin **System** page shows the last CoinGecko error.
-- **Sandbox stays sandbox.** With `APP_MODE=sandbox` only the price is real: deposit addresses, payouts and orders remain simulated and keep their sandbox labels.
+- **No fake numbers.** A cached price is served for at most 60 seconds. After that, quotes fail with "Pricing is temporarily unavailable" and the price strip shows "Rate unavailable" until CoinGecko answers again. There is no fallback to the sandbox price schedule or hardcoded values. The admin **System** page shows the last CoinGecko error.
+- **Sandbox stays sandbox.** With `APP_MODE=sandbox` only the price is real: deposit addresses, payouts and orders remain simulated.
+- **Live prices ≠ real money.** CoinGecko does not provide custody, deposit monitoring or payouts.
 - **Rules.** CoinGecko is an aggregated, indicative source. The service rules (section 5, `/legal/terms`) say rates are determined from Binance, Coinbase, OKX and Kraken; the owner should update that clause or describe CoinGecko as indicative before using these prices for real quotes.
-- **Local run.** `RATES_SOURCE=coingecko pnpm dev` (PowerShell: `$env:RATES_SOURCE="coingecko"; pnpm dev`).
+- **Local run.** `pnpm dev` defaults to CoinGecko. Offline: `RATES_SOURCE=default pnpm dev`.
 
 For a sandbox staging site, set `APP_MODE=sandbox`, remove the provider blocks, and enable `basic_auth` in `deploy/Caddyfile`.
 

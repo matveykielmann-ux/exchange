@@ -57,7 +57,7 @@ export interface AppConfig {
     email: (ProviderCredentials & { from: string }) | null;
   };
   /**
-   * RATES_SOURCE=coingecko: reference prices come from the CoinGecko public API in either mode,
+   * RATES_SOURCE=coingecko (default when no RATES_PROVIDER_*): reference prices from CoinGecko in either mode.
    * instead of the sandbox schedule or RATES_PROVIDER. null = not used.
    */
   coingecko: { apiKey: string | null; plan: 'demo' | 'pro'; cacheMs: number } | null;
@@ -187,8 +187,13 @@ export function loadConfig(env: Env = process.env): AppConfig {
 
   const sandboxWebhookSecret = env.SANDBOX_WEBHOOK_SECRET || (production ? '' : randomBytes(32).toString('hex'));
 
-  const ratesSource = (env.RATES_SOURCE ?? '').trim().toLowerCase() || 'default';
-  if (!['default', 'coingecko'].includes(ratesSource)) problems.push('RATES_SOURCE must be empty or "coingecko".');
+  // Market prices default to CoinGecko. Use RATES_SOURCE=default only for offline/tests
+  // (sandbox schedule or RATES_PROVIDER). Never invent prices when CoinGecko fails.
+  const rawRatesSource = (env.RATES_SOURCE ?? '').trim().toLowerCase();
+  const ratesSource =
+    rawRatesSource || (env.RATES_PROVIDER_URL || env.RATES_PROVIDER_API_KEY ? 'default' : 'coingecko');
+  if (!['default', 'coingecko'].includes(ratesSource))
+    problems.push('RATES_SOURCE must be empty, "coingecko", or "default".');
   const coingeckoPlan = (env.COINGECKO_API_PLAN ?? '').trim().toLowerCase() || 'demo';
   if (!['demo', 'pro'].includes(coingeckoPlan)) problems.push('COINGECKO_API_PLAN must be demo or pro.');
   const coingeckoKey = env.COINGECKO_API_KEY?.trim() || null;
@@ -259,6 +264,8 @@ export function testConfig(overrides: Partial<AppConfig> = {}, env: Env = {}): A
     SANDBOX_WEBHOOK_SECRET: 'test-webhook-secret-test-webhook-secret',
     // Tests drive the demo autopilot explicitly (sandboxAutopilotTick), never on a timer.
     SANDBOX_AUTOPILOT_STEP_MS: '0',
+    // Offline by default: deterministic sandbox schedule. Opt into CoinGecko with RATES_SOURCE=coingecko.
+    RATES_SOURCE: 'default',
     ...env,
   });
   return { ...base, databasePath: ':memory:', ...overrides };

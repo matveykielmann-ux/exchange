@@ -27,6 +27,8 @@ const prodEnv = (dir: string, extra: Record<string, string> = {}) => ({
   SERVE_STATIC: 'false',
   HOST: '127.0.0.1',
   PORT: '1',
+  // Isolate money-moving provider checks from the default CoinGecko rates feed.
+  RATES_SOURCE: 'default',
   ...extra,
 });
 
