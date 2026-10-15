@@ -930,7 +930,6 @@ export function OrderPage() {
   const address = order.deposit.address;
   // Sandbox-mode addresses must be obvious non-payable placeholders; anything else is withheld.
   const showAddress = !!address && (config.mode !== 'sandbox' || isPreviewDepositAddress(address));
-  const testingOrder = order.source === 'sandbox';
   const label = t(orderStatusLabel(order.status, order.direction, order.payIn ?? undefined));
   const steps = !buy && order.payout.method === 'courier_cash' ? order.steps.map(courierStep) : order.steps;
 
@@ -977,13 +976,6 @@ export function OrderPage() {
                   : buy
                     ? t('Your rate is held for the cash amount shown. The courier will call to confirm the collection time.')
                     : t('Your rate is held for a deposit of exactly the quoted amount that arrives in the window below.')}
-                {testingOrder
-                  ? wire
-                    ? t(' Do not send a wire: bank details for this order are not live.')
-                    : buy
-                      ? t(' Do not hand over cash: no courier is dispatched for this order.')
-                      : t(' Do not send funds: the deposit address for this order is not payable.')
-                  : ''}
               </p>
             </Notice>
           ) : null}
@@ -1019,11 +1011,6 @@ export function OrderPage() {
                 {order.deposit.memo ? (
                   <p className="small">
                     {t('Memo / tag:')} <code>{order.deposit.memo}</code>
-                  </p>
-                ) : null}
-                {testingOrder ? (
-                  <p className="small">
-                    <strong>{t('Do not send funds.')}</strong> {t('This address is deliberately invalid on every network.')}
                   </p>
                 ) : null}
               </div>
@@ -1062,11 +1049,6 @@ export function OrderPage() {
                     {networkLabel(order.asset, order.network)} {t('wallet.')}
                   </li>
                 </ol>
-                {testingOrder ? (
-                  <p className="small">
-                    <strong>{t('No courier will come.')}</strong> {t('Don’t hand cash to anyone for this order.')}
-                  </p>
-                ) : null}
               </div>
               <Notice tone="warn" title={t('Hand cash only to the courier at your saved address')}>
                 <p>

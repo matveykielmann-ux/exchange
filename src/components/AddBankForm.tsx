@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { validateAccountNumber, validateRoutingNumber } from '@/domain/validation';
 import { errorMessage } from '@/lib/errors';
-import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
 import type { Destination } from '@/services/types';
 import { Field } from './Field';
@@ -10,7 +9,6 @@ import { t } from '@/i18n';
 
 export function AddBankForm({ onAdded }: { onAdded: (d: Destination) => void }) {
   const { account: accounts } = useServices();
-  const sandbox = useConfig().mode === 'sandbox';
   const [accountType, setAccountType] = useState<'checking' | 'savings'>('checking');
   const [nickname, setNickname] = useState('');
   const [routing, setRouting] = useState('');
@@ -42,14 +40,6 @@ export function AddBankForm({ onAdded }: { onAdded: (d: Destination) => void }) 
   return (
     <div className="panel">
       <div className="panel__body stack">
-        {sandbox ? (
-          <Notice tone="warn" title={t("Don't enter real bank details on this instance")}>
-            <p>
-              {t('Use a test routing number such as')} <span className="mono">011000015</span>{' '}
-              {t('and any account number of 4 to 17 digits.')}
-            </p>
-          </Notice>
-        ) : null}
         <p className="small muted">
           {t(
             'The account must be a US checking or savings account in your name. Numbers are encrypted when saved and shown back only as the last four digits.',

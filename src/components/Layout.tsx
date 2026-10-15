@@ -34,25 +34,13 @@ const LEGAL_LINKS = [
 
 /**
  * Service status banner. When money-moving providers are not connected, say so
- * plainly. Internal testing instances also warn not to transfer real funds.
+ * plainly. Shown only in production mode with incomplete provider setup.
  */
 function ModeBanner() {
   const config = useConfig();
+  if (config.mode === 'sandbox') return null;
   const moneyKeys = new Set(['custody', 'bankPayout', 'cardPayout', 'cash']);
   const moneyReady = config.providers.filter((p) => moneyKeys.has(p.key)).every((p) => p.state === 'configured');
-  if (config.mode === 'sandbox') {
-    return (
-      <div className="preview-banner" role="region" aria-label={t('Service notice')}>
-        <div className="container">
-          <span>
-            <strong>{t('Do not transfer real funds.')}</strong>{' '}
-            {t('Addresses and payment details shown here must not be used for live transfers.')}
-          </span>
-          <Link to="/help">{t('Help')}</Link>
-        </div>
-      </div>
-    );
-  }
   if (!config.realMoneyEnabled || !moneyReady) {
     return (
       <div className="preview-banner" role="region" aria-label={t('Service notice')}>

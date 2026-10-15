@@ -12,7 +12,6 @@ import {
 import { US_STATE_NAMES, US_STATES } from '@/domain/usStates';
 import { errorMessage, isNotConfigured } from '@/lib/errors';
 import { useUser } from '@/state/auth';
-import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
 import type { Destination } from '@/services/types';
 import { ErrorSummary, Field } from './Field';
@@ -37,7 +36,6 @@ export function AddCourierForm({
   const word = purpose === 'collection' ? 'collection' : 'delivery';
   const { account } = useServices();
   const user = useUser();
-  const sandbox = useConfig().mode === 'sandbox';
   const [input, setInput] = useState<CourierDeliveryInput>(() => ({
     phone: user?.phone ?? '',
     line1: '',
@@ -88,14 +86,6 @@ export function AddCourierForm({
   return (
     <div className="panel">
       <div className="panel__body stack">
-        {sandbox ? (
-          <Notice tone="warn" title={t("Don't enter your real address on this instance")}>
-            <p>
-              {t('Any US address works. ZIP codes starting with')} <span className="mono">999</span>{' '}
-              {t('are outside the courier service area on this instance.')}
-            </p>
-          </Notice>
-        ) : null}
         <p className="small muted">
           {t('Cash is handed only to')} {user?.fullName ? <strong>{user.fullName}</strong> : t('the account holder')}
           {t(

@@ -12,7 +12,6 @@ import { countryOptions, RESTRICTED_TERRITORIES } from '@/domain/residence';
 import { validateEmail, validatePassword, validateRequired } from '@/domain/validation';
 import { ApiError } from '@/services/http';
 import { isStaff } from '@/state/auth';
-import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
 import { getLang, t } from '@/i18n';
 
@@ -23,16 +22,6 @@ function useReturnTo(fallback = '/account'): string {
   // control characters), so a crafted state can't redirect off-site.
   // eslint-disable-next-line no-control-regex
   return from && /^\/(?![/\\])[^\\\u0000-\u001f]*$/.test(from) ? from : fallback;
-}
-
-function InternalAccountsNotice() {
-  const config = useConfig();
-  if (config.mode !== 'sandbox') return null;
-  return (
-    <Notice tone="warn" title={t('Internal testing accounts')}>
-      <p>{t("Accounts on this instance are for internal testing only and never move real funds. Don't reuse a real password.")}</p>
-    </Notice>
-  );
 }
 
 function CodeInput({
@@ -143,7 +132,6 @@ export function SignInPage({ staff = false }: { staff?: boolean }) {
                   : t('Welcome back.')}
           </p>
         </div>
-        <InternalAccountsNotice />
         {!challenge ? (
           <form className="stack" onSubmit={submitCredentials} noValidate>
             <ErrorSummary errors={errors} />
@@ -295,7 +283,6 @@ export function SignUpPage() {
           <h1 className="display-l">{t('Create an account')}</h1>
           <p className="muted">{t("You'll need one to place an order. We'll verify your identity before your first payout.")}</p>
         </div>
-        <InternalAccountsNotice />
         <form className="stack" onSubmit={submit} noValidate>
           <ErrorSummary errors={errors} />
           <Field
