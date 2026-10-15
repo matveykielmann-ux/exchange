@@ -119,7 +119,7 @@ describe('API', () => {
     expect(ready.body.ready).toBe(true);
     const cfg = await c.get('/api/config');
     expect(cfg.body.mode).toBe('sandbox');
-    expect(cfg.body.realMoneyEnabled).toBe(false);
+    expect(cfg.body.realMoneyEnabled).toBe(true);
     expect(cfg.headers.get('cache-control')).toBe('no-store');
     expect(cfg.headers.get('x-content-type-options')).toBe('nosniff');
   });

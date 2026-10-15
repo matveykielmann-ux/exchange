@@ -89,10 +89,10 @@ export function AddCourierForm({
     <div className="panel">
       <div className="panel__body stack">
         {sandbox ? (
-          <Notice tone="warn" title={t("Sandbox: don't enter your real address")}>
+          <Notice tone="warn" title={t("Don't enter your real address on this instance")}>
             <p>
               {t('Any US address works. ZIP codes starting with')} <span className="mono">999</span>{' '}
-              {t("are outside the sandbox courier's area.")}
+              {t('are outside the courier service area on this instance.')}
             </p>
           </Notice>
         ) : null}

@@ -80,7 +80,11 @@ export const RU_PUBLIC2: Record<string, string> = {
   'Debit card': 'Дебетовая карта',
 
   // Auth
-  'Sandbox accounts': 'Тестовые аккаунты',
+  'Internal testing accounts': 'Аккаунты для внутреннего тестирования',
+  "Accounts on this instance are for internal testing only and never move real funds. Don't reuse a real password.":
+    'Аккаунты на этом экземпляре только для внутреннего тестирования и никогда не перемещают реальные средства. Не используйте настоящий пароль повторно.',
+  'Email is not sent on this instance': 'На этом экземпляре письма не отправляются',
+  'Use this reset link instead of waiting for email.': 'Используйте эту ссылку для сброса вместо ожидания письма.',
   "Accounts here are stored on the sandbox server and never touch real money. Don't reuse a real password.":
     'Аккаунты хранятся на тестовом сервере и никогда не работают с реальными деньгами. Не используйте настоящий пароль.',
   'Master account': 'Мастер-аккаунт',
@@ -339,7 +343,9 @@ export const RU_PUBLIC2: Record<string, string> = {
   'Worked example': 'Пример расчёта',
   'Selling 0.10 BTC at an illustrative reference price of': 'Продажа 0,10 BTC по условной справочной цене',
   ', paid by bank transfer:': ', выплата банковским переводом:',
-  'This is the sandbox': 'Это тестовая среда',
+  'Internal testing instance': 'Внутренний тестовый экземпляр',
+  'Identity verification, screening, deposits and payouts use test providers on this instance. Server controls still run; provider outcomes are not live.':
+    'Проверка личности, скрининг, депозиты и выплаты на этом экземпляре используют тестовых провайдеров. Серверные контроли работают; результаты провайдеров не являются боевыми.',
   'Identity verification, screening, deposits and payouts are simulated by test providers. The controls below run for real on the server; the outcomes they act on are simulated.':
     'Проверка личности, скрининг, депозиты и выплаты имитируются тестовыми провайдерами. Описанные ниже механизмы реально работают на сервере, но результаты, на которые они реагируют, имитируются.',
   'Some providers are not connected yet': 'Некоторые провайдеры ещё не подключены',

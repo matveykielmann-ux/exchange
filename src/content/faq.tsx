@@ -18,9 +18,9 @@ export const FAQ: FaqItem[] = [
     a: (
       <p>
         {t(
-          'Not yet. Exchanges open only once our payment, custody and verification providers are connected and approved. Until then, the sandbox simulates prices, verification and transactions, and no real funds can be sent or received. The',
+          'Exchanges that move funds require connected custody, payout and verification providers. Until those services are configured, money-moving steps are refused and no funds can be sent or received. The',
         )}{' '}
-        <Link to="/legal/terms">{t('Service Rules')}</Link> {t('set out the terms that will apply to every Exchange Request.')}
+        <Link to="/legal/terms">{t('Service Rules')}</Link> {t('set out the terms that apply to every Exchange Request.')}
       </p>
     ),
   },
@@ -153,7 +153,7 @@ export const FAQ: FaqItem[] = [
       <p>
         {t('Under Section 8 of the')} <Link to="/legal/kyc-aml">{t('Service Rules')}</Link>
         {t(
-          ', we verify identity to ensure Service security and comply with anti-money laundering (AML) and counter-terrorism financing (CTF) laws, and we may request additional documents for a specific transaction if it is classified as high-risk. We use an identity-verification provider for this. In the sandbox, verification is simulated and no documents are collected.',
+          ', we verify identity to ensure Service security and comply with anti-money laundering (AML) and counter-terrorism financing (CTF) laws, and we may request additional documents for a specific transaction if it is classified as high-risk. We use an identity-verification provider for this.',
         )}
       </p>
     ),

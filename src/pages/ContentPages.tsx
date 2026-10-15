@@ -2,7 +2,7 @@ import { SupportContact } from '@/components/SupportContact';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
-import { MockBadge, Notice, PageHeader } from '@/components/ui';
+import { Notice, PageHeader } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { useConfig } from '@/state/config';
 import { BRAND } from '@/config/brand';
@@ -89,9 +89,7 @@ export function HowItWorksPage() {
         </p>
         <div className="table-wrap" tabIndex={0} role="region" aria-label={t('Deposit steps')}>
           <table className="data-table data-table--stack">
-            <caption>
-              {t('Required confirmations')} <MockBadge label={t('Sandbox policy')} />
-            </caption>
+            <caption>{t('Required confirmations')}</caption>
             <thead>
               <tr>
                 <th scope="col">{t('Network')}</th>
@@ -159,11 +157,7 @@ export function FeesPage() {
         lead={t(
           'A 3% exchange fee on every payout method except cash by courier, which has a courier fee instead. There is no spread: you get the market rate. Return fees apply only if funds have to be returned.',
         )}
-      >
-        <div className="row">
-          <MockBadge label={t('Sandbox fee schedule')} />
-        </div>
-      </PageHeader>
+      />
       <WithToc
         toc={[
           ['spread', 'Exchange rate'],
@@ -262,10 +256,10 @@ function SecurityStatus() {
   const config = useConfig();
   if (config.mode === 'sandbox')
     return (
-      <Notice tone="warn" title={t('This is the sandbox')}>
+      <Notice tone="warn" title={t('Internal testing instance')}>
         <p>
           {t(
-            'Identity verification, screening, deposits and payouts are simulated by test providers. The controls below run for real on the server; the outcomes they act on are simulated.',
+            'Identity verification, screening, deposits and payouts use test providers on this instance. Server controls still run; provider outcomes are not live.',
           )}
         </p>
       </Notice>

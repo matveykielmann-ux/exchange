@@ -64,7 +64,7 @@ describe('configuration', () => {
     );
   });
 
-  it('keeps money-moving adapters disabled by policy even when credentials are present', () => {
+  it('enables money-moving adapters only when credentials are present; others stay not configured', () => {
     const cfg = loadConfig({
       ...prodEnv('/tmp'),
       BANK_PAYOUT_PROVIDER_URL: 'https://bank.example',
@@ -76,7 +76,7 @@ describe('configuration', () => {
     const app = createApp({ ...cfg, databasePath: ':memory:' }, { log: silentLogger });
     const states = Object.fromEntries(providerInfos(app.ctx.providers).map((p) => [p.key, p.state]));
     expect(states).toMatchObject({
-      bankPayout: 'disabled_by_policy',
+      bankPayout: 'configured',
       rates: 'configured',
       custody: 'not_configured',
       cash: 'not_configured',

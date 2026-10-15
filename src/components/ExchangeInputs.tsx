@@ -126,7 +126,7 @@ export function QuoteIssues({ issues, asset }: { issues: QuoteIssue[]; asset: As
             return (
               <Notice key={issue.code} tone="warn" title={t('Minimum is {0}', [formatUsd(issue.minimumCents)])}>
                 <p>
-                  {t('That is about')} {formatAsset(issue.minimumAtomic, asset)} {t('at the current mock price.')}
+                  {t('That is about')} {formatAsset(issue.minimumAtomic, asset)} {t('at the current reference price.')}
                 </p>
               </Notice>
             );

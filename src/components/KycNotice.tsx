@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
-import { MockBadge, Notice } from '@/components/ui';
+import { Notice } from '@/components/ui';
 import { useUser } from '@/state/auth';
-import { useConfig } from '@/state/config';
 import { t } from '@/i18n';
 
 const KYC_COPY: Record<string, { tone: 'info' | 'warn' | 'danger'; title: string; body: string }> = {
@@ -29,7 +28,6 @@ const KYC_COPY: Record<string, { tone: 'info' | 'warn' | 'danger'; title: string
 
 /** Identity verification status and the link that moves it forward. Renders nothing once verified. */
 export function KycNotice() {
-  const config = useConfig();
   const user = useUser();
   if (!user) return null;
   const kyc = user.verification.status;
@@ -39,11 +37,6 @@ export function KycNotice() {
   return (
     <Notice tone={kycCopy.tone} title={t(kycCopy.title)}>
       <p>{t(kycCopy.body)}</p>
-      {config.mode === 'sandbox' && kyc === 'unverified' ? (
-        <p className="small">
-          {t('Sandbox: upload test images, not real documents. A reviewer decides in the CRM.')} <MockBadge />
-        </p>
-      ) : null}
       <div>
         {kyc === 'rejected' ? (
           <Link to="/support" className="btn btn--secondary">

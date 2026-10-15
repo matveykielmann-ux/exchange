@@ -6,7 +6,7 @@ import { QuoteSkeleton } from '@/components/QuoteSkeleton';
 import { RateRing } from '@/components/RateRing';
 import { Icon } from '@/components/Icon';
 import { QuoteBreakdown } from '@/components/QuoteBreakdown';
-import { MockBadge, Notice } from '@/components/ui';
+import { Notice } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { ASSETS, networkLabel, parseAssetAmount } from '@/domain/assets';
 import { formatUsd } from '@/domain/money';
@@ -182,7 +182,6 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
   const { draft, update } = useDraft();
   const user = useUser();
   const { account } = useServices();
-  const sandbox = useConfig().mode === 'sandbox';
   const { list: destinations, reload: load } = useDestinations();
   const [cardError, setCardError] = useState<{ message: string; notConfigured: boolean } | null>(null);
   const [addingCard, setAddingCard] = useState(false);
@@ -264,9 +263,6 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
                   {describeDestination(d)}
                 </span>
               </span>
-              <span className="option__aside">
-                <MockBadge />
-              </span>
             </label>
           ))
         )}
@@ -280,16 +276,11 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
       {draft.payoutMethod === 'instant_debit' ? (
         usable.length === 0 ? (
           <div className="stack">
-            <Notice
-              tone="neutral"
-              title={sandbox ? t('Sandbox: a test card is added for you') : t('Cards are added through our card provider')}
-            >
+            <Notice tone="neutral" title={t('Cards are added through our card provider')}>
               <p>
-                {sandbox
-                  ? t('The sandbox adds a test debit card. No card number is entered.')
-                  : t(
-                      'Card numbers are entered only in the card provider’s secure form, never on this site. The security code (CVV) is never stored.',
-                    )}
+                {t(
+                  'Card numbers are entered only in the card provider’s secure form, never on this site. The security code (CVV) is never stored.',
+                )}
               </p>
             </Notice>
             {cardError ? <Notice tone={cardError.notConfigured ? 'warn' : 'danger'} title={cardError.message} role="alert" /> : null}
@@ -316,7 +307,7 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
                   }
                 }}
               >
-                {addingCard ? t('Adding…') : sandbox ? t('Add test debit card') : t('Add a debit card')}
+                {addingCard ? t('Adding…') : t('Add a debit card')}
               </button>
             </div>
           </div>
@@ -456,10 +447,7 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
   return (
     <div className="flow__grid">
       <div className="flow__main">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h2 className="flow__step-title">{t('Review and confirm')}</h2>
-          <MockBadge label={t('Sandbox quote')} />
-        </div>
+        <h2 className="flow__step-title">{t('Review and confirm')}</h2>
 
         <KycNotice />
 
@@ -681,7 +669,6 @@ function SellFlow({ header }: { header: ReactNode }) {
             <div className="panel flow__aside--hide-mobile">
               <div className="panel__head">
                 <h2 className="title">{t('Indicative quote')}</h2>
-                <MockBadge label={t('Sandbox pricing')} />
               </div>
               <div className="panel__body">
                 {data ? (

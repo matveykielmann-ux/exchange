@@ -18,7 +18,7 @@ import { BuyQuoteBreakdown } from '@/components/QuoteBreakdown';
 import { QuoteSkeleton } from '@/components/QuoteSkeleton';
 import { RateRing } from '@/components/RateRing';
 import { SupportContact } from '@/components/SupportContact';
-import { MockBadge, Notice } from '@/components/ui';
+import { Notice } from '@/components/ui';
 import { defaultNetwork, isAssetCode, isSupportedPair, NETWORKS, networkLabel, type AssetCode, type NetworkId } from '@/domain/assets';
 import { CASH_COLLECTION_WINDOW_MS } from '@/domain/courier';
 import { formatUsd, parseDecimal } from '@/domain/money';
@@ -411,9 +411,6 @@ function DetailsStep({ draft, update, onBack, onNext }: DraftProps & { onBack: (
                   {collectionAddress(d)}
                 </span>
               </span>
-              <span className="option__aside">
-                <MockBadge />
-              </span>
             </label>
           ))
         )}
@@ -553,10 +550,7 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
   return (
     <div className="flow__grid">
       <div className="flow__main">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h2 className="flow__step-title">{t('Review and confirm')}</h2>
-          <MockBadge label={t('Sandbox quote')} />
-        </div>
+        <h2 className="flow__step-title">{t('Review and confirm')}</h2>
         <KycNotice />
         <section className="panel" aria-labelledby="buy-locked-title">
           <div className="panel__head">
@@ -773,7 +767,6 @@ export function BuyFlow({ header }: { header: ReactNode }) {
             <div className="panel flow__aside--hide-mobile">
               <div className="panel__head">
                 <h2 className="title">{t('Indicative quote')}</h2>
-                <MockBadge label={t('Sandbox pricing')} />
               </div>
               <div className="panel__body">
                 {quote.data ? (

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { AssetMark, MockBadge, Notice, PageHeader, StatusBadge } from '@/components/ui';
+import { AssetMark, Notice, PageHeader, StatusBadge } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { formatUsd } from '@/domain/money';
 import { buyPayIn, ORDER_STAGE_LABEL, orderStatusLabel, orderTone } from '@/domain/order';
@@ -37,11 +37,7 @@ export function OrdersPage() {
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   return (
     <>
-      <PageHeader eyebrow={t('Account')} title={t('Orders')} lead={t('Every exchange on your account, newest first.')}>
-        <div className="row">
-          <MockBadge label={t('Sandbox orders')} />
-        </div>
-      </PageHeader>
+      <PageHeader eyebrow={t('Account')} title={t('Orders')} lead={t('Every exchange on your account, newest first.')} />
       <div className="container section--tight">
         {error ? (
           <Notice tone="danger" title={t('Orders could not be loaded.')} role="alert">

@@ -190,7 +190,7 @@ export const RU_PUBLIC3: Record<string, string> = {
   'Photo ID for the courier': 'Документ с фото для курьера',
   'Demo upload': 'Демо-загрузка',
   'KB · received': 'КБ · получен',
-  ' · checked and discarded (sandbox: the file is not kept)': ' · проверен и удалён (тест: файл не хранится)',
+  ' · checked; file not retained on this instance': ' · проверен; файл на этом экземпляре не сохраняется',
   'Upload the photo ID you will show the courier. The courier collects cash only from the verified account holder.':
     'Загрузите документ с фото, который покажете курьеру. Курьер забирает наличные только у подтверждённого владельца аккаунта.',
   ' Sandbox: use a test image, not a real document. The file is checked and then discarded.':
@@ -205,13 +205,17 @@ export const RU_PUBLIC3: Record<string, string> = {
   'Arranging the courier': 'Организуем курьера',
   'Preparing your deposit address': 'Готовим адрес депозита',
   'This usually takes a moment. The page updates by itself.': 'Обычно это занимает мгновение. Страница обновится сама.',
+  'Cash collected': 'Наличные получены',
   'Cash collected{0}': 'Наличные получены{0}',
+  'Deposit seen': 'Депозит замечен',
   'Deposit seen{0}': 'Депозит замечен{0}',
   'The courier reported collecting the cash. It is now counted and checked before any crypto is sent.':
     'Курьер сообщил, что забрал наличные. Сейчас их пересчитывают и проверяют перед отправкой криптовалюты.',
   'Deposit monitoring reported a transfer for this order. It becomes final after {0} network confirmations.':
     'Мониторинг зафиксировал перевод по этой заявке. Он станет окончательным после {0} подтверждений сети.',
+  'Cash verified': 'Наличные проверены',
   'Cash verified{0}': 'Наличные проверены{0}',
+  'Deposit final': 'Депозит подтверждён',
   'Deposit final{0}': 'Депозит подтверждён{0}',
   'Automatic checks are running. This page updates by itself.': 'Идут автоматические проверки. Страница обновится сама.',
   'Held for review': 'На проверке',
@@ -225,7 +229,9 @@ export const RU_PUBLIC3: Record<string, string> = {
     'Наличные проверены, проверки завершены. Сотрудник авторизует каждый перевод криптовалюты перед отправкой.',
   'Your deposit is final and checks are complete. A member of our team authorizes each payout before it goes to the payout provider.':
     'Депозит подтверждён, проверки завершены. Сотрудник авторизует каждую выплату перед передачей платёжному провайдеру.',
+  'Crypto transfer in progress': 'Перевод криптовалюты выполняется',
   'Crypto transfer in progress{0}': 'Перевод криптовалюты выполняется{0}',
+  'Payout in progress': 'Выплата выполняется',
   'Payout in progress{0}': 'Выплата выполняется{0}',
   'The transfer of {0} was handed to the custody provider. This page shows it as completed only when the provider reports it.':
     'Перевод {0} передан кастодиальному провайдеру. Страница покажет его выполненным только после сообщения провайдера.',

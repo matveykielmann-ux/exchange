@@ -4,7 +4,6 @@ import { PRICING_POLICY } from '@/domain/quote';
 import { formatPriceMicros } from '@/lib/format';
 import { gsap, REDUCED_OK, useGSAP } from '@/lib/motion';
 import { useServices } from '@/state/services';
-import { MockBadge } from './ui';
 import { t } from '@/i18n';
 
 type Row = { price: bigint; prev: bigint | null };
@@ -18,8 +17,8 @@ function changeText(row: Row): string {
 }
 
 /**
- * Terminal-style strip of reference prices (sandbox schedule, or CoinGecko when the
- * server runs with RATES_SOURCE=coingecko; then the badge marks the orders as sandbox). Refreshes on the indicative
+ * Terminal-style strip of reference prices (configured rates schedule, or CoinGecko
+ * when the server runs with RATES_SOURCE=coingecko). Refreshes on the indicative
  * cadence; a changed cell gets a short neutral highlight (no red/green, see
  * design-spec §7). The highlight is skipped when reduced motion is requested.
  */
@@ -92,8 +91,11 @@ export function PriceTape() {
         );
       })}
       <div className="tape__badge">
-        {feed === 'coingecko' ? <span className="tape__source">{t('Indicative prices: CoinGecko')}</span> : null}
-        <MockBadge label={feed ? 'Sandbox orders' : 'Sandbox prices'} />
+        {feed === 'coingecko' ? (
+          <span className="tape__source">{t('Indicative prices: CoinGecko')}</span>
+        ) : (
+          <span className="tape__source">{t('Reference prices')}</span>
+        )}
       </div>
     </div>
   );

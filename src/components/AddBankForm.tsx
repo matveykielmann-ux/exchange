@@ -43,7 +43,7 @@ export function AddBankForm({ onAdded }: { onAdded: (d: Destination) => void }) 
     <div className="panel">
       <div className="panel__body stack">
         {sandbox ? (
-          <Notice tone="warn" title={t("Sandbox: don't enter real bank details")}>
+          <Notice tone="warn" title={t("Don't enter real bank details on this instance")}>
             <p>
               {t('Use a test routing number such as')} <span className="mono">011000015</span>{' '}
               {t('and any account number of 4 to 17 digits.')}

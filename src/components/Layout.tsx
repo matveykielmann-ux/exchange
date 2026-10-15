@@ -33,32 +33,34 @@ const LEGAL_LINKS = [
 ];
 
 /**
- * Says plainly what this site can and cannot do right now, based on the
- * server's mode: in sandbox everything is simulated; in production with real
- * money disabled, no exchange can be placed.
+ * Service status banner. When money-moving providers are not connected, say so
+ * plainly. Internal testing instances also warn not to transfer real funds.
  */
 function ModeBanner() {
   const config = useConfig();
+  const moneyKeys = new Set(['custody', 'bankPayout', 'cardPayout', 'cash']);
+  const moneyReady = config.providers.filter((p) => moneyKeys.has(p.key)).every((p) => p.state === 'configured');
   if (config.mode === 'sandbox') {
-    return (
-      <div className="preview-banner" role="region" aria-label={t('Sandbox notice')}>
-        <div className="container">
-          <span>
-            <strong>{t('Sandbox.')}</strong> {t('Prices, deposits, verification and payouts are simulated. No real funds move.')}
-          </span>
-          <Link to="/security#status">{t('About the sandbox')}</Link>
-        </div>
-      </div>
-    );
-  }
-  if (!config.realMoneyEnabled) {
     return (
       <div className="preview-banner" role="region" aria-label={t('Service notice')}>
         <div className="container">
           <span>
-            <strong>{t('Not yet accepting exchanges.')}</strong> {t('Payment and verification providers are still being set up.')}
+            <strong>{t('Internal testing instance.')}</strong> {t('Do not transfer real funds to addresses shown here.')}
           </span>
-          <Link to="/help">{t('Contact us')}</Link>
+          <Link to="/security#status">{t('Provider status')}</Link>
+        </div>
+      </div>
+    );
+  }
+  if (!config.realMoneyEnabled || !moneyReady) {
+    return (
+      <div className="preview-banner" role="region" aria-label={t('Service notice')}>
+        <div className="container">
+          <span>
+            <strong>{t('Exchanges require connected providers.')}</strong>{' '}
+            {t('Custody, payout and verification services must be configured before funds can move.')}
+          </span>
+          <Link to="/security#status">{t('Provider status')}</Link>
         </div>
       </div>
     );
@@ -240,7 +242,6 @@ function SiteHeader() {
 }
 
 function SiteFooter() {
-  const config = useConfig();
   return (
     <footer className="site-footer">
       <div className="container">
@@ -250,11 +251,7 @@ function SiteFooter() {
               <Logo />
             </Link>
             <p className="muted" style={{ maxWidth: '34ch' }}>
-              {config.mode === 'sandbox'
-                ? t(
-                    'Sell crypto for US dollars, or buy crypto with cash. This is the sandbox: every price, deposit and payout is simulated.',
-                  )
-                : t('Sell crypto for US dollars, or buy crypto with cash collected by courier.')}
+              {t('Sell crypto for US dollars, or buy crypto with cash collected by courier.')}
             </p>
             <p className="small">
               {t('Support:')} <TelegramLink /> · {t(SUPPORT.hours.label)}
@@ -315,9 +312,6 @@ function SiteFooter() {
             )}{' '}
             {BRAND.name}
             {t('. It is not a bank. Every Exchange Request is governed by the')} <Link to="/legal/terms">{t('Service Rules')}</Link>.
-            {config.mode === 'sandbox'
-              ? t(' This is the sandbox: its prices and exchange conditions are simulated and are not an offer to buy or sell any asset.')
-              : null}
           </p>
           <p>
             {t(

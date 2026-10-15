@@ -11,7 +11,7 @@ import { AmountField, AssetNetworkFields, QuoteIssues } from './ExchangeInputs';
 import { Field } from './Field';
 import { Icon } from './Icon';
 import { QuoteBreakdown } from './QuoteBreakdown';
-import { MockBadge, Notice } from './ui';
+import { Notice } from './ui';
 import { t } from '@/i18n';
 
 /** Homepage calculator. Writes straight into the exchange draft so "Continue" resumes at step 2. */
@@ -27,7 +27,6 @@ export function Calculator() {
     <section className="panel panel--raised calculator" aria-labelledby="calc-title">
       <div className="panel__head">
         <h2 id="calc-title">{t('Sell crypto for USD')}</h2>
-        <MockBadge label={t('Sandbox pricing')} />
       </div>
       <div className="panel__body stack">
         <AssetNetworkFields

@@ -330,10 +330,13 @@ export const RU_ADMIN: Record<string, string> = {
   'Configuration warnings': 'Предупреждения конфигурации',
   Runtime: 'Среда выполнения',
   Mode: 'Режим',
-  'Sandbox (simulated providers, isolated database)': 'Тест (имитация провайдеров, отдельная база данных)',
+  'Internal testing (isolated database; staff tooling only)':
+    'Внутреннее тестирование (изолированная база; только инструменты сотрудников)',
   'Real money': 'Реальные деньги',
+  'Allowed when providers are configured': 'Разрешено при настроенных провайдерах',
+  'Disabled by policy until providers and compliance gates are ready':
+    'Отключено политикой, пока провайдеры и комплаенс-условия не готовы',
   Enabled: 'Включено',
-  'Disabled (code constant REAL_MONEY_ENABLED = false)': 'Отключено (константа REAL_MONEY_ENABLED = false)',
   'Courier cash delivery': 'Доставка наличных курьером',
   Disabled: 'Отключено',
   'Staff two-step sign-in': 'Двухэтапный вход сотрудников',

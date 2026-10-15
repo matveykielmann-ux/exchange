@@ -6,7 +6,7 @@ import { FEATURE_FLAGS } from '@/config/runtime';
 import { Field } from '@/components/Field';
 import { Icon } from '@/components/Icon';
 import { NotificationItem } from '@/components/NotificationItem';
-import { MockBadge, Notice, PageHeader, StatusBadge } from '@/components/ui';
+import { Notice, PageHeader, StatusBadge } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { US_STATE_NAMES, US_STATES, type UsStateCode } from '@/domain/usStates';
 import { countryName, countryOptions } from '@/domain/residence';
@@ -16,7 +16,6 @@ import { describeDestination, destinationLabel, formatDateTime } from '@/lib/for
 import type { Acceptance, KycStatus, SessionInfo, User } from '@/services/types';
 import { useDestinations } from '@/state/useDestinations';
 import { useUser } from '@/state/auth';
-import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
 import { useNotifications } from '@/state/useNotifications';
 import { getLang, t } from '@/i18n';
@@ -183,7 +182,6 @@ function ProfileSection({ user }: { user: User }) {
 }
 
 function VerificationSection({ user }: { user: User }) {
-  const { config } = useServices();
   const k = KYC[user.verification.status];
   const status = user.verification.status;
 
@@ -194,11 +192,6 @@ function VerificationSection({ user }: { user: User }) {
       aside={<StatusBadge tone={k.tone === 'danger' ? 'danger' : k.tone}>{t(k.label)}</StatusBadge>}
     >
       <p>{t(k.body)}</p>
-      {config.mode === 'sandbox' && status !== 'verified' ? (
-        <p className="small muted">
-          {t('Sandbox: upload test images, not real documents. A reviewer decides in the CRM.')} <MockBadge />
-        </p>
-      ) : null}
       <div>
         {status === 'rejected' ? (
           <Link className="btn btn--secondary" to="/support">
@@ -219,7 +212,7 @@ function VerificationSection({ user }: { user: User }) {
 }
 
 function PayoutSection() {
-  const { account, config } = useServices();
+  const { account } = useServices();
   const { list: destinations, reload } = useDestinations();
   const [adding, setAdding] = useState<'bank' | 'courier' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -252,7 +245,6 @@ function PayoutSection() {
                     {describeDestination(d)} {t('· added')} {formatDateTime(d.createdAt)}
                   </span>
                 </span>
-                <MockBadge />
               </span>
               <button
                 type="button"
@@ -293,7 +285,7 @@ function PayoutSection() {
             </button>
           ) : null}
           <button type="button" className="btn btn--ghost" onClick={() => act(() => account.addCard('Debit card'))}>
-            {config.mode === 'sandbox' ? t('Add test debit card') : t('Add a debit card')}
+            {t('Add a debit card')}
           </button>
         </div>
       )}
@@ -576,14 +568,11 @@ function NotificationsSection() {
       id="notifications"
       title={t('Notifications')}
       aside={
-        <div className="row" style={{ gap: 8 }}>
-          {unread > 0 ? (
-            <span className="badge badge--info">
-              {unread} {t('unread')}
-            </span>
-          ) : null}
-          <MockBadge label={t('Sandbox: not emailed')} />
-        </div>
+        unread > 0 ? (
+          <span className="badge badge--info">
+            {unread} {t('unread')}
+          </span>
+        ) : null
       }
     >
       {list === null ? (
@@ -659,7 +648,6 @@ export function AccountPage() {
   useDocumentTitle('Account');
   const user = useUser();
   const services = useServices();
-  const config = useConfig();
   const navigate = useNavigate();
 
   if (!user) return null;
@@ -667,12 +655,9 @@ export function AccountPage() {
   return (
     <>
       <PageHeader eyebrow={t('Account')} title={user.fullName || user.email} lead={user.email}>
-        <div className="row">
-          {config.mode === 'sandbox' ? <MockBadge label={t('Sandbox account')} /> : null}
-          <span className="small muted">
-            {t('Member since')} {formatDateTime(user.createdAt)}
-          </span>
-        </div>
+        <span className="small muted">
+          {t('Member since')} {formatDateTime(user.createdAt)}
+        </span>
       </PageHeader>
       <div className="container">
         <div className="content-grid account-grid">

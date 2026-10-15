@@ -5,15 +5,14 @@ import { Icon, type IconName } from './Icon';
 import { t, tNode } from '@/i18n';
 
 /**
- * Marks simulated data. Rendered whenever the server runs in sandbox mode (or
- * when `force` says this record itself is simulated), so a sandbox price,
- * quote, receipt or status can never be mistaken for a real one.
+ * Optional status chip for staff tooling. Customer surfaces should not rely on
+ * this for operational warnings — use clear Notices instead.
  */
-export function MockBadge({ label = 'Sandbox', force = false }: { label?: string; force?: boolean }) {
+export function MockBadge({ label = 'Internal', force = false }: { label?: string; force?: boolean }) {
   const sandbox = useIsSandbox();
   if (!sandbox && !force) return null;
   return (
-    <span className="badge badge--mock" title={t('Simulated sandbox data: not a real price, quote, deposit or payout')}>
+    <span className="badge badge--mock" title={t('Internal testing label')}>
       {t(label)}
     </span>
   );

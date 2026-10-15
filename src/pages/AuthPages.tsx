@@ -5,7 +5,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { Checkbox } from '@/components/Checkbox';
 import { ErrorSummary, Field } from '@/components/Field';
 import { errorMessage } from '@/lib/errors';
-import { MockBadge, Notice } from '@/components/ui';
+import { Notice } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { US_STATE_NAMES, US_STATES } from '@/domain/usStates';
 import { countryOptions, RESTRICTED_TERRITORIES } from '@/domain/residence';
@@ -25,14 +25,12 @@ function useReturnTo(fallback = '/account'): string {
   return from && /^\/(?![/\\])[^\\\u0000-\u001f]*$/.test(from) ? from : fallback;
 }
 
-function SandboxAccountsNotice() {
+function InternalAccountsNotice() {
   const config = useConfig();
   if (config.mode !== 'sandbox') return null;
   return (
-    <Notice tone="warn" title={t('Sandbox accounts')}>
-      <p>
-        {t("Accounts here are stored on the sandbox server and never touch real money. Don't reuse a real password.")} <MockBadge />
-      </p>
+    <Notice tone="warn" title={t('Internal testing accounts')}>
+      <p>{t("Accounts on this instance are for internal testing only and never move real funds. Don't reuse a real password.")}</p>
     </Notice>
   );
 }
@@ -145,7 +143,7 @@ export function SignInPage({ staff = false }: { staff?: boolean }) {
                   : t('Welcome back.')}
           </p>
         </div>
-        <SandboxAccountsNotice />
+        <InternalAccountsNotice />
         {!challenge ? (
           <form className="stack" onSubmit={submitCredentials} noValidate>
             <ErrorSummary errors={errors} />
@@ -297,7 +295,7 @@ export function SignUpPage() {
           <h1 className="display-l">{t('Create an account')}</h1>
           <p className="muted">{t("You'll need one to place an order. We'll verify your identity before your first payout.")}</p>
         </div>
-        <SandboxAccountsNotice />
+        <InternalAccountsNotice />
         <form className="stack" onSubmit={submit} noValidate>
           <ErrorSummary errors={errors} />
           <Field
@@ -440,10 +438,9 @@ export function ResetRequestPage() {
               </p>
             </Notice>
             {sandboxPath ? (
-              <Notice tone="warn" title={t('Sandbox: email is not sent')}>
+              <Notice tone="warn" title={t('Email is not sent on this instance')}>
                 <p>
-                  {t('The sandbox shows the link here instead of emailing it.')} <Link to={sandboxPath}>{t('Open the reset link')}</Link>{' '}
-                  <MockBadge />
+                  {t('Use this reset link instead of waiting for email.')} <Link to={sandboxPath}>{t('Open the reset link')}</Link>
                 </p>
               </Notice>
             ) : null}

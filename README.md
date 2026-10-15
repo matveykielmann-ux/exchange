@@ -2,13 +2,13 @@
 
 Sell BTC, ETH, USDT or USDC and receive US dollars by bank transfer, wire, debit card or cash by courier. The repo has a React web app, a Node API server with SQLite, an admin panel, real-time support chat, versioned legal documents and VPS deployment files.
 
-> **No real money moves.** `REAL_MONEY_ENABLED = false` is a code constant. **Sandbox mode** simulates every provider end to end. **Production mode** has real adapters, but each one reports `NOT_CONFIGURED` until credentials exist, and the ones that move money stay disabled by policy. The operating entity holds no licenses. See [`docs/compliance-readiness.md`](docs/compliance-readiness.md).
+> **Money movement is provider-gated.** `REAL_MONEY_ENABLED = true` allows production adapters to become usable only when credentials are present and each operation still passes server-side validation, authorization, and `isUsable` checks. Missing providers report `NOT_CONFIGURED` and refuse money-moving steps — they never invent deposit addresses, confirmations, or payout references. **Sandbox mode** (`APP_MODE=sandbox`) still simulates providers for internal testing on an isolated database. The operating entity holds no licenses. See [`docs/compliance-readiness.md`](docs/compliance-readiness.md).
 
-## Run it (sandbox)
+## Run it (local / internal testing)
 
 ```bash
 pnpm install
-pnpm server:seed     # demo staff, a customer and orders in several states (sandbox database only)
+pnpm server:seed     # staff, a customer and orders in several states (sandbox database only)
 pnpm dev             # web on http://localhost:5173, API on :8787 (APP_MODE=sandbox by default)
 ```
 
@@ -16,7 +16,7 @@ Every seeded account uses the password `sandbox-pass-2026`: `owner@`, `admin@`, 
 
 Customer-facing deposit/payout simulation controls are removed. Sandbox deposit and payout events are staff-only (`/admin` sandbox lab) or the optional server autopilot (`SANDBOX_AUTOPILOT_STEP_MS`, off by default). Production mode never registers those routes. Missing providers report `NOT_CONFIGURED` and block money-moving steps; admins can record a **manual payout** with evidence when a configured provider is not used.
 
-To try it: sign up, then go to `/exchange`. On the order page, the **sandbox deposit monitor** simulates the chain. As an admin, authorize the payout in `/admin` and use the **sandbox lab** on the order to have the provider report the result. Sandbox fixtures:
+To try it locally: sign up, then go to `/exchange`. As an admin, authorize the payout in `/admin` and use the **sandbox lab** on the order to have the test provider report the result. Sandbox fixtures:
 - A legal name containing "Review", "Reject" or "Sanctioned" drives the KYC result. One containing "Decline" gets payouts declined.
 - Cash by courier serves every ZIP code except those starting with `999`.
 - Refund address `0x…bEEF` triggers address review, and `0x…dEaD` is blocked. The refund address is asked for on the order page only when a refund is pending.

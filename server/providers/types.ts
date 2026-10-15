@@ -15,7 +15,7 @@ export type ProviderKey = 'rates' | 'custody' | 'identity' | 'screening' | 'bank
  * sandbox: deterministic test implementation (sandbox mode only).
  * configured: credentials present and the capability may be used.
  * not_configured: credentials missing; operations fail with NOT_CONFIGURED.
- * disabled_by_policy: credentials present, but the capability moves real money and REAL_MONEY_ENABLED is false.
+ * disabled_by_policy: credentials present, but a code or feature-flag policy refuses the capability.
  */
 export type ProviderState = 'sandbox' | 'configured' | 'not_configured' | 'disabled_by_policy';
 

@@ -2,7 +2,7 @@
 
 This guide puts Arcvale on one Linux server with Docker: the app container (API + built web app + SQLite) behind Caddy, which handles HTTPS. **Nothing here has been deployed.** Publishing the site is a separate, explicit decision.
 
-> **Real money stays off.** `REAL_MONEY_ENABLED = false` in `src/config/runtime.ts` is a code constant, not a setting. In production mode, provider adapters that move money report `DISABLED_BY_POLICY` even with credentials, and providers without credentials report `NOT_CONFIGURED`. Neither state fakes an outcome. Turning real money on is a reviewed code change made only after [`docs/compliance-readiness.md`](docs/compliance-readiness.md) and [`docs/production-checklist.md`](docs/production-checklist.md) are signed off.
+> **Money movement is provider-gated.** `REAL_MONEY_ENABLED = true` in `src/config/runtime.ts` allows production adapters to become usable only when credentials are present. Providers without credentials report `NOT_CONFIGURED` and refuse money-moving steps. Neither state invents deposit addresses, confirmations, or payout references. Go-live still requires [`docs/compliance-readiness.md`](docs/compliance-readiness.md) and [`docs/production-checklist.md`](docs/production-checklist.md).
 
 ## What runs
 

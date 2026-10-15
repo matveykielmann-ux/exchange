@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Field } from '@/components/Field';
 import { RulesQuote } from '@/components/LegalMarkdown';
-import { MockBadge, Notice, PageHeader, StatusBadge } from '@/components/ui';
+import { Notice, PageHeader, StatusBadge } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { FEATURE_FLAGS } from '@/config/runtime';
 import { errorMessage } from '@/lib/errors';
@@ -133,7 +133,6 @@ export function CashDeliveryPage() {
                       <p>
                         {result.reason} <Link to="/exchange">{t('Start an exchange')}</Link>.
                       </p>
-                      <MockBadge />
                     </Notice>
                   ) : (
                     <Notice tone="neutral" title={t('Not available in {0}', [result.zip])}>

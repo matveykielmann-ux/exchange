@@ -47,11 +47,19 @@ export function SystemPage() {
                 <dl className="dl">
                   <div>
                     <dt>{t('Mode')}</dt>
-                    <dd>{s.mode === 'sandbox' ? t('Sandbox (simulated providers, isolated database)') : t('Production')}</dd>
+                    <dd>
+                      {s.mode === 'sandbox'
+                        ? t('Internal testing (isolated database; staff tooling only)')
+                        : t('Production')}
+                    </dd>
                   </div>
                   <div>
                     <dt>{t('Real money')}</dt>
-                    <dd>{s.realMoneyEnabled ? t('Enabled') : t('Disabled (code constant REAL_MONEY_ENABLED = false)')}</dd>
+                    <dd>
+                      {s.realMoneyEnabled
+                        ? t('Allowed when providers are configured')
+                        : t('Disabled by policy until providers and compliance gates are ready')}
+                    </dd>
                   </div>
                   <div>
                     <dt>{t('Courier cash delivery')}</dt>

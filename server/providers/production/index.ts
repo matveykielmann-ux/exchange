@@ -3,7 +3,8 @@
  * (docs/providers.md) that is adapted to the contracted vendor once one is
  * chosen. Without credentials each adapter is NOT_CONFIGURED. Adapters that
  * move money (custody refunds and deposit addresses, bank and card payouts,
- * cash) are additionally DISABLED_BY_POLICY while REAL_MONEY_ENABLED is false.
+ * cash) become usable only when credentials are present and REAL_MONEY_ENABLED
+ * is true. Without credentials they stay NOT_CONFIGURED — never simulated.
  */
 import { REAL_MONEY_ENABLED, FEATURE_FLAGS } from '@/config/runtime';
 import type { AssetCode } from '@/domain/assets';

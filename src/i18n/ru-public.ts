@@ -25,7 +25,7 @@ export const RU_PUBLIC: Record<string, string> = {
   'Go to your account': 'Перейти в личный кабинет',
 
   // Bank form
-  "Sandbox: don't enter real bank details": 'Тест: не вводите настоящие банковские реквизиты',
+  "Don't enter real bank details on this instance": 'Не вводите настоящие банковские реквизиты на этом экземпляре',
   'Use a test routing number such as': 'Используйте тестовый routing number, например',
   'and any account number of 4 to 17 digits.': 'и любой номер счёта из 4–17 цифр.',
   'The account must be a US checking or savings account in your name. Numbers are encrypted when saved and shown back only as the last four digits.':
@@ -42,9 +42,9 @@ export const RU_PUBLIC: Record<string, string> = {
   // Courier form
   'Cash delivery is not available yet: no courier carrier is connected.':
     'Доставка наличных пока недоступна: курьерская служба не подключена.',
-  "Sandbox: don't enter your real address": 'Тест: не вводите свой настоящий адрес',
+  "Don't enter your real address on this instance": 'Не вводите свой настоящий адрес на этом экземпляре',
   'Any US address works. ZIP codes starting with': 'Подойдёт любой адрес в США. Индексы, начинающиеся с',
-  "are outside the sandbox courier's area.": ', вне зоны тестового курьера.',
+  'are outside the courier service area on this instance.': ', вне зоны курьерской службы на этом экземпляре.',
   'Cash is handed only to': 'Наличные передаются только',
   'the account holder': 'владельцу аккаунта',
   ', after a check of a government-issued photo ID that matches your verified account. Details are encrypted when saved and shared only with the courier.':
@@ -92,7 +92,7 @@ export const RU_PUBLIC: Record<string, string> = {
   'Amount to sell': 'Сумма продажи',
   'Minimum is {0}': 'Минимум {0}',
   'That is about': 'Это примерно',
-  'at the current mock price.': 'по текущей тестовой цене.',
+  'at the current reference price.': 'по текущей справочной цене.',
   'Payout method not available for this amount': 'Способ выплаты недоступен для этой суммы',
   '. Choose a different payout method.': '. Выберите другой способ выплаты.',
   'Fees would exceed the value of this amount.': 'Комиссии превысили бы стоимость этой суммы.',
@@ -122,14 +122,14 @@ export const RU_PUBLIC: Record<string, string> = {
     'Обмены для этого аккаунта недоступны. Если считаете это ошибкой, напишите в поддержку.',
 
   // Header, footer
-  'Sandbox notice': 'Уведомление о тестовой среде',
-  'Sandbox.': 'Тестовая среда.',
-  'Prices, deposits, verification and payouts are simulated. No real funds move.':
-    'Цены, депозиты, проверка и выплаты имитируются. Реальные деньги не перемещаются.',
-  'About the sandbox': 'О тестовой среде',
   'Service notice': 'Уведомление сервиса',
-  'Not yet accepting exchanges.': 'Обмены пока не принимаются.',
-  'Payment and verification providers are still being set up.': 'Платёжные провайдеры и провайдеры проверки ещё подключаются.',
+  'Internal testing instance.': 'Внутренний тестовый экземпляр.',
+  'Do not transfer real funds to addresses shown here.': 'Не переводите реальные средства на адреса, показанные здесь.',
+  'Provider status': 'Статус провайдеров',
+  'Exchanges require connected providers.': 'Для обменов нужны подключённые провайдеры.',
+  'Custody, payout and verification services must be configured before funds can move.':
+    'Кастодиальные, выплатные и проверочные сервисы должны быть настроены, прежде чем средства смогут перемещаться.',
+  'Internal testing label': 'Метка внутреннего тестирования',
   'Contact us': 'Связаться с нами',
   'Notifications, {0} unread': 'Уведомления, непрочитанных: {0}',
   Primary: 'Основная навигация',
@@ -298,9 +298,9 @@ export const RU_PUBLIC: Record<string, string> = {
   'What is the largest amount I can sell online?': 'Какую максимальную сумму можно продать онлайн?',
   'Will anyone from your team ask me to send crypto?': 'Может ли ваш сотрудник попросить меня отправить криптовалюту?',
   'Why do I need to verify my identity?': 'Зачем подтверждать личность?',
-  'Not yet. Exchanges open only once our payment, custody and verification providers are connected and approved. Until then, the sandbox simulates prices, verification and transactions, and no real funds can be sent or received. The':
-    'Пока нет. Обмены откроются только после подключения и одобрения платёжных и кастодиальных провайдеров и провайдера проверки. До тех пор тестовая среда имитирует цены, проверку и транзакции, а реальные средства отправить или получить нельзя.',
-  'set out the terms that will apply to every Exchange Request.': 'определяют условия, которые будут применяться к каждой заявке на обмен.',
+  'Exchanges that move funds require connected custody, payout and verification providers. Until those services are configured, money-moving steps are refused and no funds can be sent or received. The':
+    'Обмены с перемещением средств требуют подключённых кастодиальных, выплатных и проверочных провайдеров. Пока эти сервисы не настроены, шаги с деньгами отклоняются, и средства нельзя отправить или получить.',
+  'set out the terms that apply to every Exchange Request.': 'определяют условия, которые применяются к каждой заявке на обмен.',
   'Bitcoin (BTC), Ether (ETH), Tether (USDT on Ethereum or Tron) and USD Coin (USDC on Ethereum, Solana or Base).':
     'Bitcoin (BTC), Ether (ETH), Tether (USDT в сетях Ethereum или Tron) и USD Coin (USDC в сетях Ethereum, Solana или Base).',
   'The quote shows the exchange rate you get, with our commission already included, and the value of your crypto at that rate. The payout fee is taken off as a separate line. The result is what you receive, to the cent.':
@@ -333,8 +333,8 @@ export const RU_PUBLIC: Record<string, string> = {
   'No. We will never call, text or message you asking you to send crypto, share a code, or move money "to keep it safe". That is a scam. Stop and contact your bank or local law enforcement. Only contacts listed on the website are official (clause 4.21 of the':
     'Нет. Мы никогда не звоним и не пишем с просьбой отправить криптовалюту, сообщить код или перевести деньги «в безопасное место». Это мошенничество. Остановитесь и обратитесь в банк или правоохранительные органы. Официальны только контакты, указанные на сайте (п. 4.21',
   'Under Section 8 of the': 'Согласно разделу 8',
-  ', we verify identity to ensure Service security and comply with anti-money laundering (AML) and counter-terrorism financing (CTF) laws, and we may request additional documents for a specific transaction if it is classified as high-risk. We use an identity-verification provider for this. In the sandbox, verification is simulated and no documents are collected.':
-    ', мы проверяем личность для безопасности Сервиса и соблюдения законов о противодействии отмыванию денег (AML) и финансированию терроризма (CTF), а также можем запросить дополнительные документы по конкретной операции, если она отнесена к высокому риску. Для этого мы используем провайдера проверки личности. В тестовой среде проверка имитируется, документы не собираются.',
+  ', we verify identity to ensure Service security and comply with anti-money laundering (AML) and counter-terrorism financing (CTF) laws, and we may request additional documents for a specific transaction if it is classified as high-risk. We use an identity-verification provider for this.':
+    ', мы проверяем личность для безопасности Сервиса и соблюдения законов о противодействии отмыванию денег (AML) и финансированию терроризма (CTF), а также можем запросить дополнительные документы по конкретной операции, если она отнесена к высокому риску. Для этого мы используем провайдера проверки личности.',
 
   // Formatting
   'Cash to {0}': 'Наличные по адресу: {0}',

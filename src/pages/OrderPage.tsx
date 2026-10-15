@@ -7,7 +7,7 @@ import { AcceptedBanner } from '@/components/AcceptedBanner';
 import { StageTrack } from '@/components/StageTrack';
 import { EventLog, StatusRail } from '@/components/TransactionProgress';
 import { LiveIndicator } from '@/components/chat/Chat';
-import { MockBadge, Notice, StatusBadge } from '@/components/ui';
+import { Notice, StatusBadge } from '@/components/ui';
 import { ASSETS, NETWORKS, networkLabel } from '@/domain/assets';
 import { formatUsd } from '@/domain/money';
 import { exchangeRateMicros, valueAtRateCents } from '@/domain/quote';
@@ -138,8 +138,8 @@ function TxHashForm({ order, busy, run }: { order: OrderView; busy: boolean; run
 }
 
 /**
- * Wire buys: the instructions (demo placeholders for every bank field) and the
- * "I've sent the wire" step with an optional reference from the customer's bank.
+ * Wire buys: issued wire instructions and the optional "I've sent the wire"
+ * step with a customer bank reference.
  */
 function WireInstructions({ order, busy, run }: { order: OrderView; busy: boolean; run: Run }) {
   const { orders } = useServices();
@@ -167,17 +167,22 @@ function WireInstructions({ order, busy, run }: { order: OrderView; busy: boolea
             <div key={l.label}>
               <dt>{t(l.label)}</dt>
               <dd className="mono" style={{ overflowWrap: 'anywhere' }}>
-                {l.value} {l.placeholder ? <MockBadge label={t('Placeholder')} force /> : <CopyButton value={l.value} label={t('Copy')} />}
+                {l.value}{' '}
+                {l.placeholder ? (
+                  <span className="badge badge--warn">{t('Pending')}</span>
+                ) : (
+                  <CopyButton value={l.value} label={t('Copy')} />
+                )}
               </dd>
             </div>
           ))}
         </dl>
-        <p className="small">
-          <strong>{t('Demo instructions. Do not send a wire.')}</strong>{' '}
-          {t(
-            'The exchange is simulated: no bank account exists for these placeholders, and real bank details are issued only after launch.',
-          )}
-        </p>
+        {lines.some((l) => l.placeholder) ? (
+          <p className="small">
+            <strong>{t('Do not send a wire yet.')}</strong>{' '}
+            {t('Live bank details are issued only after the bank payout provider is connected for this order.')}
+          </p>
+        ) : null}
       </div>
       <Notice tone="warn" title={t('Use only the instructions on this page')}>
         <p>
@@ -315,10 +320,9 @@ function RefundAddressForm({ order, busy, run }: { order: OrderView; busy: boole
 const ID_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const ID_MAX_BYTES = 4 * 1024 * 1024;
 
-/** Buy orders: the photo ID the courier checks at the handover. A demo upload: the sandbox checks the file and discards it. */
+/** Buy orders: the photo ID the courier checks at the handover. */
 function IdUpload({ order, onChange }: { order: OrderView; onChange: () => void }) {
   const { orders } = useServices();
-  const sandbox = useConfig().mode === 'sandbox';
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -350,7 +354,6 @@ function IdUpload({ order, onChange }: { order: OrderView; onChange: () => void 
     <section className="panel" aria-labelledby="id-title">
       <div className="panel__head">
         <h3 id="id-title">{t('Photo ID for the courier')}</h3>
-        {sandbox ? <MockBadge label={t('Demo upload')} force /> : null}
       </div>
       <div className="panel__body stack">
         {order.documents.length ? (
@@ -363,7 +366,7 @@ function IdUpload({ order, onChange }: { order: OrderView; onChange: () => void 
                   <span className="small muted" style={{ display: 'block' }}>
                     {d.contentType.replace(/^.*\//, '').toUpperCase()} · {Math.max(1, Math.round(d.sizeBytes / 1024))} {t('KB · received')}{' '}
                     {formatDateTime(d.createdAt)}
-                    {d.stored ? '' : t(' · checked and discarded (sandbox: the file is not kept)')}
+                    {d.stored ? '' : t(' · checked; file not retained on this instance')}
                   </span>
                 </span>
               </li>
@@ -372,7 +375,6 @@ function IdUpload({ order, onChange }: { order: OrderView; onChange: () => void 
         ) : (
           <p className="small">
             {t('Upload the photo ID you will show the courier. The courier collects cash only from the verified account holder.')}
-            {sandbox ? t(' Sandbox: use a test image, not a real document. The file is checked and then discarded.') : ''}
           </p>
         )}
         {open && order.documents.length < 3 ? (
@@ -416,8 +418,6 @@ function IdUpload({ order, onChange }: { order: OrderView; onChange: () => void 
 function StatusNotice({ order }: { order: OrderView }) {
   const buy = order.direction === 'buy';
   const wire = order.payIn === 'wire';
-  const sandbox = order.source === 'sandbox';
-  const demo = sandbox ? t(' (sandbox simulation)') : '';
   const help = (
     <p className="small">
       {t('Questions? Reach support on')} <TelegramLink /> {t('or in your')} <Link to="/support">{t('support messages')}</Link>.
@@ -439,7 +439,7 @@ function StatusNotice({ order }: { order: OrderView }) {
       return (
         <Notice
           tone="info"
-          title={wire ? t('Wire received{0}', [demo]) : buy ? t('Cash collected{0}', [demo]) : t('Deposit seen{0}', [demo])}
+          title={wire ? t('Wire received') : buy ? t('Cash collected') : t('Deposit seen')}
           role="status"
         >
           <p>
@@ -455,11 +455,7 @@ function StatusNotice({ order }: { order: OrderView }) {
       );
     case 'deposit_confirmed':
       return (
-        <Notice
-          tone="info"
-          title={wire ? t('Wire verified{0}', [demo]) : buy ? t('Cash verified{0}', [demo]) : t('Deposit final{0}', [demo])}
-          role="status"
-        >
+        <Notice tone="info" title={wire ? t('Wire verified') : buy ? t('Cash verified') : t('Deposit final')} role="status">
           <p>{t('Automatic checks are running. This page updates by itself.')}</p>
         </Notice>
       );
@@ -492,7 +488,7 @@ function StatusNotice({ order }: { order: OrderView }) {
     case 'payout_submitted':
     case 'payout_processing':
       return (
-        <Notice tone="info" title={buy ? t('Crypto transfer in progress{0}', [demo]) : t('Payout in progress{0}', [demo])} role="status">
+        <Notice tone="info" title={buy ? t('Crypto transfer in progress') : t('Payout in progress')} role="status">
           <p>
             {buy
               ? t(
@@ -502,7 +498,6 @@ function StatusNotice({ order }: { order: OrderView }) {
               : t(
                   'The payout instruction was accepted by the payout provider. This page shows it as completed only when the provider reports it.',
                 )}
-            {sandbox ? t(' In the sandbox nothing is broadcast or paid.') : ''}
           </p>
           {help}
         </Notice>
@@ -933,9 +928,9 @@ export function OrderPage() {
   const wire = order.payIn === 'wire';
   const network = NETWORKS[order.network];
   const address = order.deposit.address;
-  // In the sandbox the address must be an obvious placeholder; anything else is withheld.
+  // Sandbox-mode addresses must be obvious non-payable placeholders; anything else is withheld.
   const showAddress = !!address && (config.mode !== 'sandbox' || isPreviewDepositAddress(address));
-  const sandboxOrder = order.source === 'sandbox';
+  const testingOrder = order.source === 'sandbox';
   const label = t(orderStatusLabel(order.status, order.direction, order.payIn ?? undefined));
   const steps = !buy && order.payout.method === 'courier_cash' ? order.steps.map(courierStep) : order.steps;
 
@@ -959,7 +954,6 @@ export function OrderPage() {
           </div>
           <div className="row">
             <StatusBadge tone={orderTone(order.status)}>{label}</StatusBadge>
-            {sandboxOrder ? <MockBadge label={t('Sandbox order')} force /> : null}
             <LiveIndicator state={live} />
           </div>
         </div>
@@ -983,12 +977,12 @@ export function OrderPage() {
                   : buy
                     ? t('Your rate is held for the cash amount shown. The courier will call to confirm the collection time.')
                     : t('Your rate is held for a deposit of exactly the quoted amount that arrives in the window below.')}
-                {sandboxOrder
+                {testingOrder
                   ? wire
-                    ? t(' This is a sandbox order: the wire instructions are placeholders. Do not send a wire.')
+                    ? t(' Do not send a wire: bank details for this order are not live.')
                     : buy
-                      ? t(' This is a sandbox order: no courier will come and no crypto will be sent.')
-                      : t(' This is a sandbox order: the deposit address is a placeholder. Do not send funds to it.')
+                      ? t(' Do not hand over cash: no courier is dispatched for this order.')
+                      : t(' Do not send funds: the deposit address for this order is not payable.')
                   : ''}
               </p>
             </Notice>
@@ -1027,9 +1021,9 @@ export function OrderPage() {
                     {t('Memo / tag:')} <code>{order.deposit.memo}</code>
                   </p>
                 ) : null}
-                {sandboxOrder ? (
+                {testingOrder ? (
                   <p className="small">
-                    <strong>{t('Sandbox placeholder. Do not send funds.')}</strong> {t('It is deliberately invalid on every network.')}
+                    <strong>{t('Do not send funds.')}</strong> {t('This address is deliberately invalid on every network.')}
                   </p>
                 ) : null}
               </div>
@@ -1068,9 +1062,9 @@ export function OrderPage() {
                     {networkLabel(order.asset, order.network)} {t('wallet.')}
                   </li>
                 </ol>
-                {sandboxOrder ? (
+                {testingOrder ? (
                   <p className="small">
-                    <strong>{t('Sandbox order.')}</strong> {t('No courier will come. Don’t hand cash to anyone for this order.')}
+                    <strong>{t('No courier will come.')}</strong> {t('Don’t hand cash to anyone for this order.')}
                   </p>
                 ) : null}
               </div>
@@ -1169,12 +1163,9 @@ export function OrderPage() {
           ) : null}
 
           <section aria-labelledby="log-title" className="stack">
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <h2 id="log-title" className="title">
-                {t('Activity')}
-              </h2>
-              {sandboxOrder ? <MockBadge label={t('Sandbox events')} force /> : null}
-            </div>
+            <h2 id="log-title" className="title">
+              {t('Activity')}
+            </h2>
             <EventLog log={order.events} />
           </section>
 
@@ -1187,7 +1178,6 @@ export function OrderPage() {
           <div className="panel">
             <div className="panel__head">
               <h2 className="title">{t('Receipt')}</h2>
-              {sandboxOrder ? <MockBadge force /> : null}
             </div>
             <div className="panel__body stack">
               <Receipt order={order} />

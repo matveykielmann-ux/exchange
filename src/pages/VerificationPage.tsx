@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
-import { MockBadge, Notice, PageHeader, StatusBadge } from '@/components/ui';
+import { Notice, PageHeader, StatusBadge } from '@/components/ui';
 import {
   acceptedFileTypes,
   ID_DOCUMENT_LABEL,
@@ -19,7 +19,6 @@ import { formatDateTime } from '@/lib/format';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import type { KycFileView, KycState, KycStatus } from '@/services/types';
 import { useUser } from '@/state/auth';
-import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
 import { t } from '@/i18n';
 
@@ -157,7 +156,6 @@ function FileSlot({
 export function VerificationPage() {
   useDocumentTitle('Identity verification');
   const { account, live } = useServices();
-  const config = useConfig();
   const user = useUser();
   const [state, setState] = useState<KycState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -211,23 +209,9 @@ export function VerificationPage() {
           'Service Rules, clause 8.1: verification may include an identification document (passport, ID card, driver’s license) and a selfie for identity confirmation. We also ask for a proof of address.',
         )}
       >
-        <div className="row">
-          <StatusBadge tone={k.tone}>{t(k.label)}</StatusBadge>
-          {config.mode === 'sandbox' ? <MockBadge label={t('Sandbox account')} /> : null}
-        </div>
+        <StatusBadge tone={k.tone}>{t(k.label)}</StatusBadge>
       </PageHeader>
       <div className="container stack stack--lg kyc-page">
-        {config.mode === 'sandbox' ? (
-          <Notice tone="neutral" title={t('Sandbox: use test images, not real documents')}>
-            <p>
-              {t(
-                'Files are checked and kept encrypted in the sandbox database. A reviewer approves or rejects them in the CRM. A name containing “Sanctioned” fails screening.',
-              )}{' '}
-              <MockBadge />
-            </p>
-          </Notice>
-        ) : null}
-
         {state.status === 'verified' ? (
           <Notice tone="info" title={t('Your identity is verified')}>
             <p>{t('You can place exchanges.')}</p>

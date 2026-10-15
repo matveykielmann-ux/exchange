@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Arcvale: US-focused crypto-to-USD exchange. Sandbox mode is fully simulated; production providers report NOT_CONFIGURED until credentials are supplied. Real-money movement is disabled.",
+  "description": "Arcvale: US-focused crypto-to-USD exchange. Sandbox mode is fully simulated for internal testing; production providers report NOT_CONFIGURED until credentials are supplied. Money movement is provider-gated.",
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "tsc -b && vite build && vite build -c vite.server.config.ts",

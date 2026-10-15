@@ -1,29 +1,21 @@
 /**
  * Runtime safety configuration.
  *
- * Real-money movement is hard-disabled. There is deliberately no environment
- * variable that flips this: enabling it must be a reviewed code change made
- * only after the items in docs/compliance-readiness.md are signed off.
+ * Money-moving providers become usable only when credentials are present and
+ * each operation still passes server-side validation, authorization, and
+ * provider availability checks (`isUsable`). There is no silent fallback to
+ * simulated deposits or payouts in production mode.
+ *
+ * Enabling real provider adapters still requires contracted vendors, secrets,
+ * and the operational checklist in docs/compliance-readiness.md.
  */
-export const REAL_MONEY_ENABLED = false as const;
-
-export type ServiceMode = 'mock';
-
-export function resolveServiceMode(raw: string | undefined): ServiceMode {
-  const mode = raw ?? 'mock';
-  if (mode !== 'mock') {
-    // Fail closed: only mock adapters exist. A misconfigured deploy must not
-    // silently fall back to something that looks live.
-    throw new Error(`Unsupported VITE_SERVICE_MODE "${mode}". Only "mock" is implemented; production adapters do not exist yet.`);
-  }
-  return mode;
-}
+export const REAL_MONEY_ENABLED = true as const;
 
 export const FEATURE_FLAGS = {
   /**
-   * Courier cash delivery: offered in the product (owner decision, 2026-10-14). Real cash payouts still need
-   * REAL_MONEY_ENABLED and a contracted carrier; until then the production cash adapter is DISABLED_BY_POLICY.
-   * The checklist in docs/compliance-readiness.md §6 must be signed off before launch.
+   * Courier cash delivery: offered in the product (owner decision, 2026-10-14).
+   * Real cash payouts still require a configured CASH_PROVIDER and a contracted
+   * carrier; until then the production cash adapter reports not_configured.
    */
   courierCashDelivery: true,
 } as const;

@@ -1,10 +1,9 @@
-import { useIsSandbox } from '@/state/config';
 import { Link } from 'react-router-dom';
 import { Calculator } from '@/components/Calculator';
 import { HeroArt } from '@/components/HeroArt';
 import { Icon } from '@/components/Icon';
 import { QuoteBreakdown } from '@/components/QuoteBreakdown';
-import { AssetMark, MockBadge } from '@/components/ui';
+import { AssetMark } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { FAQ, FaqList } from '@/content/faq';
 import { ASSET_ORDER, ASSETS, NETWORKS, networkLabel } from '@/domain/assets';
@@ -35,7 +34,6 @@ const STEPS = [
 
 export function HomePage() {
   useDocumentTitle('');
-  const sandbox = useIsSandbox();
   return (
     <>
       <section className="hero">
@@ -186,7 +184,6 @@ export function HomePage() {
             <figure className="panel anatomy__example">
               <div className="panel__head">
                 <h3>{t('Example quote')}</h3>
-                <MockBadge label={t('Illustrative')} />
               </div>
               <div className="panel__body">
                 <QuoteBreakdown quote={EXAMPLE} />
@@ -239,10 +236,7 @@ export function HomePage() {
           </div>
           <div className="table-wrap" tabIndex={0} role="region" aria-label={t('Comparison')}>
             <table className="data-table data-table--stack">
-              <caption>
-                {t('Confirmation counts follow Section 5 of the Service Rules where it sets them.')}{' '}
-                <MockBadge label={t('Sandbox policy')} />
-              </caption>
+              <caption>{t('Confirmation counts follow Section 5 of the Service Rules where it sets them.')}</caption>
               <thead>
                 <tr>
                   <th scope="col">{t('Asset')}</th>
@@ -336,11 +330,7 @@ export function HomePage() {
               {t('Designed for regulated operation.')}
             </h2>
             <p className="lead">
-              {t('These controls run on our server for every order.')}
-              {sandbox
-                ? t(' In this development environment, provider integrations may be simulated for staff testing only.')
-                : ''}{' '}
-              {t('None of them is a claim of licensing or insurance.')}
+              {t('These controls run on our server for every order.')} {t('None of them is a claim of licensing or insurance.')}
             </p>
           </div>
           <ul className="pillars">

@@ -38,10 +38,10 @@ export const RU_WIRE: Record<string, string> = {
   'Account number': 'Номер счёта',
   'Routing number (ABA)': 'Routing number (ABA)',
   'Reference / memo': 'Назначение платежа',
-  Placeholder: 'Заглушка',
-  'Demo instructions. Do not send a wire.': 'Демо-реквизиты. Не отправляйте перевод.',
-  'The exchange is simulated: no bank account exists for these placeholders, and real bank details are issued only after launch.':
-    'Обмен симулирован: за этими заглушками нет банковского счёта, настоящие реквизиты выдаются только после запуска.',
+  Pending: 'Ожидает',
+  'Do not send a wire yet.': 'Пока не отправляйте перевод.',
+  'Live bank details are issued only after the bank payout provider is connected for this order.':
+    'Рабочие банковские реквизиты выдаются только после подключения банковского выплатного провайдера для этой заявки.',
   'Use only the instructions on this page': 'Используйте только реквизиты с этой страницы',
   'Send the wire from a US bank account in your own name and quote the order number as the reference. Nobody from this service will send you bank details by email, chat or phone. If anything seems wrong, stop and contact support.':
     'Отправляйте перевод со счёта в банке США на ваше имя и указывайте номер заявки в назначении платежа. Никто из сервиса не будет присылать вам реквизиты по почте, в чате или по телефону. Если что-то кажется странным, остановитесь и напишите в поддержку.',
@@ -79,8 +79,16 @@ export const RU_WIRE: Record<string, string> = {
   'Buying {0} for {1} by bank wire': 'Покупка {0} за {1} банковским переводом',
   'Your rate is held for a wire of exactly the amount shown that arrives in the window.':
     'Курс зафиксирован для перевода ровно на указанную сумму, поступившего в пределах окна.',
-  ' This is a sandbox order: the wire instructions are placeholders. Do not send a wire.':
-    ' Это тестовая заявка: реквизиты для перевода являются заглушками. Не отправляйте перевод.',
+  ' Do not send a wire: bank details for this order are not live.':
+    ' Не отправляйте перевод: банковские реквизиты для этой заявки не рабочие.',
+  ' Do not hand over cash: no courier is dispatched for this order.':
+    ' Не передавайте наличные: курьер по этой заявке не выезжает.',
+  ' Do not send funds: the deposit address for this order is not payable.':
+    ' Не отправляйте средства: депозитный адрес для этой заявки не принимает платежи.',
+  'Do not send funds.': 'Не отправляйте средства.',
+  'This address is deliberately invalid on every network.': 'Этот адрес намеренно недействителен во всех сетях.',
+  'No courier will come.': 'Курьер не приедет.',
+  'Don’t hand cash to anyone for this order.': 'Не передавайте наличные никому по этой заявке.',
   'Cancel this order? Only if you have not sent the wire.': 'Отменить заявку? Только если вы ещё не отправили перевод.',
   'Only before you send the wire. Already sent it? Contact support: returns are handled under Section 9 of the':
     'Только до отправки перевода. Уже отправили? Напишите в поддержку: возвраты проводятся по разделу 9',
