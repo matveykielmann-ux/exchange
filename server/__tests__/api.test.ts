@@ -6,6 +6,7 @@
  */
 import type { AddressInfo } from 'node:net';
 import { LEGAL_DOCUMENTS } from '@/content/legal';
+import { isPreviewWireValue } from '@/domain/wire';
 import type { App } from '../app';
 import { totpCode } from '../lib/crypto';
 import { signWebhook } from '../providers/signature';
@@ -547,6 +548,91 @@ describe('API', () => {
     );
   });
 
+  it('buys crypto with a bank wire: placeholder instructions, optional reference, CRM wire steps, bank webhooks', async () => {
+    const c = env.client();
+    await customer(c, 'wire-buyer@example.test');
+    const indicative = await c.get('/api/quotes/indicative?direction=buy&asset=USDT&network=tron&cashCents=200000&payIn=wire');
+    expect(indicative.body.quote).toMatchObject({ direction: 'buy', grossCents: '200000', payoutMethod: 'wire', payoutFeeCents: '6000' }); // 3% exchange fee, no spread
+    expect(indicative.body.issues).toEqual([]);
+    // Below the wire minimum.
+    const small = await c.get('/api/quotes/indicative?direction=buy&asset=USDT&network=tron&cashCents=60000&payIn=wire');
+    expect(small.body.issues.map((i: { code: string }) => i.code)).toEqual(['payout_ineligible']);
+
+    const q = await c.post('/api/quotes', { direction: 'buy', asset: 'USDT', network: 'tron', cashCents: '200000', payIn: 'wire' });
+    expect(q.status).toBe(201);
+    const wallet = 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE';
+    // No saved destination is needed for a wire.
+    const o = await c.post(
+      '/api/orders',
+      { quoteId: q.body.quote.id, destinationId: '', receiveAddress: wallet, accepted: docs('order') },
+      { 'idempotency-key': 'wire-order-1' },
+    );
+    expect(o.status).toBe(201);
+    expect(o.body).toMatchObject({ direction: 'buy', payIn: 'wire', status: 'created', receiveAddress: wallet, wireInstructions: null });
+    const id = o.body.id as string;
+
+    // CRM step 1: instructions issued (demo). Every bank field is a placeholder; the reference is the order's.
+    const admin = await staff(env.app, env.base, 'admin');
+    expect((await admin.post(`/api/admin/sandbox/orders/${id}/wire-instructions`)).status).toBe(200);
+    const issued = (await c.get(`/api/orders/${id}`)).body;
+    expect(issued.status).toBe('awaiting_deposit');
+    for (const line of issued.wireInstructions)
+      expect(line.placeholder ? isPreviewWireValue(line.value) : line.value === issued.reference).toBe(true);
+    expect((await admin.post(`/api/admin/sandbox/orders/${id}/wire-instructions`)).status).toBe(409);
+
+    // The customer marks the wire as sent; the reference is optional and format-checked.
+    expect((await c.post(`/api/orders/${id}/report-sent`, { txHash: 'bad<ref>' })).status).toBe(400);
+    const sent = await c.post(`/api/orders/${id}/report-sent`, { txHash: 'FED 20261015 ABC/1' });
+    expect(sent.status).toBe(200);
+    expect(sent.body).toMatchObject({ status: 'awaiting_deposit', deposit: { customerTxHash: 'FED 20261015 ABC/1' } });
+
+    // Deposit events for a wire buy must come from the bank provider.
+    const wrong = deliver(env.ctx, 'cash', {
+      id: 'sbx_wrong_wire_1',
+      type: 'deposit.observed',
+      data: { orderId: id, txHash: 'x', amountAtomic: '200000', confirmations: 0 },
+    });
+    expect(wrong.status).toBe('rejected');
+
+    // CRM step 2: wire received (demo), as signed bank webhooks; then the operator authorizes the crypto transfer.
+    expect((await admin.post(`/api/admin/sandbox/orders/${id}/wire-received`)).status).toBe(200);
+    expect((await c.get(`/api/orders/${id}`)).body.status).toBe('ready_for_payout');
+    const auth = await admin.post(`/api/admin/orders/${id}/authorize-payout`, { reason: 'Wire matched; sending crypto.' });
+    expect(auth.body).toMatchObject({ status: 'payout_submitted' });
+    await admin.post(`/api/admin/sandbox/orders/${id}/payout`, { outcome: 'completed' });
+    expect((await c.get(`/api/orders/${id}`)).body.status).toBe('completed');
+    const sources = env.ctx.db
+      .all<{ provider: string; event_type: string }>("SELECT provider, event_type FROM provider_webhook_events WHERE status = 'processed'")
+      .map((r) => `${r.provider}:${r.event_type}`);
+    expect(sources).toEqual(expect.arrayContaining(['bankPayout:deposit.observed', 'bankPayout:deposit.confirmed']));
+  });
+
+  it('issues wire instructions and moves a wire buy once the customer marks it sent (sandbox autopilot)', async () => {
+    const c = env.client();
+    await customer(c, 'wire-auto@example.test');
+    const q = await c.post('/api/quotes', { direction: 'buy', asset: 'USDC', network: 'ethereum', cashCents: '150000', payIn: 'wire' });
+    const o = await c.post(
+      '/api/orders',
+      { quoteId: q.body.quote.id, destinationId: '', receiveAddress: TEST_ETH_ADDRESS, accepted: docs('order') },
+      { 'idempotency-key': 'wire-auto-1' },
+    );
+    const id = o.body.id as string;
+    (env.ctx.config.sandbox as { autopilotStepMs: number }).autopilotStepMs = 3000;
+    const tick = () => {
+      env.clock.advance(3001);
+      return sandboxAutopilotTick(env.ctx);
+    };
+    const status = async () => (await c.get(`/api/orders/${id}`)).body.status;
+    tick();
+    expect(await status()).toBe('awaiting_deposit');
+    expect(tick()).toBe(0); // waits for the customer
+    await c.post(`/api/orders/${id}/report-sent`, { txHash: null });
+    tick();
+    expect(await status()).toBe('deposit_observed');
+    tick();
+    expect(await status()).toBe('ready_for_payout');
+  });
+
   it('asks for the country of residence and the clause 8.5 confirmation at sign-up', async () => {
     const c = env.client();
     const base = { password: SANDBOX_PASSWORD, fullName: 'Kim Lee', accepted: docs('signup') };
@@ -572,6 +658,104 @@ describe('API', () => {
     });
     expect(ok.status).toBe(201);
     expect((await c.get('/api/me')).body).toMatchObject({ countryOfResidence: 'DE', stateOfResidence: null });
+  });
+
+  it('verifies identity by documents: encrypted files, reviewer-only access, decisions with a reason', async () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]).toString('base64');
+    const pdf = Buffer.from('%PDF-1.4 test').toString('base64');
+    const file = (kind: string, dataBase64 = png, contentType = 'image/png') => ({
+      kind,
+      fileName: `${kind}.png`,
+      contentType,
+      dataBase64,
+    });
+    const c = env.client();
+    await c.post('/api/auth/signup', {
+      email: 'kyc@example.test',
+      password: SANDBOX_PASSWORD,
+      fullName: 'Jordan Lee',
+      countryOfResidence: 'US',
+      stateOfResidence: 'NY',
+      notInRestrictedTerritory: true,
+      accepted: docs('signup'),
+    });
+    expect((await c.get('/api/me/kyc')).body).toMatchObject({ status: 'unverified', submission: null });
+    // The ID type comes first; a file before it is refused.
+    expect((await c.post('/api/me/kyc/files', file('selfie'))).status).toBe(400);
+    expect((await c.put('/api/me/kyc/id-type', { idType: 'drivers_license' })).body.submission.missing).toEqual([
+      'id_front',
+      'id_back',
+      'selfie',
+      'proof_of_address',
+    ]);
+    // Real file checks: a PDF selfie, mismatched types and garbage are refused.
+    expect((await c.post('/api/me/kyc/files', file('selfie', pdf, 'application/pdf'))).status).toBe(415);
+    expect((await c.post('/api/me/kyc/files', file('id_front', png, 'image/jpeg'))).status).toBe(415);
+    expect((await c.post('/api/me/kyc/files', file('id_front', 'not base64!'))).status).toBe(400);
+    for (const k of ['id_front', 'id_back', 'selfie']) expect((await c.post('/api/me/kyc/files', file(k))).status).toBe(201);
+    expect((await c.post('/api/me/kyc/submit')).status).toBe(400);
+    const poa = await c.post('/api/me/kyc/files', file('proof_of_address', pdf, 'application/pdf'));
+    expect(poa.body.submission.missing).toEqual([]);
+
+    // Stored encrypted: the raw column holds no plaintext.
+    const row = env.ctx.db.get<{ content_enc: string }>("SELECT content_enc FROM kyc_files WHERE kind = 'proof_of_address'")!;
+    expect(row.content_enc.startsWith('v1:')).toBe(true);
+    expect(row.content_enc).not.toContain(pdf);
+    const own = poa.body.submission.files.find((f: { kind: string }) => f.kind === 'proof_of_address');
+    expect((await c.get(`/api/me/kyc/files/${own.id}`)).body.dataBase64).toBe(pdf);
+    const other = env.client();
+    await customer(other, 'other@example.test');
+    expect((await other.get(`/api/me/kyc/files/${own.id}`)).status).toBe(404);
+
+    const sent = await c.post('/api/me/kyc/submit');
+    expect(sent.body).toMatchObject({ status: 'pending', submission: { status: 'submitted' } });
+    expect((await c.post('/api/me/kyc/files', file('selfie'))).status).toBe(409);
+    const id = sent.body.submission.id;
+
+    // Support cannot see documents; a reviewer can, and each view is audited.
+    const support = await staff(env.app, env.base, 'support');
+    expect((await support.get('/api/admin/kyc')).status).toBe(403);
+    expect((await support.get(`/api/admin/kyc/${id}/files/${own.id}`)).status).toBe(403);
+    const reviewer = await staff(env.app, env.base, 'reviewer');
+    expect((await reviewer.get('/api/admin/kyc')).body.items.map((x: { id: string }) => x.id)).toEqual([id]);
+    const detail = await reviewer.get(`/api/admin/kyc/${id}`);
+    expect(detail.body).toMatchObject({ idType: 'drivers_license', customer: { name: 'Jordan Lee', kycStatus: 'pending' } });
+    expect((await reviewer.get(`/api/admin/kyc/${id}/files/${own.id}`)).body.dataBase64).toBe(pdf);
+    expect(env.ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM audit_events WHERE action = 'kyc.file_viewed'")!.n).toBe(1);
+
+    // Needs info: the customer sees the note, replaces a file and sends again; then approval verifies the account.
+    expect((await reviewer.post(`/api/admin/kyc/${id}/decision`, { decision: 'needs_info', reason: '' })).status).toBe(400);
+    await reviewer.post(`/api/admin/kyc/${id}/decision`, { decision: 'needs_info', reason: 'The selfie is blurry.' });
+    expect((await c.get('/api/me/kyc')).body).toMatchObject({ status: 'needs_info', submission: { reason: 'The selfie is blurry.' } });
+    expect((await c.post('/api/me/kyc/files', file('selfie'))).status).toBe(201);
+    expect((await c.post('/api/me/kyc/submit')).body.status).toBe('pending');
+    const ok = await reviewer.post(`/api/admin/kyc/${id}/decision`, { decision: 'approve', reason: 'Documents match the profile.' });
+    expect(ok.body.status).toBe('approved');
+    expect((await c.get('/api/me')).body.verification).toEqual({ status: 'verified', level: 'basic' });
+    expect((await c.get('/api/me/kyc')).body.submission.reason).toBeNull();
+    expect((await reviewer.post(`/api/admin/kyc/${id}/decision`, { decision: 'reject', reason: 'Changed my mind' })).status).toBe(409);
+  });
+
+  it('rejects a document verification that fails sanctions screening', async () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9]).toString('base64');
+    const c = env.client();
+    await c.post('/api/auth/signup', {
+      email: 'blocked@example.test',
+      password: SANDBOX_PASSWORD,
+      fullName: 'Sanctioned Person',
+      countryOfResidence: 'US',
+      stateOfResidence: 'NY',
+      notInRestrictedTerritory: true,
+      accepted: docs('signup'),
+    });
+    await c.put('/api/me/kyc/id-type', { idType: 'passport' });
+    expect(
+      (await c.post('/api/me/kyc/files', { kind: 'id_back', fileName: 'b.png', contentType: 'image/png', dataBase64: png })).status,
+    ).toBe(400);
+    for (const kind of ['id_front', 'selfie', 'proof_of_address'])
+      await c.post('/api/me/kyc/files', { kind, fileName: `${kind}.png`, contentType: 'image/png', dataBase64: png });
+    const r = await c.post('/api/me/kyc/submit');
+    expect(r.body).toMatchObject({ status: 'rejected', submission: { status: 'rejected', reason: null } });
   });
 
   it('isolates customers from each other', async () => {

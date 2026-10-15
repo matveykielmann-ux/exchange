@@ -16,7 +16,7 @@ import { WEBHOOK_EVENT_SOURCES, type ProviderEvent, type WebhookSource } from '.
 import { audit } from './audit';
 import { applyVerificationResult } from './customers';
 import { notify } from './notifications';
-import { afterDepositConfirmed, applyOrderEvent, getOrderRow } from './orders';
+import { afterDepositConfirmed, applyOrderEvent, depositSource, getOrderRow } from './orders';
 import { formatUsd } from '@/domain/money';
 import { formatAssetPlain } from './format';
 
@@ -60,10 +60,13 @@ function emailOf(ctx: AppContext, userId: string) {
   return ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [userId])!.email;
 }
 
-/** Deposits and refunds of a sell come from custody; the cash collected for a buy (and its return) from the cash provider. */
+/**
+ * Deposits and refunds of a sell come from custody; the cash collected for a buy (and its return) from the cash
+ * provider; the wire received for a wire buy (and its return) from the bank provider.
+ */
 function orderForSource(ctx: AppContext, source: WebhookSource, orderId: unknown) {
   const order = getOrderRow(ctx, str(orderId, 'orderId'));
-  const expected: WebhookSource = order.direction === 'buy' ? 'cash' : 'custody';
+  const expected = depositSource(order);
   if (source !== expected)
     throw new ApiError(400, 'invalid_input', `This event for a ${order.direction} order is not accepted from ${source}.`);
   return order;

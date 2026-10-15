@@ -6,7 +6,7 @@
 import { ASSET_ORDER, NETWORKS, type AssetCode, type NetworkId } from '@/domain/assets';
 import { PAYOUT_ORDER, type PayoutMethodId } from '@/domain/payout';
 import { ORDER_STAGES, ORDER_STATUSES, type OrderStage, type OrderStatus } from '@/domain/order';
-import { PRICING_POLICY } from '@/domain/quote';
+import { BUY_PAY_INS, PRICING_POLICY, type BuyPayIn } from '@/domain/quote';
 import { COURIER_WINDOWS } from '@/domain/courier';
 import { formatUsd } from '@/domain/money';
 import { REAL_MONEY_ENABLED, FEATURE_FLAGS } from '@/config/runtime';
@@ -29,6 +29,8 @@ import * as ops from './services/operations';
 import * as orders from './services/orders';
 import { firmQuote, indicativeQuote, referencePrice, type QuoteInput } from './services/quotes';
 import { DOCUMENT_TYPES, uploadOrderDocument } from './services/documents';
+import * as kyc from './services/kyc';
+import { ID_DOCUMENT_TYPES, KYC_FILE_KINDS, KYC_FILE_MAX_BYTES } from '@/domain/identity';
 import { COUNTRY_CODES } from '@/domain/residence';
 import * as sandbox from './services/sandbox';
 import * as support from './services/support';
@@ -44,7 +46,15 @@ function quoteInput(raw: unknown): QuoteInput {
   if (direction === 'buy')
     return {
       direction,
-      ...parse(v.object({ asset: assetV, network: networkV, cashCents: v.bigintString({ max: 10n ** 15n }) }), raw),
+      ...parse(
+        v.object({
+          asset: assetV,
+          network: networkV,
+          cashCents: v.bigintString({ max: 10n ** 15n }),
+          payIn: v.optional(v.enum(BUY_PAY_INS as BuyPayIn[], 'payment method')),
+        }),
+        raw,
+      ),
     };
   return parse(
     v.object({ asset: assetV, network: networkV, amountAtomic: v.bigintString({ max: 10n ** 30n }), payoutMethod: methodV }),
@@ -108,7 +118,9 @@ export function registerRoutes(r: Router, app: AppContext) {
 
   r.get('/api/prices', async () => {
     const prices = await Promise.all(ASSET_ORDER.map((a) => referencePrice(app, a)));
-    return { body: { prices: prices.map((p) => ({ asset: p.asset, priceMicros: p.priceMicros, asOf: p.asOf, source: p.source })) } };
+    return {
+      body: { prices: prices.map((p) => ({ asset: p.asset, priceMicros: p.priceMicros, asOf: p.asOf, source: p.source, feed: p.feed })) },
+    };
   });
 
   r.get(
@@ -361,6 +373,38 @@ export function registerRoutes(r: Router, app: AppContext) {
     auth: 'user',
     rateLimit: { bucket: 'kyc', max: 5, windowMs: 60 * 60_000 },
   });
+  /* Identity verification by documents (Service Rules 8.1). */
+  const KYC_BODY_BYTES = Math.ceil((KYC_FILE_MAX_BYTES * 4) / 3) + 64 * 1024;
+  r.get('/api/me/kyc', (ctx) => ({ body: kyc.customerKyc(app, me(ctx)) }), { auth: 'user' });
+  r.put(
+    '/api/me/kyc/id-type',
+    (ctx) => {
+      const b = parse(v.object({ idType: v.enum(ID_DOCUMENT_TYPES, 'ID type') }), ctx.body);
+      return { body: kyc.setIdType(app, actorOf(ctx), me(ctx), b.idType) };
+    },
+    { auth: 'user', rateLimit: WRITE_LIMIT },
+  );
+  r.post(
+    '/api/me/kyc/files',
+    (ctx) => {
+      const b = parse(
+        v.object({
+          kind: v.enum(KYC_FILE_KINDS, 'document'),
+          fileName: v.string({ max: 200, label: 'a file name' }),
+          contentType: v.enum(DOCUMENT_TYPES, 'file type'),
+          dataBase64: v.string({ max: KYC_BODY_BYTES, trim: false, label: 'the file' }),
+        }),
+        ctx.body,
+      );
+      return { status: 201, body: kyc.uploadKycFile(app, actorOf(ctx), me(ctx), b) };
+    },
+    { auth: 'user', maxBodyBytes: KYC_BODY_BYTES, rateLimit: { bucket: 'kyc-files', max: 30, windowMs: 60 * 60_000 } },
+  );
+  r.get('/api/me/kyc/files/:id', (ctx) => ({ body: kyc.customerFile(app, me(ctx), ctx.params.id!) }), { auth: 'user' });
+  r.post('/api/me/kyc/submit', async (ctx) => ({ body: await kyc.submitKyc(app, actorOf(ctx), me(ctx)) }), {
+    auth: 'user',
+    rateLimit: { bucket: 'kyc', max: 5, windowMs: 60 * 60_000 },
+  });
   r.get('/api/me/destinations', (ctx) => ({ body: { destinations: customers.listDestinations(app, me(ctx)) } }), { auth: 'user' });
   r.post(
     '/api/me/destinations/bank',
@@ -479,7 +523,8 @@ export function registerRoutes(r: Router, app: AppContext) {
       const b = parse(
         v.object({
           quoteId: v.string({ max: 64 }),
-          destinationId: v.string({ max: 64 }),
+          // Empty for a buy paid by wire, which has no saved destination; createOrder checks it per order type.
+          destinationId: v.string({ min: 0, max: 64 }),
           refundAddress: v.optional(v.nullable(v.string({ max: 128, label: 'a refund address' }))),
           receiveAddress: v.optional(v.nullable(v.string({ max: 128, label: 'a wallet address' }))),
           accepted: acceptedV,
@@ -519,7 +564,8 @@ export function registerRoutes(r: Router, app: AppContext) {
   r.post(
     '/api/orders/:id/report-sent',
     (ctx) => {
-      const b = parse(v.object({ txHash: v.nullable(v.string({ max: 128, pattern: /^[\w-]+$/ })) }), ctx.body);
+      // A tx hash (sell) or the customer's own wire reference (wire buy); the service checks the format for the order type.
+      const b = parse(v.object({ txHash: v.nullable(v.string({ max: 128, pattern: /^[\w ./#-]+$/ })) }), ctx.body);
       return { body: orders.orderView(app, orders.reportSent(app, actorOf(ctx), me(ctx), ctx.params.id!, b.txHash)) };
     },
     { auth: 'user' },
@@ -717,7 +763,7 @@ function registerAdminRoutes(r: Router, app: AppContext) {
           order: orders.orderView(app, o, { internal: true }),
           customer: admin.customerSummary(app, o.user_id),
           courierDelivery:
-            o.payout_method === 'courier_cash'
+            o.payout_method === 'courier_cash' && o.payout_destination_id
               ? customers.courierDelivery(app, o.payout_destination_id, { masked: ctx.auth!.role === 'support' })
               : null,
           notes: ops.orderNotes(app, o.id),
@@ -930,6 +976,37 @@ function registerAdminRoutes(r: Router, app: AppContext) {
     },
     staff(REVIEWER),
   );
+  /* Identity verification review: reviewers and admins only, never support. */
+  r.get(
+    '/api/admin/kyc',
+    (ctx) => {
+      const status = parse(
+        v.optional(v.enum(['submitted', 'needs_info', 'approved', 'rejected', 'all'] as const, 'status')),
+        ctx.query.get('status') ?? undefined,
+      );
+      return { body: kyc.kycQueue(app, { status: status ?? 'submitted', ...pageV(ctx.query) }) };
+    },
+    staff(REVIEWER),
+  );
+  r.get('/api/admin/kyc/:id', (ctx) => ({ body: kyc.kycDetail(app, ctx.params.id!) }), staff(REVIEWER));
+  r.get('/api/admin/kyc/:id/files/:fileId', (ctx) => ({ body: kyc.staffFile(app, actorOf(ctx), ctx.params.id!, ctx.params.fileId!) }), {
+    ...staff(REVIEWER),
+    rateLimit: { bucket: 'kyc-view', max: 300, windowMs: 60 * 60_000 },
+  });
+  r.post(
+    '/api/admin/kyc/:id/decision',
+    (ctx) => {
+      const b = parse(
+        v.object({
+          decision: v.enum(['approve', 'needs_info', 'reject'] as const, 'decision'),
+          reason: v.string({ min: 4, max: 500, label: 'a reason' }),
+        }),
+        ctx.body,
+      );
+      return { body: kyc.decide(app, actorOf(ctx), ctx.params.id!, b.decision, b.reason) };
+    },
+    { ...staff(REVIEWER), rateLimit: WRITE_LIMIT },
+  );
   r.get('/api/admin/webhooks', (ctx) => ({ body: admin.webhookLog(app, pageV(ctx.query).page, pageV(ctx.query).pageSize) }), staff(ADMIN));
   r.get('/api/admin/system', () => ({ body: admin.systemStatus(app) }), staff(ADMIN));
   r.get(
@@ -971,6 +1048,8 @@ function registerAdminRoutes(r: Router, app: AppContext) {
     return sandbox.simulatePayout(app, staffActor(ctx), id, b.outcome, b.reason);
   });
   lab('refund-complete', (ctx, id) => sandbox.simulateRefundCompleted(app, staffActor(ctx), id));
+  lab('wire-instructions', (ctx, id) => sandbox.markWireInstructionsIssued(app, staffActor(ctx), id));
+  lab('wire-received', (ctx, id) => sandbox.markWireReceived(app, staffActor(ctx), id));
   lab('replay', (ctx, id) => sandbox.replayLastWebhook(app, staffActor(ctx), id));
   lab('expire', (ctx, id) => sandbox.forceExpire(app, staffActor(ctx), id).status);
   r.get('/api/admin/sandbox/notifications', () => ({ body: { notifications: admin.sandboxNotifications(app) } }), staff(SUPPORT));

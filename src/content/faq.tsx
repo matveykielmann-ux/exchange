@@ -35,7 +35,7 @@ export const FAQ: FaqItem[] = [
     a: (
       <p>
         {t(
-          'The quote shows the exchange rate you get, with our commission already included, and the value of your crypto at that rate. The payout fee is taken off as a separate line. The result is what you receive, to the cent.',
+          'The quote shows the market exchange rate, with no spread, and the value of your crypto at that rate. The fee is taken off as a separate line: 3% for bank transfer, wire and debit card, or the courier fee for cash by courier. The result is what you receive, to the cent.',
         )}
       </p>
     ),

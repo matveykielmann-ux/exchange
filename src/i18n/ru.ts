@@ -6,17 +6,23 @@
 import { RU_ADMIN } from './ru-admin';
 import { RU_CRM } from './ru-crm';
 import { RU_DOMAIN } from './ru-domain';
+import { RU_FIXES, ruPlural } from './ru-fixes';
+import { RU_KYC } from './ru-kyc';
 import { RU_PUBLIC } from './ru-public';
 import { RU_PUBLIC2 } from './ru-public2';
 import { RU_PUBLIC3 } from './ru-public3';
+import { RU_WIRE } from './ru-wire';
 
 export const RU: Record<string, string> = {
+  ...RU_KYC,
   ...RU_ADMIN,
   ...RU_PUBLIC,
   ...RU_PUBLIC2,
   ...RU_PUBLIC3,
+  ...RU_WIRE,
   ...RU_DOMAIN,
   ...RU_CRM,
+  ...RU_FIXES,
   // Names of server components that appear inside error messages.
   'Sanctions screening': 'Санкционный скрининг',
   'Identity verification': 'Проверка личности',
@@ -38,6 +44,12 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Server and domain texts with values inside. Each pattern matches the whole string. */
 export const RU_PATTERNS: [RegExp, (g: string[], tr: Tr) => string][] = [
+  [/^(\$[\d,.]+) flat$/, ([a]) => `${a} фиксированно`],
+  [/^([\d.]+%) \(min (\$[\d,.]+), max (\$[\d,.]+)\)$/, ([p, a, b]) => `${p} (мин. ${a}, макс. ${b})`],
+  [/^(\d+) networks?$/, ([n]) => `${n} ${ruPlural(Number(n), 'сеть', 'сети', 'сетей')}`],
+  [/^Confirmations \((\d+) of (\d+)\)$/, ([a, b]) => `Подтверждения (${a} из ${b})`],
+  [/^Order (CBX-[A-Z0-9]+)$/, ([r]) => `Заявка ${r}`],
+  [/^clause ([\d.]+)$/, ([c]) => `п. ${c}`],
   [/^(\d+) of (\d+) network confirmations\.$/, ([a, b]) => `${a} из ${b} подтверждений сети.`],
   [/^A deposit needs (\d+) confirmations to be final\.$/, ([n]) => `Для окончательного подтверждения депозиту нужно ${n} подтверждений.`],
   [/^Amount at or above the manual review threshold \((.+)\)\.$/, ([a]) => `Сумма не меньше порога ручной проверки (${a}).`],

@@ -5,7 +5,7 @@
  */
 import { isSupportedPair, type AssetCode, type NetworkId } from '@/domain/assets';
 import type { PayoutMethodId } from '@/domain/payout';
-import { calculateBuyQuote, calculateQuote, type ExchangeDirection, type Quote, type QuoteIssue } from '@/domain/quote';
+import { calculateBuyQuote, calculateQuote, type BuyPayIn, type ExchangeDirection, type Quote, type QuoteIssue } from '@/domain/quote';
 import type { AppContext } from '../context';
 import { ApiError, badRequest, notConfigured, notFound } from '../http/errors';
 import { newId } from '../lib/clock';
@@ -19,12 +19,14 @@ export interface SellQuoteInput {
   amountAtomic: bigint;
   payoutMethod: PayoutMethodId;
 }
-/** Cash → crypto: the customer states the dollars they will hand to the courier. */
+/** Cash or wire → crypto: the customer states the dollars they will pay. */
 export interface BuyQuoteInput {
   direction: 'buy';
   asset: AssetCode;
   network: NetworkId;
   cashCents: bigint;
+  /** Defaults to cash by courier. */
+  payIn?: BuyPayIn;
 }
 export type QuoteInput = SellQuoteInput | BuyQuoteInput;
 

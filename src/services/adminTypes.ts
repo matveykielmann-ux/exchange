@@ -3,12 +3,15 @@ import type { AssetCode, NetworkId } from '@/domain/assets';
 import type { AtomicAmount, Cents } from '@/domain/money';
 import type { OrderStage, OrderStatus } from '@/domain/order';
 import type { PayoutMethodId } from '@/domain/payout';
+import type { IdDocumentType, KycDecision, KycSubmissionStatus } from '@/domain/identity';
 import type {
   AppMode,
   CourierDeliveryView,
   Conversation,
   ConversationStatus,
   ConversationSummary,
+  KycFileContent,
+  KycSubmissionView,
   Message,
   OrderView,
   Page,
@@ -249,6 +252,31 @@ export interface SandboxOutcome {
   order: OrderView;
 }
 
+export interface KycQueueItem {
+  id: string;
+  customer: { id: string; name: string; email: string };
+  idType: IdDocumentType;
+  status: KycSubmissionStatus;
+  fileCount: number;
+  submittedAt: number | null;
+  reviewedAt: number | null;
+}
+export type KycQueueFilter = 'submitted' | 'needs_info' | 'approved' | 'rejected' | 'all';
+export interface KycDetail extends KycSubmissionView {
+  reviewedBy: string | null;
+  customer: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+    countryOfResidence: string | null;
+    stateOfResidence: string | null;
+    kycStatus: string;
+    createdAt: number;
+  };
+  history: { id: string; status: KycSubmissionStatus; createdAt: number }[];
+}
+
 export interface AdminApi {
   overview(): Promise<Overview>;
   staff(): Promise<StaffMember[]>;
@@ -272,6 +300,12 @@ export interface AdminApi {
   setUserStatus(id: string, status: 'active' | 'disabled', reason: string): Promise<void>;
   audit(q: { targetType?: string; targetId?: string; actorId?: string; action?: string; page?: number }): Promise<Page<AuditEntry>>;
   webhooks(page?: number): Promise<Page<WebhookRow>>;
+  kyc: {
+    queue(q: { status: KycQueueFilter; page?: number }): Promise<Page<KycQueueItem>>;
+    get(id: string): Promise<KycDetail>;
+    file(id: string, fileId: string): Promise<KycFileContent>;
+    decide(id: string, decision: KycDecision, reason: string): Promise<KycDetail>;
+  };
   system(): Promise<SystemStatus>;
   largeDesk(page?: number): Promise<Page<DeskRequest>>;
   /** Sandbox lab. Each call goes through the signed webhook pipeline on the server. */
@@ -282,6 +316,8 @@ export interface AdminApi {
     refundComplete(id: string): Promise<SandboxOutcome>;
     replay(id: string): Promise<SandboxOutcome>;
     expire(id: string): Promise<SandboxOutcome>;
+    wireInstructions(id: string): Promise<SandboxOutcome>;
+    wireReceived(id: string): Promise<SandboxOutcome>;
     notifications(): Promise<OutboxMessage[]>;
   };
 }

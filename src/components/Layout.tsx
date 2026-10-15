@@ -2,6 +2,7 @@ import { Suspense, useEffect, useLayoutEffect, useRef, useState, type RefObject 
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { BRAND, SUPPORT } from '@/config/brand';
 import { TelegramLink } from './SupportContact';
+import { useTheme } from '@/lib/theme';
 import { isStaff, useUser } from '@/state/auth';
 import { useNotifications } from '@/state/useNotifications';
 import { LanguageSwitch } from '@/i18n/react';
@@ -65,6 +66,21 @@ function ModeBanner() {
   return null;
 }
 
+function ThemeToggle() {
+  const [theme, setTheme] = useTheme();
+  const next = theme === 'dark' ? 'light' : 'dark';
+  return (
+    <button
+      type="button"
+      className="btn btn--ghost theme-toggle"
+      aria-label={t('Switch to {0} theme', [next])}
+      onClick={() => setTheme(next)}
+    >
+      <Icon name={theme === 'dark' ? 'sun' : 'moon'} width={18} height={18} />
+    </button>
+  );
+}
+
 /** Unread notices for the signed-in customer; opens the notifications section of the account page. */
 function NotificationBell() {
   const { unread } = useNotifications();
@@ -98,12 +114,19 @@ function useCompactHeader(inner: RefObject<HTMLDivElement | null>, key: string) 
     const el = inner.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
     // The observer reports once on observe, then on every size change.
-    const ro = new ResizeObserver(() => {
+    const check = () => {
       if (!compact && el.scrollWidth > el.clientWidth + 1) setState({ key, compact: true, needed: el.scrollWidth });
       else if (compact && el.clientWidth >= state.needed) setState({ key, compact: false, needed: 0 });
-    });
+    };
+    const ro = new ResizeObserver(check);
     ro.observe(el);
-    return () => ro.disconnect();
+    // Labels get wider when the web font arrives without the header changing size: measure again then.
+    let live = true;
+    void document.fonts?.ready.then(() => live && check());
+    return () => {
+      live = false;
+      ro.disconnect();
+    };
   }, [inner, compact, key, state.needed]);
   return compact;
 }
@@ -129,6 +152,7 @@ function SiteHeader() {
         </nav>
         <div className="header-actions">
           <LanguageSwitch className="hide-on-phone" />
+          <ThemeToggle />
           {user ? (
             <>
               <NotificationBell />
@@ -233,7 +257,7 @@ function SiteFooter() {
                 : t('Sell crypto for US dollars, or buy crypto with cash collected by courier.')}
             </p>
             <p className="small">
-              {t('Support:')} <TelegramLink /> · {SUPPORT.hours.label}
+              {t('Support:')} <TelegramLink /> · {t(SUPPORT.hours.label)}
             </p>
           </div>
           <div>

@@ -16,10 +16,11 @@ describe('calculateQuote', () => {
     const { quote, issues } = calculateQuote({ ...base, amountAtomic: 10_000_000n }); // 0.1 BTC
     expect(issues).toEqual([]);
     expect(quote.grossCents).toBe(680_000n);
-    expect(quote.spreadBps).toBe(100);
-    expect(quote.spreadCents).toBe(6_800n);
-    expect(quote.payoutFeeCents).toBe(0n);
-    expect(quote.netCents).toBe(673_200n);
+    // No spread; a 3% exchange fee on ACH.
+    expect(quote.spreadBps).toBe(0);
+    expect(quote.spreadCents).toBe(0n);
+    expect(quote.payoutFeeCents).toBe(20_400n);
+    expect(quote.netCents).toBe(659_600n);
     expect(quote.source).toBe('mock');
     expect(quote.expiresAt - quote.createdAt).toBe(PRICING_POLICY.quoteTtlMs);
   });
@@ -44,11 +45,10 @@ describe('calculateQuote', () => {
     }
   });
 
-  it('applies tiered spreads by asset class', () => {
-    expect(spreadBpsFor('BTC', 9_999_99n)).toBe(100);
-    expect(spreadBpsFor('BTC', 10_000_00n)).toBe(75);
-    expect(spreadBpsFor('USDC', 500_00n)).toBe(30);
-    expect(spreadBpsFor('USDC', 20_000_00n)).toBe(20);
+  it('has no spread for any asset or amount', () => {
+    expect(spreadBpsFor('BTC', 9_999_99n)).toBe(0);
+    expect(spreadBpsFor('BTC', 10_000_00n)).toBe(0);
+    expect(spreadBpsFor('USDC', 20_000_00n)).toBe(0);
   });
 
   it('flags amounts below the minimum with the equivalent asset amount', () => {
@@ -88,13 +88,19 @@ describe('calculateQuote', () => {
 });
 
 describe('payout fees', () => {
-  it('clamps percentage fees to their min and max', () => {
-    const card = PAYOUT_METHODS.instant_debit;
-    expect(payoutFeeCents(card, 50_00n)).toBe(1_00n); // 1.5% of $50 = $0.75 → min $1
-    expect(payoutFeeCents(card, 1_000_00n)).toBe(15_00n);
-    expect(payoutFeeCents(card, 5_000_00n)).toBe(25_00n); // 1.5% of $5,000 = $75 → max $25
-    expect(payoutFeeCents(PAYOUT_METHODS.wire, 10_000_00n)).toBe(25_00n);
-    expect(payoutFeeCents(PAYOUT_METHODS.ach, 10_000_00n)).toBe(0n);
+  it('charges a 3% exchange fee on every method except courier, uncapped', () => {
+    for (const id of ['ach', 'wire', 'instant_debit'] as const) {
+      expect(payoutFeeCents(PAYOUT_METHODS[id], 50_00n)).toBe(1_50n);
+      expect(payoutFeeCents(PAYOUT_METHODS[id], 1_000_000_00n)).toBe(30_000_00n);
+    }
+    expect(payoutFeeCents(PAYOUT_METHODS.ach, 33_33n)).toBe(1_00n); // 99.99¢ rounds half up
+  });
+
+  it('still clamps a percentage fee that has a min and max', () => {
+    const fee = { kind: 'percent', bps: 150, minCents: 1_00n, maxCents: 25_00n } as const;
+    const m = { ...PAYOUT_METHODS.instant_debit, fee };
+    expect(payoutFeeCents(m, 50_00n)).toBe(1_00n);
+    expect(payoutFeeCents(m, 5_000_00n)).toBe(25_00n);
   });
   it('offers courier cash delivery with a flat fee', () => {
     expect(PAYOUT_METHODS.courier_cash.availability.available).toBe(true);

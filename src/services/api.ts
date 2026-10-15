@@ -17,6 +17,7 @@ import type {
   PublicConfig,
   QuoteData,
   QuoteInput,
+  KycState,
   ReferencePrice,
   Services,
   SessionStore,
@@ -257,6 +258,12 @@ export async function createApiServices(base = ''): Promise<Services> {
     setUserStatus: (id, status, reason) => http.post(`/api/admin/users/${encodeURIComponent(id)}/status`, { status, reason }),
     audit: (q) => http.get(`/api/admin/audit${qs(q)}`),
     webhooks: (page) => http.get(`/api/admin/webhooks${qs({ page })}`),
+    kyc: {
+      queue: (q) => http.get(`/api/admin/kyc${qs({ status: q.status, page: q.page })}`),
+      get: (id) => http.get(`/api/admin/kyc/${encodeURIComponent(id)}`),
+      file: (id, fileId) => http.get(`/api/admin/kyc/${encodeURIComponent(id)}/files/${encodeURIComponent(fileId)}`),
+      decide: (id, decision, reason) => http.post(`/api/admin/kyc/${encodeURIComponent(id)}/decision`, { decision, reason }),
+    },
     system: () => http.get('/api/admin/system'),
     largeDesk: (page) => http.get(`/api/admin/large-desk${qs({ page })}`),
     sandbox: {
@@ -269,6 +276,8 @@ export async function createApiServices(base = ''): Promise<Services> {
       refundComplete: async (id) => toOutcome(await http.post(`/api/admin/sandbox/orders/${encodeURIComponent(id)}/refund-complete`)),
       replay: async (id) => toOutcome(await http.post(`/api/admin/sandbox/orders/${encodeURIComponent(id)}/replay`)),
       expire: async (id) => toOutcome(await http.post(`/api/admin/sandbox/orders/${encodeURIComponent(id)}/expire`)),
+      wireInstructions: async (id) => toOutcome(await http.post(`/api/admin/sandbox/orders/${encodeURIComponent(id)}/wire-instructions`)),
+      wireReceived: async (id) => toOutcome(await http.post(`/api/admin/sandbox/orders/${encodeURIComponent(id)}/wire-received`)),
       notifications: async () => (await http.get<J>('/api/admin/sandbox/notifications')).notifications,
     },
   };
@@ -326,7 +335,13 @@ export async function createApiServices(base = ''): Promise<Services> {
           await http.get(
             `/api/quotes/indicative${
               i.direction === 'buy'
-                ? qs({ direction: 'buy', asset: i.asset, network: i.network, cashCents: i.cashCents.toString() })
+                ? qs({
+                    direction: 'buy',
+                    asset: i.asset,
+                    network: i.network,
+                    cashCents: i.cashCents.toString(),
+                    payIn: i.payIn ?? 'courier_cash',
+                  })
                 : qs({ asset: i.asset, network: i.network, amountAtomic: i.amountAtomic.toString(), payoutMethod: i.payoutMethod })
             }`,
           ),
@@ -344,6 +359,22 @@ export async function createApiServices(base = ''): Promise<Services> {
         const r = await http.post<J>('/api/me/verification');
         await refresh();
         return r;
+      },
+      kyc: {
+        // Each read also refreshes the session, so a reviewer's decision reaches the exchange gate.
+        async get() {
+          const r = await http.get<KycState>('/api/me/kyc');
+          if (r.status !== session.current()?.verification.status) await refresh();
+          return r;
+        },
+        setIdType: (idType) => http.put('/api/me/kyc/id-type', { idType }),
+        upload: (file) => http.post('/api/me/kyc/files', file),
+        file: (id) => http.get(`/api/me/kyc/files/${encodeURIComponent(id)}`),
+        async submit() {
+          const r = await http.post<KycState>('/api/me/kyc/submit');
+          await refresh();
+          return r;
+        },
       },
       destinations: async () => (await http.get<{ destinations: Destination[] }>('/api/me/destinations')).destinations,
       addBankAccount: (input) => http.post('/api/me/destinations/bank', input),

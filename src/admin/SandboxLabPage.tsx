@@ -92,17 +92,22 @@ export function SandboxLabPage() {
                 {outbox.data.map((n) => (
                   <li key={n.id}>
                     <p className="note-list__meta small muted">
-                      {formatDateTime(n.createdAt)} {t('· to')} {n.recipient} · {n.template} · {n.status}
+                      {formatDateTime(n.createdAt)} {t('· to')} {n.recipient} · <code>{n.template}</code> · {t(n.status)}
                     </p>
                     <button
                       type="button"
                       className="link-button"
                       aria-expanded={open === n.id}
                       onClick={() => setOpen(open === n.id ? null : n.id)}
+                      lang="en"
                     >
                       {n.subject}
                     </button>
-                    {open === n.id ? <pre className="audit-data">{t(n.body)}</pre> : null}
+                    {open === n.id ? (
+                      <pre className="audit-data" lang="en">
+                        {n.body}
+                      </pre>
+                    ) : null}
                   </li>
                 ))}
               </ul>

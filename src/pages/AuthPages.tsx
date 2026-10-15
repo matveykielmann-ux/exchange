@@ -14,7 +14,7 @@ import { ApiError } from '@/services/http';
 import { isStaff } from '@/state/auth';
 import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
-import { t } from '@/i18n';
+import { getLang, t } from '@/i18n';
 
 function useReturnTo(fallback = '/account'): string {
   const location = useLocation();
@@ -239,7 +239,7 @@ export function SignUpPage() {
   const [state, setState] = useState('');
   const [notRestricted, setNotRestricted] = useState(false);
   const [agree, setAgree] = useState(false);
-  const countries = useMemo(() => countryOptions(), []);
+  const countries = useMemo(() => countryOptions(getLang()), []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

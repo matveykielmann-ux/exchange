@@ -42,7 +42,7 @@ export function AssetNetworkFields({
                   {code} · {ASSETS[code].name}
                 </>
               ),
-              detail: `${ASSETS[code].networks.length} network${ASSETS[code].networks.length > 1 ? 's' : ''}`,
+              detail: t(`${ASSETS[code].networks.length} network${ASSETS[code].networks.length > 1 ? 's' : ''}`),
             }))}
           />
         )}

@@ -21,8 +21,9 @@ import { AxeBuilder } from '@axe-core/playwright';
 const PORT = Number(process.env.QA_PORT ?? 8799);
 const BASE_URL = process.env.BASE_URL ?? `http://localhost:${PORT}`;
 const OUT = process.env.QA_OUT ?? 'qa-output';
-// QA_SCHEME=dark runs every check with the OS set to dark mode (the app follows it).
-const SCHEME = process.env.QA_SCHEME === 'dark' ? 'dark' : 'light';
+// QA_THEME=light runs every check in the light theme (as if chosen with the header toggle); dark is the default.
+const THEME = process.env.QA_THEME === 'light' ? 'light' : 'dark';
+const SCHEME = THEME;
 /** QA_LANG=ru scans every page in Russian (screenshots, overflow, axe); the English-text journeys run only in English. */
 const LANG = process.env.QA_LANG === 'ru' ? 'ru' : 'en';
 const WIDTHS = [1440, 1024, 768, 390];
@@ -33,7 +34,16 @@ const PAGES = (
 )
   .split(',')
   .filter(Boolean);
-const ADMIN_PAGES = ['/admin/orders', '/admin/overview', '/admin/inbox', '/admin/audit', '/admin/users', '/admin/system', '/admin/sandbox'];
+const ADMIN_PAGES = [
+  '/admin/orders',
+  '/admin/overview',
+  '/admin/inbox',
+  '/admin/verification',
+  '/admin/audit',
+  '/admin/users',
+  '/admin/system',
+  '/admin/sandbox',
+];
 const STAFF_PASSWORD = 'sandbox-pass-2026';
 const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
@@ -277,6 +287,64 @@ async function keyboardChecks(browser) {
   await context.close();
 }
 
+/** A tiny valid PNG and PDF: test files for the identity upload (the server checks magic bytes). */
+const TEST_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAGAAAAA8CAIAAAAWtijjAAAAjUlEQVR42u3aMQ3AMAwAQePsUgaF0zkMiilLx2AIgw5WpFTySY/gBtuDo79DHwUCQIAAAQIECBAgAQIE6FdAd3vWBggQoF1Ax3ntDRAgQKWBDGlAgAABAuSSTq9zQIAAlQYypAEBAgQIkEs6scgBAQIEyJAGBAgQIECAAPlRBAQIECABAgQIECBAgAo0AShUa2LxiUirAAAAAElFTkSuQmCC',
+  'base64',
+);
+const TEST_PDF = Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n');
+
+/**
+ * Identity verification by documents: from the exchange gate the customer opens
+ * the verification page, uploads a driver's license (both sides), a selfie and
+ * a proof of address, and sends them; a reviewer approves in the CRM; the
+ * customer returns to the exchange at the same step.
+ */
+async function verifyByDocuments(browser, page, { options, shot, expectText, where }) {
+  const back = page.url();
+  await page.getByRole('link', { name: 'Verify my identity' }).click();
+  await page.waitForURL('**/verification');
+  await page.getByLabel(/Driver’s license/).check();
+  await page.locator('#kyc-id_front').waitFor();
+  for (const [kind, name, buffer, mimeType] of [
+    ['id_front', 'license-front.png', TEST_PNG, 'image/png'],
+    ['id_back', 'license-back.png', TEST_PNG, 'image/png'],
+    ['selfie', 'selfie.png', TEST_PDF, 'application/pdf'],
+    ['proof_of_address', 'utility-bill.pdf', TEST_PDF, 'application/pdf'],
+  ]) {
+    await page.locator(`#kyc-${kind}`).setInputFiles({ name, mimeType, buffer });
+    if (kind === 'selfie') {
+      // A PDF selfie is refused in the browser before upload; then a photo is accepted.
+      await expectText(page, 'Upload a JPEG or PNG file.', 'selfie must be a photo');
+      await page.locator('#kyc-selfie').setInputFiles({ name, mimeType: 'image/png', buffer: TEST_PNG });
+    }
+    await page.locator(`.kyc-slot[data-done="true"] #kyc-${kind}`).waitFor({ timeout: 8000 });
+  }
+  await shot(page, 'kyc-01-uploaded');
+  await page.getByRole('button', { name: 'Send for review' }).click();
+  await expectText(page, 'Your documents are being reviewed', 'kyc submitted');
+  await shot(page, 'kyc-02-in-review');
+
+  const ctx = await browser.newContext(options);
+  const rev = await ctx.newPage();
+  const sink = { consoleErrors: [], pageErrors: [], failedRequests: [] };
+  const flush = instrument(rev, `${where} (reviewer)`, sink);
+  await signIn(rev, 'reviewer@arcvale.test');
+  await go(rev, `${BASE_URL}/admin/verification`);
+  await rev.locator('.admin-table tbody tr').first().getByRole('link').click();
+  await rev.locator('.kyc-doc__img').first().waitFor({ timeout: 8000 });
+  await shot(rev, 'kyc-03-crm-review');
+  await rev.getByRole('button', { name: 'Approve', exact: true }).click();
+  await rev.locator('#kyc-reason').fill('Documents match the profile.');
+  await rev.getByRole('button', { name: 'Approve verification' }).click();
+  await expectText(rev, 'Decided: Approved', 'kyc approved in the CRM');
+  await flush();
+  await ctx.close();
+
+  await expectText(page, 'Your identity is verified', 'customer sees the approval live', 15_000);
+  await go(page, back);
+}
+
 /**
  * The sandbox journey, end to end, as a customer and an operator in two
  * browser contexts. Numbered steps match docs/implementation-status.md.
@@ -383,9 +451,9 @@ async function journey(browser, width) {
   await expectText(page, 'Verify your identity to confirm', 'kyc gate');
   const confirm = page.getByRole('button', { name: /^Confirm exchange/ });
   if (!(await confirm.isDisabled())) fail(where, 'confirm must be disabled before verification');
-  await page.getByRole('button', { name: 'Verify my identity' }).click();
+  await verifyByDocuments(browser, page, { options, shot, expectText, where });
   await expectText(page, 'Expires in', 'firm quote countdown');
-  step(5, 'verified and firm quote locked');
+  step(5, 'verified by documents and firm quote locked');
 
   // 6. Acknowledgements and hold-to-confirm.
   await page.locator('#ack-network').check();
@@ -598,7 +666,7 @@ async function buyJourney(browser, width, server) {
   await page.getByRole('button', { name: /Review quote/ }).click();
   step(3, 'collection address and wallet entered');
 
-  await page.getByRole('button', { name: 'Verify my identity' }).click();
+  await verifyByDocuments(browser, page, { options, shot, expectText, where });
   await expectText(page, 'Expires in', 'firm buy quote');
   await page.locator('#ack-cash').check();
   await page.locator('#ack-buy-docs').check();
@@ -675,8 +743,122 @@ async function buyJourney(browser, width, server) {
   await context.close();
 }
 
+/** Wire → crypto: pay-in by bank wire with placeholder instructions, the customer's "sent" step, autopilot, operator payout. */
+async function wireJourney(browser, width) {
+  const dir = `${OUT}/flow`;
+  await mkdir(dir, { recursive: true });
+  const options = { viewport: { width, height: HEIGHT[width] }, reducedMotion: 'reduce', colorScheme: SCHEME };
+  const context = await browser.newContext(options);
+  const page = await context.newPage();
+  const where = `wire journey @${width}`;
+  const sink = { consoleErrors: [], pageErrors: [], failedRequests: [] };
+  const flush = instrument(page, where, sink);
+  const shot = (p, name) => p.screenshot({ path: `${dir}/${width}-wire-${name}.png`, fullPage: true });
+  const step = (n, label) => report.flow.push({ width, wire: true, step: n, label });
+  const expectText = async (p, text, label, timeout = 8000) => {
+    try {
+      await p.getByText(text, { exact: false }).first().waitFor({ timeout });
+    } catch {
+      fail(where, `expected "${text}" (${label})`);
+    }
+  };
+
+  await go(page, BASE_URL + '/signup');
+  await page.getByLabel('Full legal name').fill('Wira Hoffmann');
+  await page.getByLabel('Email').fill(`wire${width}-${Date.now()}@example.test`);
+  await page.getByLabel('Country of residence').selectOption('DE');
+  await page.getByLabel('Password').fill('correct-horse-battery');
+  await page.locator('#signup-agree').check();
+  await page.locator('#signup-territory').check();
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await page.waitForURL('**/account');
+  step(1, 'customer signed up');
+
+  await go(page, BASE_URL + '/exchange?direction=buy&pay=wire');
+  if (!(await page.locator('#pay-wire').isChecked())) fail(where, 'pay=wire link must preselect the bank wire');
+  const amount = page.getByLabel('Dollars you wire (USD)');
+  await amount.fill('600');
+  await expectText(page, 'Paying by wire isn’t available for this amount', 'wire minimum');
+  await amount.fill('2000');
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('button[type=submit]')].some((b) => b.textContent.trim().startsWith('Continue') && !b.disabled),
+  );
+  await shot(page, '01-amount');
+  await page.getByRole('button', { name: /^Continue/ }).click();
+  step(2, 'wire chosen, quote shown with the wire fee');
+
+  await expectText(page, 'Where should we send the crypto?', 'wallet step without a collection address');
+  await page.getByLabel(/wallet address/).fill('TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE');
+  await page.getByRole('button', { name: /Review quote/ }).click();
+  await page.getByRole('button', { name: 'Verify my identity' }).click();
+  await expectText(page, 'Expires in', 'firm wire quote');
+  await expectText(page, 'I will wire exactly', 'wire acknowledgement');
+  await page.locator('#ack-cash').check();
+  await page.locator('#ack-buy-docs').check();
+  await shot(page, '02-review');
+  const confirm = page.getByRole('button', { name: /^Confirm exchange/ });
+  await confirm.hover();
+  await page.mouse.down();
+  await page.waitForTimeout(1300);
+  await page.mouse.up();
+  await page.waitForURL('**/orders/ord_*');
+  step(3, 'wire order placed');
+
+  // The sandbox autopilot issues the placeholder instructions (the CRM can do the same step).
+  await waitForHeading(page, 'Awaiting wire', where, 30_000);
+  await expectText(page, 'DEMO-ROUTING-NOT-ISSUED', 'routing number is a placeholder');
+  await expectText(page, 'Demo instructions. Do not send a wire.', 'instructions labelled as demo');
+  const reference = (await page.locator('.eyebrow .mono').first().textContent())?.trim();
+  await shot(page, '03-instructions');
+  await page.getByLabel('Your bank’s reference (optional)').fill('FED 20261015 0042');
+  await page.getByRole('button', { name: 'I’ve sent the wire' }).click();
+  await expectText(page, 'You marked the wire as sent', 'customer marked the wire sent');
+  step(4, `instructions shown for ${reference}; wire marked sent`);
+
+  await waitForHeading(page, 'Ready to send crypto', where, 60_000);
+  step(5, 'wire received and matched by signed bank events');
+
+  const staffCtx = await browser.newContext(options);
+  const admin = await staffCtx.newPage();
+  const adminSink = { consoleErrors: [], pageErrors: [], failedRequests: [] };
+  const adminFlush = instrument(admin, `${where} (admin)`, adminSink);
+  await signIn(admin, 'admin@arcvale.test');
+  await admin.waitForURL('**/admin/orders');
+  await go(admin, `${BASE_URL}/admin/orders/${page.url().split('/').pop()}`);
+  await expectText(admin, 'Buy · wire → crypto', 'admin sees the wire direction');
+  await admin.locator('.action-bar').getByRole('button', { name: 'Confirm payout' }).click();
+  await admin.locator('.dialog #reason-text').fill('Wire matched; sending USDT.');
+  await admin.locator('.dialog').getByRole('button', { name: 'Confirm payout' }).click();
+  await admin.locator('.order-status-line', { hasText: /Crypto transfer|Completed/ }).waitFor({ timeout: 15_000 });
+  await shot(admin, '04-admin');
+  step(6, 'operator authorized the crypto transfer');
+
+  await waitForHeading(page, 'Completed', where, 60_000);
+  await expectText(page, 'Paid by wire', 'wire success screen');
+  await expectText(page, 'nothing was wired, sent or broadcast', 'no real-transfer claim');
+  await shot(page, '05-completed');
+  const ov = await overflow(page);
+  if (ov) fail(where, `order page overflow ${ov.scrollWidth}px`);
+  step(7, 'success screen');
+
+  flush();
+  adminFlush();
+  report.flow.push({ width, wire: true, ...sink, admin: adminSink });
+  await staffCtx.close();
+  await context.close();
+}
+
 const server = await ensureServer();
 const browser = await chromium.launch();
+if (THEME === 'light') {
+  // Every context starts with the light theme stored, the way the header toggle saves it.
+  const newContext = browser.newContext.bind(browser);
+  browser.newContext = async (options) => {
+    const context = await newContext(options);
+    await context.addInitScript(() => window.localStorage.setItem('cryptobit.theme', 'light'));
+    return context;
+  };
+}
 try {
   if (!process.env.QA_JOURNEY) {
     await scanPages(browser);
@@ -684,13 +866,17 @@ try {
   }
   if (LANG === 'ru') {
     // Journeys select controls by their English text.
-  } else if (process.env.QA_JOURNEY !== 'buy') {
+  } else if (!process.env.QA_JOURNEY || process.env.QA_JOURNEY === 'sell') {
     await journey(browser, 1440);
     await journey(browser, 390);
   }
-  if (LANG === 'en' && process.env.QA_JOURNEY !== 'sell') {
+  if (LANG === 'en' && (!process.env.QA_JOURNEY || process.env.QA_JOURNEY === 'buy')) {
     await buyJourney(browser, 1440, server);
     await buyJourney(browser, 390, server);
+  }
+  if (LANG === 'en' && (!process.env.QA_JOURNEY || process.env.QA_JOURNEY === 'wire')) {
+    // QA_WIRE_WIDTHS=1440 runs a single pass.
+    for (const w of (process.env.QA_WIRE_WIDTHS ?? '1440,390').split(',').map(Number)) await wireJourney(browser, w);
   }
 } catch (e) {
   fail('runner', e instanceof Error ? e.stack : String(e));

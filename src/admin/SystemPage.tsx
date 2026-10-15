@@ -33,7 +33,7 @@ export function SystemPage() {
             <Notice tone="warn" title={t('Configuration warnings')}>
               <ul>
                 {s.warnings.map((w) => (
-                  <li key={w}>{w}</li>
+                  <li key={w}>{t(w)}</li>
                 ))}
               </ul>
             </Notice>
@@ -162,7 +162,7 @@ export function SystemPage() {
                           <span
                             className={`badge badge--${w.status === 'processed' ? 'success' : w.status === 'failed' ? 'danger' : 'neutral'}`}
                           >
-                            {w.status}
+                            {t(w.status)}
                           </span>
                           {w.error ? <span className="small muted block">{w.error}</span> : null}
                         </td>

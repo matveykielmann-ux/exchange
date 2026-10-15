@@ -575,4 +575,112 @@ WHEN OLD.refund_address IS NOT NULL
 BEGIN SELECT RAISE(ABORT, 'the refund address is already set'); END;
 `,
   },
+  {
+    id: 6,
+    name: 'kyc_documents',
+    sql: `
+-- Identity verification by documents (Service Rules 8.1): a photo ID, a selfie and a proof of address,
+-- reviewed by a reviewer or admin in the CRM. One submission per attempt; the files belong to it.
+CREATE TABLE kyc_submissions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  id_type TEXT NOT NULL CHECK (id_type IN ('drivers_license','state_id','passport')),
+  status TEXT NOT NULL CHECK (status IN ('draft','submitted','approved','needs_info','rejected')),
+  decision_reason TEXT CHECK (decision_reason IS NULL OR length(decision_reason) <= 500),
+  reviewed_by TEXT REFERENCES users(id),
+  reviewed_at INTEGER,
+  submitted_at INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX kyc_submissions_user ON kyc_submissions(user_id, created_at DESC);
+CREATE INDEX kyc_submissions_status ON kyc_submissions(status, submitted_at);
+
+-- The file content is AES-256-GCM ciphertext (the data encryption key); it is never returned in lists.
+CREATE TABLE kyc_files (
+  id TEXT PRIMARY KEY,
+  submission_id TEXT NOT NULL REFERENCES kyc_submissions(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('id_front','id_back','selfie','proof_of_address')),
+  file_name TEXT NOT NULL CHECK (length(file_name) BETWEEN 1 AND 120),
+  content_type TEXT NOT NULL CHECK (content_type IN ('image/jpeg','image/png','application/pdf')),
+  size_bytes INTEGER NOT NULL CHECK (size_bytes > 0),
+  sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
+  content_enc TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  UNIQUE (submission_id, kind)
+);
+CREATE INDEX kyc_files_user ON kyc_files(user_id);
+`,
+  },
+  {
+    id: 7,
+    name: 'orders_wire_buy',
+    // Rebuilds orders (SQLite cannot alter a CHECK constraint); see Migration.disableForeignKeys.
+    disableForeignKeys: true,
+    sql: `
+-- A buy can be paid by bank wire: it has no saved destination, so payout_destination_id may be null
+-- for a wire buy (and only then). payout_method holds the pay-in of a buy: courier_cash or wire.
+CREATE TABLE orders_v6 (
+  id TEXT PRIMARY KEY,
+  reference TEXT NOT NULL UNIQUE,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  quote_id TEXT NOT NULL UNIQUE REFERENCES quotes(id),
+  ${ORDER_STATUS_CHECK.replace('status IN', 'status TEXT NOT NULL CHECK (status IN')}),
+  version INTEGER NOT NULL DEFAULT 1,
+  source TEXT NOT NULL CHECK (source IN ('sandbox','live')),
+  asset TEXT NOT NULL,
+  network TEXT NOT NULL,
+  ${digits('amount_atomic')},
+  ${digits('reference_price_micros')},
+  ${cents('gross_cents')},
+  spread_bps INTEGER NOT NULL,
+  ${cents('spread_cents')},
+  ${cents('payout_fee_cents')},
+  ${cents('net_cents')},
+  payout_method TEXT NOT NULL CHECK (payout_method IN ('ach','wire','instant_debit','courier_cash')),
+  payout_destination_id TEXT REFERENCES payout_destinations(id),
+  payout_label TEXT NOT NULL,
+  payout_last4 TEXT NOT NULL,
+  refund_address TEXT CHECK (refund_address IS NULL OR length(refund_address) BETWEEN 20 AND 128),
+  deposit_deadline INTEGER NOT NULL,
+  confirmations_required INTEGER NOT NULL CHECK (confirmations_required > 0),
+  confirmations_count INTEGER NOT NULL DEFAULT 0 CHECK (confirmations_count >= 0),
+  deposit_tx_hash TEXT,
+  ${digits('deposit_amount_atomic', true)},
+  deposit_exception TEXT CHECK (deposit_exception IS NULL OR deposit_exception IN ('amount_mismatch','late','order_closed')),
+  review_reason TEXT,
+  payout_provider_ref TEXT,
+  refund_tx_hash TEXT,
+  assigned_operator_id TEXT REFERENCES users(id),
+  customer_reported_sent_at INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  closed_at INTEGER,
+  direction TEXT NOT NULL DEFAULT 'sell' CHECK (direction IN ('sell','buy')),
+  on_hold INTEGER NOT NULL DEFAULT 0 CHECK (on_hold IN (0,1)),
+  CHECK (gross_cents - spread_cents - payout_fee_cents = net_cents),
+  CHECK (direction = 'sell' OR refund_address IS NOT NULL),
+  CHECK (payout_destination_id IS NOT NULL OR (direction = 'buy' AND payout_method = 'wire'))
+);
+INSERT INTO orders_v6 (id, reference, user_id, quote_id, status, version, source, asset, network, amount_atomic, reference_price_micros, gross_cents, spread_bps, spread_cents, payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label, payout_last4, refund_address, deposit_deadline, confirmations_required, confirmations_count, deposit_tx_hash, deposit_amount_atomic, deposit_exception, review_reason, payout_provider_ref, refund_tx_hash, assigned_operator_id, customer_reported_sent_at, created_at, updated_at, closed_at, direction, on_hold) SELECT id, reference, user_id, quote_id, status, version, source, asset, network, amount_atomic, reference_price_micros, gross_cents, spread_bps, spread_cents, payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label, payout_last4, refund_address, deposit_deadline, confirmations_required, confirmations_count, deposit_tx_hash, deposit_amount_atomic, deposit_exception, review_reason, payout_provider_ref, refund_tx_hash, assigned_operator_id, customer_reported_sent_at, created_at, updated_at, closed_at, direction, on_hold FROM orders;
+DROP TABLE orders;
+ALTER TABLE orders_v6 RENAME TO orders;
+CREATE INDEX orders_user ON orders(user_id, created_at DESC);
+CREATE INDEX orders_status ON orders(status, updated_at);
+CREATE INDEX orders_assigned ON orders(assigned_operator_id);
+CREATE INDEX orders_created ON orders(created_at DESC);
+CREATE INDEX orders_deadline ON orders(status, deposit_deadline);
+
+-- The accepted quote and amounts stay an immutable snapshot. The refund address can be set once, never changed.
+CREATE TRIGGER orders_snapshot_immutable BEFORE UPDATE OF
+  quote_id, user_id, source, asset, network, amount_atomic, reference_price_micros, gross_cents, spread_bps, spread_cents,
+  payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label, payout_last4,
+  deposit_deadline, confirmations_required, reference, created_at, direction
+ON orders BEGIN SELECT RAISE(ABORT, 'order snapshot fields are immutable'); END;
+CREATE TRIGGER orders_refund_address_once BEFORE UPDATE OF refund_address ON orders
+WHEN OLD.refund_address IS NOT NULL
+BEGIN SELECT RAISE(ABORT, 'the refund address is already set'); END;
+`,
+  },
 ];

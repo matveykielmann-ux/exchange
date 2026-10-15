@@ -101,7 +101,8 @@
 }
 .stat strong {
   display: block;
-  font-size: 1.375rem;
+  font-size: clamp(1.0625rem, 0.92rem + 0.45vw, 1.375rem);
+  line-height: 1.25;
   letter-spacing: -0.02em;
   color: var(--ink-900);
   font-variant-numeric: tabular-nums;
@@ -138,7 +139,49 @@
   margin-top: 2px;
 }
 
-/* Hero art: the CryptoBit mark (globe with the orbit arrow) over a soft gold glow and star field. */
+/* Hero art: 3D BTC and USD coins (three.js). The glows sit behind the canvas. */
+.hero-coins {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1.08;
+  isolation: isolate;
+}
+.hero-coins::before,
+.hero-coins::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  filter: blur(36px);
+  pointer-events: none;
+}
+.hero-coins::before {
+  inset: 18% 42% 26% 8%;
+  background: radial-gradient(closest-side, rgb(212 162 76 / 38%), transparent);
+}
+.hero-coins::after {
+  inset: 28% 6% 22% 50%;
+  background: radial-gradient(closest-side, rgb(200 204 214 / 22%), transparent);
+}
+.hero-coins__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: 0;
+  transition: opacity 600ms var(--ease);
+}
+.hero-coins__canvas.is-ready {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-coins__canvas {
+    transition: none;
+  }
+}
+
+/* Fallback hero art without WebGL: the CryptoBit mark (globe with the orbit arrow) over a soft gold glow and star field. */
 .hero-globe {
   position: relative;
   display: grid;
@@ -515,6 +558,7 @@
 }
 .flow__head {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-6);
   margin-bottom: var(--s-10);
 }
@@ -526,6 +570,7 @@
 }
 .flow__main {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-8);
 }
 .flow__aside {
@@ -706,7 +751,7 @@
 }
 @media (max-width: 900px) {
   .account-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .account-nav {
     position: static;
@@ -761,7 +806,7 @@
 }
 @media (max-width: 900px) {
   .content-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--s-6);
   }
   .toc {
@@ -832,6 +877,16 @@
 /* Exchange direction, step transitions */
 .direction-switch button {
   min-height: 40px;
+}
+@media (max-width: 640px) {
+  /* Two long labels (especially in Russian): share the width and wrap inside the buttons. */
+  .direction-switch {
+    width: 100%;
+  }
+  .direction-switch button {
+    flex: 1 1 0;
+    min-width: 0;
+  }
 }
 .flow__step {
   animation: step-in 220ms var(--ease) both;
@@ -974,4 +1029,77 @@
 .flow__support {
   margin-top: var(--s-8);
   max-width: 720px;
+}
+.rules-quote__lang {
+  display: block;
+  margin-top: var(--s-1);
+}
+
+/* ---------- Identity verification (customer) ---------- */
+.kyc-page {
+  padding-block: var(--s-6) var(--s-8);
+}
+.kyc-types {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+.kyc-types legend {
+  grid-column: 1 / -1;
+}
+.kyc-slots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-4);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.kyc-slot {
+  display: grid;
+  gap: var(--s-3);
+  align-content: start;
+  min-width: 0;
+  padding: var(--s-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  background: var(--surface);
+}
+.kyc-slot[data-done='true'] {
+  border-color: var(--success-line);
+}
+.kyc-slot__head {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: var(--s-3);
+  align-items: start;
+}
+.kyc-slot__icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-sunken);
+  color: var(--ink-700);
+}
+.kyc-slot[data-done='true'] .kyc-slot__icon {
+  color: var(--success);
+}
+.kyc-slot__title {
+  margin: 0 0 2px;
+  font-size: 1rem;
+}
+.kyc-slot__file {
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+.kyc-slot__preview {
+  display: block;
+  max-width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+.kyc-slot input[type='file'] {
+  max-width: 100%;
 }

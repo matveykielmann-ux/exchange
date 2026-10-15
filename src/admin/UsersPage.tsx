@@ -166,9 +166,9 @@ export function UsersPage() {
                     </th>
                     <td>{t(ROLE_LABEL[u.role])}</td>
                     <td>
-                      <span className={`badge badge--${u.status === 'active' ? 'success' : 'neutral'}`}>{u.status}</span>
+                      <span className={`badge badge--${u.status === 'active' ? 'success' : 'neutral'}`}>{t(u.status)}</span>
                     </td>
-                    <td className="small">{u.kycStatus ?? '—'}</td>
+                    <td className="small">{u.kycStatus ? t(u.kycStatus) : '—'}</td>
                     <td className="small">{u.totpEnabled ? t('On') : t('Off')}</td>
                     <td className="small tabular">{formatDateTime(u.createdAt)}</td>
                     <td>

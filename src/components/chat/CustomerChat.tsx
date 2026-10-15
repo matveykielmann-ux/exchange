@@ -35,7 +35,7 @@ export function ConversationList({
             <span className="conv-item__top">
               <span className="conv-item__subject">{c.subject}</span>
               {c.unread ? (
-                <span className="unread-pill" aria-label={`${c.unread} unread`}>
+                <span className="unread-pill" aria-label={t('{0} unread', [c.unread])}>
                   {c.unread}
                 </span>
               ) : null}

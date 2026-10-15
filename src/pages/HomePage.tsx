@@ -1,6 +1,7 @@
 import { useIsSandbox } from '@/state/config';
 import { Link } from 'react-router-dom';
 import { Calculator } from '@/components/Calculator';
+import { HeroArt } from '@/components/HeroArt';
 import { Icon } from '@/components/Icon';
 import { QuoteBreakdown } from '@/components/QuoteBreakdown';
 import { AssetMark, MockBadge } from '@/components/ui';
@@ -55,7 +56,7 @@ export function HomePage() {
             </p>
             <p className="lead">
               {t(
-                'Send BTC, ETH, USDT or USDC and receive US dollars in your bank account, with the exchange rate and the payout fee listed as separate lines.',
+                'Send BTC, ETH, USDT or USDC and receive US dollars in your bank account, with the market exchange rate and the fee listed as separate lines.',
               )}
             </p>
             <div className="row hero__ctas">
@@ -71,9 +72,7 @@ export function HomePage() {
             </div>
           </div>
           <div className="hero__art">
-            <div className="hero-globe">
-              <img src="/brand/cryptobit-mark.webp" alt="" width="312" height="220" decoding="async" fetchPriority="high" />
-            </div>
+            <HeroArt />
           </div>
         </div>
         <div className="container">
@@ -155,9 +154,9 @@ export function HomePage() {
             </h2>
             <p className="lead">
               {t(
-                'We list the exchange rate and the payout fee separately, so you can check the math yourself. How the commission is defined is set out in Section 6 of the',
+                'We list the exchange rate and the fee separately, so you can check the math yourself. How the commission is defined is set out in',
               )}{' '}
-              <Link to="/legal/fees">{t('Service Rules')}</Link>.
+              <Link to="/legal/fees">{t('Section 6 of the Service Rules')}</Link>.
             </p>
           </div>
           <div className="anatomy__grid">
@@ -166,14 +165,14 @@ export function HomePage() {
                 <span className="anatomy__num">1</span>
                 <div>
                   <h3>{t('Exchange rate')}</h3>
-                  <p>{t('The rate you get per coin at the moment of the quote, with our commission already included.')}</p>
+                  <p>{t('The market rate per coin at the moment of the quote. There is no spread.')}</p>
                 </div>
               </li>
               <li>
                 <span className="anatomy__num">2</span>
                 <div>
-                  <h3>{t('Payout fee')}</h3>
-                  <p>{t('Set by the payout method you choose. Bank transfer has no payout fee.')}</p>
+                  <h3>{t('Exchange fee')}</h3>
+                  <p>{t('3% of the value, for bank transfer, wire and debit card. Cash by courier has a courier fee instead.')}</p>
                 </div>
               </li>
               <li>
@@ -269,7 +268,11 @@ export function HomePage() {
                       </th>
                       <td data-label={t('Networks')}>{a.networks.map((n) => networkLabel(code, n.network)).join(', ')}</td>
                       <td data-label={t('Confirmations')} className="tabular">
-                        {a.networks.map((n) => `${NETWORKS[n.network].confirmationsRequired} on ${NETWORKS[n.network].name}`).join(' · ')}
+                        {a.networks
+                          .map((n) =>
+                            t('{n} on {network}', { n: NETWORKS[n.network].confirmationsRequired, network: NETWORKS[n.network].name }),
+                          )
+                          .join(' · ')}
                       </td>
                     </tr>
                   );

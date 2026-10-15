@@ -370,8 +370,13 @@
   gap: var(--s-3) var(--s-4);
   align-items: end;
 }
+.filters > * {
+  /* Long option labels (Russian) must not widen the grid. */
+  min-width: 0;
+}
 .filters .input,
 .filters .select {
+  width: 100%;
   min-height: 42px;
   padding-block: 8px;
 }
@@ -630,6 +635,11 @@
 }
 .queue-filters .filters {
   margin-top: var(--s-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));
+}
+/* Open filters take the full row, so the fields are not squeezed next to the search box. */
+.queue-filters[open] {
+  grid-column: 1 / -1;
 }
 @media (max-width: 760px) {
   .queue-tools {
@@ -942,5 +952,40 @@
   .exchange-sides__arrow {
     transform: rotate(90deg);
     justify-self: start;
+  }
+}
+
+/* ---------- Identity verification review ---------- */
+.kyc-review {
+  display: grid;
+  gap: var(--s-5);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  align-items: start;
+}
+.kyc-docs {
+  display: grid;
+  gap: var(--s-4);
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+.kyc-doc {
+  margin: 0;
+  display: grid;
+  gap: var(--s-2);
+  align-content: start;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.kyc-doc__img {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-sunken);
+}
+@media (max-width: 900px) {
+  .kyc-review {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

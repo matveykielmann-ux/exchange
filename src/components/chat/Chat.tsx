@@ -189,17 +189,17 @@ export function ChatComposer({
           onChange={(e) => setBody(e.target.value)}
           onKeyDown={onKeyDown}
           aria-invalid={tooLong || undefined}
-          aria-describedby="chat-input-hint"
+          aria-describedby={tooLong ? 'chat-input-hint' : undefined}
         />
         <button type="submit" className="btn chat-composer__send" disabled={!trimmed || tooLong || disabled} aria-label={t('Send message')}>
           <Icon name="send" width={18} height={18} />
         </button>
       </div>
-      <p id="chat-input-hint" className={`small ${tooLong ? 'field__error' : 'muted'}`}>
-        {tooLong
-          ? t('Messages can be up to {0} characters.', [MAX_MESSAGE])
-          : t('Enter to send, Shift+Enter for a new line. Never share passwords, seed phrases or full card numbers.')}
-      </p>
+      {tooLong ? (
+        <p id="chat-input-hint" className="small field__error">
+          {t('Messages can be up to {0} characters.', [MAX_MESSAGE])}
+        </p>
+      ) : null}
     </form>
   );
 }

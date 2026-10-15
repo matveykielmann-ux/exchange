@@ -46,7 +46,7 @@ function Stepper({ current }: { current: number }) {
               <span className="stepper__num" aria-hidden="true">
                 {state === 'done' ? <Icon name="check" /> : n}
               </span>
-              <span className="stepper__text">{label}</span>
+              <span className="stepper__text">{t(label)}</span>
               {state === 'done' ? <span className="visually-hidden">{t('(completed)')}</span> : null}
             </span>
           </li>
@@ -510,7 +510,7 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
 
         <p className="small muted">
           {t(
-            'The exchange rate, payout fee, minimum, quote validity and deposit window shown here are the conditions of this exchange. Under clause 4.24 of the',
+            'The exchange rate, fee, minimum, quote validity and deposit window shown here are the conditions of this exchange. Under clause 4.24 of the',
           )}{' '}
           <Link to="/legal/terms#clause-4-24">{t('Service Rules')}</Link>
           {t(

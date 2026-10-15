@@ -8,11 +8,12 @@
  * code keeps using the domain's exact money types.
  */
 import type { AssetCode, NetworkId } from '@/domain/assets';
+import type { IdDocumentType, KycFileKind, KycSubmissionStatus } from '@/domain/identity';
 import type { AtomicAmount, Cents, Micros } from '@/domain/money';
 import type { OrderEventType, OrderStage, OrderStatus, OrderStep } from '@/domain/order';
 import type { PayoutMethodId } from '@/domain/payout';
 import type { CourierDeliveryInput, CourierWindow } from '@/domain/courier';
-import type { ExchangeDirection, Quote, QuoteIssue } from '@/domain/quote';
+import type { BuyPayIn, ExchangeDirection, Quote, QuoteIssue } from '@/domain/quote';
 
 export type AppMode = 'sandbox' | 'production';
 export type ProviderState = 'sandbox' | 'configured' | 'not_configured' | 'disabled_by_policy';
@@ -63,6 +64,8 @@ export interface ReferencePrice {
   priceMicros: Micros;
   asOf: number;
   source: 'sandbox' | 'live';
+  /** Set when the price comes from a public market-data feed (indicative). */
+  feed?: 'coingecko';
 }
 
 export interface SellQuoteInput {
@@ -73,12 +76,14 @@ export interface SellQuoteInput {
   payoutMethod: PayoutMethodId;
 }
 
-/** Cash → crypto: the dollars the customer hands to the courier. */
+/** Cash or wire → crypto: the dollars the customer pays. */
 export interface BuyQuoteInput {
   direction: 'buy';
   asset: AssetCode;
   network: NetworkId;
   cashCents: Cents;
+  /** Cash handed to a courier (default) or a bank wire. */
+  payIn?: BuyPayIn;
 }
 
 export type QuoteInput = SellQuoteInput | BuyQuoteInput;
@@ -150,8 +155,10 @@ export interface OrderView {
   id: string;
   reference: string;
   source: 'sandbox' | 'live';
-  /** sell: crypto → USD. buy: cash collected by courier → crypto. */
+  /** sell: crypto → USD. buy: cash collected by courier, or a bank wire → crypto. */
   direction: ExchangeDirection;
+  /** Buy orders: how the dollars are paid. Null for a sell. */
+  payIn: BuyPayIn | null;
   status: OrderStatus;
   /** Pipeline stage derived on the server from the status and the hold flag. */
   stage: OrderStage;
@@ -187,6 +194,8 @@ export interface OrderView {
   refundAddressNeeded: boolean;
   /** Buy orders: the wallet that receives the crypto. */
   receiveAddress: string | null;
+  /** Wire buys, once issued: the wire instructions. Every bank field is a demo placeholder. */
+  wireInstructions: { label: string; value: string; placeholder: boolean }[] | null;
   documents: OrderDocumentView[];
   deposit: {
     address: string | null;
@@ -355,6 +364,34 @@ export interface SessionStore {
   subscribe(listener: () => void): () => void;
 }
 
+/* ---------- Identity verification by documents ---------- */
+export interface KycFileView {
+  id: string;
+  kind: KycFileKind;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: number;
+}
+export interface KycSubmissionView {
+  id: string;
+  idType: IdDocumentType;
+  status: KycSubmissionStatus;
+  /** The reviewer's note when more information is needed. */
+  reason: string | null;
+  submittedAt: number | null;
+  reviewedAt: number | null;
+  files: KycFileView[];
+  missing: KycFileKind[];
+}
+export interface KycState {
+  status: KycStatus;
+  submission: KycSubmissionView | null;
+}
+export interface KycFileContent extends KycFileView {
+  dataBase64: string;
+}
+
 export interface AccountApi {
   profile(): Promise<User>;
   updateProfile(patch: {
@@ -364,6 +401,13 @@ export interface AccountApi {
     stateOfResidence: string | null;
   }): Promise<User>;
   startVerification(): Promise<{ status: KycStatus; hostedUrl: string | null }>;
+  kyc: {
+    get(): Promise<KycState>;
+    setIdType(idType: IdDocumentType): Promise<KycState>;
+    upload(file: { kind: KycFileKind; fileName: string; contentType: string; dataBase64: string }): Promise<KycState>;
+    file(id: string): Promise<KycFileContent>;
+    submit(): Promise<KycState>;
+  };
   destinations(): Promise<Destination[]>;
   addBankAccount(input: {
     label: string;

@@ -11,7 +11,10 @@ export type PayoutMethodId = 'ach' | 'wire' | 'instant_debit' | 'courier_cash';
 export type FeeSchedule =
   | { kind: 'none' }
   | { kind: 'flat'; cents: Cents }
-  | { kind: 'percent'; bps: number; minCents: Cents; maxCents: Cents };
+  | { kind: 'percent'; bps: number; minCents: Cents | null; maxCents: Cents | null };
+
+/** The exchange fee on every method except courier cash (owner decision, 2026-10-15). There is no spread. */
+export const EXCHANGE_FEE: FeeSchedule = { kind: 'percent', bps: 300, minCents: null, maxCents: null };
 
 export type Availability = { available: true } | { available: false; reason: string };
 
@@ -32,7 +35,7 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
     name: 'Bank transfer (ACH)',
     summary: 'To a US checking or savings account.',
     timingEstimate: 'Estimated 1–3 business days',
-    fee: { kind: 'none' },
+    fee: EXCHANGE_FEE,
     minCents: 50_00n,
     availability: { available: true },
   },
@@ -41,7 +44,7 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
     name: 'Domestic wire',
     summary: 'To a US bank account. Suited to larger amounts.',
     timingEstimate: 'Estimated same or next business day',
-    fee: { kind: 'flat', cents: 25_00n },
+    fee: EXCHANGE_FEE,
     minCents: 1_000_00n,
     availability: { available: true },
   },
@@ -50,7 +53,7 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
     name: 'Debit card',
     summary: 'Push to an eligible US Visa or Mastercard debit card.',
     timingEstimate: 'Estimated within 30 minutes; can take longer',
-    fee: { kind: 'percent', bps: 150, minCents: 1_00n, maxCents: 25_00n },
+    fee: EXCHANGE_FEE,
     minCents: 50_00n,
     availability: { available: true },
   },
@@ -82,8 +85,8 @@ export function payoutFeeCents(method: PayoutMethod, grossCents: Cents): Cents {
       return fee.cents;
     case 'percent': {
       const raw = divRoundHalfUp(grossCents * BigInt(fee.bps), 10_000n);
-      if (raw < fee.minCents) return fee.minCents;
-      if (raw > fee.maxCents) return fee.maxCents;
+      if (fee.minCents !== null && raw < fee.minCents) return fee.minCents;
+      if (fee.maxCents !== null && raw > fee.maxCents) return fee.maxCents;
       return raw;
     }
   }
@@ -95,8 +98,11 @@ export function describeFee(fee: FeeSchedule): string {
       return 'No payout fee';
     case 'flat':
       return `${formatUsd(fee.cents)} flat`;
-    case 'percent':
-      return `${formatBps(fee.bps)} (min ${formatUsd(fee.minCents)}, max ${formatUsd(fee.maxCents)})`;
+    case 'percent': {
+      const caps = [fee.minCents !== null && `min ${formatUsd(fee.minCents)}`, fee.maxCents !== null && `max ${formatUsd(fee.maxCents)}`];
+      const c = caps.filter(Boolean).join(', ');
+      return c ? `${formatBps(fee.bps)} (${c})` : `${fee.bps / 100}%`;
+    }
   }
 }
 
@@ -121,6 +127,11 @@ export function payoutOptions(grossCents: Cents | null): PayoutOption[] {
     if (grossCents === null) return { method, eligibility: { eligible: false, reason: 'Enter an amount first.' }, feeCents: 0n };
     return { method, eligibility: payoutEligibility(method, grossCents), feeCents: payoutFeeCents(method, grossCents) };
   });
+}
+
+/** What the fee line on a quote is called for this method. */
+export function feeLineLabel(id: PayoutMethodId): string {
+  return id === 'courier_cash' ? 'Courier fee' : 'Exchange fee';
 }
 
 /** Short label for a computed fee, e.g. "No fee" or "$25.00 fee". */

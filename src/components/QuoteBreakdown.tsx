@@ -1,6 +1,6 @@
 import { NETWORKS, networkLabel } from '@/domain/assets';
 import { formatUsd } from '@/domain/money';
-import { PAYOUT_METHODS, describeFee } from '@/domain/payout';
+import { PAYOUT_METHODS, describeFee, feeLineLabel } from '@/domain/payout';
 import { exchangeRateMicros, valueAtRateCents, type Quote } from '@/domain/quote';
 import { formatAsset, formatPriceMicros } from '@/lib/format';
 import { InfoHint } from './InfoHint';
@@ -8,7 +8,7 @@ import { RollingAmount } from './RollingAmount';
 import { t } from '@/i18n';
 
 /**
- * The quote anatomy. Rows reconcile exactly: value at the customer's rate − fee = net.
+ * The quote anatomy. Rows reconcile exactly: value at the market rate − fee = net (there is no spread).
  * `loading` greys the figures while a refresh is in flight.
  */
 export function QuoteBreakdown({ quote, loading = false, compact = false }: { quote: Quote; loading?: boolean; compact?: boolean }) {
@@ -34,8 +34,8 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
             <span className="quote-lines__term">
               {t('Exchange rate')}
               <InfoHint label={t('the exchange rate')}>
-                {t('The rate you get for')} {quote.asset}{' '}
-                {t('on this quote. Our commission is already included in it; the payout fee below is the only other deduction.')}
+                {t('The market rate for')} {quote.asset}{' '}
+                {t('at the moment of this quote. There is no spread: the fee below is the only deduction.')}
               </InfoHint>
             </span>
             <small>
@@ -51,8 +51,8 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
         <div className="is-deduction">
           <dt>
             <span className="quote-lines__term">
-              {t('Payout fee')}
-              <InfoHint label={t('the payout fee')}>
+              {t(feeLineLabel(quote.payoutMethod))}
+              <InfoHint label={t('the fee')}>
                 {t(method.name)}: {t(describeFee(method.fee))}. {t(method.timingEstimate)}.
               </InfoHint>
             </span>
@@ -78,7 +78,7 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
 
 /**
  * Buy quote (cash → crypto): cash paid − courier fee, converted at the
- * customer's rate (commission included) into the crypto they receive.
+ * market rate (no spread) into the crypto they receive.
  */
 export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; loading?: boolean }) {
   const method = PAYOUT_METHODS[quote.payoutMethod];
@@ -110,7 +110,7 @@ export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; lo
             {t('Exchange rate')}
             <small>
               {t('Per')} {quote.asset}
-              {t(', commission included')}
+              {t(', market rate')}
             </small>
           </dt>
           <dd className={sk}>{formatPriceMicros(buyRateMicros(quote), quote.asset)}</dd>
@@ -128,7 +128,7 @@ export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; lo
   );
 }
 
-/** Buy: dollars paid after the courier fee, per whole unit of crypto received (commission included). */
+/** Buy: dollars paid after the courier fee, per whole unit of crypto received. */
 function buyRateMicros(quote: Quote) {
   return exchangeRateMicros({ ...quote, grossCents: quote.grossCents - quote.payoutFeeCents, spreadCents: 0n });
 }

@@ -3,7 +3,7 @@
 @layer theme, base, components, utilities;
 
 /* Design tokens — see docs/design-spec.md §4. CryptoBit brand: one dark theme (deep black, graphite
-   surfaces, champagne-gold accent, white and soft-silver text). */
+   surfaces, champagne-gold accent, white and soft-silver text) by default, with an optional light theme. */
 :root {
   color-scheme: dark;
 
@@ -67,8 +67,9 @@
   --silver: #e8e8e8;
 
   /* Type */
-  --font-display: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Montserrat (OFL, bundled, Latin and Cyrillic), chosen by the owner on 2026-10-15. */
+  --font-display: 'Montserrat Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Montserrat Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'Geist Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
   --fs-display-xl: clamp(2.5rem, 1.5rem + 3.9vw, 4.5rem);
@@ -111,6 +112,58 @@
 
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --dur: 160ms;
+}
+
+/* Light theme: chosen with the header toggle (stored on this device, applied before first paint by
+   public/theme-init.js). Warm ivory canvas, white surfaces, near-black ink; the gold accent is
+   deepened so text in it stays readable. Dark stays the default. */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --canvas: #f7f4ee;
+  --surface: #ffffff;
+  --surface-sunken: #efebe2;
+  --line: rgb(60 48 20 / 13%);
+  --line-strong: #b3ab9b;
+
+  --ink-900: #15130f;
+  --ink-800: #2a2620;
+  --ink-700: #48433a;
+  --ink-500: #625d53;
+  --ink-400: #716b61;
+
+  --brand-700: #7d5a17;
+  --brand-600: #a87a26;
+  --brand-tint: rgb(168 122 38 / 11%);
+
+  --success: #0f6448;
+  --success-tint: rgb(23 121 90 / 9%);
+  --success-line: rgb(23 121 90 / 32%);
+  --warn: #774a04;
+  --warn-tint: rgb(196 132 20 / 11%);
+  --warn-line: rgb(196 132 20 / 38%);
+  --danger: #b3321f;
+  --danger-tint: rgb(179 50 31 / 8%);
+  --danger-line: rgb(179 50 31 / 30%);
+  --info: #44526b;
+  --info-tint: rgb(68 82 107 / 8%);
+  --info-line: rgb(68 82 107 / 26%);
+
+  --on-ink: #ffffff;
+  --header-bg: rgb(247 244 238 / 88%);
+  --brand-line: rgb(168 122 38 / 40%);
+  --warn-stripe: rgb(196 132 20 / 6%);
+  --skeleton-hi: #e6e0d4;
+  --focus-soft: rgb(168 122 38 / 24%);
+  --grid-line: rgb(120 90 30 / 6%);
+  --flash: rgb(212 162 76 / 18%);
+  --glow: rgb(212 162 76 / 22%);
+
+  --gold: #84611c;
+  --gold-light: #b8862f;
+  --gold-deep: #6e5220;
+
+  --shadow-panel-color: 0 1px 2px rgb(40 30 10 / 6%), 0 18px 44px -22px rgb(40 30 10 / 22%);
 }
 
 @media (max-width: 1023px) {

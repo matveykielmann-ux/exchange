@@ -153,6 +153,9 @@ describe('production mode without credentials', () => {
     const csrf = signup.body.csrfToken as string;
     const kyc = await call('POST', '/api/me/verification', {}, cookie, csrf);
     expect(kyc.body.error.code).toBe('NOT_CONFIGURED');
+    // Identity documents are not kept until a document-storage decision is made for production.
+    const idType = await call('PUT', '/api/me/kyc/id-type', { idType: 'passport' }, cookie, csrf);
+    expect(idType.body.error.code).toBe('NOT_CONFIGURED');
     const bank = await call(
       'POST',
       '/api/me/destinations/bank',

@@ -59,7 +59,7 @@ export const RU_PUBLIC3: Record<string, string> = {
   'No maximum': 'Без максимума',
   From: 'От',
   'per exchange': 'за обмен',
-  '$0 ACH fee': 'Комиссия ACH — $0',
+  '$0 ACH fee': 'ACH без комиссии',
   'Get a quote': 'Получите котировку',
   'See exactly what you will receive.': 'Узнайте точно, сколько получите.',
   'One quote and one status page, from deposit to payout': 'Одна котировка и одна страница статуса — от депозита до выплаты',
@@ -389,4 +389,33 @@ export const RU_PUBLIC3: Record<string, string> = {
   'Save refund address': 'Сохранить адрес для возврата',
   'We need a refund address to return your {0}: enter it below. ': 'Чтобы вернуть ваши {0}, нужен адрес для возврата: укажите его ниже. ',
   'Refund address needed': 'Нужен адрес для возврата',
+
+  // Pricing: 3% exchange fee, no spread (2026-10-15)
+  'The market rate for': 'Рыночный курс',
+  'at the moment of this quote. There is no spread: the fee below is the only deduction.':
+    'на момент расчёта. Спреда нет: комиссия ниже — единственное удержание.',
+  'the fee': 'комиссия',
+  ', market rate': ', рыночный курс',
+  'The quote shows the market exchange rate, with no spread, and the value of your crypto at that rate. The fee is taken off as a separate line: 3% for bank transfer, wire and debit card, or the courier fee for cash by courier. The result is what you receive, to the cent.':
+    'В расчёте указан рыночный курс без спреда и стоимость вашей криптовалюты по этому курсу. Комиссия списывается отдельной строкой: 3% для банковского перевода, wire и дебетовой карты или стоимость курьера для наличных с курьером. Итог — это сумма, которую вы получите, до цента.',
+  "Choose the asset and the network you'll send on, then enter an amount. You see the market exchange rate, the value of your crypto at that rate and the fee, all before you share any personal details.":
+    'Выберите актив и сеть, в которой будете отправлять, и введите сумму. Вы увидите рыночный курс, стоимость вашей криптовалюты по этому курсу и комиссию ещё до того, как укажете личные данные.',
+  'One fee, shown on the quote.': 'Одна комиссия, и она видна в расчёте.',
+  'A 3% exchange fee on every payout method except cash by courier, which has a courier fee instead. There is no spread: you get the market rate. Return fees apply only if funds have to be returned.':
+    'Комиссия за обмен 3% на все способы выплаты, кроме наличных с курьером: там вместо неё стоимость курьера. Спреда нет, вы получаете рыночный курс. Комиссии за возврат применяются, только если средства приходится возвращать.',
+  'Your quote uses the market reference price at the moment of the quote, with no spread added. The fee for your method is shown as a separate line in dollars.':
+    'В расчёте используется рыночная справочная цена на момент расчёта, без спреда. Комиссия за выбранный способ показана отдельной строкой в долларах.',
+  'Fees by method': 'Комиссии по способам',
+  'The fee above is how the commission appears in your quote. The Service Rules define the commission as follows:':
+    'Комиссия выше — это то, как вознаграждение Сервиса отражается в расчёте. Правила Сервиса определяют комиссию так:',
+  'The exchange rate, fee, minimum, quote validity and deposit window shown here are the conditions of this exchange. Under clause 4.24 of the':
+    'Курс, комиссия, минимум, срок действия расчёта и окно для депозита, указанные здесь, — условия этого обмена. Согласно пункту 4.24',
+  'Send BTC, ETH, USDT or USDC and receive US dollars in your bank account, with the market exchange rate and the fee listed as separate lines.':
+    'Отправьте BTC, ETH, USDT или USDC и получите доллары США на банковский счёт. Рыночный курс и комиссия указаны отдельными строками.',
+  'We list the exchange rate and the fee separately, so you can check the math yourself. How the commission is defined is set out in Section 6 of the':
+    'Мы указываем курс и комиссию отдельно, чтобы вы могли сами проверить расчёт. Как определяется комиссия, описано в разделе 6',
+  'The market rate per coin at the moment of the quote. There is no spread.': 'Рыночный курс за монету на момент расчёта. Спреда нет.',
+  'Exchange fee': 'Комиссия за обмен',
+  '3% of the value, for bank transfer, wire and debit card. Cash by courier has a courier fee instead.':
+    '3% от суммы для банковского перевода, wire и дебетовой карты. Для наличных с курьером вместо неё стоимость курьера.',
 };

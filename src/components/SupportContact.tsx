@@ -39,12 +39,11 @@ export function SupportContact({
           <Icon name="send" width={16} height={16} /> {t('Contact support on Telegram')}
         </TelegramLink>
         <Link className="link-button small" to="/support/new">
-          {t('Message support here')}
-          {orderReference ? ` about ${orderReference}` : ''}
+          {orderReference ? t('Message support here about {0}', [orderReference]) : t('Message support here')}
         </Link>
       </div>
       <p className="small muted">
-        {t('Working hours:')} {SUPPORT.hours.label}
+        {t('Working hours:')} {t(SUPPORT.hours.label)}
         {t('. Use only the official contacts listed on this site.')}
       </p>
     </div>

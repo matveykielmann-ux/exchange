@@ -15,6 +15,7 @@ const ExchangePage = named(() => import('./pages/ExchangePage'), 'ExchangePage')
 const OrderPage = named(() => import('./pages/OrderPage'), 'OrderPage');
 const OrdersPage = named(() => import('./pages/OrdersPage'), 'OrdersPage');
 const AccountPage = named(() => import('./pages/AccountPage'), 'AccountPage');
+const VerificationPage = named(() => import('./pages/VerificationPage'), 'VerificationPage');
 const SignInPage = named(() => import('./pages/AuthPages'), 'SignInPage');
 const SignUpPage = named(() => import('./pages/AuthPages'), 'SignUpPage');
 const StaffSignInPage = lazy(() => import('./pages/AuthPages').then((m) => ({ default: () => <m.SignInPage staff /> })));
@@ -41,6 +42,8 @@ const AdminUsers = named(() => import('./admin/UsersPage'), 'UsersPage');
 const AdminAudit = named(() => import('./admin/AuditPage'), 'AuditPage');
 const AdminSystem = named(() => import('./admin/SystemPage'), 'SystemPage');
 const AdminSandbox = named(() => import('./admin/SandboxLabPage'), 'SandboxLabPage');
+const AdminVerifications = named(() => import('./admin/VerificationsPage'), 'VerificationsPage');
+const AdminVerification = named(() => import('./admin/VerificationsPage'), 'VerificationDetailPage');
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const user = useUser();
@@ -87,6 +90,8 @@ export function AppRoutes() {
         <Route path="orders/:id" element={<AdminOrder />} />
         <Route path="inbox" element={<AdminInbox />} />
         <Route path="inbox/:id" element={<AdminInbox />} />
+        <Route path="verification" element={<AdminVerifications />} />
+        <Route path="verification/:id" element={<AdminVerification />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="audit" element={<AdminAudit />} />
         <Route path="system" element={<AdminSystem />} />
@@ -113,6 +118,7 @@ export function AppRoutes() {
         <Route path="reset-password" element={<ResetRequestPage />} />
         <Route path="reset-password/confirm" element={<ResetConfirmPage />} />
         <Route path="account" element={auth(<AccountPage />)} />
+        <Route path="verification" element={auth(<VerificationPage />)} />
         <Route path="orders" element={auth(<OrdersPage />)} />
         <Route path="orders/:id" element={auth(<OrderPage />)} />
         <Route path="support" element={auth(<SupportPage />)} />
