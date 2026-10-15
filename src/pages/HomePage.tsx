@@ -56,7 +56,7 @@ export function HomePage() {
             </p>
             <p className="lead">
               {t(
-                'Send BTC, ETH, USDT or USDC and receive US dollars in your bank account, with the exchange rate and the payout fee listed as separate lines.',
+                'Send BTC, ETH, USDT or USDC and receive US dollars in your bank account, with the market exchange rate and the fee listed as separate lines.',
               )}
             </p>
             <div className="row hero__ctas">
@@ -154,7 +154,7 @@ export function HomePage() {
             </h2>
             <p className="lead">
               {t(
-                'We list the exchange rate and the payout fee separately, so you can check the math yourself. How the commission is defined is set out in',
+                'We list the exchange rate and the fee separately, so you can check the math yourself. How the commission is defined is set out in',
               )}{' '}
               <Link to="/legal/fees">{t('Section 6 of the Service Rules')}</Link>.
             </p>
@@ -165,14 +165,14 @@ export function HomePage() {
                 <span className="anatomy__num">1</span>
                 <div>
                   <h3>{t('Exchange rate')}</h3>
-                  <p>{t('The rate you get per coin at the moment of the quote, with our commission already included.')}</p>
+                  <p>{t('The market rate per coin at the moment of the quote. There is no spread.')}</p>
                 </div>
               </li>
               <li>
                 <span className="anatomy__num">2</span>
                 <div>
-                  <h3>{t('Payout fee')}</h3>
-                  <p>{t('Set by the payout method you choose. Bank transfer has no payout fee.')}</p>
+                  <h3>{t('Exchange fee')}</h3>
+                  <p>{t('3% of the value, for bank transfer, wire and debit card. Cash by courier has a courier fee instead.')}</p>
                 </div>
               </li>
               <li>

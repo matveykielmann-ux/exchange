@@ -56,6 +56,11 @@ export interface AppConfig {
     cash: ProviderCredentials | null;
     email: (ProviderCredentials & { from: string }) | null;
   };
+  /**
+   * RATES_SOURCE=coingecko: reference prices come from the CoinGecko public API in either mode,
+   * instead of the sandbox schedule or RATES_PROVIDER. null = not used.
+   */
+  coingecko: { apiKey: string | null; plan: 'demo' | 'pro'; cacheMs: number } | null;
   /** Non-fatal configuration warnings, logged at startup and shown on the admin system page. */
   warnings: string[];
 }
@@ -180,6 +185,21 @@ export function loadConfig(env: Env = process.env): AppConfig {
 
   const sandboxWebhookSecret = env.SANDBOX_WEBHOOK_SECRET || (production ? '' : randomBytes(32).toString('hex'));
 
+  const ratesSource = (env.RATES_SOURCE ?? '').trim().toLowerCase() || 'default';
+  if (!['default', 'coingecko'].includes(ratesSource)) problems.push('RATES_SOURCE must be empty or "coingecko".');
+  const coingeckoPlan = (env.COINGECKO_API_PLAN ?? '').trim().toLowerCase() || 'demo';
+  if (!['demo', 'pro'].includes(coingeckoPlan)) problems.push('COINGECKO_API_PLAN must be demo or pro.');
+  const coingeckoKey = env.COINGECKO_API_KEY?.trim() || null;
+  if (coingeckoPlan === 'pro' && !coingeckoKey && ratesSource === 'coingecko')
+    problems.push('COINGECKO_API_PLAN=pro needs COINGECKO_API_KEY.');
+  const coingeckoCacheS = Number(env.COINGECKO_CACHE_SECONDS ?? 30);
+  if (!Number.isInteger(coingeckoCacheS) || coingeckoCacheS < 10 || coingeckoCacheS > 55)
+    problems.push('COINGECKO_CACHE_SECONDS must be a whole number between 10 and 55.');
+  if (ratesSource === 'coingecko' && (env.RATES_PROVIDER_URL || env.RATES_PROVIDER_API_KEY))
+    problems.push('Set either RATES_SOURCE=coingecko or RATES_PROVIDER_URL/RATES_PROVIDER_API_KEY, not both.');
+  if (ratesSource === 'coingecko' && !production && env.SANDBOX_RATES)
+    problems.push('SANDBOX_RATES has no effect with RATES_SOURCE=coingecko; remove one of them.');
+
   const email = provider(env, 'EMAIL_PROVIDER', problems, { webhook: false });
   const emailFrom = env.EMAIL_FROM?.trim();
   if (email && !emailFrom) problems.push('EMAIL_FROM is required when EMAIL_PROVIDER is configured.');
@@ -216,6 +236,8 @@ export function loadConfig(env: Env = process.env): AppConfig {
       cash: provider(env, 'CASH_PROVIDER', problems, { webhook: true }),
       email: email && emailFrom ? { ...email, from: emailFrom } : null,
     },
+    coingecko:
+      ratesSource === 'coingecko' ? { apiKey: coingeckoKey, plan: coingeckoPlan as 'demo' | 'pro', cacheMs: coingeckoCacheS * 1000 } : null,
     warnings,
   };
   if (!Number.isFinite(config.sessionTtlMs) || config.sessionTtlMs < 600_000) problems.push('SESSION_TTL_HOURS must be a number ≥ 0.2.');

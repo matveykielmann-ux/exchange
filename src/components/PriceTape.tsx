@@ -18,13 +18,16 @@ function changeText(row: Row): string {
 }
 
 /**
- * Terminal-style strip of mock reference prices. Refreshes on the indicative
+ * Terminal-style strip of reference prices (sandbox schedule, or CoinGecko when the
+ * server runs with RATES_SOURCE=coingecko; then the badge marks the orders as sandbox). Refreshes on the indicative
  * cadence; a changed cell gets a short neutral highlight (no red/green, see
  * design-spec §7). The highlight is skipped when reduced motion is requested.
  */
 export function PriceTape() {
   const { pricing } = useServices();
   const [rows, setRows] = useState<Partial<Record<AssetCode, Row>>>({});
+  const [unavailable, setUnavailable] = useState(false);
+  const [feed, setFeed] = useState<'coingecko' | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const changed = useRef<AssetCode[]>([]);
 
@@ -35,9 +38,13 @@ export function PriceTape() {
       try {
         prices = await pricing.prices();
       } catch {
-        return; // Keep the last prices; the cells show their age through the next refresh.
+        // The server serves a price only while it is fresh, so a failed refresh means there is no current rate.
+        if (alive) setUnavailable(true);
+        return;
       }
       if (!alive) return;
+      setUnavailable(false);
+      setFeed(prices.find((p) => p.feed)?.feed ?? null);
       setRows((old) => {
         const next: Partial<Record<AssetCode, Row>> = {};
         changed.current = [];
@@ -79,13 +86,14 @@ export function PriceTape() {
             <span className="tape__name">
               {ASSETS[a].name} · {a}
             </span>
-            <span className="tape__price">{row ? formatPriceMicros(row.price, a) : '—'}</span>
-            <span className="tape__change">{row ? changeText(row) : t('Loading')}</span>
+            <span className="tape__price">{row && !unavailable ? formatPriceMicros(row.price, a) : '—'}</span>
+            <span className="tape__change">{unavailable ? t('Rate unavailable') : row ? changeText(row) : t('Loading')}</span>
           </div>
         );
       })}
       <div className="tape__badge">
-        <MockBadge label={t('Sandbox prices')} />
+        {feed === 'coingecko' ? <span className="tape__source">{t('Indicative prices: CoinGecko')}</span> : null}
+        <MockBadge label={feed ? 'Sandbox orders' : 'Sandbox prices'} />
       </div>
     </div>
   );

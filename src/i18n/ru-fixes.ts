@@ -10,8 +10,8 @@ export const RU_FIXES: Record<string, string> = {
   'Original English text of the Service Rules.': 'Оригинальный текст Правил сервиса на английском языке.',
   '{browser} on {os}': '{browser}, {os}',
   '{0} unread': 'Непрочитанных: {0}',
-  'We list the exchange rate and the payout fee separately, so you can check the math yourself. How the commission is defined is set out in':
-    'Мы указываем курс обмена и комиссию за выплату отдельно, чтобы вы могли проверить расчёт. Как определяется комиссия, описано в',
+  'We list the exchange rate and the fee separately, so you can check the math yourself. How the commission is defined is set out in':
+    'Мы указываем курс обмена и комиссию отдельно, чтобы вы могли проверить расчёт. Как определяется комиссия, описано в',
   'Section 6 of the Service Rules': 'разделе 6 Правил сервиса',
   'Indicative. Refreshes every {0}s.': 'Ориентировочно. Обновляется каждые {0} с.',
 

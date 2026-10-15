@@ -11,6 +11,7 @@ import { MockBadge, Notice, StatusBadge } from '@/components/ui';
 import { ASSETS, NETWORKS, networkLabel } from '@/domain/assets';
 import { formatUsd } from '@/domain/money';
 import { exchangeRateMicros, valueAtRateCents } from '@/domain/quote';
+import { feeLineLabel } from '@/domain/payout';
 import {
   canRaise,
   DEPOSIT_EXCEPTION_LABEL,
@@ -685,7 +686,7 @@ function Receipt({ order }: { order: OrderView }) {
         </div>
       ) : null}
       <div>
-        <dt>{buy ? t('Courier fee') : t('Payout fee')}</dt>
+        <dt>{t(buy ? 'Courier fee' : feeLineLabel(order.payout.method))}</dt>
         <dd className="tabular">−{formatUsd(order.quote.payoutFeeCents)}</dd>
       </div>
       <div>

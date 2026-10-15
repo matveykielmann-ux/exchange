@@ -190,6 +190,8 @@ export const RU_PUBLIC: Record<string, string> = {
   'Reference prices': 'Справочные цены',
   Loading: 'Загрузка',
   'Sandbox prices': 'Тестовые цены',
+  'Rate unavailable': 'Курс недоступен',
+  'Indicative prices: CoinGecko': 'Ориентировочные цены: CoinGecko',
 
   // Quote breakdown
   'You send': 'Вы отправляете',

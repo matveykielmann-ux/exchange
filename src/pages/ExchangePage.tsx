@@ -510,7 +510,7 @@ function ReviewStep({ onBack, draft }: { onBack: () => void; draft: ExchangeDraf
 
         <p className="small muted">
           {t(
-            'The exchange rate, payout fee, minimum, quote validity and deposit window shown here are the conditions of this exchange. Under clause 4.24 of the',
+            'The exchange rate, fee, minimum, quote validity and deposit window shown here are the conditions of this exchange. Under clause 4.24 of the',
           )}{' '}
           <Link to="/legal/terms#clause-4-24">{t('Service Rules')}</Link>
           {t(
