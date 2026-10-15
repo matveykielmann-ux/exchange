@@ -1,6 +1,7 @@
 import { useIsSandbox } from '@/state/config';
 import { Link } from 'react-router-dom';
 import { Calculator } from '@/components/Calculator';
+import { HeroArt } from '@/components/HeroArt';
 import { Icon } from '@/components/Icon';
 import { QuoteBreakdown } from '@/components/QuoteBreakdown';
 import { AssetMark, MockBadge } from '@/components/ui';
@@ -71,9 +72,7 @@ export function HomePage() {
             </div>
           </div>
           <div className="hero__art">
-            <div className="hero-globe">
-              <img src="/brand/cryptobit-mark.webp" alt="" width="312" height="220" decoding="async" fetchPriority="high" />
-            </div>
+            <HeroArt />
           </div>
         </div>
         <div className="container">

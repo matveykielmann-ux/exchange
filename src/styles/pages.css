@@ -138,7 +138,49 @@
   margin-top: 2px;
 }
 
-/* Hero art: the CryptoBit mark (globe with the orbit arrow) over a soft gold glow and star field. */
+/* Hero art: 3D BTC and USD coins (three.js). The glows sit behind the canvas. */
+.hero-coins {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1.08;
+  isolation: isolate;
+}
+.hero-coins::before,
+.hero-coins::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  filter: blur(36px);
+  pointer-events: none;
+}
+.hero-coins::before {
+  inset: 18% 42% 26% 8%;
+  background: radial-gradient(closest-side, rgb(212 162 76 / 38%), transparent);
+}
+.hero-coins::after {
+  inset: 28% 6% 22% 50%;
+  background: radial-gradient(closest-side, rgb(200 204 214 / 22%), transparent);
+}
+.hero-coins__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: 0;
+  transition: opacity 600ms var(--ease);
+}
+.hero-coins__canvas.is-ready {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-coins__canvas {
+    transition: none;
+  }
+}
+
+/* Fallback hero art without WebGL: the CryptoBit mark (globe with the orbit arrow) over a soft gold glow and star field. */
 .hero-globe {
   position: relative;
   display: grid;
