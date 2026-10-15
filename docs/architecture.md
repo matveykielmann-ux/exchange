@@ -88,7 +88,7 @@ Courier delivery reuses the payout states: payout submitted means the courier is
 - Exchanging needs an account: `/exchange` is behind sign-in, and the server requires a session for firm quotes and orders.
 - Payout details (including courier addresses) and TOTP secrets are encrypted with AES-256-GCM. Card numbers are never accepted (provider tokens only) and CVV is never accepted. Staff views mask PII.
 - Errors come back as `{ error: { code, message } }` with safe messages. Stack traces are never sent. Logs are structured JSON without secrets.
-- The CSP is `script-src 'self'` with no third-party origins and no inline scripts. The site has one dark brand theme, so no theme bootstrap script is needed.
+- The CSP is `script-src 'self'` with no third-party origins and no inline scripts. The stored light/dark choice is applied before first paint by `public/theme-init.js`, a same-origin file, so no inline script is needed.
 
 ## CRM (staff workspace)
 

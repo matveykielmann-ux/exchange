@@ -21,8 +21,9 @@ import { AxeBuilder } from '@axe-core/playwright';
 const PORT = Number(process.env.QA_PORT ?? 8799);
 const BASE_URL = process.env.BASE_URL ?? `http://localhost:${PORT}`;
 const OUT = process.env.QA_OUT ?? 'qa-output';
-// QA_SCHEME=dark runs every check with the OS set to dark mode (the app follows it).
-const SCHEME = process.env.QA_SCHEME === 'dark' ? 'dark' : 'light';
+// QA_THEME=light runs every check in the light theme (as if chosen with the header toggle); dark is the default.
+const THEME = process.env.QA_THEME === 'light' ? 'light' : 'dark';
+const SCHEME = THEME;
 /** QA_LANG=ru scans every page in Russian (screenshots, overflow, axe); the English-text journeys run only in English. */
 const LANG = process.env.QA_LANG === 'ru' ? 'ru' : 'en';
 const WIDTHS = [1440, 1024, 768, 390];
@@ -677,6 +678,15 @@ async function buyJourney(browser, width, server) {
 
 const server = await ensureServer();
 const browser = await chromium.launch();
+if (THEME === 'light') {
+  // Every context starts with the light theme stored, the way the header toggle saves it.
+  const newContext = browser.newContext.bind(browser);
+  browser.newContext = async (options) => {
+    const context = await newContext(options);
+    await context.addInitScript(() => window.localStorage.setItem('cryptobit.theme', 'light'));
+    return context;
+  };
+}
 try {
   if (!process.env.QA_JOURNEY) {
     await scanPages(browser);

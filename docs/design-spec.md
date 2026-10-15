@@ -2,7 +2,7 @@
 
 Status: v1, Phase 1 output. Owner: product/design. Applies to every page in `src/`.
 
-> **Superseded visual identity (2026-10-14).** Colours, logo and the hero now follow the approved CryptoBit Exchange brand board: one dark theme (deep black, graphite surfaces, champagne gold accent), the gold globe-and-orbit mark (`public/brand/`) and the "Exchange Without Limits / Fast. Secure. Global." hero. The values live in `src/styles/tokens.css`. The light theme and the theme toggle were removed. Layout, typography scale, spacing, accessibility and motion rules below still apply.
+> **Superseded visual identity (2026-10-14).** Colours, logo and the hero now follow the approved CryptoBit Exchange brand board: a dark default theme (deep black, graphite surfaces, champagne gold accent) plus an optional light theme (warm ivory canvas, white surfaces, deepened gold) chosen with the header sun/moon toggle and stored as `cryptobit.theme`, the gold globe-and-orbit mark (`public/brand/`) and the "Exchange Without Limits / Fast. Secure. Global." hero with the 3D BTC and USD coins (the mark is the no-WebGL fallback). The values live in `src/styles/tokens.css`; `public/theme-init.js` applies the stored choice before first paint. Layout, typography scale, spacing, accessibility and motion rules below still apply.
 
 > **Arcvale is a working name** (it replaced the earlier placeholder "Settlewell"). It has not had trademark clearance. The name lives in one constant (`src/config/brand.ts`) so it can be replaced in one edit.
 
@@ -82,7 +82,7 @@ The app follows the system color scheme and has a sun/moon toggle in the header;
 - Canvas `#08111F`, surface `#0E1A2E`, sunken `#13223A`, hairline `#213350`. Ink is light (`--ink-900` `#EEF2F7`).
 - Emerald lifts to `#34C08E` so links, focus and "completed" keep at least 4.5:1 on the dark surfaces.
 - **The primary button is emerald with dark text in the dark theme** (`--cta-bg`, `--cta-fg`), because a navy button on a navy canvas has no contrast. Light theme keeps navy primary buttons. Semantic tokens (`--cta-*`, `--on-ink`, `--on-emerald`, `--navy`, `--header-bg`) carry the difference.
-- Dark is not a "crypto" look: still no gradients, glow, glass or neon. The axe scan runs in both themes (`QA_SCHEME=dark`).
+- Dark is not a "crypto" look: still no gradients, glow, glass or neon. The axe scan runs in both themes (`QA_THEME=light`).
 
 ### 4.2 Typography
 

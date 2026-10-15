@@ -12,7 +12,7 @@ The web app talks to the Node API server. This skill's script seeds a throwaway 
 ```bash
 pnpm build && pnpm qa:visual        # always rebuild first: the script runs the built server
 QA_PAGES=/,/fees pnpm qa:visual    # subset of public routes (admin pages still run)
-QA_SCHEME=dark QA_OUT=qa-output-dark pnpm qa:visual   # same checks in the dark theme
+QA_THEME=light QA_OUT=qa-output-light pnpm qa:visual  # same checks in the light theme (dark is the default)
 QA_LANG=ru QA_OUT=qa-output-ru pnpm qa:visual         # every page in Russian (journeys run in English only)
 BASE_URL=https://staging.example pnpm qa:visual       # an already running sandbox instance (must be seeded)
 ```

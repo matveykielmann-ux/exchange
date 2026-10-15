@@ -1881,6 +1881,9 @@ main {
   background: var(--gold);
   color: #0b0b0b;
 }
+:root[data-theme='light'] .lang-switch button[aria-pressed='true'] {
+  color: #fff;
+}
 .lang-switch button:focus-visible {
   outline: 2px solid var(--brand-600);
   outline-offset: 1px;
