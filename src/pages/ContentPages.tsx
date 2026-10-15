@@ -8,7 +8,7 @@ import { useConfig } from '@/state/config';
 import { BRAND } from '@/config/brand';
 import { FAQ, FaqList, type FaqItem } from '@/content/faq';
 import { NETWORKS } from '@/domain/assets';
-import { formatBps, formatUsd } from '@/domain/money';
+import { formatUsd } from '@/domain/money';
 import { describeFee, PAYOUT_METHODS, PAYOUT_ORDER } from '@/domain/payout';
 import { calculateQuote, PRICING_POLICY } from '@/domain/quote';
 import { QuoteBreakdown } from '@/components/QuoteBreakdown';
@@ -54,7 +54,7 @@ export function HowItWorksPage() {
         <h2 id="quote">{t('1. Get a quote')}</h2>
         <p>
           {t(
-            "Choose the asset and the network you'll send on, then enter an amount. You see the exchange rate, the value of your crypto at that rate and the payout fee, all before you share any personal details.",
+            "Choose the asset and the network you'll send on, then enter an amount. You see the market exchange rate, the value of your crypto at that rate and the fee, all before you share any personal details.",
           )}
         </p>
         <h2 id="payout">{t('2. Choose a payout method')}</h2>
@@ -151,15 +151,13 @@ const FEES_EXAMPLE = calculateQuote({
 
 export function FeesPage() {
   useDocumentTitle('Fees');
-  const vol = PRICING_POLICY.spreadBps.volatile;
-  const stb = PRICING_POLICY.spreadBps.stable;
   return (
     <>
       <PageHeader
         eyebrow={t('Fees')}
-        title={t('Two charges, both on the quote.')}
+        title={t('One fee, shown on the quote.')}
         lead={t(
-          'An exchange spread and a payout fee. Both appear as separate lines, in dollars, before you confirm. Return fees apply only if funds have to be returned.',
+          'A 3% exchange fee on every payout method except cash by courier, which has a courier fee instead. There is no spread: you get the market rate. Return fees apply only if funds have to be returned.',
         )}
       >
         <div className="row">
@@ -168,8 +166,8 @@ export function FeesPage() {
       </PageHeader>
       <WithToc
         toc={[
-          ['spread', 'Exchange spread'],
-          ['payout', 'Payout fees'],
+          ['spread', 'Exchange rate'],
+          ['payout', 'Fees by method'],
           ['network', 'Network fees'],
           ['returns', 'Return fees'],
           ['limits', 'Limits'],
@@ -184,45 +182,14 @@ export function FeesPage() {
             )}
           </p>
         </Notice>
-        <h2 id="spread">{t('Exchange spread')}</h2>
+        <h2 id="spread">{t('Exchange rate')}</h2>
         <p>
           {t(
-            'The spread is a percentage of the value of your crypto at the reference price. It is smaller for larger amounts and for stablecoins.',
+            'Your quote uses the market reference price at the moment of the quote, with no spread added. The fee for your method is shown as a separate line in dollars.',
           )}
         </p>
-        <div className="table-wrap" tabIndex={0} role="region" aria-label={t('Spread schedule')}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th scope="col">{t('Value of the sale')}</th>
-                <th scope="col" className="num">
-                  {t('BTC, ETH')}
-                </th>
-                <th scope="col" className="num">
-                  {t('USDT, USDC')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row">
-                  {t('Under')} {formatUsd(vol[0].upToCents!, { whole: true })}
-                </th>
-                <td className="num">{formatBps(vol[0].bps)}</td>
-                <td className="num">{formatBps(stb[0].bps)}</td>
-              </tr>
-              <tr>
-                <th scope="row">
-                  {formatUsd(vol[0].upToCents!, { whole: true })} {t('and over')}
-                </th>
-                <td className="num">{formatBps(vol[1].bps)}</td>
-                <td className="num">{formatBps(stb[1].bps)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <h2 id="payout">{t('Payout fees')}</h2>
-        <div className="table-wrap" tabIndex={0} role="region" aria-label={t('Payout fees')}>
+        <h2 id="payout">{t('Fees by method')}</h2>
+        <div className="table-wrap" tabIndex={0} role="region" aria-label={t('Fees by method')}>
           <table className="data-table data-table--stack">
             <thead>
               <tr>
@@ -273,11 +240,7 @@ export function FeesPage() {
           <li>{t('Any order may be held for review before payout.')}</li>
         </ul>
         <h2 id="commission">{t('Commission formula')}</h2>
-        <p>
-          {t(
-            'The spread and payout fee above are how the commission appears in your quote. The Service Rules define the commission as follows:',
-          )}
-        </p>
+        <p>{t('The fee above is how the commission appears in your quote. The Service Rules define the commission as follows:')}</p>
         <RulesQuote refs={['6']} />
         <h2 id="example">{t('Worked example')}</h2>
         <p>

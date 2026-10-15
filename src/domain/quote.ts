@@ -11,7 +11,7 @@ import { ASSETS, type AssetCode, type NetworkId, isSupportedPair } from './asset
 import { divRoundHalfUp, MICROS_PER_CENT, microsToCentsFloor, pow10, type AtomicAmount, type Cents, type Micros } from './money';
 import { PAYOUT_METHODS, payoutEligibility, payoutFeeCents, type PayoutMethodId } from './payout';
 
-/** MOCK pricing policy. Real spreads must come from the pricing/treasury owner. */
+/** MOCK pricing policy. Values are placeholders until confirmed by the owner. */
 export const PRICING_POLICY = {
   minimumCents: 50_00n,
   /** There is no maximum. From this amount the large-transaction desk can price an order individually (optional). */
@@ -22,18 +22,12 @@ export const PRICING_POLICY = {
   indicativeRefreshMs: 15_000,
   /** How long the locked rate holds for an incoming deposit after confirmation. */
   depositWindowMs: 30 * 60_000,
-  spreadBps: {
-    volatile: [
-      { upToCents: 10_000_00n, bps: 100 },
-      { upToCents: null, bps: 75 },
-    ],
-    stable: [
-      { upToCents: 10_000_00n, bps: 30 },
-      { upToCents: null, bps: 20 },
-    ],
-  },
-  /** Indicative only — large-transaction pricing is negotiated per request. */
-  largeIndicativeSpreadBps: { volatile: 40, stable: 10 },
+  /**
+   * No spread (owner decision, 2026-10-15): the rate on the quote is the market reference price. The
+   * commission is the 3% exchange fee on the method (see PAYOUT_METHODS); courier orders pay the courier fee.
+   * The spread fields stay on quotes and orders, always 0, so stored quotes keep their shape.
+   */
+  spreadBps: 0,
 } as const;
 
 export interface QuoteRequest {
@@ -87,12 +81,9 @@ export interface QuoteResult {
   issues: QuoteIssue[];
 }
 
-export function spreadBpsFor(asset: AssetCode, grossCents: Cents): number {
-  const tiers = PRICING_POLICY.spreadBps[ASSETS[asset].class];
-  for (const tier of tiers) {
-    if (tier.upToCents === null || grossCents < tier.upToCents) return tier.bps;
-  }
-  throw new Error('Spread tiers must end with an open-ended tier');
+/** Always 0 now; the signature is kept so a tiered spread can return without touching callers. */
+export function spreadBpsFor(_asset: AssetCode, _grossCents: Cents): number {
+  return PRICING_POLICY.spreadBps;
 }
 
 export function grossCentsFor(asset: AssetCode, amountAtomic: AtomicAmount, priceMicros: Micros): Cents {

@@ -25,7 +25,7 @@ describe('<Calculator />', () => {
     expect(screen.getByText('Sandbox pricing')).toBeInTheDocument();
     expect(await screen.findByText('Exchange rate')).toBeInTheDocument();
     expect(screen.queryByText('Exchange spread')).not.toBeInTheDocument();
-    expect(screen.getByText('Payout fee')).toBeInTheDocument();
+    expect(screen.getByText('Exchange fee')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: /Continue/ })).toBeEnabled();
   });
 
