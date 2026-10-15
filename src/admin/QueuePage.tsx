@@ -4,7 +4,15 @@ import { Icon } from '@/components/Icon';
 import { MockBadge } from '@/components/ui';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { formatUsd } from '@/domain/money';
-import { isOrderStatus, ORDER_STAGE_LABEL, ORDER_STATUS_LABEL, ORDER_STATUSES, orderStatusLabel, type OrderStatus } from '@/domain/order';
+import {
+  buyPayIn,
+  isOrderStatus,
+  ORDER_STAGE_LABEL,
+  ORDER_STATUS_LABEL,
+  ORDER_STATUSES,
+  orderStatusLabel,
+  type OrderStatus,
+} from '@/domain/order';
 import { PAYOUT_METHODS, PAYOUT_ORDER, type PayoutMethodId } from '@/domain/payout';
 import { t } from '@/i18n';
 import { formatAsset, formatDateTime } from '@/lib/format';
@@ -311,7 +319,11 @@ export function QueuePage() {
                       <td data-label={t('Exchange')}>
                         {a.pair}
                         <span className="small muted block">
-                          {o.direction === 'buy' ? t('Cash by courier') : t(PAYOUT_METHODS[o.payoutMethod].name)}
+                          {o.direction === 'buy'
+                            ? o.payoutMethod === 'wire'
+                              ? t('Bank wire')
+                              : t('Cash by courier')
+                            : t(PAYOUT_METHODS[o.payoutMethod].name)}
                         </span>
                       </td>
                       <td data-label={t('Amount')} className="num tabular">
@@ -319,7 +331,13 @@ export function QueuePage() {
                         <span className="small muted block">→ {a.receives}</span>
                       </td>
                       <td data-label={t('Status')}>
-                        <StatusCell status={o.status} onHold={o.onHold} direction={o.direction} stage={t(ORDER_STAGE_LABEL[o.stage])} />
+                        <StatusCell
+                          status={o.status}
+                          onHold={o.onHold}
+                          direction={o.direction}
+                          wire={buyPayIn(o.direction, o.payoutMethod) === 'wire'}
+                          stage={t(ORDER_STAGE_LABEL[o.stage])}
+                        />
                       </td>
                       <td className="queue-table__action">
                         <button
@@ -364,11 +382,13 @@ function StatusCell({
   status,
   onHold,
   direction,
+  wire,
   stage,
 }: {
   status: OrderStatus;
   onHold: boolean;
   direction: 'sell' | 'buy';
+  wire: boolean;
   stage: string;
 }) {
   const tone =
@@ -382,7 +402,7 @@ function StatusCell({
   return (
     <>
       <span className={`badge badge--${tone}`}>{stage}</span>
-      <span className="small muted block">{t(orderStatusLabel(status, direction))}</span>
+      <span className="small muted block">{t(orderStatusLabel(status, direction, wire ? 'wire' : undefined))}</span>
     </>
   );
 }

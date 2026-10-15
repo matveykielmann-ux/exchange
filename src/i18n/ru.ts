@@ -9,12 +9,14 @@ import { RU_DOMAIN } from './ru-domain';
 import { RU_PUBLIC } from './ru-public';
 import { RU_PUBLIC2 } from './ru-public2';
 import { RU_PUBLIC3 } from './ru-public3';
+import { RU_WIRE } from './ru-wire';
 
 export const RU: Record<string, string> = {
   ...RU_ADMIN,
   ...RU_PUBLIC,
   ...RU_PUBLIC2,
   ...RU_PUBLIC3,
+  ...RU_WIRE,
   ...RU_DOMAIN,
   ...RU_CRM,
   // Names of server components that appear inside error messages.

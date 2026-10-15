@@ -18,7 +18,8 @@
  *   order is never paid at the locked rate; it can only be refunded.
  */
 import type { AtomicAmount } from './money';
-import type { ExchangeDirection } from './quote';
+import type { PayoutMethodId } from './payout';
+import type { BuyPayIn, ExchangeDirection } from './quote';
 
 export type OrderStatus =
   | 'created'
@@ -101,11 +102,14 @@ export type OrderEventType = OrderEvent['type'];
  * The order fields the state machine reads and may change. For a buy order
  * (cash → crypto) the "deposit" is the cash the courier collects, counted in
  * cents, and the "payout" is the crypto sent to the customer's wallet; the
- * table is the same, only the customer-facing words differ.
+ * table is the same, only the customer-facing words differ. A buy paid by
+ * bank wire works the same way: the "deposit" is the wire received.
  */
 export interface OrderMachineState {
   /** Absent means sell. */
   direction?: ExchangeDirection;
+  /** Buy orders: how the dollars are paid. Absent means cash by courier. */
+  payIn?: BuyPayIn;
   status: OrderStatus;
   quotedAmountAtomic: AtomicAmount;
   depositDeadline: number;
@@ -214,8 +218,15 @@ function ev<T extends OrderEventType>(e: OrderEvent, type: T): Extract<OrderEven
 }
 
 const isBuy = (s: Pick<OrderMachineState, 'direction'>) => s.direction === 'buy';
-/** Picks the customer-facing wording for the order's direction. */
-const say = (s: Pick<OrderMachineState, 'direction'>, sell: string, buy: string) => (isBuy(s) ? buy : sell);
+const isWire = (s: Pick<OrderMachineState, 'direction' | 'payIn'>) => isBuy(s) && s.payIn === 'wire';
+/** Picks the customer-facing wording for the order's direction (and, for a buy, how it is paid). */
+const say = (s: Pick<OrderMachineState, 'direction' | 'payIn'>, sell: string, buy: string, wire: string = buy) =>
+  isWire(s) ? wire : isBuy(s) ? buy : sell;
+
+/** A buy's pay-in from the order's stored method (the method column holds the pay-in for a buy). */
+export function buyPayIn(direction: ExchangeDirection | undefined, method: PayoutMethodId): BuyPayIn | undefined {
+  return direction === 'buy' ? (method === 'wire' ? 'wire' : 'courier_cash') : undefined;
+}
 
 /* ---------- Resolvers with guards ---------- */
 
@@ -237,21 +248,29 @@ const depositObserved: Resolver = (s, e, now) => {
   return {
     status: 'deposit_observed',
     patch: { depositTxHash: d.txHash, depositAmountAtomic: d.amountAtomic, depositException: exception, confirmationsCount: confirmations },
-    detail: isBuy(s)
+    detail: isWire(s)
       ? exception === 'late'
-        ? 'Cash was collected after the collection window closed. It cannot be exchanged at the quoted rate and will be reviewed for return.'
+        ? 'A wire arrived after the window closed. It cannot be exchanged at the quoted rate and will be reviewed for return.'
         : exception === 'order_closed'
-          ? 'Cash was collected for an order that was already closed. It will be reviewed for return.'
+          ? 'A wire arrived for an order that was already closed. It will be reviewed for return.'
           : exception === 'amount_mismatch'
-            ? 'The cash collected differs from the quoted amount. It cannot be exchanged at the quoted rate and will be reviewed for return.'
-            : 'The courier collected your cash. It is being counted and checked.'
-      : exception === 'late'
-        ? 'A deposit arrived after the deposit window closed. It cannot be paid at the locked rate and will be reviewed for return to your refund address.'
-        : exception === 'order_closed'
-          ? 'A deposit arrived for an order that was already closed. It will be reviewed for return to your refund address.'
-          : exception === 'amount_mismatch'
-            ? 'A deposit arrived that differs from the quoted amount. It cannot be paid at the locked rate and will be reviewed for return to your refund address.'
-            : 'Your deposit was seen on the network. Waiting for confirmations.',
+            ? 'The wire received differs from the quoted amount. It cannot be exchanged at the quoted rate and will be reviewed for return.'
+            : 'Your wire was received. It is being matched to this order and checked.'
+      : isBuy(s)
+        ? exception === 'late'
+          ? 'Cash was collected after the collection window closed. It cannot be exchanged at the quoted rate and will be reviewed for return.'
+          : exception === 'order_closed'
+            ? 'Cash was collected for an order that was already closed. It will be reviewed for return.'
+            : exception === 'amount_mismatch'
+              ? 'The cash collected differs from the quoted amount. It cannot be exchanged at the quoted rate and will be reviewed for return.'
+              : 'The courier collected your cash. It is being counted and checked.'
+        : exception === 'late'
+          ? 'A deposit arrived after the deposit window closed. It cannot be paid at the locked rate and will be reviewed for return to your refund address.'
+          : exception === 'order_closed'
+            ? 'A deposit arrived for an order that was already closed. It will be reviewed for return to your refund address.'
+            : exception === 'amount_mismatch'
+              ? 'A deposit arrived that differs from the quoted amount. It cannot be paid at the locked rate and will be reviewed for return to your refund address.'
+              : 'Your deposit was seen on the network. Waiting for confirmations.',
     visibility: 'customer',
   };
 };
@@ -277,7 +296,12 @@ const depositConfirmed: Resolver = (s, e) => {
   return {
     status: 'deposit_confirmed',
     patch: { confirmationsCount: s.confirmationsRequired },
-    detail: say(s, 'Your deposit is final on the network.', 'Your cash was counted and matches the quote.'),
+    detail: say(
+      s,
+      'Your deposit is final on the network.',
+      'Your cash was counted and matches the quote.',
+      'Your wire was matched to this order and matches the quote.',
+    ),
     visibility: 'customer',
   };
 };
@@ -334,6 +358,7 @@ const orderRejected: Resolver = (s, e) => {
           s,
           'We could not complete this exchange. Your deposit will be returned to your refund address under Section 9 of the Service Rules, which sets the return fees.',
           'We could not complete this exchange. Your cash will be returned under Section 9 of the Service Rules, which sets the return fees.',
+          'We could not complete this exchange. Your wire will be returned to the sending account under Section 9 of the Service Rules, which sets the return fees.',
         )
       : 'We could not accept this exchange request.',
     visibility: 'customer',
@@ -436,6 +461,7 @@ const TABLE: Partial<Record<OrderStatus, Partial<Record<OrderEventType, Resolver
         s,
         'Deposit instructions issued. Send the exact amount before the deadline.',
         'Cash collection requested from the courier. Have the exact amount ready.',
+        'Wire instructions issued. Send the exact amount before the deadline.',
       ),
     ),
     DEPOSIT_INSTRUCTIONS_FAILED: to('failed', (s) =>
@@ -443,27 +469,41 @@ const TABLE: Partial<Record<OrderStatus, Partial<Record<OrderEventType, Resolver
         s,
         'We could not issue deposit instructions for this order. Nothing was sent.',
         'We could not arrange cash collection for this order.',
+        'We could not issue wire instructions for this order. Nothing was sent.',
       ),
     ),
     CUSTOMER_CANCELLED: to('cancelled', (s) =>
-      say(s, 'You cancelled this order before sending funds.', 'You cancelled this order before the cash was collected.'),
+      say(
+        s,
+        'You cancelled this order before sending funds.',
+        'You cancelled this order before the cash was collected.',
+        'You cancelled this order before the wire was received.',
+      ),
     ),
     ORDER_REJECTED: orderRejected,
   },
   awaiting_deposit: {
-    CUSTOMER_REPORTED_SENT: same((_s, e) =>
-      ev(e, 'CUSTOMER_REPORTED_SENT').txHash
-        ? 'You submitted a transaction hash for review. It is checked against our deposit monitoring; a hash alone does not confirm a deposit.'
-        : 'You told us you sent the deposit. We will update this order when the network shows it; your report alone does not confirm a deposit.',
+    CUSTOMER_REPORTED_SENT: same((s, e) =>
+      isWire(s)
+        ? 'You told us you sent the wire. We will update this order when the wire is received; your report alone does not confirm a payment.'
+        : ev(e, 'CUSTOMER_REPORTED_SENT').txHash
+          ? 'You submitted a transaction hash for review. It is checked against our deposit monitoring; a hash alone does not confirm a deposit.'
+          : 'You told us you sent the deposit. We will update this order when the network shows it; your report alone does not confirm a deposit.',
     ),
     CUSTOMER_CANCELLED: to('cancelled', (s) =>
-      say(s, 'You cancelled this order before sending funds.', 'You cancelled this order before the cash was collected.'),
+      say(
+        s,
+        'You cancelled this order before sending funds.',
+        'You cancelled this order before the cash was collected.',
+        'You cancelled this order before the wire was received.',
+      ),
     ),
     DEPOSIT_WINDOW_EXPIRED: to('expired', (s) =>
       say(
         s,
         'No deposit arrived before the deadline. The quote has expired.',
         'The cash was not collected before the deadline. The quote has expired.',
+        'No wire was received before the deadline. The quote has expired.',
       ),
     ),
     DEPOSIT_OBSERVED: depositObserved,
@@ -522,7 +562,12 @@ const TABLE: Partial<Record<OrderStatus, Partial<Record<OrderEventType, Resolver
       return {
         status: 'refund_pending',
         patch: {},
-        detail: say(s, 'A refund of your deposit to your refund address has been started.', 'A return of your cash has been started.'),
+        detail: say(
+          s,
+          'A refund of your deposit to your refund address has been started.',
+          'A return of your cash has been started.',
+          'A return of your wire to the sending account has been started.',
+        ),
         visibility: 'customer',
       };
     },
@@ -533,7 +578,13 @@ const TABLE: Partial<Record<OrderStatus, Partial<Record<OrderEventType, Resolver
   refund_pending: {
     REFUND_COMPLETED: to(
       'refunded',
-      (s) => say(s, 'Your refund was sent to your refund address.', 'Your cash was returned by courier.'),
+      (s) =>
+        say(
+          s,
+          'Your refund was sent to your refund address.',
+          'Your cash was returned by courier.',
+          'Your wire was returned to the sending account.',
+        ),
       (e) => ({ refundTxHash: ev(e, 'REFUND_COMPLETED').txHash }),
     ),
   },
@@ -623,8 +674,21 @@ const BUY_STATUS_LABEL: Partial<Record<OrderStatus, string>> = {
   refunded: 'Cash returned',
 };
 
-export function orderStatusLabel(status: OrderStatus, direction: ExchangeDirection = 'sell'): string {
-  return (direction === 'buy' ? BUY_STATUS_LABEL[status] : undefined) ?? ORDER_STATUS_LABEL[status];
+/** Buy orders paid by bank wire. */
+const WIRE_STATUS_LABEL: Partial<Record<OrderStatus, string>> = {
+  ...BUY_STATUS_LABEL,
+  created: 'Preparing wire instructions',
+  awaiting_deposit: 'Awaiting wire',
+  deposit_observed: 'Wire received',
+  confirming: 'Matching wire',
+  deposit_confirmed: 'Wire verified',
+  refund_pending: 'Wire return pending',
+  refunded: 'Wire returned',
+};
+
+export function orderStatusLabel(status: OrderStatus, direction: ExchangeDirection = 'sell', payIn?: BuyPayIn): string {
+  const buyLabels = payIn === 'wire' ? WIRE_STATUS_LABEL : BUY_STATUS_LABEL;
+  return (direction === 'buy' ? buyLabels[status] : undefined) ?? ORDER_STATUS_LABEL[status];
 }
 
 export type OrderTone = 'info' | 'success' | 'warn' | 'danger' | 'neutral';
@@ -672,8 +736,10 @@ export function orderSteps(
   events: readonly PersistedOrderEvent[],
   confirmations: { count: number; required: number },
   direction: ExchangeDirection = 'sell',
+  payIn?: BuyPayIn,
 ): OrderStep[] {
   const buy = direction === 'buy';
+  const wire = buy && payIn === 'wire';
   const firstAt = (...types: PersistedOrderEvent['type'][]) => events.find((e) => types.includes(e.type))?.createdAt ?? null;
   const reachedReview = events.some((e) => e.toStatus === 'compliance_review');
   const refunding = status === 'refund_pending' || status === 'refunded';
@@ -688,15 +754,17 @@ export function orderSteps(
     { key: 'created', label: 'Request created', state: 'done', at: firstAt('ORDER_CREATED') },
     {
       key: 'deposit',
-      label: buy ? 'Cash collected' : 'Deposit observed',
+      label: wire ? 'Wire received' : buy ? 'Cash collected' : 'Deposit observed',
       state: depositAt ? 'done' : closedEarly ? 'failed' : status === 'awaiting_deposit' ? 'current' : 'upcoming',
       at: depositAt,
     },
     {
       key: 'confirm',
-      label: buy
-        ? 'Cash counted and verified'
-        : `Confirmations (${Math.min(confirmations.count, confirmations.required)} of ${confirmations.required})`,
+      label: wire
+        ? 'Wire matched and verified'
+        : buy
+          ? 'Cash counted and verified'
+          : `Confirmations (${Math.min(confirmations.count, confirmations.required)} of ${confirmations.required})`,
       state: confirmedAt ? 'done' : depositAt ? 'current' : 'upcoming',
       at: confirmedAt,
     },
@@ -712,7 +780,7 @@ export function orderSteps(
   if (refunding) {
     steps.push({
       key: 'refund',
-      label: buy ? 'Cash return' : 'Refund',
+      label: wire ? 'Wire return' : buy ? 'Cash return' : 'Refund',
       state: status === 'refunded' ? 'done' : 'current',
       at: firstAt('REFUND_COMPLETED'),
     });

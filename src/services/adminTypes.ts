@@ -282,6 +282,8 @@ export interface AdminApi {
     refundComplete(id: string): Promise<SandboxOutcome>;
     replay(id: string): Promise<SandboxOutcome>;
     expire(id: string): Promise<SandboxOutcome>;
+    wireInstructions(id: string): Promise<SandboxOutcome>;
+    wireReceived(id: string): Promise<SandboxOutcome>;
     notifications(): Promise<OutboxMessage[]>;
   };
 }

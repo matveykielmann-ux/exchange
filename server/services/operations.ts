@@ -207,7 +207,8 @@ export async function authorizePayout(ctx: AppContext, actor: Actor, orderId: st
       orderId,
       method: order.payout_method,
       amountCents: BigInt(order.net_cents),
-      destination: payoutDetails(ctx, order.payout_destination_id),
+      // A buy pays out crypto to the receiving wallet (see payoutProvider), so its saved destination (none for a wire) is unused.
+      destination: order.direction === 'buy' ? (undefined as never) : payoutDetails(ctx, order.payout_destination_id!),
       idempotencyKey: instruction.idempotency_key,
     });
     return ctx.db.tx(() => {
@@ -299,6 +300,7 @@ export async function initiateRefund(ctx: AppContext, actor: Actor, orderId: str
 export async function submitRefund(ctx: AppContext, actor: Actor, orderId: string, reason: string) {
   const o = getOrderRow(ctx, orderId);
   const buy = o.direction === 'buy';
+  const wire = buy && o.payout_method === 'wire';
   if (o.status !== 'refund_pending')
     throw conflict('Refunds can be submitted only for orders with a pending refund.', 'invalid_transition');
   if (!o.deposit_amount_atomic) throw conflict('There is no observed deposit to refund.');
@@ -330,8 +332,8 @@ export async function submitRefund(ctx: AppContext, actor: Actor, orderId: strin
           id,
           orderId,
           refund!.idempotency_key,
-          ctx.config.mode === 'sandbox' ? 'sandbox' : buy ? 'cash' : 'custody',
-          buy ? 'courier-return' : o.refund_address,
+          ctx.config.mode === 'sandbox' ? 'sandbox' : wire ? 'bankPayout' : buy ? 'cash' : 'custody',
+          wire ? 'wire-return-to-sender' : buy ? 'courier-return' : o.refund_address,
           o.deposit_amount_atomic,
           actor.id,
           reason,
@@ -344,14 +346,21 @@ export async function submitRefund(ctx: AppContext, actor: Actor, orderId: strin
     });
   }
   const r = refund!;
-  if (!isUsable((buy ? ctx.providers.cash : ctx.providers.custody).info())) {
+  // Wire buys: the wire goes back to the account it came from. There is no contracted bank, so only the sandbox can
+  // record a (simulated) return; anywhere else it stays not configured.
+  if (wire && ctx.config.mode !== 'sandbox') {
+    ctx.db.run("UPDATE refunds SET status = 'not_configured', updated_at = ? WHERE id = ?", [ctx.clock.now(), r.id]);
+    return { ...r, status: 'not_configured' };
+  }
+  if (!isUsable((wire ? ctx.providers.bankPayout : buy ? ctx.providers.cash : ctx.providers.custody).info())) {
     ctx.db.run("UPDATE refunds SET status = 'not_configured', updated_at = ? WHERE id = ?", [ctx.clock.now(), r.id]);
     return { ...r, status: 'not_configured' };
   }
   try {
     let providerRef: string;
-    if (buy) {
-      const destination = payoutDetails(ctx, o.payout_destination_id);
+    if (wire) providerRef = `sbx_wire_return_${orderId.replace(/^ord_/, '')}`;
+    else if (buy) {
+      const destination = payoutDetails(ctx, o.payout_destination_id!);
       if (destination.kind !== 'courier') throw new Error('Collection address is not a courier address.');
       ({ providerRef } = await ctx.providers.cash.requestCashReturn({
         orderId,

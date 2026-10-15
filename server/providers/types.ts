@@ -230,14 +230,15 @@ export type ProviderEvent =
 /**
  * Which source may send each event type. For deposit.* and refund.completed the
  * order's direction narrows it further: custody for a sell (crypto in), cash
- * for a buy (cash collected by courier). payout.* must match the provider the
+ * for a buy paid in cash (collected by courier), the bank provider for a buy
+ * paid by wire. payout.* must match the provider the
  * payout instruction went to (custody sends the crypto of a buy).
  */
 export const WEBHOOK_EVENT_SOURCES: Record<ProviderEvent['type'], readonly WebhookSource[]> = {
-  'deposit.observed': ['custody', 'cash'],
+  'deposit.observed': ['custody', 'cash', 'bankPayout'],
   'deposit.confirmations': ['custody'],
-  'deposit.confirmed': ['custody', 'cash'],
-  'refund.completed': ['custody', 'cash'],
+  'deposit.confirmed': ['custody', 'cash', 'bankPayout'],
+  'refund.completed': ['custody', 'cash', 'bankPayout'],
   'payout.processing': ['bankPayout', 'cardPayout', 'cash', 'custody'],
   'payout.completed': ['bankPayout', 'cardPayout', 'cash', 'custody'],
   'payout.failed': ['bankPayout', 'cardPayout', 'cash', 'custody'],

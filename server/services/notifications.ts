@@ -18,6 +18,8 @@ export type Template =
   | 'buy_transfer_submitted'
   | 'buy_completed'
   | 'buy_cash_verified'
+  | 'buy_wire_instructions'
+  | 'buy_wire_verified'
   | 'deposit_confirmed'
   | 'info_requested'
   | 'payout_submitted'
@@ -61,6 +63,14 @@ const TEMPLATES: Record<Template, (v: Vars) => { subject: string; body: string }
   buy_cash_verified: (v) => ({
     subject: `Order ${v.reference}: cash counted`,
     body: `The cash collected for order ${v.reference} was counted and matches the quote. We will update you when your crypto transfer is submitted.`,
+  }),
+  buy_wire_instructions: (v) => ({
+    subject: `Order ${v.reference}: wire instructions issued`,
+    body: `Wire instructions for order ${v.reference} are on the order page. Send exactly ${v.cash} before ${v.deadline} and quote ${v.reference} as the reference. Check the instructions on the order page only; never use details sent by email or chat.`,
+  }),
+  buy_wire_verified: (v) => ({
+    subject: `Order ${v.reference}: wire matched`,
+    body: `The wire for order ${v.reference} was matched to the order and matches the quote. We will update you when your crypto transfer is submitted.`,
   }),
   deposit_confirmed: (v) => ({
     subject: `Order ${v.reference}: deposit confirmed`,

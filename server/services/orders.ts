@@ -6,11 +6,13 @@
  */
 import { isValidAddress, NETWORKS, networkLabel, type AssetCode, type NetworkId } from '@/domain/assets';
 import { CASH_COLLECTION_WINDOW_MS } from '@/domain/courier';
+import { isPreviewWireValue, validateWireReference, WIRE_RECEIPT_WINDOW_MS, wireInstructionsPreview } from '@/domain/wire';
 import { formatUsd } from '@/domain/money';
 import { PAYOUT_METHODS, payoutEligibility, type PayoutMethodId } from '@/domain/payout';
 import { isQuoteExpired, PRICING_POLICY, type ExchangeDirection, type Quote } from '@/domain/quote';
 import { canConfirmExchange } from '@/domain/identity';
 import {
+  buyPayIn,
   isPreviewDepositAddress,
   ORDER_STAGE_LABEL,
   orderStage,
@@ -29,7 +31,7 @@ import type { Actor, AppContext } from '../context';
 import { ApiError, badRequest, conflict, notConfigured, notFound } from '../http/errors';
 import { newId, randomId } from '../lib/clock';
 import { isUsable } from '../providers/registry';
-import { ProviderError, ProviderNotConfiguredError, type PayoutProvider } from '../providers/types';
+import { ProviderError, ProviderNotConfiguredError, type PayoutProvider, type WebhookSource } from '../providers/types';
 import { audit } from './audit';
 import { courierDelivery, getProfile, payoutDetails, type DestinationRow } from './customers';
 import { notify } from './notifications';
@@ -45,7 +47,10 @@ export interface OrderRow {
   status: OrderStatus;
   version: number;
   source: 'sandbox' | 'live';
-  /** sell: crypto in, USD out. buy: cash collected by courier, crypto out (refund_address is then the receiving wallet). */
+  /**
+   * sell: crypto in, USD out. buy: cash collected by courier or a bank wire, crypto out (refund_address is then the
+   * receiving wallet, and payout_method holds the pay-in: courier_cash or wire).
+   */
   direction: ExchangeDirection;
   asset: AssetCode;
   network: NetworkId;
@@ -57,7 +62,8 @@ export interface OrderRow {
   payout_fee_cents: number;
   net_cents: number;
   payout_method: PayoutMethodId;
-  payout_destination_id: string;
+  /** Null only for a buy paid by wire, which has no saved destination (migration 6). */
+  payout_destination_id: string | null;
   payout_label: string;
   payout_last4: string;
   /**
@@ -106,9 +112,16 @@ export function getOrderRow(ctx: AppContext, id: string): OrderRow {
   return row;
 }
 
+/** Which provider reports the money coming in (and its return): custody for a sell, the cash or bank provider for a buy. */
+export function depositSource(o: Pick<OrderRow, 'direction' | 'payout_method'>): WebhookSource {
+  if (o.direction !== 'buy') return 'custody';
+  return o.payout_method === 'wire' ? 'bankPayout' : 'cash';
+}
+
 function machineState(o: OrderRow): OrderMachineState {
   return {
     direction: o.direction,
+    payIn: buyPayIn(o.direction, o.payout_method),
     status: o.status,
     // A buy's "deposit" is the cash collected, in cents.
     quotedAmountAtomic: o.direction === 'buy' ? BigInt(o.gross_cents) : BigInt(o.amount_atomic),
@@ -207,7 +220,7 @@ function notifyStatusChange(ctx: AppContext, o: OrderRow, detail: string) {
     vars: {
       reference: o.reference,
       stage: ORDER_STAGE_LABEL[orderStage(o.status, o.on_hold === 1)],
-      status: orderStatusLabel(o.status, o.direction),
+      status: orderStatusLabel(o.status, o.direction, buyPayIn(o.direction, o.payout_method)),
       detail,
     },
   });
@@ -482,11 +495,13 @@ export async function createOrder(
 }
 
 /**
- * Buy order (cash → crypto). The courier collects the cash from the verified
- * account holder after an ID check; once the cash is counted (cash provider
- * webhooks) and checks are complete, an operator authorizes the crypto
- * transfer to the customer's wallet. The same state machine and webhook
- * rules apply as for a sell.
+ * Buy order (cash or wire → crypto). Cash: the courier collects the cash from
+ * the verified account holder after an ID check. Wire: the customer sends a
+ * bank wire to the instructions shown once they are issued (placeholders in
+ * the sandbox; see domain/wire.ts). Once the money is counted or matched
+ * (cash or bank provider webhooks) and checks are complete, an operator
+ * authorizes the crypto transfer to the customer's wallet. The same state
+ * machine and webhook rules apply as for a sell.
  */
 async function createBuyOrder(
   ctx: AppContext,
@@ -498,7 +513,10 @@ async function createBuyOrder(
   input: { destinationId: string; receiveAddress?: string | null; accepted: { slug: string; version: string }[] },
 ): Promise<OrderRow> {
   const now = ctx.clock.now();
-  if (!isUsable(ctx.providers.cash.info())) throw notConfigured('Cash collection provider');
+  const wire = quote.payoutMethod === 'wire';
+  if (wire) {
+    if (!isUsable(ctx.providers.bankPayout.info())) throw notConfigured('Bank wire provider');
+  } else if (!isUsable(ctx.providers.cash.info())) throw notConfigured('Cash collection provider');
   if (!isUsable(ctx.providers.custody.info())) throw notConfigured('Crypto custody provider');
   if (!isUsable(ctx.providers.screening.info())) throw notConfigured('Sanctions screening');
 
@@ -506,7 +524,7 @@ async function createBuyOrder(
   if (isQuoteExpired(quote, now)) throw new ApiError(409, 'quote_expired', 'This quote has expired. Get a new quote to continue.');
   if ((JSON.parse(issuesJson) as unknown[]).length)
     throw new ApiError(422, 'quote_issues', 'This quote cannot be accepted. Change the amount.');
-  const eligibility = payoutEligibility(PAYOUT_METHODS.courier_cash, quote.grossCents);
+  const eligibility = payoutEligibility(PAYOUT_METHODS[wire ? 'wire' : 'courier_cash'], quote.grossCents);
   if (!eligibility.eligible) throw new ApiError(422, 'method_unavailable', eligibility.reason);
 
   const profile = getProfile(ctx, userId);
@@ -524,11 +542,14 @@ async function createBuyOrder(
       { field: 'receiveAddress' },
     );
 
-  const dest = ctx.db.get<DestinationRow>(
-    "SELECT * FROM payout_destinations WHERE id = ? AND user_id = ? AND status = 'active' AND kind = 'courier'",
-    [input.destinationId, userId],
-  );
-  if (!dest) throw badRequest('Choose the address where the courier collects the cash.', { field: 'destinationId' });
+  // A wire needs no saved destination: the customer sends it from their own bank.
+  const dest = wire
+    ? null
+    : ctx.db.get<DestinationRow>(
+        "SELECT * FROM payout_destinations WHERE id = ? AND user_id = ? AND status = 'active' AND kind = 'courier'",
+        [input.destinationId, userId],
+      );
+  if (!wire && !dest) throw badRequest('Choose the address where the courier collects the cash.', { field: 'destinationId' });
 
   const docs = requireAcceptance(input.accepted, 'order');
 
@@ -540,7 +561,7 @@ async function createBuyOrder(
 
   const id = newId('ord');
   const reference = newReference();
-  const deadline = now + CASH_COLLECTION_WINDOW_MS;
+  const deadline = now + (wire ? WIRE_RECEIPT_WINDOW_MS : CASH_COLLECTION_WINDOW_MS);
   ctx.db.tx(() => {
     const { changes } = ctx.db.run('UPDATE quotes SET used_at = ? WHERE id = ? AND used_at IS NULL', [now, quote.id]);
     if (changes !== 1) throw conflict('This quote has already been used. Get a new quote.', 'quote_used');
@@ -548,7 +569,7 @@ async function createBuyOrder(
       `INSERT INTO orders (id, reference, user_id, quote_id, status, source, direction, asset, network, amount_atomic, reference_price_micros, gross_cents,
          spread_bps, spread_cents, payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label, payout_last4, refund_address,
          deposit_deadline, confirmations_required, review_reason, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'created', ?, 'buy', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'courier_cash', ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, 'created', ?, 'buy', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
       [
         id,
         reference,
@@ -564,9 +585,10 @@ async function createBuyOrder(
         Number(quote.spreadCents),
         Number(quote.payoutFeeCents),
         Number(quote.netCents),
-        dest.id,
-        dest.label,
-        dest.last4,
+        wire ? 'wire' : 'courier_cash',
+        dest?.id ?? null,
+        dest?.label ?? 'Bank wire',
+        dest?.last4 ?? '',
         receiveAddress,
         deadline,
         screening.result === 'review' ? `Receiving address screening: ${screening.note}` : null,
@@ -581,16 +603,25 @@ async function createBuyOrder(
       actor,
       visibility: 'customer',
       detail: 'Exchange request created with your accepted quote.',
-      data: { quoteId: quote.id, direction: 'buy' },
+      data: { quoteId: quote.id, direction: 'buy', payIn: wire ? 'wire' : 'courier_cash' },
     });
     recordAcceptances(ctx, userId, docs, 'order', { ip: actor.ip, orderId: id });
     audit(ctx, actor, {
       action: 'order.created',
       targetType: 'order',
       targetId: id,
-      data: { quoteId: quote.id, direction: 'buy', grossCents: quote.grossCents, amountAtomic: quote.amountAtomic },
+      data: {
+        quoteId: quote.id,
+        direction: 'buy',
+        payIn: wire ? 'wire' : 'courier_cash',
+        grossCents: quote.grossCents,
+        amountAtomic: quote.amountAtomic,
+      },
     });
   });
+
+  // A wire order waits for its instructions to be issued (in the CRM, or by the sandbox autopilot): see issueWireInstructions.
+  if (wire || !dest) return getOrderRow(ctx, id);
 
   try {
     const destination = payoutDetails(ctx, dest.id);
@@ -630,6 +661,38 @@ async function createBuyOrder(
   return getOrderRow(ctx, id);
 }
 
+/**
+ * Wire buys: records that the wire instructions were issued and moves the
+ * order to "awaiting wire". Demo only: in the sandbox the instructions are
+ * placeholders (domain/wire.ts) and nothing a customer could pay into is
+ * stored. Outside the sandbox there is no contracted bank, so this refuses.
+ * The operator's action is audited; the transition itself is a system event.
+ */
+export function issueWireInstructions(ctx: AppContext, actor: Actor, orderId: string): OrderRow {
+  if (ctx.config.mode !== 'sandbox') throw notConfigured('Bank wire provider');
+  const o = getOrderRow(ctx, orderId);
+  if (o.direction !== 'buy' || o.payout_method !== 'wire') throw conflict('Only wire orders have wire instructions.', 'invalid_transition');
+  if (o.status !== 'created') throw conflict(`Wire instructions were already issued (the order is ${o.status}).`, 'invalid_transition');
+  const placeholder = 'DEMO-WIRE-INSTRUCTIONS-NOT-ISSUED';
+  return ctx.db.tx(() => {
+    ctx.db.run(
+      'INSERT INTO deposit_instructions (id, order_id, provider, provider_ref, address, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [newId('dep'), o.id, 'sandbox', `sbx_wire_${o.id.replace(/^ord_/, '')}`, placeholder, o.reference, ctx.clock.now()],
+    );
+    audit(ctx, actor, { action: 'order.wire_instructions_issued', targetType: 'order', targetId: o.id, data: { demo: true } });
+    const updated = applyOrderEvent(ctx, o.id, { type: 'DEPOSIT_INSTRUCTIONS_ISSUED' }, { type: 'system', id: null, role: null, ip: null });
+    const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [o.user_id])!.email;
+    notify(ctx, {
+      userId: o.user_id,
+      to: email,
+      template: 'buy_wire_instructions',
+      orderId: o.id,
+      vars: { reference: o.reference, cash: formatUsd(BigInt(o.gross_cents)), deadline: new Date(o.deposit_deadline).toISOString() },
+    });
+    return updated;
+  });
+}
+
 /* ---------- Customer actions ---------- */
 
 export function customerOrder(ctx: AppContext, userId: string, id: string): OrderRow {
@@ -650,8 +713,16 @@ export function cancelOrder(ctx: AppContext, actor: Actor, userId: string, id: s
  */
 export function reportSent(ctx: AppContext, actor: Actor, userId: string, id: string, txHash: string | null): OrderRow {
   const o = customerOrder(ctx, userId, id);
-  if (o.direction === 'buy') throw conflict('Cash orders have no transaction hash to submit.', 'invalid_transition');
+  if (o.direction === 'buy' && o.payout_method !== 'wire')
+    throw conflict('Cash orders have no transaction hash to submit.', 'invalid_transition');
   if (o.customer_reported_sent_at) return o;
+  if (o.direction === 'buy') {
+    // Wire: the customer's own reference is optional and only format-checked; it never confirms a payment.
+    const ref = txHash?.trim() ?? '';
+    const refError = validateWireReference(ref);
+    if (refError) throw badRequest(refError, { field: 'txHash' });
+    return applyOrderEvent(ctx, o.id, { type: 'CUSTOMER_REPORTED_SENT', txHash: ref || null }, actor);
+  }
   // The hash is required so the team can look the transfer up; only its format is checked here.
   const hash = txHash?.trim() ?? '';
   const error = validateTxHash(hash, o.network);
@@ -700,7 +771,7 @@ export function afterDepositConfirmed(ctx: AppContext, orderId: string) {
   notify(ctx, {
     userId: o.user_id,
     to: email,
-    template: o.direction === 'buy' ? 'buy_cash_verified' : 'deposit_confirmed',
+    template: o.direction === 'buy' ? (o.payout_method === 'wire' ? 'buy_wire_verified' : 'buy_cash_verified') : 'deposit_confirmed',
     vars: { reference: o.reference },
   });
   return updated;
@@ -746,6 +817,7 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
   );
   const events = orderEvents(ctx, o.id, internal);
   const buy = o.direction === 'buy';
+  const payIn = buyPayIn(o.direction, o.payout_method);
   // The hash the customer submitted for review (format-checked only; not proof of a deposit).
   const reported = ctx.db.get<{ data: string }>("SELECT data FROM order_events WHERE order_id = ? AND type = 'CUSTOMER_REPORTED_SENT'", [
     o.id,
@@ -758,6 +830,8 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
     reference: o.reference,
     source: o.source,
     direction: o.direction,
+    /** Buy orders: how the dollars are paid (courier_cash or wire). */
+    payIn: payIn ?? null,
     status: o.status,
     /** The owner-facing pipeline stage (New, Awaiting Payment, Payment Review, …). */
     stage: orderStage(o.status, o.on_hold === 1),
@@ -784,8 +858,17 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
       last4: o.payout_last4,
       providerRef: o.payout_provider_ref,
       // The customer sees the delivery details they gave; staff views add role-masked details separately.
-      delivery: !internal && o.payout_method === 'courier_cash' ? courierDelivery(ctx, o.payout_destination_id) : null,
+      delivery:
+        !internal && o.payout_method === 'courier_cash' && o.payout_destination_id ? courierDelivery(ctx, o.payout_destination_id) : null,
     },
+    /**
+     * Wire buys, once instructions are issued: what the customer sends and where. In this demo every bank field is a
+     * placeholder (never a real account or routing number); anything else is withheld.
+     */
+    wireInstructions:
+      payIn === 'wire' && deposit && o.status !== 'created'
+        ? wireInstructionsPreview(o.reference).filter((l) => !l.placeholder || isPreviewWireValue(l.value))
+        : null,
     /** Sell: where crypto is returned, once the customer has given it. Null for a buy, whose cash is returned by courier. */
     refundAddress: buy ? null : o.refund_address,
     /** Sell: a refund is pending and waits for the customer's return address. */
@@ -813,6 +896,7 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
         required: o.confirmations_required,
       },
       o.direction,
+      payIn,
     ),
     events,
     createdAt: o.created_at,

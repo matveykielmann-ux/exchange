@@ -6,6 +6,7 @@
  */
 import type { AddressInfo } from 'node:net';
 import { LEGAL_DOCUMENTS } from '@/content/legal';
+import { isPreviewWireValue } from '@/domain/wire';
 import type { App } from '../app';
 import { totpCode } from '../lib/crypto';
 import { signWebhook } from '../providers/signature';
@@ -545,6 +546,91 @@ describe('API', () => {
     expect(audit.body.items.map((a: { action: string }) => a.action)).toEqual(
       expect.arrayContaining(['order.document_uploaded', 'order.payout_authorized']),
     );
+  });
+
+  it('buys crypto with a bank wire: placeholder instructions, optional reference, CRM wire steps, bank webhooks', async () => {
+    const c = env.client();
+    await customer(c, 'wire-buyer@example.test');
+    const indicative = await c.get('/api/quotes/indicative?direction=buy&asset=USDT&network=tron&cashCents=200000&payIn=wire');
+    expect(indicative.body.quote).toMatchObject({ direction: 'buy', grossCents: '200000', payoutMethod: 'wire', payoutFeeCents: '2500' });
+    expect(indicative.body.issues).toEqual([]);
+    // Below the wire minimum.
+    const small = await c.get('/api/quotes/indicative?direction=buy&asset=USDT&network=tron&cashCents=60000&payIn=wire');
+    expect(small.body.issues.map((i: { code: string }) => i.code)).toEqual(['payout_ineligible']);
+
+    const q = await c.post('/api/quotes', { direction: 'buy', asset: 'USDT', network: 'tron', cashCents: '200000', payIn: 'wire' });
+    expect(q.status).toBe(201);
+    const wallet = 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE';
+    // No saved destination is needed for a wire.
+    const o = await c.post(
+      '/api/orders',
+      { quoteId: q.body.quote.id, destinationId: '', receiveAddress: wallet, accepted: docs('order') },
+      { 'idempotency-key': 'wire-order-1' },
+    );
+    expect(o.status).toBe(201);
+    expect(o.body).toMatchObject({ direction: 'buy', payIn: 'wire', status: 'created', receiveAddress: wallet, wireInstructions: null });
+    const id = o.body.id as string;
+
+    // CRM step 1: instructions issued (demo). Every bank field is a placeholder; the reference is the order's.
+    const admin = await staff(env.app, env.base, 'admin');
+    expect((await admin.post(`/api/admin/sandbox/orders/${id}/wire-instructions`)).status).toBe(200);
+    const issued = (await c.get(`/api/orders/${id}`)).body;
+    expect(issued.status).toBe('awaiting_deposit');
+    for (const line of issued.wireInstructions)
+      expect(line.placeholder ? isPreviewWireValue(line.value) : line.value === issued.reference).toBe(true);
+    expect((await admin.post(`/api/admin/sandbox/orders/${id}/wire-instructions`)).status).toBe(409);
+
+    // The customer marks the wire as sent; the reference is optional and format-checked.
+    expect((await c.post(`/api/orders/${id}/report-sent`, { txHash: 'bad<ref>' })).status).toBe(400);
+    const sent = await c.post(`/api/orders/${id}/report-sent`, { txHash: 'FED 20261015 ABC/1' });
+    expect(sent.status).toBe(200);
+    expect(sent.body).toMatchObject({ status: 'awaiting_deposit', deposit: { customerTxHash: 'FED 20261015 ABC/1' } });
+
+    // Deposit events for a wire buy must come from the bank provider.
+    const wrong = deliver(env.ctx, 'cash', {
+      id: 'sbx_wrong_wire_1',
+      type: 'deposit.observed',
+      data: { orderId: id, txHash: 'x', amountAtomic: '200000', confirmations: 0 },
+    });
+    expect(wrong.status).toBe('rejected');
+
+    // CRM step 2: wire received (demo), as signed bank webhooks; then the operator authorizes the crypto transfer.
+    expect((await admin.post(`/api/admin/sandbox/orders/${id}/wire-received`)).status).toBe(200);
+    expect((await c.get(`/api/orders/${id}`)).body.status).toBe('ready_for_payout');
+    const auth = await admin.post(`/api/admin/orders/${id}/authorize-payout`, { reason: 'Wire matched; sending crypto.' });
+    expect(auth.body).toMatchObject({ status: 'payout_submitted' });
+    await admin.post(`/api/admin/sandbox/orders/${id}/payout`, { outcome: 'completed' });
+    expect((await c.get(`/api/orders/${id}`)).body.status).toBe('completed');
+    const sources = env.ctx.db
+      .all<{ provider: string; event_type: string }>("SELECT provider, event_type FROM provider_webhook_events WHERE status = 'processed'")
+      .map((r) => `${r.provider}:${r.event_type}`);
+    expect(sources).toEqual(expect.arrayContaining(['bankPayout:deposit.observed', 'bankPayout:deposit.confirmed']));
+  });
+
+  it('issues wire instructions and moves a wire buy once the customer marks it sent (sandbox autopilot)', async () => {
+    const c = env.client();
+    await customer(c, 'wire-auto@example.test');
+    const q = await c.post('/api/quotes', { direction: 'buy', asset: 'USDC', network: 'ethereum', cashCents: '150000', payIn: 'wire' });
+    const o = await c.post(
+      '/api/orders',
+      { quoteId: q.body.quote.id, destinationId: '', receiveAddress: TEST_ETH_ADDRESS, accepted: docs('order') },
+      { 'idempotency-key': 'wire-auto-1' },
+    );
+    const id = o.body.id as string;
+    (env.ctx.config.sandbox as { autopilotStepMs: number }).autopilotStepMs = 3000;
+    const tick = () => {
+      env.clock.advance(3001);
+      return sandboxAutopilotTick(env.ctx);
+    };
+    const status = async () => (await c.get(`/api/orders/${id}`)).body.status;
+    tick();
+    expect(await status()).toBe('awaiting_deposit');
+    expect(tick()).toBe(0); // waits for the customer
+    await c.post(`/api/orders/${id}/report-sent`, { txHash: null });
+    tick();
+    expect(await status()).toBe('deposit_observed');
+    tick();
+    expect(await status()).toBe('ready_for_payout');
   });
 
   it('asks for the country of residence and the clause 8.5 confirmation at sign-up', async () => {
