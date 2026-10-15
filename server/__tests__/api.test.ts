@@ -552,7 +552,7 @@ describe('API', () => {
     const c = env.client();
     await customer(c, 'wire-buyer@example.test');
     const indicative = await c.get('/api/quotes/indicative?direction=buy&asset=USDT&network=tron&cashCents=200000&payIn=wire');
-    expect(indicative.body.quote).toMatchObject({ direction: 'buy', grossCents: '200000', payoutMethod: 'wire', payoutFeeCents: '2500' });
+    expect(indicative.body.quote).toMatchObject({ direction: 'buy', grossCents: '200000', payoutMethod: 'wire', payoutFeeCents: '6000' }); // 3% exchange fee, no spread;
     expect(indicative.body.issues).toEqual([]);
     // Below the wire minimum.
     const small = await c.get('/api/quotes/indicative?direction=buy&asset=USDT&network=tron&cashCents=60000&payIn=wire');
