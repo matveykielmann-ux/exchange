@@ -11,9 +11,10 @@ import { ASSETS, type AssetCode, type NetworkId, isSupportedPair } from './asset
 import { divRoundHalfUp, MICROS_PER_CENT, microsToCentsFloor, pow10, type AtomicAmount, type Cents, type Micros } from './money';
 import { PAYOUT_METHODS, payoutEligibility, payoutFeeCents, type PayoutMethodId } from './payout';
 
-/** MOCK pricing policy. Values are placeholders until confirmed by the owner. */
+/** Pricing policy. No published order minimum (owner decision). */
 export const PRICING_POLICY = {
-  minimumCents: 50_00n,
+  /** 0 = no published minimum; amounts must still be greater than zero. */
+  minimumCents: 0n,
   /** There is no maximum. From this amount the large-transaction desk can price an order individually (optional). */
   largeDeskFromCents: 25_000_00n,
   /** Quote validity on the review step before it must be refreshed. */

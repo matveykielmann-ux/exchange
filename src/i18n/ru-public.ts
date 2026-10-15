@@ -140,9 +140,62 @@ export const RU_PUBLIC: Record<string, string> = {
   'Support messages': 'Сообщения поддержки',
   'Admin workspace': 'Рабочее место администратора',
   'Sell crypto for US dollars, or buy crypto with cash. This is the sandbox: every price, deposit and payout is simulated.':
-    'Продайте криптовалюту за доллары США или купите её за наличные. Это тестовая среда: все цены, депозиты и выплаты имитируются.',
+    'Обмен цифровых активов. Прозрачные условия. Контроль каждой заявки.',
   'Sell crypto for US dollars, or buy crypto with cash collected by courier.':
-    'Продайте криптовалюту за доллары США или купите её за наличные, которые заберёт курьер.',
+    'Обмен цифровых активов. Прозрачные условия. Контроль каждой заявки.',
+  'Digital asset exchange. Transparent terms. Control of every order.':
+    'Обмен цифровых активов. Прозрачные условия. Контроль каждой заявки.',
+  'Send BTC, ETH, USDT, USDC, XRP, SOL or BNB and receive US dollars, or buy crypto with clear fees listed as separate lines.':
+    'Отправьте BTC, ETH, USDT, USDC, XRP, SOL или BNB и получите доллары США — или купите криптовалюту с прозрачными комиссиями, указанными отдельными строками.',
+  'No published minimum': 'Без опубликованного минимума',
+  'No maximum order size': 'Без максимального размера заявки',
+  'There is no published minimum and no maximum.': 'Опубликованного минимума нет, максимума тоже нет.',
+  '3% exchange fee': 'Комиссия обменника 3%',
+  'Awaiting bank details': 'Ожидаются реквизиты',
+  'Awaiting deposit details': 'Ожидается подтверждение депозита',
+  'Your order is accepted. We are preparing the bank wire details. When they are ready, they will appear in your account.':
+    'Заявка принята. Мы готовим реквизиты для банковского перевода. Когда реквизиты будут готовы, они появятся в вашем личном кабинете.',
+  'Confirm payment': 'Подтвердить оплату',
+  'Request a refund via support': 'Запросить возврат через поддержку',
+  'Additional verification': 'Дополнительная проверка',
+  'Payout is being processed': 'Выплата обрабатывается',
+  'Bank processing fee': 'Банковская комиссия',
+  'Calculated individually based on the order parameters': 'Стоимость рассчитывается индивидуально на основании параметров заявки',
+  'Published bank processing fee for the wire direction according to the service fee schedule.':
+    'Установленная банковская комиссия для направления wire согласно тарифной сетке сервиса.',
+  '3% exchange fee on the wire direction.': 'Комиссия обменника 3% для банковского перевода.',
+  'You send by bank wire': 'Вы отправляете банковским переводом',
+  'To the bank details shown on your order': 'По реквизитам, указанным в вашей заявке',
+  'to the wallet address you give, after the wire is matched and verified.':
+    'на указанный вами адрес кошелька после сверки и проверки перевода.',
+  'Service status': 'Состояние сервиса',
+  'Admin only': 'Только для администратора',
+  'Fees (bank + exchange)': 'Комиссии (банк + обмен)',
+  'Price feeds, integrations and supported assets. Secrets are never shown. Configuration changes need a server restart.':
+    'Источники цен, интеграции и поддерживаемые активы. Секреты не отображаются. Изменения конфигурации требуют перезапуска сервера.',
+  'Upload a receipt and/or enter the payment identifier. This helps our team review the transfer; it does not by itself confirm the deposit.':
+    'Загрузите квитанцию и/или укажите идентификатор платежа. Это помогает команде проверить перевод, но само по себе не подтверждает депозит.',
+  'Last submission status:': 'Статус последней отправки:',
+  'Confirmation submitted': 'Подтверждение отправлено',
+  'Our team will review it. The order status updates when the transfer is verified.':
+    'Команда проверит материалы. Статус заявки обновится после проверки поступления.',
+  'Provide a TXID, a bank reference, or a receipt file.': 'Укажите TXID, банковский референс или загрузите квитанцию.',
+  'Transaction hash (TXID)': 'Хеш транзакции (TXID)',
+  'Bank payment reference': 'Банковский референс платежа',
+  'Comment (optional)': 'Комментарий (необязательно)',
+  'Receipt screenshot or PDF': 'Скриншот или PDF квитанции',
+  'Refund request status:': 'Статус запроса на возврат:',
+  'Complete identity verification before a refund can be considered.':
+    'Для рассмотрения возврата необходимо завершить проверку личности.',
+  'Submit refund request': 'Отправить запрос на возврат',
+  'This order needs additional verification. Read the messages below and reply in support if asked.':
+    'Операция требует дополнительной проверки. Прочитайте сообщения ниже и при необходимости ответьте в поддержке.',
+  submitted: 'отправлено',
+  approved: 'одобрено',
+  needs_info: 'нужна информация',
+  rejected: 'отклонено',
+  needs_kyc: 'требуется KYC',
+  cancelled: 'отменено',
   'Support:': 'Поддержка:',
   Product: 'Сервис',
   'Sell crypto': 'Продать криптовалюту',
@@ -302,7 +355,9 @@ export const RU_PUBLIC: Record<string, string> = {
     'Обмены с перемещением средств требуют подключённых кастодиальных, выплатных и проверочных провайдеров. Пока эти сервисы не настроены, шаги с деньгами отклоняются, и средства нельзя отправить или получить.',
   'set out the terms that apply to every Exchange Request.': 'определяют условия, которые применяются к каждой заявке на обмен.',
   'Bitcoin (BTC), Ether (ETH), Tether (USDT on Ethereum or Tron) and USD Coin (USDC on Ethereum, Solana or Base).':
-    'Bitcoin (BTC), Ether (ETH), Tether (USDT в сетях Ethereum или Tron) и USD Coin (USDC в сетях Ethereum, Solana или Base).',
+    'Bitcoin (BTC), Ether (ETH), Tether (USDT), USD Coin (USDC), XRP, Solana (SOL) и BNB — каждый в сетях, указанных при выборе актива.',
+  'Bitcoin (BTC), Ether (ETH), Tether (USDT), USD Coin (USDC), XRP, Solana (SOL) and BNB — each on the networks shown when you choose the asset.':
+    'Bitcoin (BTC), Ether (ETH), Tether (USDT), USD Coin (USDC), XRP, Solana (SOL) и BNB — каждый в сетях, указанных при выборе актива.',
   'The quote shows the exchange rate you get, with our commission already included, and the value of your crypto at that rate. The payout fee is taken off as a separate line. The result is what you receive, to the cent.':
     'Котировка показывает курс обмена с уже включённой комиссией и стоимость вашей криптовалюты по этому курсу. Комиссия за выплату вычитается отдельной строкой. Итог — сумма, которую вы получите, с точностью до цента.',
   'for the full schedule.': '— там полный список комиссий.',

@@ -240,7 +240,7 @@ function SiteFooter() {
               <Logo />
             </Link>
             <p className="muted" style={{ maxWidth: '34ch' }}>
-              {t('Sell crypto for US dollars, or buy crypto with cash collected by courier.')}
+              {t('Digital asset exchange. Transparent terms. Control of every order.')}
             </p>
             <p className="small">
               {t('Support:')} <TelegramLink /> · {t(SUPPORT.hours.label)}

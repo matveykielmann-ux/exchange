@@ -27,7 +27,13 @@ export const FAQ: FaqItem[] = [
   {
     group: 'Getting started',
     q: 'Which assets can I sell?',
-    a: <p>{t('Bitcoin (BTC), Ether (ETH), Tether (USDT on Ethereum or Tron) and USD Coin (USDC on Ethereum, Solana or Base).')}</p>,
+    a: (
+      <p>
+        {t(
+          'Bitcoin (BTC), Ether (ETH), Tether (USDT), USD Coin (USDC), XRP, Solana (SOL) and BNB — each on the networks shown when you choose the asset.',
+        )}
+      </p>
+    ),
   },
   {
     group: 'Pricing',
@@ -129,7 +135,7 @@ export const FAQ: FaqItem[] = [
     q: 'What is the largest amount I can sell online?',
     a: (
       <p>
-        {t('There is no maximum. The minimum is')} {formatUsd(PRICING_POLICY.minimumCents)}
+        {t('There is no published minimum and no maximum.')}
         {t('. Any order may be reviewed before payout.')}
       </p>
     ),

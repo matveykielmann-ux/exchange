@@ -16,7 +16,13 @@ export const RU_CRM: Record<string, string> = {
   Template: 'Шаблон',
   'Message the customer will receive': 'Сообщение, которое получит клиент',
   'It appears in the customer’s support messages for this order, with an account notification. In the sandbox no email is sent.':
-    'Оно появится в сообщениях поддержки клиента по этой заявке, вместе с уведомлением в аккаунте. В тестовой среде email не отправляется.',
+    'Оно появится в сообщениях поддержки клиента по этой заявке, вместе с уведомлением в аккаунте.',
+  'It appears in the customer’s support messages for this order, with an account notification.':
+    'Оно появится в сообщениях поддержки клиента по этой заявке, вместе с уведомлением в аккаунте.',
+  'Destination tag': 'Destination tag',
+  'the bank processing fee': 'банковскую комиссию',
+  'the exchange fee': 'комиссию обменника',
+  'Complete verification': 'Завершить проверку',
   'Comment (optional)': 'Комментарий (необязательно)',
   'Me ({0})': 'Я ({0})',
   'Note for the team (never shown to the customer)': 'Заметка для команды (клиент её не видит)',

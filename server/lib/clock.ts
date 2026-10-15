@@ -33,3 +33,13 @@ export function randomId(length = 16): string {
 
 /** Prefixed id, e.g. ord_7K2M9Q… */
 export const newId = (prefix: string, length = 16) => `${prefix}_${randomId(length).toLowerCase()}`;
+
+/** Digits-only public reference (e.g. order number 8274163051). */
+export function randomDigits(length = 10): string {
+  const bytes = randomBytes(length);
+  let s = '';
+  for (let i = 0; i < length; i++) s += String(bytes[i]! % 10);
+  // Avoid leading zero so the number always looks like a 10-digit reference.
+  if (s[0] === '0') s = `${1 + (bytes[0]! % 9)}${s.slice(1)}`;
+  return s;
+}

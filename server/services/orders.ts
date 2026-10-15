@@ -30,7 +30,7 @@ import {
 import { validateRefundAddress, validateTxHash } from '@/domain/validation';
 import { SYSTEM, type Actor, type AppContext } from '../context';
 import { ApiError, badRequest, conflict, notConfigured, notFound } from '../http/errors';
-import { newId, randomId } from '../lib/clock';
+import { newId, randomDigits } from '../lib/clock';
 import { isUsable } from '../providers/registry';
 import { ProviderError, ProviderNotConfiguredError, type PayoutProvider, type WebhookSource } from '../providers/types';
 import { audit } from './audit';
@@ -335,8 +335,14 @@ export async function screenAddress(ctx: AppContext, network: NetworkId, address
   }
 }
 
-// Orders created before the rebrand keep their ARC- references.
-const newReference = () => `CBX-${randomId(8)}`;
+/** Public order number: digits only. Retries on rare UNIQUE collisions. */
+function newReference(ctx: AppContext): string {
+  for (let i = 0; i < 12; i++) {
+    const ref = randomDigits(10);
+    if (!ctx.db.get('SELECT 1 FROM orders WHERE reference = ?', [ref])) return ref;
+  }
+  throw new ApiError(500, 'internal_error', 'Could not allocate a unique order number.');
+}
 
 export async function createOrder(
   ctx: AppContext,
@@ -399,7 +405,7 @@ export async function createOrder(
   }
 
   const id = newId('ord');
-  const reference = newReference();
+  const reference = newReference(ctx);
   const deadline = now + PRICING_POLICY.depositWindowMs;
   const required =
     ctx.config.mode === 'sandbox'
@@ -502,7 +508,15 @@ export async function issueSellDepositInstructions(
       recordAssignment(ctx, orderId, 'wallet', 'assigned', SYSTEM, null, snap, null);
       ctx.db.run(
         'INSERT INTO deposit_instructions (id, order_id, provider, provider_ref, address, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [newId('dep'), orderId, 'crm', `crm_wal_${crmWallet.id.replace(/^wal_/, '')}`, snap.address, null, ctx.clock.now()],
+        [
+          newId('dep'),
+          orderId,
+          'crm',
+          `crm_wal_${crmWallet.id.replace(/^wal_/, '')}`,
+          snap.address,
+          snap.destinationTag ?? null,
+          ctx.clock.now(),
+        ],
       );
       audit(ctx, SYSTEM, {
         action: 'order.wallet_assigned',
@@ -657,7 +671,7 @@ async function createBuyOrder(
   }
 
   const id = newId('ord');
-  const reference = newReference();
+  const reference = newReference(ctx);
   const deadline = now + (wire ? WIRE_RECEIPT_WINDOW_MS : CASH_COLLECTION_WINDOW_MS);
   ctx.db.tx(() => {
     const { changes } = ctx.db.run('UPDATE quotes SET used_at = ? WHERE id = ? AND used_at IS NULL', [now, quote.id]);
@@ -718,11 +732,9 @@ async function createBuyOrder(
     });
   });
 
-  // Wire: auto-issue from the CRM default set when one exists; otherwise wait for staff assignment.
-  if (wire) {
-    if (defaultWireSet(ctx, 'USD')) return issueWireInstructions(ctx, SYSTEM, id);
-    return getOrderRow(ctx, id);
-  }
+  // Wire: wait in `created` until an admin assigns bank credentials in CRM.
+  // Do not auto-issue — the customer must see an explicit waiting state first.
+  if (wire) return getOrderRow(ctx, id);
   if (!dest) return getOrderRow(ctx, id);
   // Courier collection waits until an operator sets the fee and the customer accepts it.
   if (feePending) return getOrderRow(ctx, id);
@@ -887,7 +899,15 @@ export function assignWalletCredentials(
       recordAssignment(ctx, o.id, 'wallet', 'assigned', actor, null, snap, null);
       ctx.db.run(
         'INSERT INTO deposit_instructions (id, order_id, provider, provider_ref, address, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [newId('dep'), o.id, 'crm', `crm_wal_${wallet.id.replace(/^wal_/, '')}`, snap.address, null, ctx.clock.now()],
+        [
+          newId('dep'),
+          o.id,
+          'crm',
+          `crm_wal_${wallet.id.replace(/^wal_/, '')}`,
+          snap.address,
+          snap.destinationTag ?? null,
+          ctx.clock.now(),
+        ],
       );
       audit(ctx, actor, {
         action: 'order.wallet_assigned',
@@ -1233,7 +1253,7 @@ export function orderDocuments(ctx: AppContext, orderId: string) {
     )
     .map((d) => ({
       id: d.id,
-      kind: d.kind as 'id_document',
+      kind: d.kind as 'id_document' | 'payment_receipt' | 'admin_attachment' | 'refund_attachment',
       fileName: d.file_name,
       contentType: d.content_type,
       sizeBytes: d.size_bytes,

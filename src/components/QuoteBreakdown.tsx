@@ -1,6 +1,6 @@
 import { NETWORKS, networkLabel } from '@/domain/assets';
 import { formatUsd } from '@/domain/money';
-import { PAYOUT_METHODS, describeFee, feeLineLabel } from '@/domain/payout';
+import { PAYOUT_METHODS, describeFee, feeLineLabel, wireFeeParts } from '@/domain/payout';
 import { exchangeRateMicros, valueAtRateCents, type Quote } from '@/domain/quote';
 import { formatAsset, formatPriceMicros } from '@/lib/format';
 import { InfoHint } from './InfoHint';
@@ -16,6 +16,8 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
   const method = PAYOUT_METHODS[quote.payoutMethod];
   const sk = loading ? ' skeleton' : '';
   const feePending = !!quote.feePending;
+  const wire = quote.payoutMethod === 'wire';
+  const wireParts = wire ? wireFeeParts(quote.grossCents) : null;
   return (
     <div aria-busy={loading || undefined}>
       <dl className="quote-lines">
@@ -50,18 +52,47 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
           <dt>{t('Value at this rate')}</dt>
           <dd className={sk}>{formatUsd(valueAtRateCents(quote))}</dd>
         </div>
-        <div className="is-deduction">
-          <dt>
-            <span className="quote-lines__term">
-              {t(feeLineLabel(quote.payoutMethod))}
-              <InfoHint label={t('the fee')}>
-                {t(method.name)}: {t(describeFee(method.fee, method.feeStatus))}. {t(method.timingEstimate)}.
-              </InfoHint>
-            </span>
-            <small>{t(method.name)}</small>
-          </dt>
-          <dd className={sk}>{feePending ? t('Calculated individually') : formatUsd(-quote.payoutFeeCents)}</dd>
-        </div>
+        {wireParts ? (
+          <>
+            <div className="is-deduction">
+              <dt>
+                <span className="quote-lines__term">
+                  {t('Bank processing fee')}
+                  <InfoHint label={t('the bank processing fee')}>
+                    {t('Published bank processing fee for the wire direction according to the service fee schedule.')}
+                  </InfoHint>
+                </span>
+              </dt>
+              <dd className={sk}>{formatUsd(-wireParts.bankFeeCents)}</dd>
+            </div>
+            <div className="is-deduction">
+              <dt>
+                <span className="quote-lines__term">
+                  {t('Exchange fee')}
+                  <InfoHint label={t('the exchange fee')}>{t('3% exchange fee on the wire direction.')}</InfoHint>
+                </span>
+              </dt>
+              <dd className={sk}>{formatUsd(-wireParts.exchangeFeeCents)}</dd>
+            </div>
+          </>
+        ) : (
+          <div className="is-deduction">
+            <dt>
+              <span className="quote-lines__term">
+                {t(feeLineLabel(quote.payoutMethod))}
+                <InfoHint label={t('the fee')}>
+                  {t(method.name)}: {t(describeFee(method.fee, method.feeStatus))}. {t(method.timingEstimate)}.
+                </InfoHint>
+              </span>
+              <small>{t(method.name)}</small>
+            </dt>
+            <dd className={sk}>
+              {feePending
+                ? t('Calculated individually based on the order parameters')
+                : formatUsd(-quote.payoutFeeCents)}
+            </dd>
+          </div>
+        )}
       </dl>
       <div className="quote-total">
         <span className="quote-total__label">{t('You receive')}</span>
@@ -84,35 +115,54 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
 }
 
 /**
- * Buy quote (cash → crypto): cash paid − courier fee, converted at the
+ * Buy quote (USD → crypto): cash/wire paid − fees, converted at the
  * market rate (no spread) into the crypto they receive.
  */
 export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; loading?: boolean }) {
   const method = PAYOUT_METHODS[quote.payoutMethod];
   const sk = loading ? ' skeleton' : '';
   const feePending = !!quote.feePending;
+  const wire = quote.payoutMethod === 'wire';
+  const wireParts = wire ? wireFeeParts(quote.grossCents) : null;
   return (
     <div aria-busy={loading || undefined}>
       <dl className="quote-lines">
         <div>
           <dt>
-            {t('You pay in cash')}
-            <small>{t('Handed to the courier after an ID check')}</small>
+            {wire ? t('You send by bank wire') : t('You pay in cash')}
+            <small>{wire ? t('To the bank details shown on your order') : t('Handed to the courier after an ID check')}</small>
           </dt>
           <dd className={sk}>{formatUsd(quote.grossCents)}</dd>
         </div>
-        <div className="is-deduction">
-          <dt>
-            <span className="quote-lines__term">
-              {t('Courier fee')}
-              <InfoHint label={t('the courier fee')}>
-                {t(method.name)}: {t(describeFee(method.fee, method.feeStatus))}.
-              </InfoHint>
-            </span>
-            <small>{t('Cash collection')}</small>
-          </dt>
-          <dd className={sk}>{feePending ? t('Calculated individually') : formatUsd(-quote.payoutFeeCents)}</dd>
-        </div>
+        {wireParts ? (
+          <>
+            <div className="is-deduction">
+              <dt>{t('Bank processing fee')}</dt>
+              <dd className={sk}>{formatUsd(-wireParts.bankFeeCents)}</dd>
+            </div>
+            <div className="is-deduction">
+              <dt>{t('Exchange fee')}</dt>
+              <dd className={sk}>{formatUsd(-wireParts.exchangeFeeCents)}</dd>
+            </div>
+          </>
+        ) : (
+          <div className="is-deduction">
+            <dt>
+              <span className="quote-lines__term">
+                {t('Courier fee')}
+                <InfoHint label={t('the courier fee')}>
+                  {t(method.name)}: {t(describeFee(method.fee, method.feeStatus))}.
+                </InfoHint>
+              </span>
+              <small>{t('Cash collection')}</small>
+            </dt>
+            <dd className={sk}>
+              {feePending
+                ? t('Calculated individually based on the order parameters')
+                : formatUsd(-quote.payoutFeeCents)}
+            </dd>
+          </div>
+        )}
         <div>
           <dt>
             {t('Exchange rate')}
@@ -121,9 +171,7 @@ export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; lo
               {t(', market rate')}
             </small>
           </dt>
-          <dd className={sk}>
-            {feePending ? '—' : formatPriceMicros(buyRateMicros(quote), quote.asset)}
-          </dd>
+          <dd className={sk}>{feePending ? '—' : formatPriceMicros(buyRateMicros(quote), quote.asset)}</dd>
         </div>
       </dl>
       <div className="quote-total">
@@ -138,15 +186,24 @@ export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; lo
         </p>
       ) : (
         <p className="small muted" style={{ marginTop: 12 }}>
-          {t('Sent on')} {networkLabel(quote.asset, quote.network)}{' '}
-          {t('to the wallet address you give, after the cash is counted and verified.')}
+          {wire
+            ? t('Sent on') +
+              ' ' +
+              networkLabel(quote.asset, quote.network) +
+              ' ' +
+              t('to the wallet address you give, after the wire is matched and verified.')
+            : t('Sent on') +
+              ' ' +
+              networkLabel(quote.asset, quote.network) +
+              ' ' +
+              t('to the wallet address you give, after the cash is counted and verified.')}
         </p>
       )}
     </div>
   );
 }
 
-/** Buy: dollars paid after the courier fee, per whole unit of crypto received. */
+/** Buy: dollars paid after fees, per whole unit of crypto received. */
 function buyRateMicros(quote: Quote) {
   return exchangeRateMicros({ ...quote, grossCents: quote.grossCents - quote.payoutFeeCents, spreadCents: 0n });
 }

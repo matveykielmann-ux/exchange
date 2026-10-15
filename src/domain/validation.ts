@@ -107,6 +107,8 @@ const TX_HASH: Record<NetworkId, { pattern: RegExp; example: string }> = {
   ethereum: { pattern: /^0x[0-9a-fA-F]{64}$/, example: '0x followed by 64 hexadecimal characters' },
   base: { pattern: /^0x[0-9a-fA-F]{64}$/, example: '0x followed by 64 hexadecimal characters' },
   solana: { pattern: /^[1-9A-HJ-NP-Za-km-z]{64,90}$/, example: 'a Base58 signature of 64 to 90 characters' },
+  xrpl: { pattern: /^[0-9A-F]{64}$/i, example: '64 hexadecimal characters' },
+  bsc: { pattern: /^0x[0-9a-fA-F]{64}$/, example: '0x followed by 64 hexadecimal characters' },
 };
 
 /**

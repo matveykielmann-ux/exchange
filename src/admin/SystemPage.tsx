@@ -25,7 +25,10 @@ export function SystemPage() {
 
   return (
     <div className="stack stack--lg">
-      <AdminHead title={t('System')} lead={t('Read-only. Configuration changes are made on the server and need a restart.')} />
+      <AdminHead
+        title={t('Service status')}
+        lead={t('Price feeds, integrations and supported assets. Secrets are never shown. Configuration changes need a server restart.')}
+      />
       <LoadError error={sys.error} />
       {s ? (
         <>

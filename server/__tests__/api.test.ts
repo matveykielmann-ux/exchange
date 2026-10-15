@@ -538,7 +538,7 @@ describe('API', () => {
     expect(o.status).toBe(201);
     expect(o.body).toMatchObject({ direction: 'buy', status: 'created', refundAddress: null, receiveAddress: wallet });
     expect(o.body.courierFee.pending).toBe(true);
-    expect(o.body.reference).toMatch(/^CBX-/);
+    expect(o.body.reference).toMatch(/^\d{10}$/);
     expect(o.body.deposit.address).toBeNull();
     const id = o.body.id as string;
 
@@ -624,11 +624,18 @@ describe('API', () => {
     const c = env.client();
     await customer(c, 'wire-buyer@example.test');
     const indicative = await c.get('/api/quotes/indicative?direction=buy&asset=USDT&network=tron&cashCents=200000&payIn=wire');
-    expect(indicative.body.quote).toMatchObject({ direction: 'buy', grossCents: '200000', payoutMethod: 'wire', payoutFeeCents: '6000' }); // 3% exchange fee, no spread
+    // $30 bank processing fee + 3% exchange fee on $2,000.
+    expect(indicative.body.quote).toMatchObject({
+      direction: 'buy',
+      grossCents: '200000',
+      payoutMethod: 'wire',
+      payoutFeeCents: '9000',
+    });
     expect(indicative.body.issues).toEqual([]);
-    // Below the wire minimum.
+    // No published wire minimum: small amounts still quote.
     const small = await c.get('/api/quotes/indicative?direction=buy&asset=USDT&network=tron&cashCents=60000&payIn=wire');
-    expect(small.body.issues.map((i: { code: string }) => i.code)).toEqual(['payout_ineligible']);
+    expect(small.body.issues).toEqual([]);
+    expect(small.body.quote.payoutFeeCents).toBe('4800'); // $30 + 3% of $600
 
     const admin = await staff(env.app, env.base, 'admin');
     const wireSet = await admin.post('/api/admin/credentials/wire', SAMPLE_WIRE);
@@ -638,16 +645,24 @@ describe('API', () => {
     const q = await c.post('/api/quotes', { direction: 'buy', asset: 'USDT', network: 'tron', cashCents: '200000', payIn: 'wire' });
     expect(q.status).toBe(201);
     const wallet = 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE';
-    // No saved destination is needed for a wire. Default CRM set auto-issues instructions.
+    // Wire orders wait in `created` until an admin assigns bank credentials.
     const o = await c.post(
       '/api/orders',
       { quoteId: q.body.quote.id, destinationId: '', receiveAddress: wallet, accepted: docs('order') },
       { 'idempotency-key': 'wire-order-1' },
     );
     expect(o.status).toBe(201);
-    expect(o.body).toMatchObject({ direction: 'buy', payIn: 'wire', status: 'awaiting_deposit', receiveAddress: wallet });
+    expect(o.body).toMatchObject({
+      direction: 'buy',
+      payIn: 'wire',
+      status: 'created',
+      receiveAddress: wallet,
+      wireCredentialsPending: true,
+    });
     const id = o.body.id as string;
+    expect((await admin.post(`/api/admin/orders/${id}/issue-wire-instructions`, { wireSetId: wireSet.body.id })).status).toBe(200);
     const issued = (await c.get(`/api/orders/${id}`)).body;
+    expect(issued.status).toBe('awaiting_deposit');
     expect(issued.wireInstructions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ label: 'Beneficiary', value: SAMPLE_WIRE.beneficiary, placeholder: false }),
@@ -703,8 +718,9 @@ describe('API', () => {
       { 'idempotency-key': 'wire-auto-1' },
     );
     const id = o.body.id as string;
-    // Default set auto-issues on create.
-    expect(o.body.status).toBe('awaiting_deposit');
+    expect(o.body.status).toBe('created');
+    expect((await admin.post(`/api/admin/orders/${id}/issue-wire-instructions`, { wireSetId: wireSet.body.id })).status).toBe(200);
+    expect((await c.get(`/api/orders/${id}`)).body.status).toBe('awaiting_deposit');
     (env.ctx.config.sandbox as { autopilotStepMs: number }).autopilotStepMs = 3000;
     const tick = () => {
       env.clock.advance(3001);

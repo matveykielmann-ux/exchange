@@ -112,7 +112,7 @@ export const REFUND_POLICY: LegalDocument = {
         {
           type: 'review',
           id: 'LR-36',
-          text: '[NOT YET IMPLEMENTED: the return fees in clauses 9.2, 9.7 and 9.8 and the 72-hour and 14-day return periods are not applied by the system yet. In the sandbox, a return sends back the full observed deposit.]',
+          text: '[NOT YET IMPLEMENTED: the return fees in clauses 9.2, 9.7 and 9.8 and the 72-hour and 14-day return periods are not applied by the system yet. Refunds are requested through support and reviewed only after completed identity verification.]',
         },
       ],
     },

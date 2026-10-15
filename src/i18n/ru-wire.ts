@@ -6,11 +6,14 @@ export const RU_WIRE: Record<string, string> = {
   'Cash by courier': 'Наличные через курьера',
   'You send a wire from your own US bank account. No wallet or card needed on our side.':
     'Вы отправляете банковский перевод со своего счёта в банке США. Кошелёк или карта с нашей стороны не нужны.',
-  'A courier collects US dollar cash from you after an ID check.': 'Курьер забирает у вас наличные доллары США после проверки документа.',
+  'A courier collects US dollar cash from you after an ID check.':
+    'Курьер забирает у вас наличные доллары США после проверки документа.',
   'min {0}': 'мин. {0}',
   'Dollars you wire (USD)': 'Сумма перевода (USD)',
   'Sent by bank wire to the instructions on your order page. Minimum {0}; wires have their own minimum.':
-    'Отправляется банковским переводом по реквизитам на странице заявки. Минимум {0}; у переводов свой минимум.',
+    'Отправляется банковским переводом по реквизитам на странице заявки.',
+  'Sent by bank wire to the instructions on your order page.':
+    'Отправляется банковским переводом по реквизитам на странице заявки.',
   'Paying by wire isn’t available for this amount': 'Оплата переводом недоступна для этой суммы',
   Wallet: 'Кошелёк',
   'Where should we send the crypto?': 'Куда отправить криптовалюту?',

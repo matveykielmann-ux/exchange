@@ -426,6 +426,11 @@ export async function createApiServices(base = ''): Promise<Services> {
       setRefundAddress: async (id, refundAddress) =>
         toOrder(await http.post(`/api/orders/${encodeURIComponent(id)}/refund-address`, { refundAddress })),
       uploadDocument: async (id, file) => (await http.post<J>(`/api/orders/${encodeURIComponent(id)}/documents`, file)).documents,
+      submitPaymentConfirmation: async (id, input) => {
+        const res = await http.post<J>(`/api/orders/${encodeURIComponent(id)}/payment-confirmation`, input);
+        return { confirmations: res.confirmations, order: toOrder(res.order) };
+      },
+      requestRefund: async (id, input) => (await http.post<J>(`/api/orders/${encodeURIComponent(id)}/refund-request`, input)).request,
     },
     support: {
       list: async () => (await http.get<J>('/api/support/conversations')).conversations,

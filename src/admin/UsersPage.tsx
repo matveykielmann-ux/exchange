@@ -7,21 +7,19 @@ import type { Role } from '@/services/types';
 import { useUser } from '@/state/auth';
 import { useServices } from '@/state/services';
 import { AdminHead, LoadError, Pager, ReasonForm } from './shared';
-import { atLeast, ROLE_LABEL, useLoad } from './lib';
+import { ROLE_LABEL, STAFF_ASSIGNABLE_ROLES, staffRoleLabel, useLoad } from './lib';
 import { t } from '@/i18n';
 
-const ROLES: Role[] = ['customer', 'support', 'reviewer', 'admin', 'owner'];
+const FILTER_ROLES: Array<Role | ''> = ['', 'customer', 'admin'];
 
 function UserActions({ user, onDone }: { user: UserRow; onDone(): void }) {
   const { admin } = useServices();
   const me = useUser();
   const [mode, setMode] = useState<'role' | 'status' | null>(null);
-  const [role, setRole] = useState<Role>(user.role);
+  const [role, setRole] = useState<Role>(user.role === 'customer' ? 'customer' : 'admin');
   if (me?.id === user.id) return <span className="small muted">{t('You')}</span>;
-  // Admins can grant up to reviewer; owners can grant any role (enforced on the server).
-  const grantable = ROLES.filter((r) => me?.role === 'owner' || !atLeast(r, 'admin'));
-  const canTouch = me?.role === 'owner' || !atLeast(user.role, 'admin');
-  if (!canTouch) return <span className="small muted">{t('Owner only')}</span>;
+  const canTouch = me?.role === 'owner' || me?.role === 'admin';
+  if (!canTouch) return <span className="small muted">{t('Admin only')}</span>;
   return (
     <div className="stack" style={{ gap: 8 }}>
       <div className="row" style={{ gap: 6 }}>
@@ -57,7 +55,8 @@ function UserActions({ user, onDone }: { user: UserRow; onDone(): void }) {
             {t('New role')}
           </label>
           <select id={`role-sel-${user.id}`} className="select" value={role} onChange={(e) => setRole(e.target.value as Role)}>
-            {grantable.map((r) => (
+            <option value="customer">{t(ROLE_LABEL.customer)}</option>
+            {STAFF_ASSIGNABLE_ROLES.map((r) => (
               <option key={r} value={r}>
                 {t(ROLE_LABEL[r])}
               </option>
@@ -82,12 +81,12 @@ function UserActions({ user, onDone }: { user: UserRow; onDone(): void }) {
   );
 }
 
-/** Accounts and roles. Role and status changes need a reason and are written to the audit log. */
+/** Accounts. CRM staff use a single Admin role; customers keep the customer role. */
 export function UsersPage() {
   const { admin } = useServices();
   const [params, setParams] = useSearchParams();
   const q = params.get('q') ?? '';
-  const role = (ROLES.find((r) => r === params.get('role')) ?? '') as Role | '';
+  const role = (FILTER_ROLES.find((r) => r === params.get('role')) ?? '') as Role | '';
   const page = Math.max(1, Number(params.get('page')) || 1);
   const { data, error, reload } = useLoad(() => admin.users({ q, role, page }), [q, role, page]);
   const [search, setSearch] = useState(q);
@@ -101,7 +100,7 @@ export function UsersPage() {
   };
   return (
     <div className="stack stack--lg">
-      <AdminHead title={t('Users and roles')} lead={t('Customer emails are masked. Staff accounts need two-step sign-in in production.')} />
+      <AdminHead title={t('Users')} lead={t('Customer emails are masked. Staff accounts need two-step sign-in in production.')} />
       <form
         className="filters"
         role="search"
@@ -133,11 +132,8 @@ export function UsersPage() {
           </label>
           <select id="u-role" className="select" value={role} onChange={(e) => set({ role: e.target.value || null })}>
             <option value="">{t('Any role')}</option>
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {t(ROLE_LABEL[r])}
-              </option>
-            ))}
+            <option value="customer">{t('Customer')}</option>
+            <option value="admin">{t('Admin')}</option>
           </select>
         </div>
       </form>
@@ -164,7 +160,7 @@ export function UsersPage() {
                       {u.name || '—'}
                       <span className="small muted block">{u.email}</span>
                     </th>
-                    <td>{t(ROLE_LABEL[u.role])}</td>
+                    <td>{t(staffRoleLabel(u.role))}</td>
                     <td>
                       <span className={`badge badge--${u.status === 'active' ? 'success' : 'neutral'}`}>{t(u.status)}</span>
                     </td>
@@ -181,8 +177,6 @@ export function UsersPage() {
           </div>
           <Pager page={data.page} pageSize={data.pageSize} total={data.total} onPage={(p) => set({ page: String(p) })} />
         </>
-      ) : !error ? (
-        <p className="muted">{t('Loading…')}</p>
       ) : null}
     </div>
   );

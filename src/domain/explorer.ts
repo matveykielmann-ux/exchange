@@ -15,6 +15,8 @@ const EXPLORERS: Partial<Record<NetworkId, (txHash: string) => string>> = {
   tron: (h) => `https://tronscan.org/#/transaction/${h}`,
   solana: (h) => `https://solscan.io/tx/${h}`,
   base: (h) => `https://basescan.org/tx/${h}`,
+  xrpl: (h) => `https://xrpscan.com/tx/${h}`,
+  bsc: (h) => `https://bscscan.com/tx/${h}`,
 };
 
 const ADDRESS_EXPLORERS: Partial<Record<NetworkId, (address: string) => string>> = {
@@ -23,6 +25,8 @@ const ADDRESS_EXPLORERS: Partial<Record<NetworkId, (address: string) => string>>
   tron: (a) => `https://tronscan.org/#/address/${a}`,
   solana: (a) => `https://solscan.io/account/${a}`,
   base: (a) => `https://basescan.org/address/${a}`,
+  xrpl: (a) => `https://xrpscan.com/account/${a}`,
+  bsc: (a) => `https://bscscan.com/address/${a}`,
 };
 
 /** Returns an https explorer URL, or null when the hash/network cannot be linked safely. */

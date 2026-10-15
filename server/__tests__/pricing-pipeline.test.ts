@@ -19,6 +19,9 @@ const BODY = {
   ethereum: { usd: 2359.5, last_updated_at: T0 / 1000 },
   tether: { usd: 0.999029, last_updated_at: T0 / 1000 },
   'usd-coin': { usd: 1, last_updated_at: T0 / 1000 },
+  ripple: { usd: 0.62, last_updated_at: T0 / 1000 },
+  solana: { usd: 148.5, last_updated_at: T0 / 1000 },
+  binancecoin: { usd: 595.2, last_updated_at: T0 / 1000 },
 };
 
 type Harness = {

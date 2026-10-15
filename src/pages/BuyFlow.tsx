@@ -248,8 +248,8 @@ function AmountStep({ draft, update, quote, onNext }: DraftProps & { quote: Retu
                     : t('A courier collects US dollar cash from you after an ID check.')}
                 </span>
               </span>
-              <span className="option__aside small tabular">
-                {t(describeFee(m.fee, m.feeStatus))} · {t('min {0}', [formatUsd(m.minCents, { whole: true })])}
+              <span className="option__aside small" style={{ whiteSpace: 'normal', textAlign: 'right', maxWidth: '16rem' }}>
+                {t(describeFee(m.fee, m.feeStatus))}
               </span>
             </label>
           );
@@ -261,12 +261,8 @@ function AmountStep({ draft, update, quote, onNext }: DraftProps & { quote: Retu
         error={fieldError}
         hint={
           wire
-            ? t('Sent by bank wire to the instructions on your order page. Minimum {0}; wires have their own minimum.', [
-                formatUsd(PRICING_POLICY.minimumCents, { whole: true }),
-              ])
-            : t('Paid in person to the courier. Minimum {0}; cash collection has its own minimum.', [
-                formatUsd(PRICING_POLICY.minimumCents, { whole: true }),
-              ])
+            ? t('Sent by bank wire to the instructions on your order page.')
+            : t('Calculated individually based on the order parameters')
         }
       >
         {(p) => (

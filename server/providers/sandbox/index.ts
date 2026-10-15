@@ -16,8 +16,19 @@ export const SANDBOX_BASE_PRICE_MICROS: Record<AssetCode, bigint> = {
   ETH: 3_412_800_000n,
   USDT: 999_800n,
   USDC: 1_000_000n,
+  XRP: 620_000n,
+  SOL: 148_500_000n,
+  BNB: 595_200_000n,
 };
-const DRIFT_BPS: Record<AssetCode, number> = { BTC: 40, ETH: 50, USDT: 2, USDC: 1 };
+const DRIFT_BPS: Record<AssetCode, number> = {
+  BTC: 40,
+  ETH: 50,
+  USDT: 2,
+  USDC: 1,
+  XRP: 60,
+  SOL: 70,
+  BNB: 55,
+};
 
 function unitHash(n: number): number {
   let x = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b);

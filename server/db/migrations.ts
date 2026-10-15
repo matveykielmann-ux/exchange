@@ -838,4 +838,143 @@ SELECT 'wal_seed_evm_unassigned', 'EVM — network not selected', NULL, NULL,
 WHERE NOT EXISTS (SELECT 1 FROM crypto_wallets WHERE lower(address) = lower('0x3E9c431EEaaD6F41698A137907A93eF63EDD8ff3'));
 `,
   },
+  {
+    id: 11,
+    name: 'assets_payment_proofs_refunds',
+    disableForeignKeys: true,
+    sql: `
+-- Expand supported assets/networks; payment confirmations; admin review attachments; refund requests.
+-- Quotes CHECK must be rebuilt for XRP/SOL/BNB.
+
+CREATE TABLE quotes_v11 (
+  id TEXT PRIMARY KEY,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  source TEXT NOT NULL CHECK (source IN ('sandbox','live')),
+  asset TEXT NOT NULL CHECK (asset IN ('BTC','ETH','USDT','USDC','XRP','SOL','BNB')),
+  network TEXT NOT NULL,
+  payout_method TEXT NOT NULL,
+  ${digits('amount_atomic')},
+  ${digits('reference_price_micros')},
+  price_as_of INTEGER NOT NULL,
+  ${cents('gross_cents')},
+  spread_bps INTEGER NOT NULL CHECK (spread_bps BETWEEN 0 AND 10000),
+  ${cents('spread_cents')},
+  ${cents('payout_fee_cents')},
+  ${cents('net_cents')},
+  ${digits('effective_rate_micros')},
+  issues TEXT NOT NULL DEFAULT '[]',
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used_at INTEGER,
+  direction TEXT NOT NULL DEFAULT 'sell' CHECK (direction IN ('sell','buy')),
+  CHECK (gross_cents - spread_cents - payout_fee_cents = net_cents),
+  CHECK (expires_at > created_at)
+);
+INSERT INTO quotes_v11 SELECT id, user_id, source, asset, network, payout_method, amount_atomic, reference_price_micros,
+  price_as_of, gross_cents, spread_bps, spread_cents, payout_fee_cents, net_cents, effective_rate_micros, issues,
+  created_at, expires_at, used_at, direction FROM quotes;
+DROP TABLE quotes;
+ALTER TABLE quotes_v11 RENAME TO quotes;
+CREATE INDEX quotes_user ON quotes(user_id, created_at);
+
+CREATE TABLE crypto_wallets_v11 (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 120),
+  asset TEXT CHECK (asset IS NULL OR asset IN ('BTC','ETH','USDT','USDC','XRP','SOL','BNB')),
+  network TEXT CHECK (network IS NULL OR network IN ('bitcoin','ethereum','tron','solana','base','xrpl','bsc')),
+  address TEXT NOT NULL CHECK (length(address) BETWEEN 20 AND 128),
+  destination_tag TEXT CHECK (destination_tag IS NULL OR (length(destination_tag) BETWEEN 1 AND 32 AND destination_tag NOT GLOB '*[^0-9]*')),
+  purpose TEXT NOT NULL DEFAULT 'deposit' CHECK (purpose IN ('deposit','payout')),
+  status TEXT NOT NULL CHECK (status IN ('active','suspended','pending_network')),
+  is_default INTEGER NOT NULL DEFAULT 0 CHECK (is_default IN (0,1)),
+  note TEXT CHECK (note IS NULL OR length(note) <= 2000),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  created_by TEXT REFERENCES users(id),
+  updated_by TEXT REFERENCES users(id),
+  CHECK (status != 'active' OR (asset IS NOT NULL AND network IS NOT NULL)),
+  CHECK (is_default = 0 OR (status = 'active' AND asset IS NOT NULL AND network IS NOT NULL))
+);
+INSERT INTO crypto_wallets_v11 (id, name, asset, network, address, destination_tag, purpose, status, is_default, note, created_at, updated_at, created_by, updated_by)
+  SELECT id, name, asset, network, address, NULL, purpose, status, is_default, note, created_at, updated_at, created_by, updated_by FROM crypto_wallets;
+DROP TABLE crypto_wallets;
+ALTER TABLE crypto_wallets_v11 RENAME TO crypto_wallets;
+CREATE INDEX crypto_wallets_lookup ON crypto_wallets(asset, network, status);
+CREATE INDEX crypto_wallets_address ON crypto_wallets(address);
+CREATE INDEX crypto_wallets_default ON crypto_wallets(asset, network, is_default) WHERE is_default = 1 AND status = 'active';
+
+ALTER TABLE order_wallet_snapshots ADD COLUMN destination_tag TEXT
+  CHECK (destination_tag IS NULL OR (length(destination_tag) BETWEEN 1 AND 32 AND destination_tag NOT GLOB '*[^0-9]*'));
+
+-- Expand order_documents kinds for payment receipts and admin review attachments.
+CREATE TABLE order_documents_v11 (
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL REFERENCES orders(id),
+  user_id TEXT NOT NULL REFERENCES users(id),
+  kind TEXT NOT NULL CHECK (kind IN ('id_document','payment_receipt','admin_attachment','refund_attachment')),
+  file_name TEXT NOT NULL CHECK (length(file_name) BETWEEN 1 AND 120),
+  content_type TEXT NOT NULL CHECK (content_type IN ('image/jpeg','image/png','application/pdf')),
+  size_bytes INTEGER NOT NULL CHECK (size_bytes > 0),
+  sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
+  stored INTEGER NOT NULL CHECK (stored IN (0,1)),
+  created_at INTEGER NOT NULL,
+  visibility TEXT NOT NULL DEFAULT 'owner_staff' CHECK (visibility IN ('owner_staff','staff_only')),
+  message TEXT CHECK (message IS NULL OR length(message) <= 4000),
+  author_id TEXT REFERENCES users(id)
+);
+INSERT INTO order_documents_v11 (id, order_id, user_id, kind, file_name, content_type, size_bytes, sha256, stored, created_at, visibility, message, author_id)
+  SELECT id, order_id, user_id, kind, file_name, content_type, size_bytes, sha256, stored, created_at, 'owner_staff', NULL, NULL FROM order_documents;
+DROP TABLE order_documents;
+ALTER TABLE order_documents_v11 RENAME TO order_documents;
+CREATE INDEX order_documents_order ON order_documents(order_id);
+${appendOnly('order_documents')}
+
+-- Customer payment confirmations (receipt / TXID / wire reference). Not auto-confirming deposits.
+CREATE TABLE payment_confirmations (
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL REFERENCES orders(id),
+  user_id TEXT NOT NULL REFERENCES users(id),
+  kind TEXT NOT NULL CHECK (kind IN ('crypto_txid','wire_reference','receipt')),
+  txid TEXT CHECK (txid IS NULL OR length(txid) BETWEEN 8 AND 128),
+  wire_reference TEXT CHECK (wire_reference IS NULL OR length(wire_reference) BETWEEN 1 AND 120),
+  comment TEXT CHECK (comment IS NULL OR length(comment) <= 2000),
+  document_id TEXT REFERENCES order_documents(id),
+  status TEXT NOT NULL DEFAULT 'submitted' CHECK (status IN ('submitted','approved','needs_info','rejected')),
+  staff_note TEXT CHECK (staff_note IS NULL OR length(staff_note) <= 2000),
+  reviewed_by TEXT REFERENCES users(id),
+  reviewed_at INTEGER,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX payment_confirmations_order ON payment_confirmations(order_id, created_at);
+
+-- Admin messages on an order (additional verification).
+CREATE TABLE order_messages (
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL REFERENCES orders(id),
+  author_id TEXT REFERENCES users(id),
+  author_role TEXT NOT NULL CHECK (author_role IN ('admin','customer','system')),
+  body TEXT NOT NULL CHECK (length(body) BETWEEN 1 AND 4000),
+  document_id TEXT REFERENCES order_documents(id),
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX order_messages_order ON order_messages(order_id, created_at);
+${appendOnly('order_messages')}
+
+CREATE TABLE refund_requests (
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL REFERENCES orders(id),
+  user_id TEXT NOT NULL REFERENCES users(id),
+  reason TEXT NOT NULL CHECK (length(reason) BETWEEN 1 AND 2000),
+  status TEXT NOT NULL DEFAULT 'submitted' CHECK (status IN ('submitted','needs_kyc','needs_info','approved','rejected','cancelled')),
+  staff_note TEXT CHECK (staff_note IS NULL OR length(staff_note) <= 2000),
+  document_id TEXT REFERENCES order_documents(id),
+  reviewed_by TEXT REFERENCES users(id),
+  reviewed_at INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX refund_requests_order ON refund_requests(order_id, created_at);
+CREATE INDEX refund_requests_status ON refund_requests(status, created_at);
+`,
+  },
 ];

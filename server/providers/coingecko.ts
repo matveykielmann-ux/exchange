@@ -20,6 +20,9 @@ export const COINGECKO_IDS: Record<AssetCode, string> = {
   ETH: 'ethereum',
   USDT: 'tether',
   USDC: 'usd-coin',
+  XRP: 'ripple',
+  SOL: 'solana',
+  BNB: 'binancecoin',
 };
 
 /** A cached price older than this is never served (matches the quote stale check). */

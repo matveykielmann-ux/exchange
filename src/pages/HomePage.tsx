@@ -7,9 +7,7 @@ import { AssetMark } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { FAQ, FaqList } from '@/content/faq';
 import { ASSET_ORDER, ASSETS, NETWORKS, networkLabel } from '@/domain/assets';
-import { formatUsd } from '@/domain/money';
 import { describeFee, PAYOUT_METHODS, PAYOUT_ORDER } from '@/domain/payout';
-import { PRICING_POLICY } from '@/domain/quote';
 import { t } from '@/i18n';
 
 /** 1.5 ETH — amount only; the rate comes from the live pricing API. */
@@ -47,7 +45,7 @@ export function HomePage() {
             </p>
             <p className="lead">
               {t(
-                'Send BTC, ETH, USDT or USDC and receive US dollars in your bank account, with the market exchange rate and the fee listed as separate lines.',
+                'Send BTC, ETH, USDT, USDC, XRP, SOL or BNB and receive US dollars, or buy crypto with clear fees listed as separate lines.',
               )}
             </p>
             <div className="row hero__ctas">
@@ -95,10 +93,8 @@ export function HomePage() {
                 <Icon name="lock" />
               </span>
               <span>
-                <strong>{t('No maximum')}</strong>
-                <span>
-                  {t('From')} {formatUsd(PRICING_POLICY.minimumCents, { whole: true })} {t('per exchange')}
-                </span>
+                <strong>{t('No published minimum')}</strong>
+                <span>{t('No maximum order size')}</span>
               </span>
             </li>
             <li className="stat">
@@ -106,7 +102,7 @@ export function HomePage() {
                 <Icon name="bank" />
               </span>
               <span>
-                <strong>{t('$0 ACH fee')}</strong>
+                <strong>{t('3% exchange fee')}</strong>
                 <span>{t(PAYOUT_METHODS.ach.timingEstimate)}</span>
               </span>
             </li>

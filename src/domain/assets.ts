@@ -1,13 +1,12 @@
 /**
  * Supported assets and networks. Confirmation counts follow the table in
- * Section 5 of the Service Rules (BTC 4; ETH, USDT and USDC 21). The Rules set
- * no count for Solana or Base, so those keep the earlier sandbox values until
- * the owner sets them (LEGAL_REVIEW.md, LR-38).
+ * Section 5 of the Service Rules where specified. XRP, SOL and BNB use
+ * network-typical confirmation depths until the owner sets them in the Rules.
  */
 import { parseDecimal, type ParseResult } from './money';
 
-export type AssetCode = 'BTC' | 'ETH' | 'USDT' | 'USDC';
-export type NetworkId = 'bitcoin' | 'ethereum' | 'tron' | 'solana' | 'base';
+export type AssetCode = 'BTC' | 'ETH' | 'USDT' | 'USDC' | 'XRP' | 'SOL' | 'BNB';
+export type NetworkId = 'bitcoin' | 'ethereum' | 'tron' | 'solana' | 'base' | 'xrpl' | 'bsc';
 export type AssetClass = 'volatile' | 'stable';
 
 export interface Network {
@@ -20,6 +19,9 @@ export interface Network {
   /** Pattern for validating a customer-supplied refund address. */
   addressPattern: RegExp;
   addressExample: string;
+  /** Extra field some ledgers need (e.g. XRP destination tag). */
+  memoLabel?: string;
+  memoRequired?: boolean;
 }
 
 export interface AssetNetwork {
@@ -82,6 +84,25 @@ export const NETWORKS: Record<NetworkId, Network> = {
     addressPattern: /^0x[0-9a-fA-F]{40}$/,
     addressExample: '0x…',
   },
+  xrpl: {
+    id: 'xrpl',
+    name: 'XRP Ledger',
+    confirmationsRequired: 1,
+    typicalConfirmationTime: 'about 3–5 seconds',
+    // Classic r… addresses (25–35 Base58Check chars).
+    addressPattern: /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/,
+    addressExample: 'r…',
+    memoLabel: 'Destination tag',
+    memoRequired: false,
+  },
+  bsc: {
+    id: 'bsc',
+    name: 'BNB Smart Chain',
+    confirmationsRequired: 15,
+    typicalConfirmationTime: 'about 45–90 seconds',
+    addressPattern: /^0x[0-9a-fA-F]{40}$/,
+    addressExample: '0x…',
+  },
 };
 
 export const ASSETS: Record<AssetCode, Asset> = {
@@ -113,6 +134,7 @@ export const ASSETS: Record<AssetCode, Asset> = {
     networks: [
       { network: 'ethereum', standard: 'ERC-20' },
       { network: 'tron', standard: 'TRC-20' },
+      { network: 'bsc', standard: 'BEP-20' },
     ],
   },
   USDC: {
@@ -128,9 +150,36 @@ export const ASSETS: Record<AssetCode, Asset> = {
       { network: 'base', standard: null },
     ],
   },
+  XRP: {
+    code: 'XRP',
+    name: 'XRP',
+    class: 'volatile',
+    decimals: 6,
+    inputDecimals: 6,
+    displayDecimals: 4,
+    networks: [{ network: 'xrpl', standard: null }],
+  },
+  SOL: {
+    code: 'SOL',
+    name: 'Solana',
+    class: 'volatile',
+    decimals: 9,
+    inputDecimals: 9,
+    displayDecimals: 6,
+    networks: [{ network: 'solana', standard: null }],
+  },
+  BNB: {
+    code: 'BNB',
+    name: 'BNB',
+    class: 'volatile',
+    decimals: 18,
+    inputDecimals: 8,
+    displayDecimals: 6,
+    networks: [{ network: 'bsc', standard: 'BEP-20' }],
+  },
 };
 
-export const ASSET_ORDER: AssetCode[] = ['BTC', 'ETH', 'USDT', 'USDC'];
+export const ASSET_ORDER: AssetCode[] = ['BTC', 'ETH', 'USDT', 'USDC', 'XRP', 'SOL', 'BNB'];
 
 export function isAssetCode(v: unknown): v is AssetCode {
   return typeof v === 'string' && Object.hasOwn(ASSETS, v);
@@ -160,4 +209,11 @@ export function parseAssetAmount(input: string, asset: AssetCode): ParseResult {
 
 export function isValidAddress(network: NetworkId, address: string): boolean {
   return NETWORKS[network].addressPattern.test(address.trim());
+}
+
+/** Validates an optional destination tag / memo for networks that support one. */
+export function isValidMemo(network: NetworkId, memo: string | null | undefined): boolean {
+  if (memo == null || memo === '') return !NETWORKS[network].memoRequired;
+  if (network === 'xrpl') return /^\d{1,10}$/.test(memo.trim());
+  return memo.trim().length <= 128;
 }

@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
-import { MockBadge } from '@/components/ui';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { formatUsd } from '@/domain/money';
 import {
@@ -121,9 +120,7 @@ export function QueuePage() {
 
   return (
     <div className="stack stack--lg">
-      <AdminHead title={t('Orders')} lead={t('Orders waiting on you come first. Open an order to see it and act on it.')}>
-        <MockBadge label={t('Sandbox data')} />
-      </AdminHead>
+      <AdminHead title={t('Orders')} lead={t('Orders waiting on you come first. Open an order to see it and act on it.')} />
 
       <div className="kpi-row" role="group" aria-label={t('Quick filters')}>
         <button

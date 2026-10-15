@@ -50,6 +50,7 @@ export interface WalletRow {
   asset: AssetCode | null;
   network: NetworkId | null;
   address: string;
+  destination_tag: string | null;
   purpose: WalletPurpose;
   status: WalletStatus;
   is_default: number;
@@ -84,6 +85,7 @@ export interface OrderWalletSnapRow {
   asset: AssetCode;
   network: NetworkId;
   address: string;
+  destination_tag: string | null;
   purpose: WalletPurpose;
   assigned_by: string | null;
   assigned_at: number;
@@ -121,6 +123,7 @@ function walletView(r: WalletRow) {
     asset: r.asset,
     network: r.network,
     address: r.address,
+    destinationTag: r.destination_tag,
     purpose: r.purpose,
     status: r.status,
     isDefault: r.is_default === 1,
@@ -166,6 +169,7 @@ function walletSnapView(r: OrderWalletSnapRow): WalletSnapshot & {
     asset: r.asset,
     network: r.network,
     address: r.address,
+    destinationTag: r.destination_tag,
     purpose: r.purpose,
     assignedBy: r.assigned_by,
     assignedAt: r.assigned_at,
@@ -382,10 +386,11 @@ function assertWalletAddressCompatible(ctx: AppContext, address: string, network
   );
   for (const o of others) {
     if (!o.network || o.network === network) continue;
-    const bothEvm = (['ethereum', 'base'] as string[]).includes(o.network) && (['ethereum', 'base'] as string[]).includes(network);
+    const evm = ['ethereum', 'base', 'bsc'];
+    const bothEvm = evm.includes(o.network) && evm.includes(network);
     if (!bothEvm)
       throw conflict(
-        `This address is already registered for ${o.network}. Use a separate compatible-network assignment only for EVM (Ethereum/Base).`,
+        `This address is already registered for ${o.network}. Use a separate compatible-network assignment only for EVM (Ethereum/Base/BSC).`,
         'address_network_conflict',
       );
   }
@@ -401,11 +406,15 @@ function normalizeWalletInput(ctx: AppContext, input: CryptoWalletInput, exclude
   const address = input.address.trim();
   assertWalletAddressCompatible(ctx, address, network, excludeId);
   if (asset && network && !isSupportedPair(asset, network)) throw badRequest('Unsupported asset/network pair.');
+  const tag = input.destinationTag?.trim() || null;
+  if (tag && network !== 'xrpl') throw badRequest('Destination tag applies only to XRP Ledger wallets.', { field: 'destinationTag' });
+  if (tag && !/^\d{1,10}$/.test(tag)) throw badRequest('Destination tag must be 1–10 digits.', { field: 'destinationTag' });
   return {
     name,
     asset,
     network,
     address,
+    destinationTag: tag,
     purpose: (input.purpose ?? 'deposit') as WalletPurpose,
     note: input.note?.trim() || null,
   };
@@ -423,9 +432,9 @@ export function createWallet(ctx: AppContext, actor: Actor, input: CryptoWalletI
   ctx.db.tx(() => {
     ctx.db.run(
       `INSERT INTO crypto_wallets
-        (id, name, asset, network, address, purpose, status, is_default, note, created_at, updated_at, created_by, updated_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
-      [id, n.name, n.asset, n.network, n.address, n.purpose, status, n.note, now, now, actor.id, actor.id],
+        (id, name, asset, network, address, destination_tag, purpose, status, is_default, note, created_at, updated_at, created_by, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
+      [id, n.name, n.asset, n.network, n.address, n.destinationTag, n.purpose, status, n.note, now, now, actor.id, actor.id],
     );
     audit(ctx, actor, {
       action: 'credentials.wallet_created',
@@ -447,11 +456,11 @@ export function updateWallet(ctx: AppContext, actor: Actor, id: string, input: C
     const clearDefault = status !== 'active' ? 1 : 0;
     ctx.db.run(
       `UPDATE crypto_wallets SET
-        name = ?, asset = ?, network = ?, address = ?, purpose = ?, status = ?,
+        name = ?, asset = ?, network = ?, address = ?, destination_tag = ?, purpose = ?, status = ?,
         is_default = CASE WHEN ? = 1 THEN 0 ELSE is_default END,
         note = ?, updated_at = ?, updated_by = ?
        WHERE id = ?`,
-      [n.name, n.asset, n.network, n.address, n.purpose, status, clearDefault, n.note, now, actor.id, id],
+      [n.name, n.asset, n.network, n.address, n.destinationTag, n.purpose, status, clearDefault, n.note, now, actor.id, id],
     );
     audit(ctx, actor, {
       action: 'credentials.wallet_updated',
@@ -522,6 +531,7 @@ export function walletRowToSnapshot(row: WalletRow): WalletSnapshot {
     asset: row.asset,
     network: row.network,
     address: row.address,
+    destinationTag: row.destination_tag,
     purpose: row.purpose,
   };
 }
@@ -616,9 +626,21 @@ export function upsertWalletSnapshot(ctx: AppContext, orderId: string, snap: Wal
   ctx.db.run('DELETE FROM order_wallet_snapshots WHERE order_id = ?', [orderId]);
   ctx.db.run(
     `INSERT INTO order_wallet_snapshots
-      (order_id, wallet_id, name, asset, network, address, purpose, assigned_by, assigned_at, revealed_to_customer)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [orderId, snap.walletId, snap.name, snap.asset, snap.network, snap.address, snap.purpose, actor.id, now, revealed ? 1 : 0],
+      (order_id, wallet_id, name, asset, network, address, destination_tag, purpose, assigned_by, assigned_at, revealed_to_customer)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      orderId,
+      snap.walletId,
+      snap.name,
+      snap.asset,
+      snap.network,
+      snap.address,
+      snap.destinationTag ?? null,
+      snap.purpose,
+      actor.id,
+      now,
+      revealed ? 1 : 0,
+    ],
   );
 }
 

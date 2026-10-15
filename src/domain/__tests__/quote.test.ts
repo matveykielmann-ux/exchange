@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ASSET_ORDER, ASSETS, defaultNetwork } from '../assets';
-import { PAYOUT_METHODS, payoutFeeCents } from '../payout';
+import { PAYOUT_METHODS, payoutFeeCents, wireFeeParts, WIRE_BANK_FEE_CENTS } from '../payout';
 import { atomicForCents, calculateBuyQuote, calculateQuote, grossCentsFor, isQuoteExpired, PRICING_POLICY, spreadBpsFor } from '../quote';
 
 const base = {
@@ -31,7 +31,18 @@ describe('calculateQuote', () => {
     for (let i = 0; i < 2000; i++) {
       const asset = ASSET_ORDER[Math.floor(rnd() * ASSET_ORDER.length)]!;
       const method = (['ach', 'wire', 'instant_debit'] as const)[Math.floor(rnd() * 3)]!;
-      const price = asset === 'BTC' ? 60_000_000_000n : asset === 'ETH' ? 3_000_000_000n : 1_000_000n;
+      const price =
+        asset === 'BTC'
+          ? 60_000_000_000n
+          : asset === 'ETH'
+            ? 3_000_000_000n
+            : asset === 'SOL'
+              ? 150_000_000n
+              : asset === 'BNB'
+                ? 600_000_000n
+                : asset === 'XRP'
+                  ? 620_000n
+                  : 1_000_000n;
       const amount = BigInt(Math.floor(rnd() * 1e9)) * 10n ** BigInt(Math.max(0, ASSETS[asset].decimals - 8));
       const { quote } = calculateQuote({
         asset,
@@ -51,12 +62,12 @@ describe('calculateQuote', () => {
     expect(spreadBpsFor('USDC', 20_000_00n)).toBe(0);
   });
 
-  it('flags amounts below the minimum with the equivalent asset amount', () => {
+  it('has no published minimum: tiny positive amounts quote when eligible', () => {
+    expect(PRICING_POLICY.minimumCents).toBe(0n);
     const { issues } = calculateQuote({ ...base, amountAtomic: 1_000n });
-    expect(issues[0]).toMatchObject({ code: 'below_minimum', minimumCents: 50_00n });
-    const min = atomicForCents('BTC', 50_00n, base.referencePriceMicros);
-    expect(grossCentsFor('BTC', min, base.referencePriceMicros)).toBeGreaterThanOrEqual(50_00n);
-    expect(grossCentsFor('BTC', min - 1n, base.referencePriceMicros)).toBeLessThan(50_00n);
+    expect(issues.map((i) => i.code)).not.toContain('below_minimum');
+    const min = atomicForCents('BTC', 1n, base.referencePriceMicros);
+    expect(grossCentsFor('BTC', min, base.referencePriceMicros)).toBeGreaterThanOrEqual(1n);
   });
 
   it('has no maximum: large amounts quote cleanly on every payout method', () => {
@@ -80,20 +91,31 @@ describe('calculateQuote', () => {
     expect(quote.feePending).toBe(true);
   });
 
-  it('flags payout methods below their minimum', () => {
-    expect(calculateQuote({ ...base, payoutMethod: 'wire', amountAtomic: 1_000_000n }).issues[0]).toMatchObject({
-      code: 'payout_ineligible',
-    });
-    expect(
-      calculateQuote({ ...base, payoutMethod: 'courier_cash', amountAtomic: 100_000n, quotedFeeCents: 10_00n }).issues[0],
-    ).toMatchObject({
-      code: 'payout_ineligible',
-    });
+  it('quotes wire as $30 bank fee plus 3% exchange fee', () => {
+    const { quote, issues } = calculateQuote({ ...base, payoutMethod: 'wire', amountAtomic: 10_000_000n });
+    expect(issues).toEqual([]);
+    const parts = wireFeeParts(quote.grossCents);
+    expect(parts.bankFeeCents).toBe(WIRE_BANK_FEE_CENTS);
+    expect(parts.exchangeFeeCents).toBe(20_400n);
+    expect(quote.payoutFeeCents).toBe(parts.totalCents);
   });
 
   it('flags unsupported asset/network pairs', () => {
     const { issues } = calculateQuote({ ...base, network: 'tron', amountAtomic: 1_000_000n });
     expect(issues.some((i) => i.code === 'unsupported_network')).toBe(true);
+  });
+
+  it('supports XRP, SOL and BNB pairs', () => {
+    for (const asset of ['XRP', 'SOL', 'BNB'] as const) {
+      const { issues } = calculateQuote({
+        ...base,
+        asset,
+        network: defaultNetwork(asset),
+        amountAtomic: 1_000_000n,
+        referencePriceMicros: asset === 'XRP' ? 620_000n : asset === 'SOL' ? 150_000_000n : 600_000_000n,
+      });
+      expect(issues.filter((i) => i.code === 'unsupported_network')).toEqual([]);
+    }
   });
 
   it('expires at the TTL boundary', () => {
@@ -104,12 +126,17 @@ describe('calculateQuote', () => {
 });
 
 describe('payout fees', () => {
-  it('charges a 3% exchange fee on every method except courier, uncapped', () => {
-    for (const id of ['ach', 'wire', 'instant_debit'] as const) {
+  it('charges a 3% exchange fee on ACH and debit, uncapped', () => {
+    for (const id of ['ach', 'instant_debit'] as const) {
       expect(payoutFeeCents(PAYOUT_METHODS[id], 50_00n)).toBe(1_50n);
       expect(payoutFeeCents(PAYOUT_METHODS[id], 1_000_000_00n)).toBe(30_000_00n);
     }
     expect(payoutFeeCents(PAYOUT_METHODS.ach, 33_33n)).toBe(1_00n); // 99.99¢ rounds half up
+  });
+
+  it('charges $30 + 3% on wire', () => {
+    expect(payoutFeeCents(PAYOUT_METHODS.wire, 50_00n)).toBe(30_00n + 1_50n);
+    expect(payoutFeeCents(PAYOUT_METHODS.wire, 1_000_00n)).toBe(30_00n + 30_00n);
   });
 
   it('still clamps a percentage fee that has a min and max', () => {
@@ -161,11 +188,10 @@ describe('calculateBuyQuote', () => {
     expect(btc.quote.amountAtomic).toBe(exact); // floor
   });
 
-  it('flags amounts below the minimum and below the courier minimum', () => {
+  it('flags zero amounts and applies wire fees on buy', () => {
     expect(calculateBuyQuote({ ...buy, cashCents: 0n, quotedFeeCents: 0n }).issues.map((i) => i.code)).toEqual(['zero_amount']);
-    expect(calculateBuyQuote({ ...buy, cashCents: 10_00n, quotedFeeCents: 0n }).issues.map((i) => i.code)).toEqual(['below_minimum']);
-    expect(calculateBuyQuote({ ...buy, cashCents: 400_00n, quotedFeeCents: 10_00n }).issues.map((i) => i.code)).toContain(
-      'payout_ineligible',
-    );
+    const wire = calculateBuyQuote({ ...buy, cashCents: 1_000_00n, payIn: 'wire' });
+    expect(wire.issues).toEqual([]);
+    expect(wire.quote.payoutFeeCents).toBe(WIRE_BANK_FEE_CENTS + 30_00n);
   });
 });

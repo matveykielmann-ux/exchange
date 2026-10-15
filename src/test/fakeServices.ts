@@ -9,6 +9,9 @@ import type { AssetCode } from '@/domain/assets';
 import type { Services } from '@/services/types';
 
 const PRICES: Record<AssetCode, bigint> = {
+  XRP: 620_000n,
+  SOL: 148_500_000n,
+  BNB: 595_200_000n,
   BTC: 68_000_000_000n,
   ETH: 3_200_000_000n,
   USDT: 1_000_000n,
@@ -96,6 +99,8 @@ export function createFakeServices(overrides: Partial<Services> = {}): Services 
       acceptCourierFee: unused,
       setRefundAddress: unused,
       uploadDocument: unused,
+      submitPaymentConfirmation: unused,
+      requestRefund: unused,
     },
     support: { list: async () => [], create: unused, get: unused, send: unused, markRead: async () => undefined },
     live: { subscribe: () => () => undefined, state: () => 'offline', onState: () => () => undefined },

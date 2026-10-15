@@ -13,13 +13,7 @@ import { explorerAddressUrl } from '@/domain/explorer';
 import { formatUsd } from '@/domain/money';
 import { exchangeRateMicros, valueAtRateCents } from '@/domain/quote';
 import { feeLineLabel } from '@/domain/payout';
-import {
-  canRaise,
-  DEPOSIT_EXCEPTION_LABEL,
-  orderStatusLabel,
-  orderTone,
-  TERMINAL_ORDER_STATUSES,
-} from '@/domain/order';
+import { canRaise, DEPOSIT_EXCEPTION_LABEL, orderStatusLabel, orderTone, TERMINAL_ORDER_STATUSES } from '@/domain/order';
 import { validateRefundAddress, validateTxHash } from '@/domain/validation';
 import { TxHashLink } from '@/components/TxHashLink';
 import { validateWireReference } from '@/domain/wire';
@@ -297,6 +291,240 @@ function WireInstructions({ order, busy, run }: { order: OrderView; busy: boolea
   );
 }
 
+/** Customer payment proof: receipt and/or TXID / wire reference. Never auto-confirms a deposit. */
+function ConfirmPaymentPanel({ order, onDone }: { order: OrderView; onDone(): void }) {
+  const { orders } = useServices();
+  const wire = order.direction === 'buy' && order.payIn === 'wire';
+  const crypto = order.direction !== 'buy';
+  const [txid, setTxid] = useState('');
+  const [wireRef, setWireRef] = useState('');
+  const [comment, setComment] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+  const prior = (order as OrderView & { paymentConfirmations?: { id: string; status: string }[] }).paymentConfirmations ?? [];
+
+  return (
+    <section className="panel stack status-fade" aria-labelledby="confirm-pay-title">
+      <h2 id="confirm-pay-title" className="flow__step-title">
+        {t('Confirm payment')}
+      </h2>
+      <p className="muted small">
+        {t(
+          'Upload a receipt and/or enter the payment identifier. This helps our team review the transfer; it does not by itself confirm the deposit.',
+        )}
+      </p>
+      {prior.length ? (
+        <p className="small">
+          {t('Last submission status:')} {t(prior[0]!.status)}
+        </p>
+      ) : null}
+      {done ? (
+        <Notice tone="info" title={t('Confirmation submitted')} role="status">
+          <p>{t('Our team will review it. The order status updates when the transfer is verified.')}</p>
+        </Notice>
+      ) : (
+        <form
+          className="stack"
+          noValidate
+          onSubmit={async (e: FormEvent) => {
+            e.preventDefault();
+            setError(null);
+            if (crypto && txid.trim()) {
+              const err = validateTxHash(txid, order.network);
+              if (err) {
+                setError(err);
+                return;
+              }
+            }
+            if (wire && wireRef.trim()) {
+              const err = validateWireReference(wireRef);
+              if (err) {
+                setError(err);
+                return;
+              }
+            }
+            if (!txid.trim() && !wireRef.trim() && !file) {
+              setError(t('Provide a TXID, a bank reference, or a receipt file.'));
+              return;
+            }
+            setBusy(true);
+            try {
+              const payload: {
+                txid?: string | null;
+                wireReference?: string | null;
+                comment?: string | null;
+                file?: { fileName: string; contentType: string; dataBase64: string } | null;
+              } = {
+                txid: crypto ? txid.trim() || null : null,
+                wireReference: wire ? wireRef.trim() || null : null,
+                comment: comment.trim() || null,
+                file: null,
+              };
+              if (file) {
+                const dataBase64 = await readBase64(file);
+                payload.file = { fileName: file.name, contentType: file.type, dataBase64 };
+              }
+              await orders.submitPaymentConfirmation(order.id, payload);
+              setDone(true);
+              onDone();
+            } catch (err) {
+              setError(errorMessage(err));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {crypto ? (
+            <div className="field">
+              <label className="field__label" htmlFor="pay-txid">
+                {t('Transaction hash (TXID)')}
+              </label>
+              <input
+                id="pay-txid"
+                className="input mono"
+                value={txid}
+                onChange={(e) => setTxid(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+          ) : null}
+          {wire ? (
+            <div className="field">
+              <label className="field__label" htmlFor="pay-wire-ref">
+                {t('Bank payment reference')}
+              </label>
+              <input
+                id="pay-wire-ref"
+                className="input mono"
+                value={wireRef}
+                onChange={(e) => setWireRef(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+          ) : null}
+          <div className="field">
+            <label className="field__label" htmlFor="pay-comment">
+              {t('Comment (optional)')}
+            </label>
+            <textarea id="pay-comment" className="input" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} />
+          </div>
+          <div className="field">
+            <label className="field__label" htmlFor="pay-file">
+              {t('Receipt screenshot or PDF')}
+            </label>
+            <input
+              id="pay-file"
+              type="file"
+              accept="image/jpeg,image/png,application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+          </div>
+          {error ? (
+            <p className="field__error" role="alert">
+              {t(error)}
+            </p>
+          ) : null}
+          <button type="submit" className="btn btn--primary upload-pulse" disabled={busy}>
+            {busy ? t('Submitting…') : t('Confirm payment')}
+          </button>
+        </form>
+      )}
+    </section>
+  );
+}
+
+/** Refund only via support request after KYC — never a one-click auto refund. */
+function RefundRequestPanel({ order, onDone }: { order: OrderView; onDone(): void }) {
+  const { orders } = useServices();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ status: string } | null>(null);
+  const existing = (order as OrderView & { refundRequests?: { status: string }[] }).refundRequests?.[0];
+
+  if (existing || result) {
+    const status = result?.status ?? existing!.status;
+    return (
+      <section className="panel status-fade">
+        <h2 className="flow__step-title">{t('Request a refund via support')}</h2>
+        <p>
+          {t('Refund request status:')} {t(status)}
+          {status === 'needs_kyc'
+            ? '. ' + t('Complete identity verification before a refund can be considered.')
+            : ''}
+        </p>
+        {status === 'needs_kyc' ? (
+          <Link className="btn btn--secondary" to="/verification">
+            {t('Complete verification')}
+          </Link>
+        ) : null}
+      </section>
+    );
+  }
+
+  return (
+    <section className="panel stack">
+      <h2 className="flow__step-title">{t('Request a refund via support')}</h2>
+      {!open ? (
+        <button type="button" className="btn btn--secondary" onClick={() => setOpen(true)}>
+          {t('Request a refund via support')}
+        </button>
+      ) : (
+        <form
+          className="stack"
+          onSubmit={async (e: FormEvent) => {
+            e.preventDefault();
+            setBusy(true);
+            setError(null);
+            try {
+              const req = (await orders.requestRefund(order.id, { reason })) as { status: string };
+              setResult(req);
+              onDone();
+            } catch (err) {
+              setError(errorMessage(err));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <div className="field">
+            <label className="field__label" htmlFor="refund-reason">
+              {t('Reason')}
+            </label>
+            <textarea
+              id="refund-reason"
+              className="input"
+              rows={4}
+              required
+              minLength={4}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </div>
+          {error ? (
+            <p className="field__error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <div className="row" style={{ gap: 8 }}>
+            <button type="submit" className="btn btn--primary" disabled={busy || reason.trim().length < 4}>
+              {busy ? t('Submitting…') : t('Submit refund request')}
+            </button>
+            <button type="button" className="btn btn--ghost" onClick={() => setOpen(false)}>
+              {t('Cancel')}
+            </button>
+          </div>
+        </form>
+      )}
+    </section>
+  );
+}
+
 /** Asked for only when a refund is pending and no refund address was given. The address can be saved once. */
 function RefundAddressForm({ order, busy, run }: { order: OrderView; busy: boolean; run: Run }) {
   const { orders } = useServices();
@@ -475,10 +703,24 @@ function StatusNotice({ order }: { order: OrderView }) {
       return (
         <Notice
           tone="info"
-          title={wire ? t('Preparing your wire instructions') : buy ? t('Arranging the courier') : t('Preparing your deposit address')}
+          title={
+            wire
+              ? t('Awaiting bank details')
+              : buy
+                ? t('Arranging the courier')
+                : order.depositCredentialsPending
+                  ? t('Awaiting deposit details')
+                  : t('Preparing your deposit address')
+          }
           role="status"
         >
-          <p>{t('This usually takes a moment. The page updates by itself.')}</p>
+          <p>
+            {wire
+              ? t(
+                  'Your order is accepted. We are preparing the bank wire details. When they are ready, they will appear in your account.',
+                )
+              : t('This usually takes a moment. The page updates by itself.')}
+          </p>
         </Notice>
       );
     case 'deposit_observed':
@@ -1034,8 +1276,12 @@ export function OrderPage() {
         ) : null}
         {order.courierFee?.awaitingAcceptance ? <AcceptCourierFee order={order} onAccepted={load} /> : null}
         {order.wireCredentialsPending ? (
-          <Notice tone="warn" title={t('Wire instructions not ready')} role="alert">
-            <p>{t('Bank details for this order are not available yet. Do not send a wire. We will update this page when instructions are issued.')}</p>
+          <Notice tone="info" title={t('Awaiting bank details')} role="status">
+            <p>
+              {t(
+                'Your order is accepted. We are preparing the bank wire details. When they are ready, they will appear in your account.',
+              )}
+            </p>
           </Notice>
         ) : null}
         {order.depositCredentialsPending ? (
@@ -1130,6 +1376,40 @@ export function OrderPage() {
 
           {wire && order.wireInstructions && order.status === 'awaiting_deposit' ? (
             <WireInstructions order={order} busy={busy} run={run} />
+          ) : null}
+
+          {(order.status === 'awaiting_deposit' || order.status === 'created' || order.status === 'compliance_review') &&
+          !TERMINAL_ORDER_STATUSES.has(order.status) ? (
+            <ConfirmPaymentPanel order={order} onDone={load} />
+          ) : null}
+
+          {['awaiting_deposit', 'deposit_observed', 'confirming', 'deposit_confirmed', 'compliance_review', 'failed', 'expired', 'cancelled'].includes(
+            order.status,
+          ) ? (
+            <RefundRequestPanel order={order} onDone={load} />
+          ) : null}
+
+          {Array.isArray((order as OrderView & { orderMessages?: { body: string; createdAt: number }[] }).orderMessages) &&
+          ((order as OrderView & { orderMessages: { body: string; createdAt: number }[] }).orderMessages?.length ?? 0) > 0 ? (
+            <section className="panel stack status-fade" aria-labelledby="extra-check-title">
+              <h2 id="extra-check-title" className="flow__step-title">
+                {t('Additional verification')}
+              </h2>
+              <p className="muted">
+                {t('This order needs additional verification. Read the messages below and reply in support if asked.')}
+              </p>
+              <ul className="stack" style={{ gap: 12, listStyle: 'none', padding: 0 }}>
+                {(order as OrderView & { orderMessages: { id: string; body: string; createdAt: number }[] }).orderMessages.map((m) => (
+                  <li key={m.id} className="notice notice--info">
+                    <p>{m.body}</p>
+                    <p className="small muted">{formatDateTime(m.createdAt)}</p>
+                  </li>
+                ))}
+              </ul>
+              <Link className="btn btn--secondary" to="/support">
+                {t('Open support messages')}
+              </Link>
+            </section>
           ) : null}
 
           {order.status === 'awaiting_deposit' && buy && !wire ? (

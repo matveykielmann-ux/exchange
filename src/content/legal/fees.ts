@@ -77,7 +77,7 @@ export const FEE_DISCLOSURE: LegalDocument = {
         },
         {
           type: 'p',
-          text: 'Current amounts are shown on the Fees page and in each quote. Each payout method has its own minimum order amount, shown in the Service. There is no maximum.',
+          text: 'Current amounts are shown on the Fees page and in each quote. There is no published minimum order amount and no maximum. Wire orders include a published bank processing fee plus the exchange fee, both shown before you confirm.',
         },
       ],
     },

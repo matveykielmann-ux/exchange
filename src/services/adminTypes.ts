@@ -305,6 +305,7 @@ export interface CryptoWallet {
   asset: AssetCode | null;
   network: NetworkId | null;
   address: string;
+  destinationTag?: string | null;
   purpose: 'deposit' | 'payout';
   status: 'active' | 'suspended' | 'pending_network';
   isDefault: boolean;
@@ -333,6 +334,7 @@ export type CryptoWalletInput = {
   asset?: AssetCode | null;
   network?: NetworkId | null;
   address: string;
+  destinationTag?: string | null;
   purpose?: 'deposit' | 'payout';
   note?: string | null;
 };

@@ -163,7 +163,9 @@ export const RU_PUBLIC2: Record<string, string> = {
   'What do you want to buy?': 'Что вы хотите купить?',
   'Cash you pay (USD)': 'Сумма наличными (USD)',
   'Paid in person to the courier. Minimum {0}; cash collection has its own minimum.':
-    'Передаётся лично курьеру. Минимум {0}; у забора наличных свой минимум.',
+    'Стоимость рассчитывается индивидуально на основании параметров заявки.',
+  'Calculated individually based on the order parameters':
+    'Стоимость рассчитывается индивидуально на основании параметров заявки.',
   'We couldn’t price this right now': 'Сейчас не удаётся рассчитать цену',
   'Try again': 'Попробовать снова',
   'Sign in to continue': 'Войдите, чтобы продолжить',

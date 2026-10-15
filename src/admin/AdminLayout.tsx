@@ -3,43 +3,39 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { LiveIndicator } from '@/components/chat/Chat';
 import { Icon, type IconName } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
-import { MockBadge } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import type { Role } from '@/services/types';
 import { useUser } from '@/state/auth';
-import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
 import { useLiveState } from '@/state/useLive';
-import { atLeast, ROLE_LABEL } from './lib';
+import { atLeast, staffRoleLabel } from './lib';
 import { LanguageSwitch } from '@/i18n/react';
 import { t } from '@/i18n';
 
-type NavItem = { to: string; label: string; icon: IconName; min: Role; end?: boolean; sandboxOnly?: boolean };
+type NavItem = { to: string; label: string; icon: IconName; min: Role; end?: boolean };
 /** Daily work: orders and customer messages. */
 const NAV: NavItem[] = [
-  { to: '/admin/orders', label: 'Orders', icon: 'list', min: 'support' },
-  { to: '/admin/inbox', label: 'Support inbox', icon: 'inbox', min: 'support' },
-  { to: '/admin/credentials', label: 'Credentials & wallets', icon: 'bank', min: 'support' },
-  { to: '/admin/verification', label: 'Identity verification', icon: 'shield', min: 'reviewer' },
+  { to: '/admin/orders', label: 'Orders', icon: 'list', min: 'admin' },
+  { to: '/admin/inbox', label: 'Support inbox', icon: 'inbox', min: 'admin' },
+  { to: '/admin/credentials', label: 'Credentials & wallets', icon: 'bank', min: 'admin' },
+  { to: '/admin/verification', label: 'Identity verification', icon: 'shield', min: 'admin' },
 ];
-/** Occasional: statistics, audit, people, system health and the sandbox lab. */
+/** Occasional: statistics, audit, people, service health. */
 const NAV_ADMIN: NavItem[] = [
-  { to: '/admin/overview', label: 'Statistics', icon: 'grid', min: 'support' },
-  { to: '/admin/audit', label: 'Audit log', icon: 'file', min: 'reviewer' },
-  { to: '/admin/users', label: 'Users and roles', icon: 'users', min: 'admin' },
-  { to: '/admin/system', label: 'System', icon: 'activity', min: 'admin' },
-  { to: '/admin/sandbox', label: 'Sandbox lab', icon: 'flask', min: 'support', sandboxOnly: true },
+  { to: '/admin/overview', label: 'Statistics', icon: 'grid', min: 'admin' },
+  { to: '/admin/audit', label: 'Audit log', icon: 'file', min: 'admin' },
+  { to: '/admin/users', label: 'Users', icon: 'users', min: 'admin' },
+  { to: '/admin/system', label: 'Service status', icon: 'activity', min: 'admin' },
 ];
 
 /** The staff workspace: its own layout and navigation. Every request it makes is authorized on the server by role. */
 export function AdminLayout() {
   useDocumentTitle('Admin');
   const user = useUser();
-  const config = useConfig();
   const { auth } = useServices();
   const live = useLiveState();
   const navigate = useNavigate();
-  const visible = (n: NavItem) => atLeast(user?.role, n.min) && (!n.sandboxOnly || config.mode === 'sandbox');
+  const visible = (n: NavItem) => atLeast(user?.role, n.min);
   const items = NAV.filter(visible);
   const adminItems = NAV_ADMIN.filter(visible);
 
@@ -84,18 +80,13 @@ export function AdminLayout() {
       <div className="admin-body">
         <header className="admin-bar">
           <div className="row" style={{ gap: 10 }}>
-            {config.mode === 'sandbox' ? (
-              <MockBadge label={t('Sandbox environment')} />
-            ) : (
-              <span className="badge badge--danger">{t('Production')}</span>
-            )}
             <LiveIndicator state={live} />
           </div>
           <div className="row admin-bar__user" style={{ gap: 8 }}>
             <LanguageSwitch />
             <span className="small">
               <span className="admin-bar__email">{user?.email}</span>{' '}
-              <span className="badge badge--neutral">{user ? t(ROLE_LABEL[user.role]) : ''}</span>
+              <span className="badge badge--neutral">{user ? t(staffRoleLabel(user.role)) : ''}</span>
             </span>
             <Link className="btn btn--ghost" to="/">
               {t('Customer site')}

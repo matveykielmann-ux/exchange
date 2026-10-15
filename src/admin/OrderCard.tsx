@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { MockBadge, StatusBadge } from '@/components/ui';
+import { StatusBadge } from '@/components/ui';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Icon } from '@/components/Icon';
@@ -32,7 +32,6 @@ import {
 } from './orderActions';
 import { TxHashLink } from '@/components/TxHashLink';
 import { LoadError } from './shared';
-import { SandboxLab } from './SandboxLab';
 
 type Result = { tone: 'success' | 'danger'; text: string } | null;
 
@@ -70,7 +69,6 @@ export function OrderCard({ id, headingLevel = 1 }: { id: string; headingLevel?:
         </div>
         <div className="row" style={{ gap: 8 }}>
           <span className={`badge ${o.onHold ? 'badge--warn' : 'badge--info'}`}>{t(ORDER_STAGE_LABEL[o.stage])}</span>
-          {o.source === 'sandbox' ? <MockBadge label={t('Sandbox order')} force /> : null}
         </div>
       </header>
 
@@ -524,7 +522,7 @@ function ActionDialog({
               <TextField id="notify-text" label={t('Message the customer will receive')} value={text} onChange={setText} rows={4} />
               <p className="small muted">
                 {t(
-                  'It appears in the customer’s support messages for this order, with an account notification. In the sandbox no email is sent.',
+                  'It appears in the customer’s support messages for this order, with an account notification.',
                 )}
               </p>
             </>
@@ -864,7 +862,7 @@ function HistoryBlock({ detail }: { detail: AdminOrderDetail }) {
 
 /* ---------- Details on demand ---------- */
 
-function MoreDetails({ detail, reload }: { detail: AdminOrderDetail; reload(): void }) {
+function MoreDetails({ detail }: { detail: AdminOrderDetail; reload(): void }) {
   const o = detail.order;
   return (
     <details className="order-more">
@@ -912,7 +910,6 @@ function MoreDetails({ detail, reload }: { detail: AdminOrderDetail; reload(): v
         <p className="small">
           <Link to={`/admin/audit?targetType=order&targetId=${o.id}`}>{t('Open in audit log')}</Link>
         </p>
-        {detail.sandboxControls ? <SandboxLab detail={detail} onDone={reload} /> : null}
       </div>
     </details>
   );

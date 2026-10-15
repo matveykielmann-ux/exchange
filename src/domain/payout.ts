@@ -1,5 +1,5 @@
 /**
- * Payout methods and their MOCK fee schedules. Timings are estimates only —
+ * Payout methods and their fee schedules. Timings are estimates only —
  * real timing depends on payout providers and receiving banks, none of which
  * are contracted.
  */
@@ -12,11 +12,17 @@ export type FeeSchedule =
   | { kind: 'none' }
   | { kind: 'flat'; cents: Cents }
   | { kind: 'percent'; bps: number; minCents: Cents | null; maxCents: Cents | null }
+  /** Bank processing fee (flat) plus the exchange fee (percent), used for wire. */
+  | { kind: 'flat_plus_percent'; flatCents: Cents; bps: number }
   /** No schedule: an operator quotes the fee per order before the customer accepts the final terms. */
   | { kind: 'quoted' };
 
-/** The exchange fee on every method except courier cash (owner decision, 2026-10-15). There is no spread. */
+/** The exchange fee on ACH and debit (owner decision, 2026-10-15). There is no spread. */
 export const EXCHANGE_FEE: FeeSchedule = { kind: 'percent', bps: 300, minCents: null, maxCents: null };
+
+/** Wire: published bank processing fee + 3% exchange fee (owner decision). */
+export const WIRE_BANK_FEE_CENTS: Cents = 30_00n;
+export const WIRE_FEE: FeeSchedule = { kind: 'flat_plus_percent', flatCents: WIRE_BANK_FEE_CENTS, bps: 300 };
 
 export type Availability = { available: true } | { available: false; reason: string };
 
@@ -30,7 +36,7 @@ export interface PayoutMethod {
    * When set, the fee is not a fixed published tariff. Shown on customer fee schedules.
    */
   feeStatus?: 'quoted_individually';
-  /** Minimum gross USD value the method accepts. There is no maximum (owner decision, 2026-10-14). */
+  /** Minimum gross USD value the method accepts. 0 = no published minimum. */
   minCents: Cents;
   availability: Availability;
 }
@@ -42,7 +48,7 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
     summary: 'To a US checking or savings account.',
     timingEstimate: 'Estimated 1–3 business days',
     fee: EXCHANGE_FEE,
-    minCents: 50_00n,
+    minCents: 0n,
     availability: { available: true },
   },
   wire: {
@@ -50,8 +56,8 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
     name: 'Domestic wire',
     summary: 'To a US bank account. Suited to larger amounts.',
     timingEstimate: 'Estimated same or next business day',
-    fee: EXCHANGE_FEE,
-    minCents: 1_000_00n,
+    fee: WIRE_FEE,
+    minCents: 0n,
     availability: { available: true },
   },
   instant_debit: {
@@ -60,7 +66,7 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
     summary: 'Push to an eligible US Visa or Mastercard debit card.',
     timingEstimate: 'Estimated within 30 minutes; can take longer',
     fee: EXCHANGE_FEE,
-    minCents: 50_00n,
+    minCents: 0n,
     availability: { available: true },
   },
   courier_cash: {
@@ -71,7 +77,7 @@ export const PAYOUT_METHODS: Record<PayoutMethodId, PayoutMethod> = {
     // No published tariff: delivery cost depends on the order and is set by an operator.
     fee: { kind: 'quoted' },
     feeStatus: 'quoted_individually',
-    minCents: 500_00n,
+    minCents: 0n,
     availability: FEATURE_FLAGS.courierCashDelivery
       ? { available: true }
       : {
@@ -97,6 +103,10 @@ export function payoutFeeCents(method: PayoutMethod, grossCents: Cents, quotedFe
       return fee.cents;
     case 'quoted':
       return quotedFeeCents === undefined || quotedFeeCents === null ? null : quotedFeeCents;
+    case 'flat_plus_percent': {
+      const pct = divRoundHalfUp(grossCents * BigInt(fee.bps), 10_000n);
+      return fee.flatCents + pct;
+    }
     case 'percent': {
       const raw = divRoundHalfUp(grossCents * BigInt(fee.bps), 10_000n);
       if (fee.minCents !== null && raw < fee.minCents) return fee.minCents;
@@ -106,16 +116,28 @@ export function payoutFeeCents(method: PayoutMethod, grossCents: Cents, quotedFe
   }
 }
 
+/** Separate bank processing vs exchange fee for wire quotes (UI). */
+export function wireFeeParts(grossCents: Cents): { bankFeeCents: Cents; exchangeFeeCents: Cents; totalCents: Cents } {
+  const exchangeFeeCents = divRoundHalfUp(grossCents * 300n, 10_000n);
+  return {
+    bankFeeCents: WIRE_BANK_FEE_CENTS,
+    exchangeFeeCents,
+    totalCents: WIRE_BANK_FEE_CENTS + exchangeFeeCents,
+  };
+}
+
 export function describeFee(fee: FeeSchedule, status?: PayoutMethod['feeStatus']): string {
   switch (fee.kind) {
     case 'none':
       return 'No payout fee';
     case 'quoted':
-      return 'Calculated individually for each order';
+      return 'Calculated individually based on the order parameters';
     case 'flat': {
       const base = `${formatUsd(fee.cents)} flat`;
       return status === 'quoted_individually' ? `${base} (calculated individually)` : base;
     }
+    case 'flat_plus_percent':
+      return `${formatUsd(fee.flatCents)} bank processing fee + ${fee.bps / 100}% exchange fee`;
     case 'percent': {
       const caps = [fee.minCents !== null && `min ${formatUsd(fee.minCents)}`, fee.maxCents !== null && `max ${formatUsd(fee.maxCents)}`];
       const c = caps.filter(Boolean).join(', ');
@@ -128,7 +150,8 @@ export type PayoutEligibility = { eligible: true } | { eligible: false; reason: 
 
 export function payoutEligibility(method: PayoutMethod, grossCents: Cents): PayoutEligibility {
   if (!method.availability.available) return { eligible: false, reason: method.availability.reason };
-  if (grossCents < method.minCents) return { eligible: false, reason: `Requires at least ${formatUsd(method.minCents, { whole: true })}.` };
+  if (method.minCents > 0n && grossCents < method.minCents)
+    return { eligible: false, reason: `Requires at least ${formatUsd(method.minCents, { whole: true })}.` };
   return { eligible: true };
 }
 
@@ -150,7 +173,9 @@ export function payoutOptions(grossCents: Cents | null): PayoutOption[] {
 
 /** What the fee line on a quote is called for this method. */
 export function feeLineLabel(id: PayoutMethodId): string {
-  return id === 'courier_cash' ? 'Courier fee' : 'Exchange fee';
+  if (id === 'courier_cash') return 'Courier fee';
+  if (id === 'wire') return 'Fees (bank + exchange)';
+  return 'Exchange fee';
 }
 
 /** Short label for a computed fee, e.g. "No fee" or "$25.00 fee". */

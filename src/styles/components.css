@@ -1934,3 +1934,45 @@ main {
     white-space: normal;
   }
 }
+
+/* ---------- Status / upload presence (21st-inspired, reduced-motion safe) ---------- */
+@keyframes status-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.status-fade {
+  animation: status-fade-in 0.35s ease-out both;
+}
+@keyframes upload-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent, #c9a227) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+.upload-pulse:not(:disabled):focus-visible,
+.upload-pulse:not(:disabled):hover {
+  animation: upload-pulse 1.2s ease-out 1;
+}
+.quote-lines {
+  transition: opacity 0.25s ease;
+}
+.calc-direction-swap {
+  animation: status-fade-in 0.3s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-fade,
+  .calc-direction-swap,
+  .upload-pulse:not(:disabled):focus-visible,
+  .upload-pulse:not(:disabled):hover {
+    animation: none;
+  }
+}

@@ -41,7 +41,6 @@ const AdminInbox = named(() => import('./admin/InboxPage'), 'InboxPage');
 const AdminUsers = named(() => import('./admin/UsersPage'), 'UsersPage');
 const AdminAudit = named(() => import('./admin/AuditPage'), 'AuditPage');
 const AdminSystem = named(() => import('./admin/SystemPage'), 'SystemPage');
-const AdminSandbox = named(() => import('./admin/SandboxLabPage'), 'SandboxLabPage');
 const AdminVerifications = named(() => import('./admin/VerificationsPage'), 'VerificationsPage');
 const AdminVerification = named(() => import('./admin/VerificationsPage'), 'VerificationDetailPage');
 const AdminCredentials = named(() => import('./admin/CredentialsPage'), 'CredentialsPage');
@@ -97,7 +96,6 @@ export function AppRoutes() {
         <Route path="users" element={<AdminUsers />} />
         <Route path="audit" element={<AdminAudit />} />
         <Route path="system" element={<AdminSystem />} />
-        <Route path="sandbox" element={<AdminSandbox />} />
       </Route>
       <Route element={<Layout />}>
         <Route path="admin/login" element={<StaffSignInPage />} />

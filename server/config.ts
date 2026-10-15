@@ -35,7 +35,7 @@ export interface AppConfig {
   sessionTtlMs: number;
   sandbox: {
     /** USD micros per whole unit; null = deterministic drifting defaults. */
-    rates: Partial<Record<'BTC' | 'ETH' | 'USDT' | 'USDC', bigint>>;
+    rates: Partial<Record<'BTC' | 'ETH' | 'USDT' | 'USDC' | 'XRP' | 'SOL' | 'BNB', bigint>>;
     confirmations: Partial<Record<string, number>>;
     webhookSecret: string;
     /** Return sign-in and reset codes in API responses so QA can run without an inbox. Sandbox only. */
@@ -166,7 +166,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
   for (const pair of (env.SANDBOX_RATES ?? '').split(',').filter(Boolean)) {
     const [code, value] = pair.split('=');
     const micros = value ? parseUsdToMicros(value) : null;
-    if (!code || !['BTC', 'ETH', 'USDT', 'USDC'].includes(code.trim()) || micros === null || micros <= 0n)
+    if (!code || !['BTC', 'ETH', 'USDT', 'USDC', 'XRP', 'SOL', 'BNB'].includes(code.trim()) || micros === null || micros <= 0n)
       problems.push(`SANDBOX_RATES entry "${pair}" must look like BTC=68420.15.`);
     else rates[code.trim() as 'BTC'] = micros;
   }

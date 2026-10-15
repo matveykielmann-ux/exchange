@@ -30,6 +30,7 @@ import * as ops from './services/operations';
 import * as orders from './services/orders';
 import { firmQuote, indicativeQuote, referencePrice, type QuoteInput } from './services/quotes';
 import { DOCUMENT_TYPES, uploadOrderDocument } from './services/documents';
+import * as payConfirm from './services/paymentConfirmations';
 import * as kyc from './services/kyc';
 import { ID_DOCUMENT_TYPES, KYC_FILE_KINDS, KYC_FILE_MAX_BYTES } from '@/domain/identity';
 import { COUNTRY_CODES } from '@/domain/residence';
@@ -553,7 +554,12 @@ export function registerRoutes(r: Router, app: AppContext) {
     '/api/orders/:id',
     (ctx) => {
       orders.expireOverdueOrders(app);
-      return { body: orders.orderView(app, orders.customerOrder(app, me(ctx), ctx.params.id!)) };
+      const row = orders.customerOrder(app, me(ctx), ctx.params.id!);
+      const view = orders.orderView(app, row) as Record<string, unknown>;
+      view.paymentConfirmations = payConfirm.listPaymentConfirmations(app, row.id);
+      view.orderMessages = payConfirm.listOrderMessages(app, row.id);
+      view.refundRequests = payConfirm.listRefundRequestsForOrder(app, row.id);
+      return { body: view };
     },
     { auth: 'user' },
   );
@@ -606,6 +612,63 @@ export function registerRoutes(r: Router, app: AppContext) {
       return { status: 201, body: { documents: uploadOrderDocument(app, actorOf(ctx), me(ctx), ctx.params.id!, b) } };
     },
     { auth: 'user', maxBodyBytes: 6 * 1024 * 1024, rateLimit: { bucket: 'documents', max: 10, windowMs: 60 * 60_000 } },
+  );
+
+  r.post(
+    '/api/orders/:id/payment-confirmation',
+    (ctx) => {
+      const b = parse(
+        v.object({
+          txid: v.optional(v.nullable(v.string({ max: 128, label: 'a transaction hash' }))),
+          wireReference: v.optional(v.nullable(v.string({ max: 120, label: 'a bank reference' }))),
+          comment: v.optional(v.nullable(v.string({ max: 2000, label: 'a comment' }))),
+          file: v.optional(
+            v.nullable(
+              v.object({
+                fileName: v.string({ max: 200, label: 'a file name' }),
+                contentType: v.enum(DOCUMENT_TYPES, 'file type'),
+                dataBase64: v.string({ max: 6 * 1024 * 1024, trim: false, label: 'the file' }),
+              }),
+            ),
+          ),
+        }),
+        ctx.body,
+      );
+      return {
+        status: 201,
+        body: {
+          confirmations: payConfirm.submitPaymentConfirmation(app, actorOf(ctx), me(ctx), ctx.params.id!, b),
+          order: orders.orderView(app, orders.getOrderRow(app, ctx.params.id!)),
+        },
+      };
+    },
+    { auth: 'user', maxBodyBytes: 6 * 1024 * 1024, rateLimit: { bucket: 'payment-confirm', max: 20, windowMs: 60 * 60_000 } },
+  );
+
+  r.post(
+    '/api/orders/:id/refund-request',
+    (ctx) => {
+      const b = parse(
+        v.object({
+          reason: v.string({ min: 4, max: 2000, label: 'a reason' }),
+          file: v.optional(
+            v.nullable(
+              v.object({
+                fileName: v.string({ max: 200, label: 'a file name' }),
+                contentType: v.enum(DOCUMENT_TYPES, 'file type'),
+                dataBase64: v.string({ max: 6 * 1024 * 1024, trim: false, label: 'the file' }),
+              }),
+            ),
+          ),
+        }),
+        ctx.body,
+      );
+      return {
+        status: 201,
+        body: { request: payConfirm.submitRefundRequest(app, actorOf(ctx), me(ctx), ctx.params.id!, b) },
+      };
+    },
+    { auth: 'user', maxBodyBytes: 6 * 1024 * 1024, rateLimit: { bucket: 'refund-request', max: 10, windowMs: 60 * 60_000 } },
   );
 
   /* ---------- Support ---------- */
@@ -695,9 +758,9 @@ export function registerRoutes(r: Router, app: AppContext) {
 
 /* ======================= Admin ======================= */
 
-const SUPPORT: Role[] = ['support', 'reviewer', 'admin'];
-const REVIEWER: Role[] = ['reviewer', 'admin'];
-const ADMIN: Role[] = ['admin'];
+const SUPPORT: Role[] = ['support', 'reviewer', 'admin', 'owner'];
+const REVIEWER: Role[] = ['reviewer', 'admin', 'owner'];
+const ADMIN: Role[] = ['admin', 'owner'];
 
 function registerAdminRoutes(r: Router, app: AppContext) {
   const staff = (roles: Role[] = SUPPORT) => ({ auth: 'staff' as const, roles });
@@ -777,7 +840,10 @@ function registerAdminRoutes(r: Router, app: AppContext) {
           audit: admin.auditLog(app, { targetType: 'order', targetId: o.id, actorId: null, action: null, page: 1, pageSize: 100 }).items,
           notifications: orderNotifications(app, o.id),
           actions: ops.availableActions(app, o, ctx.auth!.role),
-          sandboxControls: app.config.mode === 'sandbox',
+          sandboxControls: false,
+          paymentConfirmations: payConfirm.listPaymentConfirmations(app, o.id),
+          orderMessages: payConfirm.listOrderMessages(app, o.id),
+          refundRequests: payConfirm.listRefundRequestsForOrder(app, o.id),
         },
       };
     },
@@ -884,6 +950,54 @@ function registerAdminRoutes(r: Router, app: AppContext) {
       confirmReplace: b.confirmReplace,
       reason: b.reason,
     });
+  });
+  orderAction('review-payment-confirmation', SUPPORT, (ctx, id) => {
+    const b = parse(
+      v.object({
+        confirmationId: v.string({ max: 64, label: 'a confirmation id' }),
+        status: v.enum(['approved', 'needs_info', 'rejected'] as const, 'status'),
+        staffNote: v.optional(v.nullable(v.string({ max: 2000, label: 'a note' }))),
+      }),
+      ctx.body,
+    );
+    payConfirm.reviewPaymentConfirmation(app, staffActor(ctx), b.confirmationId, {
+      status: b.status,
+      staffNote: b.staffNote,
+    });
+    void id;
+  });
+  orderAction('verification-message', SUPPORT, (ctx, id) => {
+    const b = parse(
+      v.object({
+        body: v.string({ min: 1, max: 4000, label: 'a message' }),
+        file: v.optional(
+          v.nullable(
+            v.object({
+              fileName: v.string({ max: 200, label: 'a file name' }),
+              contentType: v.enum(DOCUMENT_TYPES, 'file type'),
+              dataBase64: v.string({ max: 6 * 1024 * 1024, trim: false, label: 'the file' }),
+            }),
+          ),
+        ),
+      }),
+      ctx.body,
+    );
+    payConfirm.postOrderMessage(app, staffActor(ctx), id, b);
+  });
+  orderAction('review-refund-request', ADMIN, (ctx, id) => {
+    const b = parse(
+      v.object({
+        requestId: v.string({ max: 64, label: 'a request id' }),
+        status: v.enum(['needs_info', 'approved', 'rejected', 'cancelled'] as const, 'status'),
+        staffNote: v.optional(v.nullable(v.string({ max: 2000, label: 'a note' }))),
+      }),
+      ctx.body,
+    );
+    payConfirm.reviewRefundRequest(app, staffActor(ctx), b.requestId, {
+      status: b.status,
+      staffNote: b.staffNote,
+    });
+    void id;
   });
   orderAction('issue-wire-instructions', SUPPORT, (ctx, id) => {
     const b = parse(v.object({ wireSetId: v.optional(v.string({ min: 8, max: 64 })) }), ctx.body && typeof ctx.body === 'object' ? ctx.body : {});

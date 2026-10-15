@@ -50,6 +50,7 @@ const emptyWallet = (): CryptoWalletInput => ({
   asset: null,
   network: null,
   address: '',
+  destinationTag: '',
   purpose: 'deposit',
   note: '',
 });
@@ -159,6 +160,7 @@ function WalletForm({
           asset: initial.asset,
           network: initial.network,
           address: initial.address,
+          destinationTag: initial.destinationTag ?? '',
           purpose: initial.purpose,
           note: initial.note ?? '',
         }
@@ -181,6 +183,7 @@ function WalletForm({
             ...form,
             asset: form.asset || null,
             network: form.network || null,
+            destinationTag: form.destinationTag || null,
             note: form.note || null,
           });
         } catch (ex) {
@@ -242,6 +245,18 @@ function WalletForm({
           spellCheck={false}
         />
       </label>
+      {form.network === 'xrpl' ? (
+        <label className="field">
+          <span className="field__label">{t('Destination tag')}</span>
+          <input
+            className="input mono"
+            value={form.destinationTag ?? ''}
+            onChange={(e) => setForm((f) => ({ ...f, destinationTag: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+            inputMode="numeric"
+            autoComplete="off"
+          />
+        </label>
+      ) : null}
       <label className="field">
         <span className="field__label">{t('Purpose')}</span>
         <select

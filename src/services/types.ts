@@ -141,7 +141,7 @@ export interface OrderEventView {
 
 export interface OrderDocumentView {
   id: string;
-  kind: 'id_document';
+  kind: 'id_document' | 'payment_receipt' | 'admin_attachment' | 'refund_attachment';
   fileName: string;
   contentType: string;
   sizeBytes: number;
@@ -498,6 +498,21 @@ export interface OrdersApi {
     id: string,
     file: { kind: 'id_document'; fileName: string; contentType: string; dataBase64: string },
   ): Promise<OrderDocumentView[]>;
+  /** Submit receipt / TXID / wire reference for staff review (does not auto-confirm). */
+  submitPaymentConfirmation(
+    id: string,
+    input: {
+      txid?: string | null;
+      wireReference?: string | null;
+      comment?: string | null;
+      file?: { fileName: string; contentType: string; dataBase64: string } | null;
+    },
+  ): Promise<{ confirmations: unknown; order: OrderView }>;
+  /** Request a refund via support; requires completed KYC before approval. */
+  requestRefund(
+    id: string,
+    input: { reason: string; file?: { fileName: string; contentType: string; dataBase64: string } | null },
+  ): Promise<unknown>;
 }
 
 export interface SupportApi {

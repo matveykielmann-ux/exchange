@@ -41,6 +41,8 @@ export interface CryptoWalletInput {
   asset?: AssetCode | null;
   network?: NetworkId | null;
   address: string;
+  /** XRP Ledger destination tag when required by the deposit wallet. */
+  destinationTag?: string | null;
   purpose?: WalletPurpose;
   note?: string | null;
 }
@@ -51,11 +53,12 @@ export interface WalletSnapshot {
   asset: AssetCode;
   network: NetworkId;
   address: string;
+  destinationTag?: string | null;
   purpose: WalletPurpose;
 }
 
 /** Networks that share the same 0x address format (may reuse an address as separate rows). */
-export const EVM_NETWORKS: readonly NetworkId[] = ['ethereum', 'base'];
+export const EVM_NETWORKS: readonly NetworkId[] = ['ethereum', 'base', 'bsc'];
 
 export function isEvmNetwork(network: NetworkId): boolean {
   return (EVM_NETWORKS as readonly string[]).includes(network);

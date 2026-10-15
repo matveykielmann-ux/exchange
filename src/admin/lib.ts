@@ -30,17 +30,29 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[]) {
   return { data, setData, error, reload };
 }
 
-const RANK: Record<Role, number> = { customer: 0, support: 1, reviewer: 2, admin: 3, owner: 4 };
+/**
+ * CRM staff is a single Admin role in the product. Legacy support/reviewer/owner
+ * ranks still authorize on the server; the UI presents them all as Admin.
+ */
+const RANK: Record<Role, number> = { customer: 0, support: 3, reviewer: 3, admin: 3, owner: 3 };
 /** Navigation hint only: the server authorizes every request by role. */
 export const atLeast = (role: Role | undefined, min: Role) => !!role && RANK[role] >= RANK[min];
 
 export const ROLE_LABEL: Record<Role, string> = {
   customer: 'Customer',
-  support: 'Support',
-  reviewer: 'Reviewer',
+  support: 'Admin',
+  reviewer: 'Admin',
   admin: 'Admin',
-  owner: 'Master (owner)',
+  owner: 'Admin',
 };
+
+/** Staff badge text — always Admin for CRM operators. */
+export function staffRoleLabel(role: Role): string {
+  return role === 'customer' ? ROLE_LABEL.customer : 'Admin';
+}
+
+/** Roles an admin may assign to staff accounts (single product role). */
+export const STAFF_ASSIGNABLE_ROLES: Role[] = ['admin'];
 
 export function minutes(n: number | null): string {
   if (n === null) return '—';
