@@ -44,6 +44,7 @@ const AdminSystem = named(() => import('./admin/SystemPage'), 'SystemPage');
 const AdminSandbox = named(() => import('./admin/SandboxLabPage'), 'SandboxLabPage');
 const AdminVerifications = named(() => import('./admin/VerificationsPage'), 'VerificationsPage');
 const AdminVerification = named(() => import('./admin/VerificationsPage'), 'VerificationDetailPage');
+const AdminCredentials = named(() => import('./admin/CredentialsPage'), 'CredentialsPage');
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const user = useUser();
@@ -92,6 +93,7 @@ export function AppRoutes() {
         <Route path="inbox/:id" element={<AdminInbox />} />
         <Route path="verification" element={<AdminVerifications />} />
         <Route path="verification/:id" element={<AdminVerification />} />
+        <Route path="credentials" element={<AdminCredentials />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="audit" element={<AdminAudit />} />
         <Route path="system" element={<AdminSystem />} />

@@ -6,7 +6,6 @@
  */
 import type { AddressInfo } from 'node:net';
 import { LEGAL_DOCUMENTS } from '@/content/legal';
-import { isPreviewWireValue } from '@/domain/wire';
 import type { App } from '../app';
 import { totpCode } from '../lib/crypto';
 import { signWebhook } from '../providers/signature';
@@ -14,6 +13,18 @@ import { createAccount } from '../services/auth';
 import { SANDBOX_PASSWORD, TEST_ETH_ADDRESS } from '../scenarios';
 import { deliver, sandboxAutopilotTick } from '../services/sandbox';
 import { testApp, type Json } from './helpers';
+
+const SAMPLE_WIRE = {
+  name: 'USD Wire — Account 1',
+  beneficiary: 'Arcvale Exchange LLC',
+  bankName: 'Example National Bank',
+  accountNumber: '123456789012',
+  routingNumber: '021000021',
+  swiftBic: 'CHASUS33',
+  bankAddress: '270 Park Avenue, New York, NY',
+  instructions: 'Include the order reference in the wire memo.',
+  currency: 'USD' as const,
+};
 
 const docs = (kind: 'signup' | 'order') =>
   LEGAL_DOCUMENTS.filter((d) => d.acceptance === kind).map((d) => ({ slug: d.slug, version: d.version }));
@@ -609,7 +620,7 @@ describe('API', () => {
     );
   });
 
-  it('buys crypto with a bank wire: placeholder instructions, optional reference, CRM wire steps, bank webhooks', async () => {
+  it('buys crypto with a bank wire: CRM credentials, optional reference, CRM wire steps, bank webhooks', async () => {
     const c = env.client();
     await customer(c, 'wire-buyer@example.test');
     const indicative = await c.get('/api/quotes/indicative?direction=buy&asset=USDT&network=tron&cashCents=200000&payIn=wire');
@@ -619,27 +630,37 @@ describe('API', () => {
     const small = await c.get('/api/quotes/indicative?direction=buy&asset=USDT&network=tron&cashCents=60000&payIn=wire');
     expect(small.body.issues.map((i: { code: string }) => i.code)).toEqual(['payout_ineligible']);
 
+    const admin = await staff(env.app, env.base, 'admin');
+    const wireSet = await admin.post('/api/admin/credentials/wire', SAMPLE_WIRE);
+    expect(wireSet.status).toBe(201);
+    expect((await admin.post(`/api/admin/credentials/wire/${wireSet.body.id}/default`)).status).toBe(200);
+
     const q = await c.post('/api/quotes', { direction: 'buy', asset: 'USDT', network: 'tron', cashCents: '200000', payIn: 'wire' });
     expect(q.status).toBe(201);
     const wallet = 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE';
-    // No saved destination is needed for a wire.
+    // No saved destination is needed for a wire. Default CRM set auto-issues instructions.
     const o = await c.post(
       '/api/orders',
       { quoteId: q.body.quote.id, destinationId: '', receiveAddress: wallet, accepted: docs('order') },
       { 'idempotency-key': 'wire-order-1' },
     );
     expect(o.status).toBe(201);
-    expect(o.body).toMatchObject({ direction: 'buy', payIn: 'wire', status: 'created', receiveAddress: wallet, wireInstructions: null });
+    expect(o.body).toMatchObject({ direction: 'buy', payIn: 'wire', status: 'awaiting_deposit', receiveAddress: wallet });
     const id = o.body.id as string;
-
-    // CRM step 1: instructions issued (demo). Every bank field is a placeholder; the reference is the order's.
-    const admin = await staff(env.app, env.base, 'admin');
-    expect((await admin.post(`/api/admin/sandbox/orders/${id}/wire-instructions`)).status).toBe(200);
     const issued = (await c.get(`/api/orders/${id}`)).body;
-    expect(issued.status).toBe('awaiting_deposit');
-    for (const line of issued.wireInstructions)
-      expect(line.placeholder ? isPreviewWireValue(line.value) : line.value === issued.reference).toBe(true);
+    expect(issued.wireInstructions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: 'Beneficiary', value: SAMPLE_WIRE.beneficiary, placeholder: false }),
+        expect.objectContaining({ label: 'Reference / memo', value: issued.reference, placeholder: false }),
+      ]),
+    );
     expect((await admin.post(`/api/admin/sandbox/orders/${id}/wire-instructions`)).status).toBe(409);
+
+    // Editing the CRM set must not change the order snapshot.
+    await admin.put(`/api/admin/credentials/wire/${wireSet.body.id}`, { ...SAMPLE_WIRE, beneficiary: 'Changed Name LLC' });
+    expect((await c.get(`/api/orders/${id}`)).body.wireInstructions).toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: 'Beneficiary', value: SAMPLE_WIRE.beneficiary })]),
+    );
 
     // The customer marks the wire as sent; the reference is optional and format-checked.
     expect((await c.post(`/api/orders/${id}/report-sent`, { txHash: 'bad<ref>' })).status).toBe(400);
@@ -669,6 +690,10 @@ describe('API', () => {
   });
 
   it('issues wire instructions and moves a wire buy once the customer marks it sent (sandbox autopilot)', async () => {
+    const admin = await staff(env.app, env.base, 'admin', 'wire-auto-admin@arcvale.test');
+    const wireSet = await admin.post('/api/admin/credentials/wire', { ...SAMPLE_WIRE, name: 'USD Wire — Autopilot' });
+    await admin.post(`/api/admin/credentials/wire/${wireSet.body.id}/default`);
+
     const c = env.client();
     await customer(c, 'wire-auto@example.test');
     const q = await c.post('/api/quotes', { direction: 'buy', asset: 'USDC', network: 'ethereum', cashCents: '150000', payIn: 'wire' });
@@ -678,20 +703,100 @@ describe('API', () => {
       { 'idempotency-key': 'wire-auto-1' },
     );
     const id = o.body.id as string;
+    // Default set auto-issues on create.
+    expect(o.body.status).toBe('awaiting_deposit');
     (env.ctx.config.sandbox as { autopilotStepMs: number }).autopilotStepMs = 3000;
     const tick = () => {
       env.clock.advance(3001);
       return sandboxAutopilotTick(env.ctx);
     };
     const status = async () => (await c.get(`/api/orders/${id}`)).body.status;
-    tick();
-    expect(await status()).toBe('awaiting_deposit');
     expect(tick()).toBe(0); // waits for the customer
     await c.post(`/api/orders/${id}/report-sent`, { txHash: null });
     tick();
     expect(await status()).toBe('deposit_observed');
     tick();
     expect(await status()).toBe('ready_for_payout');
+  });
+
+  it('manages CRM wire sets and wallets, seeds, and assigns deposit addresses by asset+network', async () => {
+    const admin = await staff(env.app, env.base, 'admin', 'cred-admin@arcvale.test');
+    const support = await staff(env.app, env.base, 'support', 'cred-support@arcvale.test');
+
+    const wallets = await admin.get('/api/admin/credentials/wallets');
+    expect(wallets.status).toBe(200);
+    const addresses = wallets.body.items.map((w: { address: string }) => w.address);
+    expect(addresses).toEqual(
+      expect.arrayContaining([
+        'bc1qzkuwv8rjgjpqwfcy52lveds8nu4477grq6h6u9',
+        'TRSQq1rn1AR22JQwaNwQozQqozbzqVtFTH',
+        '0x3E9c431EEaaD6F41698A137907A93eF63EDD8ff3',
+      ]),
+    );
+    const evm = wallets.body.items.find((w: { address: string }) => w.address.toLowerCase() === '0x3e9c431eeaad6f41698a137907a93ef63edd8ff3');
+    expect(evm).toMatchObject({ status: 'pending_network', network: null, isDefault: false });
+
+    // Support can list but not create.
+    expect((await support.post('/api/admin/credentials/wire', SAMPLE_WIRE)).status).toBe(403);
+
+    const wire = await admin.post('/api/admin/credentials/wire', SAMPLE_WIRE);
+    expect(wire.status).toBe(201);
+    await admin.post(`/api/admin/credentials/wire/${wire.body.id}/default`);
+
+    // Invalid address for network refused.
+    const bad = await admin.post('/api/admin/credentials/wallets', {
+      name: 'Bad BTC',
+      asset: 'BTC',
+      network: 'bitcoin',
+      address: TEST_ETH_ADDRESS,
+      purpose: 'deposit',
+    });
+    expect(bad.status).toBe(400);
+
+    // Explicit EVM assignment for Ethereum (separate from the pending seed row).
+    const ethWal = await admin.post('/api/admin/credentials/wallets', {
+      name: 'USDC — Ethereum',
+      asset: 'USDC',
+      network: 'ethereum',
+      address: '0x3E9c431EEaaD6F41698A137907A93eF63EDD8ff3',
+      purpose: 'deposit',
+    });
+    expect(ethWal.status).toBe(201);
+    await admin.post(`/api/admin/credentials/wallets/${ethWal.body.id}/default`);
+
+    const c = env.client();
+    const { bankId } = await customer(c, 'cred-seller@example.test');
+    const q = await c.post('/api/quotes', { asset: 'USDC', network: 'ethereum', amountAtomic: '2500000000', payoutMethod: 'ach' });
+    const o = await c.post(
+      '/api/orders',
+      { quoteId: q.body.quote.id, destinationId: bankId, refundAddress: TEST_ETH_ADDRESS, accepted: docs('order') },
+      { 'idempotency-key': 'cred-usdc-1' },
+    );
+    expect(o.status).toBe(201);
+    expect(o.body.status).toBe('awaiting_deposit');
+    expect(o.body.deposit.address).toBe('0x3E9c431EEaaD6F41698A137907A93eF63EDD8ff3');
+
+    // Changing the default wallet does not rewrite the order snapshot.
+    const eth2 = await admin.post('/api/admin/credentials/wallets', {
+      name: 'USDC — Ethereum 2',
+      asset: 'USDC',
+      network: 'ethereum',
+      address: '0x52908400098527886E0F7030069857D2E4169EE7',
+      purpose: 'deposit',
+    });
+    await admin.post(`/api/admin/credentials/wallets/${eth2.body.id}/default`);
+    expect((await c.get(`/api/orders/${o.body.id}`)).body.deposit.address).toBe('0x3E9c431EEaaD6F41698A137907A93eF63EDD8ff3');
+
+    // Replace requires confirmation once revealed.
+    const replace = await admin.post(`/api/admin/orders/${o.body.id}/assign-wallet-credentials`, { walletId: eth2.body.id });
+    expect(replace.status).toBe(409);
+    const replaced = await admin.post(`/api/admin/orders/${o.body.id}/assign-wallet-credentials`, {
+      walletId: eth2.body.id,
+      confirmReplace: true,
+      reason: 'Customer requested alternate deposit address.',
+    });
+    expect(replaced.status).toBe(200);
+    expect(replaced.body.deposit.address).toBe('0x52908400098527886E0F7030069857D2E4169EE7');
   });
 
   it('asks for the country of residence and the clause 8.5 confirmation at sign-up', async () => {

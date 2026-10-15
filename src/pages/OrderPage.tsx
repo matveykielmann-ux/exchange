@@ -9,13 +9,13 @@ import { EventLog, StatusRail } from '@/components/TransactionProgress';
 import { LiveIndicator } from '@/components/chat/Chat';
 import { Notice, StatusBadge } from '@/components/ui';
 import { ASSETS, NETWORKS, networkLabel } from '@/domain/assets';
+import { explorerAddressUrl } from '@/domain/explorer';
 import { formatUsd } from '@/domain/money';
 import { exchangeRateMicros, valueAtRateCents } from '@/domain/quote';
 import { feeLineLabel } from '@/domain/payout';
 import {
   canRaise,
   DEPOSIT_EXCEPTION_LABEL,
-  isPreviewDepositAddress,
   orderStatusLabel,
   orderTone,
   TERMINAL_ORDER_STATUSES,
@@ -30,7 +30,6 @@ import { gsap, REDUCED_OK, useGSAP } from '@/lib/motion';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { useExpired } from '@/lib/useExpired';
 import type { OrderView } from '@/services/types';
-import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
 import { useLiveEvents, useLiveState } from '@/state/useLive';
 import { readBase64 } from '@/lib/files';
@@ -228,7 +227,7 @@ function WireInstructions({ order, busy, run }: { order: OrderView; busy: boolea
         {lines.some((l) => l.placeholder) ? (
           <p className="small">
             <strong>{t('Do not send a wire yet.')}</strong>{' '}
-            {t('Live bank details are issued only after the bank payout provider is connected for this order.')}
+            {t('Bank details for this order are not ready. Do not send a wire until complete instructions appear here.')}
           </p>
         ) : null}
       </div>
@@ -903,7 +902,6 @@ function Receipt({ order }: { order: OrderView }) {
 export function OrderPage() {
   const { id = '' } = useParams();
   const services = useServices();
-  const config = useConfig();
   const live = useLiveState();
   const location = useLocation();
   const justCreated = (location.state as { justCreated?: boolean } | null)?.justCreated;
@@ -990,8 +988,9 @@ export function OrderPage() {
   const wire = order.payIn === 'wire';
   const network = NETWORKS[order.network];
   const address = order.deposit.address;
-  // Sandbox-mode addresses must be obvious non-payable placeholders; anything else is withheld.
-  const showAddress = !!address && (config.mode !== 'sandbox' || isPreviewDepositAddress(address));
+  // The server withholds unsafe sandbox addresses; show whatever it returned.
+  const showAddress = !!address;
+  const addressExplorer = showAddress ? explorerAddressUrl(address, order.network) : null;
   const label = t(orderStatusLabel(order.status, order.direction, order.payIn ?? undefined));
   const steps = !buy && order.payout.method === 'courier_cash' ? order.steps.map(courierStep) : order.steps;
 
@@ -1034,6 +1033,21 @@ export function OrderPage() {
           </Notice>
         ) : null}
         {order.courierFee?.awaitingAcceptance ? <AcceptCourierFee order={order} onAccepted={load} /> : null}
+        {order.wireCredentialsPending ? (
+          <Notice tone="warn" title={t('Wire instructions not ready')} role="alert">
+            <p>{t('Bank details for this order are not available yet. Do not send a wire. We will update this page when instructions are issued.')}</p>
+          </Notice>
+        ) : null}
+        {order.depositCredentialsPending ? (
+          <Notice tone="warn" title={t('Deposit address not available')} role="alert">
+            <p>
+              {t('A deposit address for {0} on {1} is not available yet. Do not send funds. Contact support if this persists.', [
+                order.asset,
+                order.networkLabel,
+              ])}
+            </p>
+          </Notice>
+        ) : null}
       </div>
 
       {/* Shown after creation until the final screen takes over. */}
@@ -1058,7 +1072,7 @@ export function OrderPage() {
         <div className="flow__main">
           {order.status === 'completed' ? <SuccessPanel order={order} animate={sawIncomplete} /> : null}
 
-          {order.status === 'awaiting_deposit' && !buy ? (
+          {(order.status === 'awaiting_deposit' || order.depositCredentialsPending) && !buy ? (
             <section className="stack" aria-labelledby="deposit-title">
               <h2 id="deposit-title" className="flow__step-title">
                 {t('Send')} {formatAsset(order.amountAtomic, order.asset)}
@@ -1071,13 +1085,26 @@ export function OrderPage() {
                   <Countdown to={order.deposit.deadline} prefix={t('Window closes in')} ended={t('Window closed')} />
                 </div>
                 {showAddress ? (
-                  <div className="deposit-box__address">
-                    <code>{address}</code>
-                    <CopyButton value={address} label={t('Copy')} />
-                  </div>
+                  <>
+                    <div className="deposit-box__address">
+                      <code>{address}</code>
+                      <CopyButton value={address!} label={t('Copy')} />
+                    </div>
+                    <p className="small">
+                      {t('Asset:')} {order.asset} · {t('Amount:')} {formatAsset(order.amountAtomic, order.asset)}
+                      {addressExplorer ? (
+                        <>
+                          {' · '}
+                          <a href={addressExplorer} target="_blank" rel="noopener noreferrer">
+                            {t('View address on explorer')}
+                          </a>
+                        </>
+                      ) : null}
+                    </p>
+                  </>
                 ) : (
-                  <Notice tone="danger" title={t('Deposit address withheld')} role="alert">
-                    <p>{t('No usable deposit address is available for this order. Do not send funds. Contact support.')}</p>
+                  <Notice tone="danger" title={t('Deposit address unavailable')} role="alert">
+                    <p>{t('No deposit address is available for this direction yet. Do not send funds. Contact support.')}</p>
                   </Notice>
                 )}
                 {order.deposit.memo ? (
@@ -1086,14 +1113,18 @@ export function OrderPage() {
                   </p>
                 ) : null}
               </div>
-              <Notice tone="warn" title={t('Only send {0} on {1}', [order.asset, network.name])}>
-                <p>
-                  {t(
-                    'Sending a different asset, or using a different network, may result in permanent loss. Send exactly the amount shown; a different amount is held for review.',
-                  )}
-                </p>
-              </Notice>
-              <TxHashForm order={order} busy={busy} run={run} />
+              {showAddress ? (
+                <>
+                  <Notice tone="warn" title={t('Only send {0} on {1}', [order.asset, network.name])}>
+                    <p>
+                      {t(
+                        'Sending a different asset, or using a different network, may result in permanent loss. Send exactly the amount shown; a different amount is held for review.',
+                      )}
+                    </p>
+                  </Notice>
+                  <TxHashForm order={order} busy={busy} run={run} />
+                </>
+              ) : null}
             </section>
           ) : null}
 

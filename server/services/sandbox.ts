@@ -198,8 +198,8 @@ export function forceExpire(ctx: AppContext, actor: Actor, orderId: string) {
 }
 
 /**
- * Wire buys, sandbox only: the CRM's "wire instructions issued" step. The
- * instructions are placeholders; see issueWireInstructions.
+ * Wire buys, sandbox only: issue CRM bank credentials (or fail clearly when
+ * none are configured). Same path as the CRM "issue wire instructions" action.
  */
 export function markWireInstructionsIssued(ctx: AppContext, actor: Actor, orderId: string) {
   assertSandbox(ctx);

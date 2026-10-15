@@ -720,4 +720,122 @@ WHEN NOT (OLD.courier_fee_pending = 1 AND NEW.courier_fee_pending = 0)
 BEGIN SELECT RAISE(ABORT, 'order snapshot fields are immutable'); END;
 `,
   },
+  {
+    id: 10,
+    name: 'crm_credentials',
+    sql: `
+-- CRM-managed bank wire sets and crypto deposit wallets. Orders store immutable
+-- snapshots when credentials are issued; editing a set/wallet never rewrites
+-- an existing order. Soft-deactivate only (no hard delete of in-use rows).
+-- Never store private keys or seed phrases here.
+
+CREATE TABLE wire_credential_sets (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 120),
+  beneficiary TEXT NOT NULL CHECK (length(beneficiary) BETWEEN 1 AND 200),
+  bank_name TEXT NOT NULL CHECK (length(bank_name) BETWEEN 1 AND 200),
+  account_number TEXT CHECK (account_number IS NULL OR length(account_number) BETWEEN 4 AND 64),
+  routing_number TEXT CHECK (routing_number IS NULL OR length(routing_number) BETWEEN 4 AND 34),
+  swift_bic TEXT CHECK (swift_bic IS NULL OR length(swift_bic) BETWEEN 8 AND 11),
+  bank_address TEXT CHECK (bank_address IS NULL OR length(bank_address) <= 400),
+  instructions TEXT CHECK (instructions IS NULL OR length(instructions) <= 2000),
+  currency TEXT NOT NULL DEFAULT 'USD' CHECK (currency IN ('USD')),
+  status TEXT NOT NULL CHECK (status IN ('active','suspended')),
+  is_default INTEGER NOT NULL DEFAULT 0 CHECK (is_default IN (0,1)),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  created_by TEXT REFERENCES users(id),
+  updated_by TEXT REFERENCES users(id),
+  CHECK (account_number IS NOT NULL OR routing_number IS NOT NULL OR swift_bic IS NOT NULL)
+);
+CREATE INDEX wire_credential_sets_status ON wire_credential_sets(status, currency);
+CREATE INDEX wire_credential_sets_default ON wire_credential_sets(currency, is_default) WHERE is_default = 1 AND status = 'active';
+
+CREATE TABLE crypto_wallets (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 120),
+  asset TEXT CHECK (asset IS NULL OR asset IN ('BTC','ETH','USDT','USDC')),
+  network TEXT CHECK (network IS NULL OR network IN ('bitcoin','ethereum','tron','solana','base')),
+  address TEXT NOT NULL CHECK (length(address) BETWEEN 20 AND 128),
+  purpose TEXT NOT NULL DEFAULT 'deposit' CHECK (purpose IN ('deposit','payout')),
+  status TEXT NOT NULL CHECK (status IN ('active','suspended','pending_network')),
+  is_default INTEGER NOT NULL DEFAULT 0 CHECK (is_default IN (0,1)),
+  note TEXT CHECK (note IS NULL OR length(note) <= 2000),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  created_by TEXT REFERENCES users(id),
+  updated_by TEXT REFERENCES users(id),
+  CHECK (status != 'active' OR (asset IS NOT NULL AND network IS NOT NULL)),
+  CHECK (is_default = 0 OR (status = 'active' AND asset IS NOT NULL AND network IS NOT NULL))
+);
+CREATE INDEX crypto_wallets_lookup ON crypto_wallets(asset, network, status);
+CREATE INDEX crypto_wallets_address ON crypto_wallets(address);
+CREATE INDEX crypto_wallets_default ON crypto_wallets(asset, network, is_default) WHERE is_default = 1 AND status = 'active';
+
+-- Immutable per-order snapshots (one current row each; replacements rewrite via assignment history).
+CREATE TABLE order_wire_snapshots (
+  order_id TEXT PRIMARY KEY REFERENCES orders(id),
+  wire_set_id TEXT REFERENCES wire_credential_sets(id),
+  name TEXT NOT NULL,
+  beneficiary TEXT NOT NULL,
+  bank_name TEXT NOT NULL,
+  account_number TEXT,
+  routing_number TEXT,
+  swift_bic TEXT,
+  bank_address TEXT,
+  instructions TEXT,
+  currency TEXT NOT NULL,
+  assigned_by TEXT REFERENCES users(id),
+  assigned_at INTEGER NOT NULL,
+  revealed_to_customer INTEGER NOT NULL DEFAULT 0 CHECK (revealed_to_customer IN (0,1))
+);
+
+CREATE TABLE order_wallet_snapshots (
+  order_id TEXT PRIMARY KEY REFERENCES orders(id),
+  wallet_id TEXT REFERENCES crypto_wallets(id),
+  name TEXT NOT NULL,
+  asset TEXT NOT NULL,
+  network TEXT NOT NULL,
+  address TEXT NOT NULL,
+  purpose TEXT NOT NULL,
+  assigned_by TEXT REFERENCES users(id),
+  assigned_at INTEGER NOT NULL,
+  revealed_to_customer INTEGER NOT NULL DEFAULT 0 CHECK (revealed_to_customer IN (0,1))
+);
+
+CREATE TABLE credential_assignment_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id TEXT NOT NULL REFERENCES orders(id),
+  kind TEXT NOT NULL CHECK (kind IN ('wire','wallet')),
+  action TEXT NOT NULL CHECK (action IN ('assigned','replaced')),
+  actor_id TEXT REFERENCES users(id),
+  previous_json TEXT,
+  new_json TEXT NOT NULL,
+  reason TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX credential_assignment_events_order ON credential_assignment_events(order_id, created_at);
+${appendOnly('credential_assignment_events')}
+
+-- Seed wallets (idempotent by address). No private keys. EVM row needs an explicit network before use.
+INSERT INTO crypto_wallets (id, name, asset, network, address, purpose, status, is_default, note, created_at, updated_at, created_by, updated_by)
+SELECT 'wal_seed_btc_bitcoin', 'Bitcoin — Bitcoin network', 'BTC', 'bitcoin',
+  'bc1qzkuwv8rjgjpqwfcy52lveds8nu4477grq6h6u9', 'deposit', 'active', 1,
+  'Initial CRM wallet', 0, 0, NULL, NULL
+WHERE NOT EXISTS (SELECT 1 FROM crypto_wallets WHERE address = 'bc1qzkuwv8rjgjpqwfcy52lveds8nu4477grq6h6u9');
+
+INSERT INTO crypto_wallets (id, name, asset, network, address, purpose, status, is_default, note, created_at, updated_at, created_by, updated_by)
+SELECT 'wal_seed_usdt_tron', 'USDT — TRON (TRC-20)', 'USDT', 'tron',
+  'TRSQq1rn1AR22JQwaNwQozQqozbzqVtFTH', 'deposit', 'active', 1,
+  'Initial CRM wallet', 0, 0, NULL, NULL
+WHERE NOT EXISTS (SELECT 1 FROM crypto_wallets WHERE address = 'TRSQq1rn1AR22JQwaNwQozQqozbzqVtFTH');
+
+INSERT INTO crypto_wallets (id, name, asset, network, address, purpose, status, is_default, note, created_at, updated_at, created_by, updated_by)
+SELECT 'wal_seed_evm_unassigned', 'EVM — network not selected', NULL, NULL,
+  '0x3E9c431EEaaD6F41698A137907A93eF63EDD8ff3', 'deposit', 'pending_network', 0,
+  'EVM-compatible address. Choose Ethereum, Base, or another supported EVM network in a separate wallet row before using as a deposit address.',
+  0, 0, NULL, NULL
+WHERE NOT EXISTS (SELECT 1 FROM crypto_wallets WHERE lower(address) = lower('0x3E9c431EEaaD6F41698A137907A93eF63EDD8ff3'));
+`,
+  },
 ];

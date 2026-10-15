@@ -279,12 +279,86 @@ export interface KycDetail extends KycSubmissionView {
   history: { id: string; status: KycSubmissionStatus; createdAt: number }[];
 }
 
+export interface WireCredentialSet {
+  id: string;
+  name: string;
+  beneficiary: string;
+  bankName: string;
+  accountNumber: string | null;
+  routingNumber: string | null;
+  swiftBic: string | null;
+  bankAddress: string | null;
+  instructions: string | null;
+  currency: string;
+  status: 'active' | 'suspended';
+  isDefault: boolean;
+  createdAt: number;
+  updatedAt: number;
+  createdBy: string | null;
+  updatedBy: string | null;
+  inUse: boolean;
+}
+
+export interface CryptoWallet {
+  id: string;
+  name: string;
+  asset: AssetCode | null;
+  network: NetworkId | null;
+  address: string;
+  purpose: 'deposit' | 'payout';
+  status: 'active' | 'suspended' | 'pending_network';
+  isDefault: boolean;
+  note: string | null;
+  createdAt: number;
+  updatedAt: number;
+  createdBy: string | null;
+  updatedBy: string | null;
+  inUse: boolean;
+}
+
+export type WireCredentialInput = {
+  name: string;
+  beneficiary: string;
+  bankName: string;
+  accountNumber?: string | null;
+  routingNumber?: string | null;
+  swiftBic?: string | null;
+  bankAddress?: string | null;
+  instructions?: string | null;
+  currency?: 'USD';
+};
+
+export type CryptoWalletInput = {
+  name: string;
+  asset?: AssetCode | null;
+  network?: NetworkId | null;
+  address: string;
+  purpose?: 'deposit' | 'payout';
+  note?: string | null;
+};
+
 export interface AdminApi {
   overview(): Promise<Overview>;
   staff(): Promise<StaffMember[]>;
   queue(q: QueueQuery): Promise<Page<QueueItem>>;
   order(id: string): Promise<AdminOrderDetail>;
   act(id: string, action: OrderActionKey, body: Record<string, unknown>): Promise<OrderView>;
+  credentials: {
+    listWire(): Promise<WireCredentialSet[]>;
+    createWire(input: WireCredentialInput): Promise<WireCredentialSet>;
+    updateWire(id: string, input: WireCredentialInput): Promise<WireCredentialSet>;
+    setWireStatus(id: string, status: 'active' | 'suspended'): Promise<WireCredentialSet>;
+    setWireDefault(id: string): Promise<WireCredentialSet>;
+    listWallets(): Promise<CryptoWallet[]>;
+    walletsForPair(asset: AssetCode, network: NetworkId): Promise<CryptoWallet[]>;
+    createWallet(input: CryptoWalletInput): Promise<CryptoWallet>;
+    updateWallet(id: string, input: CryptoWalletInput): Promise<CryptoWallet>;
+    setWalletStatus(id: string, status: 'active' | 'suspended'): Promise<CryptoWallet>;
+    setWalletDefault(id: string): Promise<CryptoWallet>;
+    assignWire(orderId: string, wireSetId: string, opts?: { confirmReplace?: boolean; reason?: string }): Promise<OrderView>;
+    assignWallet(orderId: string, walletId: string, opts?: { confirmReplace?: boolean; reason?: string }): Promise<OrderView>;
+    issueWire(orderId: string, wireSetId?: string): Promise<OrderView>;
+  };
   inbox(q: {
     status?: ConversationStatus | 'all';
     q?: string;

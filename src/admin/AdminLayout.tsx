@@ -19,6 +19,7 @@ type NavItem = { to: string; label: string; icon: IconName; min: Role; end?: boo
 const NAV: NavItem[] = [
   { to: '/admin/orders', label: 'Orders', icon: 'list', min: 'support' },
   { to: '/admin/inbox', label: 'Support inbox', icon: 'inbox', min: 'support' },
+  { to: '/admin/credentials', label: 'Credentials & wallets', icon: 'bank', min: 'support' },
   { to: '/admin/verification', label: 'Identity verification', icon: 'shield', min: 'reviewer' },
 ];
 /** Occasional: statistics, audit, people, system health and the sandbox lab. */

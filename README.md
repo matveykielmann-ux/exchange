@@ -18,6 +18,8 @@ Every seeded account uses the password `sandbox-pass-2026`: `owner@`, `admin@`, 
 
 Customer-facing deposit/payout simulation controls are removed. Sandbox deposit and payout events are staff-only (`/admin` sandbox lab) or the optional server autopilot (`SANDBOX_AUTOPILOT_STEP_MS`, off by default). Production mode never registers those routes. Missing providers report `NOT_CONFIGURED` and block money-moving steps; admins can record a **manual payout** with evidence when a configured provider is not used.
 
+**CRM credentials** (`/admin/credentials`): staff manage bank wire sets and crypto deposit wallets in the database. New orders snapshot the default active set/wallet; editing credentials later never rewrites existing orders. Issuing an address or wire details does not mean a deposit or payment was received. Private keys are never stored.
+
 To try it locally: sign up, then go to `/exchange`. As an admin, authorize the payout in `/admin` and use the **sandbox lab** on the order to have the test provider report the result. Sandbox fixtures:
 - A legal name containing "Review", "Reject" or "Sanctioned" drives the KYC result. One containing "Decline" gets payouts declined.
 - Cash by courier serves every ZIP code except those starting with `999`.

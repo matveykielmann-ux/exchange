@@ -265,6 +265,38 @@ export async function createApiServices(base = ''): Promise<Services> {
     },
     system: () => http.get('/api/admin/system'),
     largeDesk: (page) => http.get(`/api/admin/large-desk${qs({ page })}`),
+    credentials: {
+      listWire: async () => (await http.get<J>('/api/admin/credentials/wire')).items,
+      createWire: (input) => http.post('/api/admin/credentials/wire', input),
+      updateWire: (id, input) => http.put(`/api/admin/credentials/wire/${encodeURIComponent(id)}`, input),
+      setWireStatus: (id, status) => http.post(`/api/admin/credentials/wire/${encodeURIComponent(id)}/status`, { status }),
+      setWireDefault: (id) => http.post(`/api/admin/credentials/wire/${encodeURIComponent(id)}/default`),
+      listWallets: async () => (await http.get<J>('/api/admin/credentials/wallets')).items,
+      walletsForPair: async (asset, network) =>
+        (await http.get<J>(`/api/admin/credentials/wallets/for-pair${qs({ asset, network })}`)).items,
+      createWallet: (input) => http.post('/api/admin/credentials/wallets', input),
+      updateWallet: (id, input) => http.put(`/api/admin/credentials/wallets/${encodeURIComponent(id)}`, input),
+      setWalletStatus: (id, status) => http.post(`/api/admin/credentials/wallets/${encodeURIComponent(id)}/status`, { status }),
+      setWalletDefault: (id) => http.post(`/api/admin/credentials/wallets/${encodeURIComponent(id)}/default`),
+      assignWire: async (orderId, wireSetId, opts) =>
+        toOrder(
+          await http.post(`/api/admin/orders/${encodeURIComponent(orderId)}/assign-wire-credentials`, {
+            wireSetId,
+            confirmReplace: opts?.confirmReplace,
+            reason: opts?.reason,
+          }),
+        ),
+      assignWallet: async (orderId, walletId, opts) =>
+        toOrder(
+          await http.post(`/api/admin/orders/${encodeURIComponent(orderId)}/assign-wallet-credentials`, {
+            walletId,
+            confirmReplace: opts?.confirmReplace,
+            reason: opts?.reason,
+          }),
+        ),
+      issueWire: async (orderId, wireSetId) =>
+        toOrder(await http.post(`/api/admin/orders/${encodeURIComponent(orderId)}/issue-wire-instructions`, { wireSetId })),
+    },
     sandbox: {
       deposit: async (id, scenario) =>
         toOutcome(await http.post(`/api/admin/sandbox/orders/${encodeURIComponent(id)}/deposit`, { scenario })),

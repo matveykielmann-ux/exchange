@@ -1,10 +1,8 @@
 /**
- * Buy orders paid by bank wire (wire → crypto). The exchange is simulated, so
- * the wire instructions are placeholders: no bank, beneficiary, account or
- * routing number exists here, and nothing a customer could send money to is
- * ever shown or stored. Real instructions need a contracted bank and the
- * checks in docs/compliance-readiness.md; until then every value below stays
- * an obvious placeholder (see isPreviewWireValue).
+ * Buy orders paid by bank wire (wire → crypto). Live bank details come from
+ * CRM credential sets and are snapshotted onto each order. The DEMO helpers
+ * below remain only for legacy rows that still carry placeholder deposit
+ * markers; new orders never use them when a CRM set is available.
  */
 
 /**

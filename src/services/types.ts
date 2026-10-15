@@ -210,8 +210,12 @@ export interface OrderView {
   refundAddressNeeded: boolean;
   /** Buy orders: the wallet that receives the crypto. */
   receiveAddress: string | null;
-  /** Wire buys, once issued: the wire instructions. Every bank field is a demo placeholder. */
+  /** Wire buys, once issued: bank details from the order's CRM snapshot. */
   wireInstructions: { label: string; value: string; placeholder: boolean }[] | null;
+  /** Wire buy waiting for staff to assign bank credentials. */
+  wireCredentialsPending?: boolean;
+  /** Sell order with no deposit address yet. */
+  depositCredentialsPending?: boolean;
   documents: OrderDocumentView[];
   deposit: {
     address: string | null;
@@ -233,6 +237,36 @@ export interface OrderView {
   reviewReason?: string | null;
   assignedOperatorId?: string | null;
   depositProviderRef?: string | null;
+  /** Staff-only: CRM credential snapshots and assignment history for this order. */
+  operationCredentials?: {
+    wire: {
+      wireSetId: string | null;
+      name: string;
+      beneficiary: string;
+      bankName: string;
+      accountNumber: string | null;
+      routingNumber: string | null;
+      swiftBic: string | null;
+      bankAddress: string | null;
+      instructions: string | null;
+      currency: string;
+      assignedBy: string | null;
+      assignedAt: number;
+      revealedToCustomer: boolean;
+    } | null;
+    wallet: {
+      walletId: string | null;
+      name: string;
+      asset: AssetCode;
+      network: NetworkId;
+      address: string;
+      purpose: string;
+      assignedBy: string | null;
+      assignedAt: number;
+      revealedToCustomer: boolean;
+    } | null;
+    assignmentHistory: { id: number; kind: string; action: string; actorId: string | null; reason: string | null; createdAt: number }[];
+  };
 }
 
 export interface OrderSummary {

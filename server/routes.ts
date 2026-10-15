@@ -22,6 +22,7 @@ import { SIGNATURE_HEADER } from './providers/signature';
 import * as admin from './services/admin';
 import { audit } from './services/audit';
 import * as auth from './services/auth';
+import * as credentials from './services/credentials';
 import * as customers from './services/customers';
 import { withIdempotency } from './services/idempotency';
 import { listNotifications, markNotificationsRead, orderNotifications, unreadNotificationCount } from './services/notifications';
@@ -856,6 +857,118 @@ function registerAdminRoutes(r: Router, app: AppContext) {
     );
     return ops.setCourierFee(app, staffActor(ctx), id, b.feeCents, b.reason);
   });
+  orderAction('assign-wire-credentials', SUPPORT, (ctx, id) => {
+    const b = parse(
+      v.object({
+        wireSetId: v.string({ min: 8, max: 64 }),
+        confirmReplace: v.optional(v.bool()),
+        reason: v.optional(v.string({ max: 500, label: 'a reason' })),
+      }),
+      ctx.body,
+    );
+    return orders.assignWireCredentials(app, staffActor(ctx), id, b.wireSetId, {
+      confirmReplace: b.confirmReplace,
+      reason: b.reason,
+    });
+  });
+  orderAction('assign-wallet-credentials', SUPPORT, (ctx, id) => {
+    const b = parse(
+      v.object({
+        walletId: v.string({ min: 8, max: 64 }),
+        confirmReplace: v.optional(v.bool()),
+        reason: v.optional(v.string({ max: 500, label: 'a reason' })),
+      }),
+      ctx.body,
+    );
+    return orders.assignWalletCredentials(app, staffActor(ctx), id, b.walletId, {
+      confirmReplace: b.confirmReplace,
+      reason: b.reason,
+    });
+  });
+  orderAction('issue-wire-instructions', SUPPORT, (ctx, id) => {
+    const b = parse(v.object({ wireSetId: v.optional(v.string({ min: 8, max: 64 })) }), ctx.body && typeof ctx.body === 'object' ? ctx.body : {});
+    return orders.issueWireInstructions(app, staffActor(ctx), id, { wireSetId: b.wireSetId });
+  });
+
+  /* ---------- Credentials (wire sets + crypto wallets) ---------- */
+  r.get('/api/admin/credentials/wire', () => ({ body: { items: credentials.listWireSets(app) } }), staff());
+  r.get('/api/admin/credentials/wallets', () => ({ body: { items: credentials.listWallets(app) } }), staff());
+  r.get(
+    '/api/admin/credentials/wallets/for-pair',
+    (ctx) => {
+      const asset = parse(assetV, ctx.query.get('asset'));
+      const network = parse(networkV, ctx.query.get('network'));
+      return { body: { items: credentials.listActiveWalletsForPair(app, asset, network) } };
+    },
+    staff(),
+  );
+
+  const wireBody = v.object({
+    name: v.string({ min: 1, max: 120, label: 'an internal name' }),
+    beneficiary: v.string({ min: 1, max: 200, label: 'a beneficiary' }),
+    bankName: v.string({ min: 1, max: 200, label: 'a bank name' }),
+    accountNumber: v.optional(v.string({ min: 4, max: 64, label: 'an account number' })),
+    routingNumber: v.optional(v.string({ min: 4, max: 34, label: 'a routing number' })),
+    swiftBic: v.optional(v.string({ min: 8, max: 11, label: 'a SWIFT/BIC' })),
+    bankAddress: v.optional(v.string({ max: 400, label: 'a bank address' })),
+    instructions: v.optional(v.string({ max: 2000, label: 'instructions' })),
+    currency: v.optional(v.enum(['USD'] as const, 'currency')),
+  });
+  r.post(
+    '/api/admin/credentials/wire',
+    (ctx) => ({ status: 201, body: credentials.createWireSet(app, staffActor(ctx), parse(wireBody, ctx.body)) }),
+    { ...staff(ADMIN), rateLimit: WRITE_LIMIT },
+  );
+  r.put(
+    '/api/admin/credentials/wire/:id',
+    (ctx) => ({ body: credentials.updateWireSet(app, staffActor(ctx), ctx.params.id!, parse(wireBody, ctx.body)) }),
+    { ...staff(ADMIN), rateLimit: WRITE_LIMIT },
+  );
+  r.post(
+    '/api/admin/credentials/wire/:id/status',
+    (ctx) => {
+      const status = parse(v.object({ status: v.enum(['active', 'suspended'] as const) }), ctx.body).status;
+      return { body: credentials.setWireStatus(app, staffActor(ctx), ctx.params.id!, status) };
+    },
+    { ...staff(ADMIN), rateLimit: WRITE_LIMIT },
+  );
+  r.post(
+    '/api/admin/credentials/wire/:id/default',
+    (ctx) => ({ body: credentials.setWireDefault(app, staffActor(ctx), ctx.params.id!) }),
+    { ...staff(ADMIN), rateLimit: WRITE_LIMIT },
+  );
+
+  const walletBody = v.object({
+    name: v.string({ min: 1, max: 120, label: 'an internal name' }),
+    asset: v.optional(v.nullable(assetV)),
+    network: v.optional(v.nullable(networkV)),
+    address: v.string({ min: 20, max: 128, label: 'a wallet address' }),
+    purpose: v.optional(v.enum(['deposit', 'payout'] as const, 'purpose')),
+    note: v.optional(v.nullable(v.string({ max: 2000, label: 'a note' }))),
+  });
+  r.post(
+    '/api/admin/credentials/wallets',
+    (ctx) => ({ status: 201, body: credentials.createWallet(app, staffActor(ctx), parse(walletBody, ctx.body)) }),
+    { ...staff(ADMIN), rateLimit: WRITE_LIMIT },
+  );
+  r.put(
+    '/api/admin/credentials/wallets/:id',
+    (ctx) => ({ body: credentials.updateWallet(app, staffActor(ctx), ctx.params.id!, parse(walletBody, ctx.body)) }),
+    { ...staff(ADMIN), rateLimit: WRITE_LIMIT },
+  );
+  r.post(
+    '/api/admin/credentials/wallets/:id/status',
+    (ctx) => {
+      const status = parse(v.object({ status: v.enum(['active', 'suspended'] as const) }), ctx.body).status;
+      return { body: credentials.setWalletStatus(app, staffActor(ctx), ctx.params.id!, status) };
+    },
+    { ...staff(ADMIN), rateLimit: WRITE_LIMIT },
+  );
+  r.post(
+    '/api/admin/credentials/wallets/:id/default',
+    (ctx) => ({ body: credentials.setWalletDefault(app, staffActor(ctx), ctx.params.id!) }),
+    { ...staff(ADMIN), rateLimit: WRITE_LIMIT },
+  );
 
   /* ---------- Support inbox ---------- */
   r.get(

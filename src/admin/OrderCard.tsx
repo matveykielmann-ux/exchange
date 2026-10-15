@@ -81,10 +81,170 @@ export function OrderCard({ id, headingLevel = 1 }: { id: string; headingLevel?:
       ) : null}
 
       <MainBlock detail={data} onResult={setResult} reload={reload} />
+      <CredentialsBlock detail={data} onResult={setResult} reload={reload} />
       <ClientBlock detail={data} />
       <HistoryBlock detail={data} />
       <MoreDetails detail={data} reload={reload} />
     </article>
+  );
+}
+
+/* ---------- Operation credentials (wire / deposit wallet) ---------- */
+
+function CredentialsBlock({ detail, onResult, reload }: { detail: AdminOrderDetail; onResult(r: Result): void; reload(): void }) {
+  const { admin } = useServices();
+  const o = detail.order;
+  const wire = o.payIn === 'wire';
+  const sell = o.direction === 'sell';
+  const snap = o.operationCredentials;
+  const [wireSets, setWireSets] = useState<{ id: string; name: string }[]>([]);
+  const [wallets, setWallets] = useState<{ id: string; name: string; address: string; isDefault: boolean }[]>([]);
+  const [selected, setSelected] = useState('');
+  const [confirmReplace, setConfirmReplace] = useState(false);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (wire) {
+          const items = await admin.credentials.listWire();
+          if (!cancelled) setWireSets(items.filter((i) => i.status === 'active').map((i) => ({ id: i.id, name: i.name })));
+        } else if (sell) {
+          const items = await admin.credentials.walletsForPair(o.asset, o.network);
+          if (!cancelled)
+            setWallets(items.map((i) => ({ id: i.id, name: i.name, address: i.address, isDefault: i.isDefault })));
+        }
+      } catch {
+        /* list errors surface on assign */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [admin, wire, sell, o.asset, o.network]);
+
+  if (!wire && !sell) return null;
+
+  const revealed = wire ? !!snap?.wire?.revealedToCustomer : !!snap?.wallet?.revealedToCustomer || !!o.deposit.address;
+
+  const assign = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      if (wire) {
+        await admin.credentials.assignWire(o.id, selected, { confirmReplace: revealed ? confirmReplace : undefined, reason: revealed ? reason : undefined });
+      } else {
+        await admin.credentials.assignWallet(o.id, selected, {
+          confirmReplace: revealed ? confirmReplace : undefined,
+          reason: revealed ? reason : undefined,
+        });
+      }
+      onResult({ tone: 'success', text: t('Credentials saved on this order.') });
+      setConfirmReplace(false);
+      setReason('');
+      reload();
+    } catch (e) {
+      onResult({ tone: 'danger', text: errorMessage(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="order-block" aria-labelledby="block-credentials">
+      <h3 id="block-credentials" className="order-block__title">
+        {t('Operation credentials')}
+      </h3>
+      {wire ? (
+        snap?.wire ? (
+          <dl className="dl dl--compact">
+            <Row term={t('Set')}>{snap.wire.name}</Row>
+            <Row term={t('Beneficiary')}>{snap.wire.beneficiary}</Row>
+            <Row term={t('Bank')}>{snap.wire.bankName}</Row>
+            {snap.wire.accountNumber ? (
+              <Row term={t('Account')}>
+                <span className="mono small">{snap.wire.accountNumber}</span>
+              </Row>
+            ) : null}
+            {snap.wire.routingNumber ? (
+              <Row term={t('Routing')}>
+                <span className="mono small">{snap.wire.routingNumber}</span>
+              </Row>
+            ) : null}
+            {snap.wire.swiftBic ? (
+              <Row term="SWIFT">
+                <span className="mono small">{snap.wire.swiftBic}</span>
+              </Row>
+            ) : null}
+          </dl>
+        ) : (
+          <p className="small muted">{t('No bank credentials on this order yet. Assign a set below to issue instructions.')}</p>
+        )
+      ) : snap?.wallet || o.deposit.address ? (
+        <dl className="dl dl--compact">
+          {snap?.wallet ? <Row term={t('Wallet')}>{snap.wallet.name}</Row> : null}
+          <Row term={t('Deposit address')}>
+            <span className="mono small break">{snap?.wallet?.address ?? o.deposit.address}</span>
+          </Row>
+          <Row term={t('Network')}>
+            {o.asset} · {o.networkLabel}
+          </Row>
+        </dl>
+      ) : (
+        <p className="small muted">{t('No deposit wallet on this order. Assign an active wallet for {0} on {1}.', [o.asset, o.networkLabel])}</p>
+      )}
+
+      <div className="stack" style={{ gap: 8, marginTop: 12 }}>
+        <label className="field">
+          <span className="field__label">{wire ? t('Bank credential set') : t('Deposit wallet')}</span>
+          <select className="select" value={selected} onChange={(e) => setSelected(e.target.value)}>
+            <option value="">{t('— select —')}</option>
+            {wire
+              ? wireSets.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))
+              : wallets.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                    {w.isDefault ? ` (${t('default')})` : ''} — {w.address.slice(0, 10)}…
+                  </option>
+                ))}
+          </select>
+        </label>
+        {revealed ? (
+          <>
+            <label className="row" style={{ gap: 8 }}>
+              <input type="checkbox" checked={confirmReplace} onChange={(e) => setConfirmReplace(e.target.checked)} />
+              <span className="small">{t('I confirm replacing credentials the customer may already have')}</span>
+            </label>
+            <label className="field">
+              <span className="field__label">{t('Reason for replacement')}</span>
+              <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} />
+            </label>
+          </>
+        ) : null}
+        <button type="button" className="btn btn--secondary" disabled={!selected || busy || (revealed && (!confirmReplace || reason.trim().length < 4))} onClick={() => void assign()}>
+          {busy ? t('Saving…') : revealed ? t('Replace credentials') : t('Assign credentials')}
+        </button>
+      </div>
+      {snap?.assignmentHistory?.length ? (
+        <details className="small" style={{ marginTop: 12 }}>
+          <summary>{t('Assignment history')}</summary>
+          <ul className="stack" style={{ gap: 4, marginTop: 8 }}>
+            {snap.assignmentHistory.map((h) => (
+              <li key={h.id}>
+                {formatDateTime(h.createdAt)} · {h.kind} · {h.action}
+                {h.reason ? ` — ${h.reason}` : ''}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </section>
   );
 }
 

@@ -16,6 +16,7 @@ import { createLogger, type Logger } from './logger';
 import { createProviders } from './providers/registry';
 import { registerRoutes } from './routes';
 import { resolveSession, SESSION_COOKIE } from './services/auth';
+import { touchSeedWalletTimestamps } from './services/credentials';
 import { expireOverdueOrders } from './services/orders';
 import { sandboxAutopilotTick } from './services/sandbox';
 
@@ -45,6 +46,7 @@ export function createApp(config: AppConfig, opts: { clock?: Clock; log?: Logger
     bus: new EventBus(),
     limiter: createRateLimiter(() => clock.now()),
   };
+  touchSeedWalletTimestamps(ctx);
   for (const w of config.warnings) log.warn('configuration warning', { warning: w });
 
   const router = new Router({

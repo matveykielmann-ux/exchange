@@ -6,6 +6,7 @@
  */
 import { isValidAddress, NETWORKS, networkLabel, type AssetCode, type NetworkId } from '@/domain/assets';
 import { CASH_COLLECTION_WINDOW_MS } from '@/domain/courier';
+import { wireLinesFromSnapshot } from '@/domain/credentials';
 import { isPreviewWireValue, validateWireReference, WIRE_RECEIPT_WINDOW_MS, wireInstructionsPreview } from '@/domain/wire';
 import { formatUsd } from '@/domain/money';
 import { PAYOUT_METHODS, payoutEligibility, type PayoutMethodId } from '@/domain/payout';
@@ -27,12 +28,25 @@ import {
   type OrderStatus,
 } from '@/domain/order';
 import { validateRefundAddress, validateTxHash } from '@/domain/validation';
-import type { Actor, AppContext } from '../context';
+import { SYSTEM, type Actor, type AppContext } from '../context';
 import { ApiError, badRequest, conflict, notConfigured, notFound } from '../http/errors';
 import { newId, randomId } from '../lib/clock';
 import { isUsable } from '../providers/registry';
 import { ProviderError, ProviderNotConfiguredError, type PayoutProvider, type WebhookSource } from '../providers/types';
 import { audit } from './audit';
+import {
+  defaultWallet,
+  defaultWireSet,
+  getWallet,
+  getWireSet,
+  orderWalletSnapshot,
+  orderWireSnapshot,
+  recordAssignment,
+  upsertWalletSnapshot,
+  upsertWireSnapshot,
+  walletRowToSnapshot,
+  wireRowToSnapshot,
+} from './credentials';
 import { courierDelivery, getProfile, payoutDetails, type DestinationRow } from './customers';
 import { notify } from './notifications';
 import { hasBlockingQuoteIssues, loadQuote, quoteFromRow, quoteHasCourierFeePending } from './quotes';
@@ -478,6 +492,59 @@ export async function issueSellDepositInstructions(
   deadline: number,
 ): Promise<void> {
   if (ctx.db.get('SELECT 1 FROM deposit_instructions WHERE order_id = ?', [orderId])) return;
+
+  // Prefer the CRM default wallet for this asset+network (immutable snapshot on the order).
+  const crmWallet = defaultWallet(ctx, quote.asset, quote.network, 'deposit');
+  if (crmWallet) {
+    ctx.db.tx(() => {
+      const snap = walletRowToSnapshot(crmWallet);
+      upsertWalletSnapshot(ctx, orderId, snap, SYSTEM, true);
+      recordAssignment(ctx, orderId, 'wallet', 'assigned', SYSTEM, null, snap, null);
+      ctx.db.run(
+        'INSERT INTO deposit_instructions (id, order_id, provider, provider_ref, address, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [newId('dep'), orderId, 'crm', `crm_wal_${crmWallet.id.replace(/^wal_/, '')}`, snap.address, null, ctx.clock.now()],
+      );
+      audit(ctx, SYSTEM, {
+        action: 'order.wallet_assigned',
+        targetType: 'order',
+        targetId: orderId,
+        data: { walletId: crmWallet.id, asset: quote.asset, network: quote.network, source: 'default' },
+      });
+      applyOrderEvent(ctx, orderId, { type: 'DEPOSIT_INSTRUCTIONS_ISSUED' }, SYSTEM);
+      const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [userId])!.email;
+      notify(ctx, {
+        userId,
+        to: email,
+        template: 'order_created',
+        vars: {
+          reference,
+          amount: formatAssetPlain(quote.amountAtomic, quote.asset),
+          network: networkLabel(quote.asset, quote.network),
+          deadline: new Date(deadline).toISOString(),
+        },
+      });
+    });
+    return;
+  }
+
+  // No CRM wallet: sandbox may still use MOCK custody addresses; production leaves the order without an address.
+  if (ctx.config.mode !== 'sandbox') {
+    ctx.log.warn('no CRM deposit wallet for pair', { orderId, asset: quote.asset, network: quote.network });
+    const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [userId])!.email;
+    notify(ctx, {
+      userId,
+      to: email,
+      template: 'order_created',
+      vars: {
+        reference,
+        amount: formatAssetPlain(quote.amountAtomic, quote.asset),
+        network: networkLabel(quote.asset, quote.network),
+        deadline: new Date(deadline).toISOString(),
+      },
+    });
+    return;
+  }
+
   try {
     const instr = await ctx.providers.custody.createDepositInstructions({
       orderId,
@@ -486,20 +553,12 @@ export async function issueSellDepositInstructions(
       amountAtomic: quote.amountAtomic,
       idempotencyKey: `deposit:${orderId}`,
     });
-    if (ctx.config.mode === 'sandbox' && !isPreviewDepositAddress(instr.address))
+    if (!isPreviewDepositAddress(instr.address))
       throw new Error('Sandbox custody returned an address that could be valid on a real chain.');
     ctx.db.tx(() => {
       ctx.db.run(
         'INSERT INTO deposit_instructions (id, order_id, provider, provider_ref, address, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [
-          newId('dep'),
-          orderId,
-          ctx.config.mode === 'sandbox' ? 'sandbox' : 'custody',
-          instr.providerRef,
-          instr.address,
-          instr.memo,
-          ctx.clock.now(),
-        ],
+        [newId('dep'), orderId, 'sandbox', instr.providerRef, instr.address, instr.memo, ctx.clock.now()],
       );
       applyOrderEvent(ctx, orderId, { type: 'DEPOSIT_INSTRUCTIONS_ISSUED' }, { type: 'system', id: null, role: null, ip: null });
       const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [userId])!.email;
@@ -659,8 +718,12 @@ async function createBuyOrder(
     });
   });
 
-  // A wire order waits for its instructions to be issued (in the CRM, or by the sandbox autopilot): see issueWireInstructions.
-  if (wire || !dest) return getOrderRow(ctx, id);
+  // Wire: auto-issue from the CRM default set when one exists; otherwise wait for staff assignment.
+  if (wire) {
+    if (defaultWireSet(ctx, 'USD')) return issueWireInstructions(ctx, SYSTEM, id);
+    return getOrderRow(ctx, id);
+  }
+  if (!dest) return getOrderRow(ctx, id);
   // Courier collection waits until an operator sets the fee and the customer accepts it.
   if (feePending) return getOrderRow(ctx, id);
 
@@ -703,25 +766,43 @@ async function createBuyOrder(
 }
 
 /**
- * Wire buys: records that the wire instructions were issued and moves the
- * order to "awaiting wire". Demo only: in the sandbox the instructions are
- * placeholders (domain/wire.ts) and nothing a customer could pay into is
- * stored. Outside the sandbox there is no contracted bank, so this refuses.
- * The operator's action is audited; the transition itself is a system event.
+ * Wire buys: issue CRM bank credentials (snapshot) and move the order to
+ * awaiting deposit. Requires an active wire credential set. Editing the set
+ * later never changes this order's snapshot.
  */
-export function issueWireInstructions(ctx: AppContext, actor: Actor, orderId: string): OrderRow {
-  if (ctx.config.mode !== 'sandbox') throw notConfigured('Bank wire provider');
+export function issueWireInstructions(
+  ctx: AppContext,
+  actor: Actor,
+  orderId: string,
+  opts: { wireSetId?: string | null } = {},
+): OrderRow {
   const o = getOrderRow(ctx, orderId);
   if (o.direction !== 'buy' || o.payout_method !== 'wire') throw conflict('Only wire orders have wire instructions.', 'invalid_transition');
   if (o.status !== 'created') throw conflict(`Wire instructions were already issued (the order is ${o.status}).`, 'invalid_transition');
-  const placeholder = 'DEMO-WIRE-INSTRUCTIONS-NOT-ISSUED';
+
+  const set = opts.wireSetId ? getWireSet(ctx, opts.wireSetId) : defaultWireSet(ctx, 'USD');
+  if (!set || set.status !== 'active')
+    throw new ApiError(
+      422,
+      'credentials_unavailable',
+      'No active bank credential set is available. Add or activate one in CRM → Credentials before issuing wire instructions.',
+    );
+
+  const snap = wireRowToSnapshot(set);
   return ctx.db.tx(() => {
+    upsertWireSnapshot(ctx, o.id, snap, actor, true);
+    recordAssignment(ctx, o.id, 'wire', 'assigned', actor, null, snap, null);
     ctx.db.run(
       'INSERT INTO deposit_instructions (id, order_id, provider, provider_ref, address, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [newId('dep'), o.id, 'sandbox', `sbx_wire_${o.id.replace(/^ord_/, '')}`, placeholder, o.reference, ctx.clock.now()],
+      [newId('dep'), o.id, 'crm', `crm_wire_${o.id.replace(/^ord_/, '')}`, 'wire-credentials', o.reference, ctx.clock.now()],
     );
-    audit(ctx, actor, { action: 'order.wire_instructions_issued', targetType: 'order', targetId: o.id, data: { demo: true } });
-    const updated = applyOrderEvent(ctx, o.id, { type: 'DEPOSIT_INSTRUCTIONS_ISSUED' }, { type: 'system', id: null, role: null, ip: null });
+    audit(ctx, actor, {
+      action: 'order.wire_instructions_issued',
+      targetType: 'order',
+      targetId: o.id,
+      data: { wireSetId: set.id, name: set.name },
+    });
+    const updated = applyOrderEvent(ctx, o.id, { type: 'DEPOSIT_INSTRUCTIONS_ISSUED' }, SYSTEM);
     const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [o.user_id])!.email;
     notify(ctx, {
       userId: o.user_id,
@@ -731,6 +812,123 @@ export function issueWireInstructions(ctx: AppContext, actor: Actor, orderId: st
       vars: { reference: o.reference, cash: formatUsd(BigInt(o.gross_cents)), deadline: new Date(o.deposit_deadline).toISOString() },
     });
     return updated;
+  });
+}
+
+/** Staff: assign or replace wire credentials on an order (replace needs confirm + reason once revealed). */
+export function assignWireCredentials(
+  ctx: AppContext,
+  actor: Actor,
+  orderId: string,
+  wireSetId: string,
+  opts: { confirmReplace?: boolean; reason?: string | null } = {},
+): OrderRow {
+  const o = getOrderRow(ctx, orderId);
+  if (o.direction !== 'buy' || o.payout_method !== 'wire') throw conflict('Only wire buy orders accept bank credentials.', 'invalid_transition');
+  if (o.status === 'created') return issueWireInstructions(ctx, actor, orderId, { wireSetId });
+
+  const set = getWireSet(ctx, wireSetId);
+  if (set.status !== 'active') throw conflict('That credential set is suspended.', 'invalid_status');
+  const existing = orderWireSnapshot(ctx, orderId);
+  if (existing?.revealedToCustomer && !opts.confirmReplace)
+    throw conflict(
+      'The customer already has wire instructions. Confirm replacement and provide a reason to overwrite the snapshot.',
+      'confirm_replace_required',
+    );
+  if (existing?.revealedToCustomer && !opts.reason?.trim())
+    throw badRequest('Enter a reason for replacing issued credentials.', { field: 'reason' });
+
+  const snap = wireRowToSnapshot(set);
+  return ctx.db.tx(() => {
+    upsertWireSnapshot(ctx, o.id, snap, actor, true);
+    recordAssignment(ctx, o.id, 'wire', existing ? 'replaced' : 'assigned', actor, existing, snap, opts.reason?.trim() || null);
+    audit(ctx, actor, {
+      action: existing ? 'order.wire_credentials_replaced' : 'order.wire_credentials_assigned',
+      targetType: 'order',
+      targetId: o.id,
+      reason: opts.reason?.trim() || null,
+      data: { wireSetId, name: set.name },
+    });
+    return getOrderRow(ctx, o.id);
+  });
+}
+
+/** Staff: assign or replace a CRM deposit wallet on a sell order. */
+export function assignWalletCredentials(
+  ctx: AppContext,
+  actor: Actor,
+  orderId: string,
+  walletId: string,
+  opts: { confirmReplace?: boolean; reason?: string | null } = {},
+): OrderRow {
+  const o = getOrderRow(ctx, orderId);
+  if (o.direction !== 'sell') throw conflict('Only sell orders receive crypto deposit wallets.', 'invalid_transition');
+  const wallet = getWallet(ctx, walletId);
+  if (wallet.status !== 'active' || !wallet.asset || !wallet.network)
+    throw conflict('Select an active wallet with asset and network.', 'invalid_status');
+  if (wallet.asset !== o.asset || wallet.network !== o.network)
+    throw conflict(`Wallet must be ${o.asset} on ${o.network}.`, 'asset_mismatch');
+
+  const existing = orderWalletSnapshot(ctx, orderId);
+  const hasDeposit = !!ctx.db.get('SELECT 1 FROM deposit_instructions WHERE order_id = ?', [o.id]);
+  const revealed = !!(existing?.revealedToCustomer || hasDeposit);
+
+  if (revealed && !opts.confirmReplace)
+    throw conflict(
+      'The customer already has a deposit address. Confirm replacement and provide a reason to overwrite the snapshot.',
+      'confirm_replace_required',
+    );
+  if (revealed && !opts.reason?.trim()) throw badRequest('Enter a reason for replacing the deposit address.', { field: 'reason' });
+
+  const snap = walletRowToSnapshot(wallet);
+  return ctx.db.tx(() => {
+    if (!hasDeposit) {
+      upsertWalletSnapshot(ctx, o.id, snap, actor, true);
+      recordAssignment(ctx, o.id, 'wallet', 'assigned', actor, null, snap, null);
+      ctx.db.run(
+        'INSERT INTO deposit_instructions (id, order_id, provider, provider_ref, address, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [newId('dep'), o.id, 'crm', `crm_wal_${wallet.id.replace(/^wal_/, '')}`, snap.address, null, ctx.clock.now()],
+      );
+      audit(ctx, actor, {
+        action: 'order.wallet_assigned',
+        targetType: 'order',
+        targetId: o.id,
+        data: { walletId: wallet.id, address: snap.address },
+      });
+      if (o.status === 'created') {
+        applyOrderEvent(ctx, o.id, { type: 'DEPOSIT_INSTRUCTIONS_ISSUED' }, SYSTEM);
+        const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [o.user_id])!.email;
+        notify(ctx, {
+          userId: o.user_id,
+          to: email,
+          template: 'order_created',
+          vars: {
+            reference: o.reference,
+            amount: formatAssetPlain(BigInt(o.amount_atomic), o.asset),
+            network: networkLabel(o.asset, o.network),
+            deadline: new Date(o.deposit_deadline).toISOString(),
+          },
+        });
+      }
+      return getOrderRow(ctx, o.id);
+    }
+
+    upsertWalletSnapshot(ctx, o.id, snap, actor, true);
+    ctx.db.run('UPDATE deposit_instructions SET address = ?, provider = ?, provider_ref = ? WHERE order_id = ?', [
+      snap.address,
+      'crm',
+      `crm_wal_${wallet.id.replace(/^wal_/, '')}`,
+      o.id,
+    ]);
+    recordAssignment(ctx, o.id, 'wallet', 'replaced', actor, existing, snap, opts.reason?.trim() || null);
+    audit(ctx, actor, {
+      action: 'order.wallet_replaced',
+      targetType: 'order',
+      targetId: o.id,
+      reason: opts.reason?.trim() || null,
+      data: { walletId, address: snap.address, previousAddress: existing?.address ?? null },
+    });
+    return getOrderRow(ctx, o.id);
   });
 }
 
@@ -852,8 +1050,8 @@ export function orderEvents(ctx: AppContext, orderId: string, includeInternal: b
 }
 
 export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { internal?: boolean } = {}) {
-  const deposit = ctx.db.get<{ address: string; memo: string | null; provider_ref: string | null }>(
-    'SELECT address, memo, provider_ref FROM deposit_instructions WHERE order_id = ?',
+  const deposit = ctx.db.get<{ address: string; memo: string | null; provider_ref: string | null; provider: string }>(
+    'SELECT address, memo, provider_ref, provider FROM deposit_instructions WHERE order_id = ?',
     [o.id],
   );
   const events = orderEvents(ctx, o.id, internal);
@@ -864,8 +1062,21 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
     o.id,
   ]);
   const customerTxHash = reported ? ((JSON.parse(reported.data) as { txHash?: string | null }).txHash ?? null) : null;
-  // In sandbox mode the UI must never show an address that could be valid on a real chain. A buy has no deposit address.
-  const address = deposit && !buy && (ctx.config.mode !== 'sandbox' || isPreviewDepositAddress(deposit.address)) ? deposit.address : null;
+  const wireSnap = payIn === 'wire' ? orderWireSnapshot(ctx, o.id) : null;
+  const walletSnap = !buy ? orderWalletSnapshot(ctx, o.id) : null;
+  // CRM-issued addresses are shown even in sandbox; MOCK custody addresses remain sandbox-only.
+  const address =
+    deposit && !buy && (deposit.provider === 'crm' || ctx.config.mode !== 'sandbox' || isPreviewDepositAddress(deposit.address))
+      ? deposit.address
+      : null;
+  const wireInstructions =
+    payIn === 'wire' && o.status !== 'created'
+      ? wireSnap
+        ? wireLinesFromSnapshot(wireSnap, o.reference)
+        : deposit
+          ? wireInstructionsPreview(o.reference).filter((l) => !l.placeholder || isPreviewWireValue(l.value))
+          : null
+      : null;
   return {
     id: o.id,
     reference: o.reference,
@@ -934,14 +1145,12 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
           : {}),
       };
     })(),
-    /**
-     * Wire buys, once instructions are issued: what the customer sends and where. In this demo every bank field is a
-     * placeholder (never a real account or routing number); anything else is withheld.
-     */
-    wireInstructions:
-      payIn === 'wire' && deposit && o.status !== 'created'
-        ? wireInstructionsPreview(o.reference).filter((l) => !l.placeholder || isPreviewWireValue(l.value))
-        : null,
+    /** Wire buys, once issued: bank details from the order's CRM snapshot (immutable). */
+    wireInstructions,
+    /** True when a wire buy is waiting for staff to assign bank credentials. */
+    wireCredentialsPending: payIn === 'wire' && o.status === 'created' && !wireSnap,
+    /** True when a sell has no deposit address yet (no CRM wallet / not assigned). */
+    depositCredentialsPending: !buy && o.status === 'created' && !deposit,
     /** Sell: where crypto is returned, once the customer has given it. Null for a buy, whose cash is returned by courier. */
     refundAddress: buy ? null : o.refund_address,
     /** Sell: a refund is pending and waits for the customer's return address. */
@@ -975,7 +1184,34 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
     createdAt: o.created_at,
     updatedAt: o.updated_at,
     ...(internal
-      ? { reviewReason: o.review_reason, assignedOperatorId: o.assigned_operator_id, depositProviderRef: deposit?.provider_ref ?? null }
+      ? {
+          reviewReason: o.review_reason,
+          assignedOperatorId: o.assigned_operator_id,
+          depositProviderRef: deposit?.provider_ref ?? null,
+          operationCredentials: {
+            wire: wireSnap,
+            wallet: walletSnap,
+            assignmentHistory: ctx.db
+              .all<{
+                id: number;
+                kind: string;
+                action: string;
+                actor_id: string | null;
+                reason: string | null;
+                created_at: number;
+              }>('SELECT id, kind, action, actor_id, reason, created_at FROM credential_assignment_events WHERE order_id = ? ORDER BY id', [
+                o.id,
+              ])
+              .map((e) => ({
+                id: e.id,
+                kind: e.kind,
+                action: e.action,
+                actorId: e.actor_id,
+                reason: e.reason,
+                createdAt: e.created_at,
+              })),
+          },
+        }
       : {}),
   };
 }
