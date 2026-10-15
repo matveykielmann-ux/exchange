@@ -38,7 +38,7 @@ export const RU_KYC: Record<string, string> = {
   'Files are checked and kept encrypted in the sandbox database. A reviewer approves or rejects them in the CRM. A name containing “Sanctioned” fails screening.':
     'Файлы проверяются и хранятся в зашифрованном виде в тестовой базе данных. Проверяющий одобряет или отклоняет их в CRM. Имя, содержащее «Sanctioned», не проходит санкционную проверку.',
   'Your identity is verified': 'Ваша личность подтверждена',
-  'You can place exchanges up to the per-order limit.': 'Вы можете оформлять обмены в пределах лимита на заявку.',
+  'You can place exchanges.': 'Вы можете оформлять обмены.',
   'Start an exchange': 'Начать обмен',
   'Your documents are being reviewed': 'Ваши документы на проверке',
   'Sent {0}. We will notify you by email and in your account when the review is finished.':

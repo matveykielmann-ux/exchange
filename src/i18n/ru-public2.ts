@@ -69,7 +69,7 @@ export const RU_PUBLIC2: Record<string, string> = {
   'We are checking your details. This page updates when the result arrives.':
     'Мы проверяем ваши данные. Страница обновится, когда придёт результат.',
   Verified: 'Подтверждена',
-  'You can place online exchanges up to the per-order limit.': 'Вы можете совершать онлайн-обмены в пределах лимита заявки.',
+  'You can place online exchanges.': 'Вы можете совершать онлайн-обмены.',
   'More information needed': 'Нужна дополнительная информация',
   'Our team needs more information to finish verifying you. Check your support messages.':
     'Чтобы завершить проверку, нам нужна дополнительная информация. Проверьте сообщения поддержки.',

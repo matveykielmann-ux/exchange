@@ -32,7 +32,7 @@ const KYC: Record<KycStatus, { label: string; tone: 'neutral' | 'success' | 'inf
     tone: 'info',
     body: 'Our team is reviewing your documents. We will notify you when the review is finished.',
   },
-  verified: { label: 'Verified', tone: 'success', body: 'You can place online exchanges up to the per-order limit.' },
+  verified: { label: 'Verified', tone: 'success', body: 'You can place online exchanges.' },
   needs_info: {
     label: 'More information needed',
     tone: 'warn',

@@ -230,7 +230,7 @@ export function VerificationPage() {
 
         {state.status === 'verified' ? (
           <Notice tone="info" title={t('Your identity is verified')}>
-            <p>{t('You can place exchanges up to the per-order limit.')}</p>
+            <p>{t('You can place exchanges.')}</p>
             <div>
               <Link className="btn" to="/exchange">
                 {t('Start an exchange')}
