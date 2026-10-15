@@ -1,6 +1,8 @@
-# Deploying Arcvale to a VPS
+# Deploying to a VPS (summary)
 
-This guide puts Arcvale on one Linux server with Docker: the app container (API + built web app + SQLite) behind Caddy, which handles HTTPS. **Nothing here has been deployed.** Publishing the site is a separate, explicit decision.
+> **Full runbook:** [`DEPLOYMENT.md`](DEPLOYMENT.md) · Backups: [`BACKUP_RESTORE.md`](BACKUP_RESTORE.md) · Checklist: [`VPS_CHECKLIST.md`](VPS_CHECKLIST.md)
+
+CryptoBit Exchange on one Linux server with Docker: the app container (API + built web app + SQLite) behind Caddy for **two hostnames** — customer `https://YOUR_DOMAIN` and CRM `https://crm.YOUR_DOMAIN`. **Nothing here has been deployed.** Publishing the site is a separate, explicit decision.
 
 > **Money movement is provider-gated.** `REAL_MONEY_ENABLED = true` in `src/config/runtime.ts` allows production adapters to become usable only when credentials are present. Providers without credentials report `NOT_CONFIGURED` and refuse money-moving steps. Neither state invents deposit addresses, confirmations, or payout references. Go-live still requires [`docs/compliance-readiness.md`](docs/compliance-readiness.md) and [`docs/production-checklist.md`](docs/production-checklist.md).
 
@@ -10,7 +12,7 @@ This guide puts Arcvale on one Linux server with Docker: the app container (API 
 | --- | --- | --- |
 | `app` | `Dockerfile` | Node 22, non-root `node` user, read-only root filesystem, `tini` as PID 1. Serves `/api/*` and the built web app. No npm packages at runtime. |
 | Database | volume `arcvale-data` → `/app/data/arcvale-<mode>.db` | SQLite in WAL mode. Migrations run automatically at start. A database records its mode and refuses to open in the other mode. |
-| `caddy` | `deploy/Caddyfile` | Automatic Let's Encrypt certificates, HTTP→HTTPS, HSTS, compression, 1 MB body cap, unbuffered SSE. |
+| `caddy` | `deploy/Caddyfile` | Automatic Let's Encrypt certificates for `PUBLIC_DOMAIN` and `CRM_DOMAIN`, HTTP→HTTPS, HSTS (no `includeSubDomains` until ready), compression, 8 MB body cap, unbuffered SSE. |
 | Backups | `./backups` on the host | `deploy/scripts/backup.sh` (online, consistent `VACUUM INTO`). |
 
 Two modes, chosen with `APP_MODE`:
@@ -44,7 +46,7 @@ openssl rand -base64 32   # → DATA_ENCRYPTION_KEY
 
 Fill in `.env.production`:
 
-- `APP_MODE`, `ARCVALE_DOMAIN`, `ACME_EMAIL` and `PUBLIC_ORIGIN` (`https://` + the domain).
+- `APP_MODE`, `PUBLIC_DOMAIN`, `CRM_DOMAIN`, `ACME_EMAIL`, `PUBLIC_ORIGIN`, and `CRM_ORIGIN` (`https://YOUR_DOMAIN` and `https://crm.YOUR_DOMAIN`).
 - `SESSION_SECRET` and `DATA_ENCRYPTION_KEY`. **Store the encryption key in your password manager too.** Without it, payout details and MFA secrets in the database and in every backup are unreadable.
 - Provider blocks only for providers you have contracts with ([`docs/providers.md`](docs/providers.md)).
 
@@ -85,18 +87,19 @@ The server refuses to start on an invalid or unsafe configuration (exit code 78)
 ```bash
 docker compose --env-file .env.production up -d
 docker compose --env-file .env.production ps          # app should become "healthy"
-curl -fsS https://$ARCVALE_DOMAIN/api/health
-curl -fsS https://$ARCVALE_DOMAIN/api/ready           # 503 lists anything not ready
+curl -fsS https://$PUBLIC_DOMAIN/api/health
+curl -fsS https://$CRM_DOMAIN/api/health
+curl -fsS https://$PUBLIC_DOMAIN/api/ready           # 503 lists anything not ready
 ```
 
-Create the first owner account (the master account). Staff accounts are created only this way or by an owner in the admin panel; public sign-up always creates customers. In production it prints a one-time authenticator secret:
+Create the first owner account (the master account). Staff accounts are created only this way or by an owner in the CRM; public sign-up always creates customers. In production it prints a one-time authenticator secret. Re-running with the same email and role does nothing (no password reset).
 
 ```bash
-docker compose --env-file .env.production exec app \
-  node --disable-warning=ExperimentalWarning dist-server/cli.js create-user --email you@yourdomain --role owner --name "Your Name"
+ARCVALE_NEW_PASSWORD='…' docker compose --env-file .env.production exec -T app \
+  node --disable-warning=ExperimentalWarning dist-server/cli.js create-user --email you@YOUR_DOMAIN --role owner --name "Your Name"
 ```
 
-The owner and staff sign in at `/admin/login`, which refuses customer accounts. The CRM is at `/admin`: orders by pipeline stage (New, Awaiting Payment, Payment Review, Processing, Completed, On Hold, Rejected, Cancelled, Refund Review), order details with history, notes, messages to the customer and the notifications they were sent.
+Staff sign in at `https://crm.YOUR_DOMAIN/admin/login` (customer accounts refused). The customer site never shows CRM navigation when hosts are split.
 
 Sandbox only: `... dist-server/cli.js seed` creates demo staff and customer accounts (password `sandbox-pass-2026`) and orders in several states. It refuses to run in production mode.
 

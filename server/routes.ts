@@ -106,6 +106,9 @@ export function registerRoutes(r: Router, app: AppContext) {
       featureFlags: FEATURE_FLAGS,
       /** Sandbox only: the demo autopilot advances orders after the customer's step (0 = off). */
       sandboxAutopilotStepMs: app.config.mode === 'sandbox' ? app.config.sandbox.autopilotStepMs : 0,
+      publicOrigin: app.config.publicOrigin,
+      /** Null when CRM shares the customer origin (local single-host mode). */
+      crmOrigin: app.config.crmOrigin,
       providers: providerInfos(app.providers).map((p) => ({ key: p.key, label: p.label, state: p.state })),
       policy: {
         quoteTtlMs: PRICING_POLICY.quoteTtlMs,

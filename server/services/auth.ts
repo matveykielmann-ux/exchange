@@ -61,7 +61,9 @@ export const normalizeEmail = (e: string) => e.trim().toLowerCase();
 const sessionId = (ctx: AppContext, token: string) => hmac(ctx.config.sessionSecret, `session:${token}`);
 
 export function sessionCookies(ctx: AppContext, grant: SessionGrant | null): string[] {
-  const secure = ctx.config.publicOrigin.startsWith('https://') ? '; Secure' : '';
+  // Host-only cookies (no Domain=): customer sessions stay on PUBLIC_ORIGIN;
+  // staff sessions on CRM_ORIGIN are never sent to the customer site.
+  const secure = ctx.config.allowedOrigins.some((o) => o.startsWith('https://')) ? '; Secure' : '';
   if (!grant)
     return [
       `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`,

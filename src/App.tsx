@@ -1,8 +1,10 @@
-import { lazy, type ComponentType, type ReactNode } from 'react';
+import { lazy, useEffect, type ComponentType, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { HomePage } from './pages/HomePage';
+import { isSplitHosts, resolveSiteSurface } from './lib/siteSurface';
 import { isStaff, useUser } from './state/auth';
+import { useConfig } from './state/config';
 import { DraftProvider } from './state/draft';
 import { LanguageRoot } from './i18n/react';
 import { ServicesProvider } from './state/services';
@@ -70,9 +72,22 @@ function LegacyTransactionRedirect() {
   return <Navigate to={`/orders/${id}`} replace />;
 }
 
-const auth = (el: ReactNode) => <RequireAuth>{el}</RequireAuth>;
+/** Hard navigate to the CRM host when the customer site is split from CRM. */
+function RedirectAdminToCrm() {
+  const config = useConfig();
+  const location = useLocation();
+  useEffect(() => {
+    if (!config.crmOrigin) return;
+    window.location.replace(`${config.crmOrigin}${location.pathname}${location.search}${location.hash}`);
+  }, [config.crmOrigin, location.pathname, location.search, location.hash]);
+  return (
+    <p className="muted" style={{ padding: 24 }}>
+      Opening the admin workspace…
+    </p>
+  );
+}
 
-export function AppRoutes() {
+function AdminRoutes() {
   return (
     <Routes>
       <Route
@@ -83,7 +98,6 @@ export function AppRoutes() {
           </RequireStaff>
         }
       >
-        {/* The order queue is the CRM home; statistics moved to /admin/overview. */}
         <Route index element={<Navigate to="/admin/orders" replace />} />
         <Route path="overview" element={<AdminOverview />} />
         <Route path="orders" element={<AdminQueue />} />
@@ -97,10 +111,46 @@ export function AppRoutes() {
         <Route path="audit" element={<AdminAudit />} />
         <Route path="system" element={<AdminSystem />} />
       </Route>
+      <Route path="admin/login" element={<StaffSignInPage />} />
+      <Route path="/" element={<Navigate to="/admin" replace />} />
+      <Route path="*" element={<Navigate to="/admin" replace />} />
+    </Routes>
+  );
+}
+
+const auth = (el: ReactNode) => <RequireAuth>{el}</RequireAuth>;
+
+function CustomerRoutes({ split }: { split: boolean }) {
+  return (
+    <Routes>
+      {split ? (
+        <Route path="admin/*" element={<RedirectAdminToCrm />} />
+      ) : (
+        <Route
+          path="admin"
+          element={
+            <RequireStaff>
+              <AdminLayout />
+            </RequireStaff>
+          }
+        >
+          <Route index element={<Navigate to="/admin/orders" replace />} />
+          <Route path="overview" element={<AdminOverview />} />
+          <Route path="orders" element={<AdminQueue />} />
+          <Route path="orders/:id" element={<AdminOrder />} />
+          <Route path="inbox" element={<AdminInbox />} />
+          <Route path="inbox/:id" element={<AdminInbox />} />
+          <Route path="verification" element={<AdminVerifications />} />
+          <Route path="verification/:id" element={<AdminVerification />} />
+          <Route path="credentials" element={<AdminCredentials />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="audit" element={<AdminAudit />} />
+          <Route path="system" element={<AdminSystem />} />
+        </Route>
+      )}
       <Route element={<Layout />}>
-        <Route path="admin/login" element={<StaffSignInPage />} />
+        {!split ? <Route path="admin/login" element={<StaffSignInPage />} /> : null}
         <Route index element={<HomePage />} />
-        {/* Exchanges need an account (owner decision, 2026-10-14). The server also requires a session for firm quotes and orders. */}
         <Route path="exchange" element={auth(<ExchangePage />)} />
         <Route path="cash-delivery" element={<CashDeliveryPage />} />
         <Route path="how-it-works" element={<HowItWorksPage />} />
@@ -110,7 +160,6 @@ export function AppRoutes() {
         <Route path="help" element={<HelpPage />} />
         <Route path="legal" element={<LegalIndexPage />} />
         <Route path="legal/:slug" element={<LegalDocumentPage />} />
-        {/* Paths the Service Rules link to (Sections 8 and 15); they open the matching existing pages. */}
         <Route path="en/kyc-aml-policy" element={<Navigate to="/legal/kyc-aml" replace />} />
         <Route path="en/privacy-policy" element={<Navigate to="/legal/privacy" replace />} />
         <Route path="signin" element={<SignInPage />} />
@@ -129,6 +178,14 @@ export function AppRoutes() {
       </Route>
     </Routes>
   );
+}
+
+export function AppRoutes() {
+  const config = useConfig();
+  const surface = resolveSiteSurface(config);
+  const split = isSplitHosts(config);
+  if (surface === 'crm') return <AdminRoutes />;
+  return <CustomerRoutes split={split} />;
 }
 
 export function App({ services }: { services: Services }) {

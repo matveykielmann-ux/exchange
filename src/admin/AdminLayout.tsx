@@ -6,6 +6,7 @@ import { Logo } from '@/components/Logo';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import type { Role } from '@/services/types';
 import { useUser } from '@/state/auth';
+import { useConfig } from '@/state/config';
 import { useServices } from '@/state/services';
 import { useLiveState } from '@/state/useLive';
 import { atLeast, staffRoleLabel } from './lib';
@@ -32,12 +33,14 @@ const NAV_ADMIN: NavItem[] = [
 export function AdminLayout() {
   useDocumentTitle('Admin');
   const user = useUser();
+  const config = useConfig();
   const { auth } = useServices();
   const live = useLiveState();
   const navigate = useNavigate();
   const visible = (n: NavItem) => atLeast(user?.role, n.min);
   const items = NAV.filter(visible);
   const adminItems = NAV_ADMIN.filter(visible);
+  const customerSiteHref = config.crmOrigin ? config.publicOrigin : '/';
 
   return (
     <div className="admin">
@@ -88,15 +91,21 @@ export function AdminLayout() {
               <span className="admin-bar__email">{user?.email}</span>{' '}
               <span className="badge badge--neutral">{user ? t(staffRoleLabel(user.role)) : ''}</span>
             </span>
-            <Link className="btn btn--ghost" to="/">
-              {t('Customer site')}
-            </Link>
+            {config.crmOrigin ? (
+              <a className="btn btn--ghost" href={customerSiteHref}>
+                {t('Customer site')}
+              </a>
+            ) : (
+              <Link className="btn btn--ghost" to="/">
+                {t('Customer site')}
+              </Link>
+            )}
             <button
               type="button"
               className="btn btn--secondary"
               onClick={async () => {
                 await auth.signOut();
-                navigate('/signin');
+                navigate('/admin/login');
               }}
             >
               <Icon name="logout" width={16} height={16} /> {t('Sign out')}

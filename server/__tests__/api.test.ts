@@ -179,6 +179,31 @@ describe('API', () => {
     expect((await c.post('/api/me/destinations/card', {})).status).toBe(201);
   });
 
+  it('exposes public and CRM origins on /api/config and accepts CSRF from CRM_ORIGIN when configured', async () => {
+    const dual = await boot({
+      publicOrigin: 'http://localhost:5173',
+      crmOrigin: 'http://127.0.0.1:5173',
+      allowedOrigins: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    });
+    try {
+      const cfg = await dual.client().get('/api/config');
+      expect(cfg.body).toMatchObject({
+        publicOrigin: 'http://localhost:5173',
+        crmOrigin: 'http://127.0.0.1:5173',
+      });
+      const crm = new Client(dual.base, 'http://127.0.0.1:5173');
+      await customer(crm, 'crm-origin@example.test');
+      const bank = await crm.post('/api/me/destinations/bank', {
+        routingNumber: '021000021',
+        accountNumber: '000987654321',
+        accountType: 'checking',
+      });
+      expect(bank.status).toBe(201);
+    } finally {
+      await dual.app.close();
+    }
+  });
+
   it('denies customers and anonymous callers on admin APIs', async () => {
     const anon = env.client();
     expect((await anon.get('/api/admin/overview')).status).toBe(401);

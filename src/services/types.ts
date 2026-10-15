@@ -39,6 +39,10 @@ export interface PublicConfig {
   featureFlags: { courierCashDelivery: boolean };
   /** Sandbox only: delay between demo autopilot steps; 0 when off (always 0 in production). */
   sandboxAutopilotStepMs: number;
+  /** Customer site origin (https://YOUR_DOMAIN). */
+  publicOrigin: string;
+  /** CRM origin (https://crm.YOUR_DOMAIN), or null in single-host local/dev mode. */
+  crmOrigin: string | null;
   providers: ProviderSummary[];
   policy: { quoteTtlMs: number; depositWindowMs: number; indicativeRefreshMs: number; minimumCents: Cents; largeDeskFromCents: Cents };
   legal: LegalDocRef[];

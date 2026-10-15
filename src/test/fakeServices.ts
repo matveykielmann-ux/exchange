@@ -33,6 +33,8 @@ export function createFakeServices(overrides: Partial<Services> = {}): Services 
       realMoneyEnabled: false,
       featureFlags: { courierCashDelivery: false },
       sandboxAutopilotStepMs: 0,
+      publicOrigin: 'http://localhost:5173',
+      crmOrigin: null,
       providers: [],
       policy: {
         quoteTtlMs: PRICING_POLICY.quoteTtlMs,

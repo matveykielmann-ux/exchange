@@ -1,14 +1,18 @@
-# HTTPS reverse proxy for Arcvale. Caddy obtains and renews certificates automatically.
+# HTTPS reverse proxy for CryptoBit Exchange.
+# Two hostnames share one internal app container (API + SPA + SQLite).
+# Placeholders come from compose / .env.production — do not hardcode a real domain here.
 {
 	email {$ACME_EMAIL}
 }
 
-{$ARCVALE_DOMAIN} {
+# Shared reverse-proxy snippet (imported by both host blocks via identical config).
+# Customer site: https://YOUR_DOMAIN
+{$PUBLIC_DOMAIN} {
 	encode zstd gzip
 
-	# Reject oversized bodies before they reach the app (the app enforces its own smaller limits too).
+	# KYC / receipt uploads allow up to ~6 MB; leave headroom for multipart overhead.
 	request_body {
-		max_size 1MB
+		max_size 8MB
 	}
 
 	# Optional: keep a sandbox/staging instance private. Generate a hash with
@@ -21,12 +25,44 @@
 	reverse_proxy app:8787 {
 		# Server-sent events (/api/events) must stream without buffering.
 		flush_interval -1
+		header_up Host {host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
 		health_uri /api/health
 		health_interval 30s
 	}
 
 	header {
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		# Do not set includeSubDomains until every hostname (including CRM) is confirmed on HTTPS.
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+# CRM: https://crm.YOUR_DOMAIN — same backend, separate browser origin and cookies.
+{$CRM_DOMAIN} {
+	encode zstd gzip
+
+	request_body {
+		max_size 8MB
+	}
+
+	reverse_proxy app:8787 {
+		flush_interval -1
+		header_up Host {host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+		health_uri /api/health
+		health_interval 30s
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
 		-Server
 	}
 

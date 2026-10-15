@@ -21,7 +21,16 @@ export interface AppConfig {
   nodeEnv: string;
   host: string;
   port: number;
+  /** Customer site origin (https://YOUR_DOMAIN). Cookies are host-only for this origin. */
   publicOrigin: string;
+  /**
+   * CRM origin (https://crm.YOUR_DOMAIN). When set, the SPA serves the admin
+   * workspace only on this host; CSRF also accepts this origin. Empty in single-host
+   * local/dev mode (customer + /admin on PUBLIC_ORIGIN).
+   */
+  crmOrigin: string | null;
+  /** Origins allowed for unsafe browser requests (CSRF). Always includes publicOrigin; crmOrigin when set. */
+  allowedOrigins: string[];
   databasePath: string;
   sessionSecret: string;
   /** 32-byte key for AES-256-GCM encryption of payout details and TOTP secrets. */
@@ -123,6 +132,21 @@ export function loadConfig(env: Env = process.env): AppConfig {
   if (!/^https?:\/\/[^/]+$/.test(publicOrigin)) problems.push('PUBLIC_ORIGIN must be an origin like https://example.com (no path).');
   if (production && !publicOrigin.startsWith('https://')) problems.push('PUBLIC_ORIGIN must use https in production.');
 
+  const rawCrmOrigin = (env.CRM_ORIGIN ?? '').trim().replace(/\/$/, '');
+  let crmOrigin: string | null = null;
+  if (rawCrmOrigin) {
+    if (!/^https?:\/\/[^/]+$/.test(rawCrmOrigin)) problems.push('CRM_ORIGIN must be an origin like https://crm.example.com (no path).');
+    else if (rawCrmOrigin === publicOrigin) problems.push('CRM_ORIGIN must differ from PUBLIC_ORIGIN.');
+    else {
+      crmOrigin = rawCrmOrigin;
+      if (production && !crmOrigin.startsWith('https://')) problems.push('CRM_ORIGIN must use https in production.');
+    }
+  } else if (production) {
+    problems.push('CRM_ORIGIN is required in production (e.g. https://crm.example.com).');
+  }
+
+  const allowedOrigins = [publicOrigin, ...(crmOrigin ? [crmOrigin] : [])];
+
   let sessionSecret = env.SESSION_SECRET ?? '';
   if (!sessionSecret) {
     if (production) problems.push('SESSION_SECRET is required in production.');
@@ -217,6 +241,8 @@ export function loadConfig(env: Env = process.env): AppConfig {
     host: env.HOST ?? (production ? '0.0.0.0' : '127.0.0.1'),
     port,
     publicOrigin,
+    crmOrigin,
+    allowedOrigins,
     databasePath,
     sessionSecret,
     dataEncryptionKey,

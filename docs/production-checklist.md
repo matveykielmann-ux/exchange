@@ -16,10 +16,11 @@ Every item needs a named owner and a date before Arcvale handles a real customer
 
 ## Infrastructure
 - [ ] VPS hardened: SSH keys only, firewall 22/80/443, automatic security updates.
-- [ ] `.env.production` filled from `.env.example`, mode 600, secrets generated fresh. `DATA_ENCRYPTION_KEY` stored in the password manager.
+- [ ] DNS `A` records for `YOUR_DOMAIN` and `crm.YOUR_DOMAIN`; TLS issued for both (see [`DEPLOYMENT.md`](../DEPLOYMENT.md)).
+- [ ] `.env.production` filled from `.env.example`, mode 600, secrets generated fresh. `PUBLIC_ORIGIN`, `CRM_ORIGIN`, and `DATA_ENCRYPTION_KEY` stored in the password manager.
 - [ ] `check-config` passes with no warnings you have not accepted.
-- [ ] HTTPS works, HSTS present, `/api/ready` returns 200.
-- [ ] Owner account created with an authenticator app. Staff accounts use least-privilege roles.
+- [ ] HTTPS works on both hosts, HSTS present (without `includeSubDomains` until ready), `/api/ready` returns 200.
+- [ ] Owner account created with an authenticator app via CLI; staff sign in only on the CRM host. Staff accounts use least-privilege roles.
 - [ ] Nightly `backup.sh` in cron, copies shipped off the server, and a restore tested on another machine.
 - [ ] External uptime monitor on `/api/ready` with alerts to a person.
 - [ ] Log retention decided and logs shipped if longer than the local rotation.

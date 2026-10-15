@@ -24,7 +24,7 @@ import { silentLogger } from './logger';
 import { providerInfos } from './providers/registry';
 import { placeOrder, runScenarios, SANDBOX_PASSWORD, sandboxCustomer, sandboxOperator } from './scenarios';
 import { verifyAuditChain } from './services/audit';
-import { createAccount } from './services/auth';
+import { createAccount, normalizeEmail } from './services/auth';
 import * as ops from './services/operations';
 import * as sandbox from './services/sandbox';
 import { createConversation } from './services/support';
@@ -68,6 +68,8 @@ const commands: Record<string, () => Promise<void> | void> = {
     const app = createApp({ ...c, databasePath: ':memory:' }, { log: silentLogger });
     out(`mode: ${c.mode}`);
     out(`public origin: ${c.publicOrigin}`);
+    out(`crm origin: ${c.crmOrigin ?? '(same host as PUBLIC_ORIGIN — local/dev only)'}`);
+    out(`allowed origins: ${c.allowedOrigins.join(', ')}`);
     out(`database: ${c.databasePath}`);
     out(`staff MFA required: ${c.requireStaffMfa}`);
     out('providers:');
@@ -101,11 +103,21 @@ const commands: Record<string, () => Promise<void> | void> = {
     if (!['customer', 'support', 'reviewer', 'admin', 'owner'].includes(role))
       fail('--role must be customer, support, reviewer, admin or owner');
     const name = arg('name') ?? email;
-    const password = await readPassword();
-    const staff = role !== 'customer';
-    const totpSecret = staff && c.requireStaffMfa ? newTotpSecret() : undefined;
     const app = createApp(c, { log: silentLogger });
     try {
+      const existing = app.ctx.db.get<{ id: string; role: string }>('SELECT id, role FROM users WHERE email = ?', [
+        normalizeEmail(email),
+      ]);
+      if (existing) {
+        if (existing.role === role) {
+          out(`Account already exists: ${role} ${email} (${existing.id}). No changes made.`);
+          return;
+        }
+        fail(`Email ${email} already exists with role ${existing.role}. Refusing to change or reset it.`);
+      }
+      const password = await readPassword();
+      const staff = role !== 'customer';
+      const totpSecret = staff && c.requireStaffMfa ? newTotpSecret() : undefined;
       const id = await createAccount(app.ctx, { email, password, role, fullName: name, totpSecret });
       out(`Created ${role} ${email} (${id}).`);
       if (totpSecret) {
@@ -114,6 +126,8 @@ const commands: Record<string, () => Promise<void> | void> = {
           `  otpauth://totp/${encodeURIComponent(`${BRAND.name}:${email}`)}?secret=${totpSecret}&issuer=${encodeURIComponent(BRAND.name)}&digits=6&period=30`,
         );
       }
+      if (staff && c.crmOrigin) out(`Sign in at ${c.crmOrigin}/admin/login`);
+      else if (staff) out('Sign in at /admin/login on PUBLIC_ORIGIN');
     } finally {
       await app.close();
     }

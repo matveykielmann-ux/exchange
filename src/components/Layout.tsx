@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { BRAND, SUPPORT } from '@/config/brand';
 import { TelegramLink } from './SupportContact';
 import { useTheme } from '@/lib/theme';
+import { isSplitHosts } from '@/lib/siteSurface';
 import { isStaff, useUser } from '@/state/auth';
 import { useNotifications } from '@/state/useNotifications';
 import { LanguageSwitch } from '@/i18n/react';
@@ -124,6 +125,10 @@ function useCompactHeader(inner: RefObject<HTMLDivElement | null>, key: string) 
 
 function SiteHeader() {
   const user = useUser();
+  const config = useConfig();
+  const crmHref = config.crmOrigin ? `${config.crmOrigin}/admin` : '/admin';
+  /** On a split deployment the CRM is a separate host; do not advertise it in customer nav. */
+  const showAdminLink = isStaff(user) && !isSplitHosts(config);
   const [open, setOpen] = useState(false);
   const inner = useRef<HTMLDivElement>(null);
   const compact = useCompactHeader(inner, `${user?.id ?? ''}|${user?.role ?? ''}`);
@@ -147,8 +152,8 @@ function SiteHeader() {
           {user ? (
             <>
               <NotificationBell />
-              {isStaff(user) ? (
-                <Link className="btn btn--ghost hide-on-compact" to="/admin" title={t('Admin workspace')}>
+              {showAdminLink ? (
+                <Link className="btn btn--ghost hide-on-compact" to={crmHref} title={t('Admin workspace')}>
                   <Icon name="grid" width={18} height={18} />
                   <span className="visually-hidden">{t('Admin workspace')}</span>
                 </Link>
@@ -202,9 +207,9 @@ function SiteHeader() {
                       <li>
                         <NavLink to="/account">{t('Account')}</NavLink>
                       </li>
-                      {isStaff(user) ? (
+                      {showAdminLink ? (
                         <li>
-                          <NavLink to="/admin">{t('Admin workspace')}</NavLink>
+                          <NavLink to={crmHref}>{t('Admin workspace')}</NavLink>
                         </li>
                       ) : null}
                     </>

@@ -51,7 +51,7 @@ export function createApp(config: AppConfig, opts: { clock?: Clock; log?: Logger
 
   const router = new Router({
     log,
-    publicOrigin: config.publicOrigin,
+    allowedOrigins: config.allowedOrigins,
     trustProxy: config.trustProxy,
     requireStaffMfa: config.requireStaffMfa,
     limiter: ctx.limiter,
@@ -60,7 +60,7 @@ export function createApp(config: AppConfig, opts: { clock?: Clock; log?: Logger
   });
   registerRoutes(router, ctx);
 
-  const https = config.publicOrigin.startsWith('https://');
+  const https = config.allowedOrigins.some((o) => o.startsWith('https://'));
   const serveStatic = config.staticDir ? createStaticHandler(config.staticDir, https) : null;
 
   const handle = (req: IncomingMessage, res: ServerResponse) => {

@@ -85,7 +85,12 @@ const toPage = <T>(p: J, f: (x: J) => T): Page<T> => ({ ...p, items: (p.items as
 const toOutcome = (r: J): SandboxOutcome => ({ outcome: r.outcome ?? r.outcomes, order: toOrder(r.order) });
 
 function toConfig(c: J): PublicConfig {
-  return { ...c, policy: { ...c.policy, minimumCents: big(c.policy.minimumCents), largeDeskFromCents: big(c.policy.largeDeskFromCents) } };
+  return {
+    ...c,
+    publicOrigin: typeof c.publicOrigin === 'string' ? c.publicOrigin : window.location.origin,
+    crmOrigin: typeof c.crmOrigin === 'string' && c.crmOrigin ? c.crmOrigin : null,
+    policy: { ...c.policy, minimumCents: big(c.policy.minimumCents), largeDeskFromCents: big(c.policy.largeDeskFromCents) },
+  };
 }
 
 function qs(params: Record<string, string | number | boolean | undefined | null | string[]>): string {

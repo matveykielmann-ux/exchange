@@ -21,6 +21,7 @@ const prodEnv = (dir: string, extra: Record<string, string> = {}) => ({
   NODE_ENV: 'production',
   APP_MODE: 'production',
   PUBLIC_ORIGIN: 'https://arcvale.example',
+  CRM_ORIGIN: 'https://crm.arcvale.example',
   SESSION_SECRET: 'x'.repeat(48),
   DATA_ENCRYPTION_KEY: KEY,
   DATABASE_PATH: path.join(dir, 'arcvale-production.db'),
@@ -52,6 +53,7 @@ describe('configuration', () => {
     expect(p).toEqual(
       expect.arrayContaining([
         'PUBLIC_ORIGIN must use https in production.',
+        'CRM_ORIGIN is required in production (e.g. https://crm.example.com).',
         'SESSION_SECRET is required in production.',
         'DATA_ENCRYPTION_KEY is required in production.',
         'An in-memory database is not allowed in production.',

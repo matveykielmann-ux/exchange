@@ -75,7 +75,8 @@ interface Route extends RouteOptions {
 
 export interface RouterDeps {
   log: Logger;
-  publicOrigin: string;
+  /** Browser origins allowed for state-changing requests (customer site and optional CRM). */
+  allowedOrigins: readonly string[];
   trustProxy: boolean;
   requireStaffMfa: boolean;
   limiter: RateLimiter;
@@ -300,7 +301,8 @@ export class Router {
     const origin = ctx.req.headers.origin;
     const referer = ctx.req.headers.referer;
     const sourceOrigin = origin ?? (referer ? safeOrigin(referer) : null);
-    if (sourceOrigin !== this.deps.publicOrigin) throw new ApiError(403, 'csrf_failed', 'Request origin not allowed.');
+    if (!sourceOrigin || !this.deps.allowedOrigins.includes(sourceOrigin))
+      throw new ApiError(403, 'csrf_failed', 'Request origin not allowed.');
     if (ctx.auth) {
       const header = ctx.req.headers['x-csrf-token'];
       if (typeof header !== 'string' || !timingSafeEqualStr(header, ctx.auth.csrfToken))
