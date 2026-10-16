@@ -1114,7 +1114,6 @@ export function assignWalletCredentials(
 
   const existing = orderWalletSnapshot(ctx, orderId);
   const hasDeposit = !!ctx.db.get('SELECT 1 FROM deposit_instructions WHERE order_id = ?', [o.id]);
-  const revealed = !!(existing?.revealedToCustomer || hasDeposit);
   void opts.confirmReplace;
 
   const snap = walletRowToSnapshot(wallet);

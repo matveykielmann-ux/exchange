@@ -265,7 +265,13 @@ describe('API', () => {
     expect(queue.body.items.map((x: { id: string }) => x.id)).toContain(id);
     const detail = await admin.get(`/api/admin/orders/${id}`);
     expect(detail.body.customer.email).toBe('fl••@example.test');
-    expect(JSON.stringify(detail.body)).not.toContain('000123456789');
+    // Staff CRM detail includes full ACH numbers for ops; customer email stays masked.
+    expect(detail.body.bankDestination).toMatchObject({
+      last4: '6789',
+      accountNumber: '000123456789',
+      routingNumber: '021000021',
+    });
+    expect(detail.body.order.payout.last4).toBe('6789');
 
     expect((await admin.post(`/api/admin/orders/${id}/authorize-payout`, { reason: '' })).status).toBe(400);
     const auth = await admin.post(`/api/admin/orders/${id}/authorize-payout`, { reason: 'All checks passed.' });
