@@ -54,6 +54,7 @@ export const RU_PUBLIC: Record<string, string> = {
   City: 'Город',
   'Choose a state': 'Выберите штат',
   'ZIP code': 'Почтовый индекс (ZIP)',
+  ZIP: 'ZIP',
   'Phone for the courier': 'Телефон для курьера',
   'Collection window': 'Время забора',
   'Delivery window': 'Время доставки',

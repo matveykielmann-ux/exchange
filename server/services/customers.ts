@@ -542,7 +542,7 @@ export function updateOrderCourierMeeting(ctx: AppContext, actor: Actor, orderId
 
   const profile = getProfile(ctx, o.user_id);
   let destinationId = o.payout_destination_id;
-  let d = destinationId ? ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [destinationId]) : null;
+  const d = destinationId ? ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [destinationId]) : null;
   if (d && d.kind !== 'courier') throw notFound('Courier destination not found.');
 
   const existing = d ? readCourier(ctx, d) : null;

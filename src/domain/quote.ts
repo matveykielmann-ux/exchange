@@ -227,8 +227,10 @@ export function calculateBuyQuote(req: BuyQuoteRequest): QuoteResult {
   const feeCents = resolvedFee ?? 0n;
   const netCents = grossCents - spreadCents - feeCents;
   const decimals = pow10(ASSETS[req.asset].decimals);
+  // Convert even while the courier fee is pending: amount is cash − exchange fee
+  // at the market rate (an upper bound before the courier fee is quoted).
   const amountAtomic =
-    !feePending && netCents > 0n && req.referencePriceMicros > 0n
+    netCents > 0n && req.referencePriceMicros > 0n
       ? (netCents * MICROS_PER_CENT * decimals) / req.referencePriceMicros
       : 0n;
 
@@ -264,6 +266,25 @@ export function calculateBuyQuote(req: BuyQuoteRequest): QuoteResult {
     },
     issues,
   };
+}
+
+/**
+ * Crypto a buy pays out. Prefer the stored amount; if an older fee-pending order
+ * still has 0 atomic (pre-fix), derive it from net cash and the locked rate.
+ */
+export function buyReceiveAmountAtomic(input: {
+  asset: AssetCode;
+  /** Stored order/quote amount; may be 0 while courier fee was pending on older rows. */
+  amountAtomic?: AtomicAmount | null;
+  netCents: Cents;
+  referencePriceMicros: Micros;
+}): AtomicAmount {
+  const stored = input.amountAtomic ?? 0n;
+  if (stored > 0n) return stored;
+  if (input.netCents > 0n && input.referencePriceMicros > 0n) {
+    return (input.netCents * MICROS_PER_CENT * pow10(ASSETS[input.asset].decimals)) / input.referencePriceMicros;
+  }
+  return 0n;
 }
 
 /** Issues about the amount itself (vs. the chosen payout method), which block step 1 of the flow. */

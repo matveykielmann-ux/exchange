@@ -8,7 +8,8 @@ This folder is the **handoff kit** for a professional integrator deploying Crypt
 
 | Doc | Purpose |
 | --- | --- |
-| [README.md](./README.md) (this file) | Install commands, architecture map, readiness levels |
+| [`../CRYPTOBIT_VPS_INTEGRATOR_HANDOFF.md`](../CRYPTOBIT_VPS_INTEGRATOR_HANDOFF.md) | **Start here** — single entry handoff for VPS publish |
+| [README.md](./README.md) (this file) | Install commands, architecture map, readiness layers |
 | [OWNER_HANDOFF.md](./OWNER_HANDOFF.md) | What the business owner must provide before/during install |
 | [INTEGRATIONS.md](./INTEGRATIONS.md) | How to configure each existing provider adapter |
 | [ACCEPTANCE.md](./ACCEPTANCE.md) | Acceptance checklist for technical vs money go-live |

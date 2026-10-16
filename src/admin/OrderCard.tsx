@@ -9,7 +9,7 @@ import { COURIER_WINDOW_LABELS, COURIER_WINDOWS, type CourierWindow } from '@/do
 import { US_STATE_NAMES, US_STATES } from '@/domain/usStates';
 import { formatUsd } from '@/domain/money';
 import { ORDER_STAGE_LABEL, orderStatusLabel, orderTone } from '@/domain/order';
-import { exchangeRateMicros } from '@/domain/quote';
+import { buyReceiveAmountAtomic, exchangeRateMicros } from '@/domain/quote';
 import { t } from '@/i18n';
 import { notificationText } from '@/i18n/notifications';
 import { errorMessage } from '@/lib/errors';
@@ -926,12 +926,28 @@ function RefundRequestBlock({ detail, onResult, reload }: { detail: AdminOrderDe
 function MainBlock({ detail, onResult, reload }: { detail: AdminOrderDetail; onResult(r: Result): void; reload(): void }) {
   const o = detail.order;
   const sides = exchangeSides(o);
-  const rate = exchangeRateMicros({
+  const feePending = !!(o.courierFee?.pending || o.quote.feePending);
+  const buyAmount =
+    o.direction === 'buy'
+      ? buyReceiveAmountAtomic({
+          asset: o.asset,
+          amountAtomic: o.amountAtomic,
+          netCents: o.quote.netCents,
+          referencePriceMicros: o.quote.referencePriceMicros,
+        })
+      : o.amountAtomic;
+  const rateFromAmount = exchangeRateMicros({
     asset: o.asset,
-    amountAtomic: o.amountAtomic,
-    grossCents: o.direction === 'buy' ? o.quote.grossCents - o.quote.payoutFeeCents : o.quote.grossCents,
+    amountAtomic: buyAmount,
+    grossCents:
+      o.direction === 'buy'
+        ? feePending
+          ? o.quote.grossCents
+          : o.quote.grossCents - o.quote.payoutFeeCents
+        : o.quote.grossCents,
     spreadCents: o.direction === 'buy' ? 0n : o.quote.spreadCents,
   });
+  const rate = rateFromAmount > 0n ? rateFromAmount : o.direction === 'buy' ? o.quote.referencePriceMicros : 0n;
   return (
     <section className="order-block" aria-labelledby="block-main">
       <h3 id="block-main" className="order-block__title">

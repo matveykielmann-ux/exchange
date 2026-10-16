@@ -10,7 +10,7 @@ import { wireLinesFromSnapshot } from '@/domain/credentials';
 import { isPreviewWireValue, validateWireReference, WIRE_RECEIPT_WINDOW_MS, wireInstructionsPreview } from '@/domain/wire';
 import { formatUsd } from '@/domain/money';
 import { PAYOUT_METHODS, payoutEligibility, type PayoutMethodId } from '@/domain/payout';
-import { isQuoteExpired, PRICING_POLICY, type ExchangeDirection, type Quote } from '@/domain/quote';
+import { buyReceiveAmountAtomic, isQuoteExpired, PRICING_POLICY, type ExchangeDirection, type Quote } from '@/domain/quote';
 import {
   buyPayIn,
   isPreviewDepositAddress,
@@ -664,19 +664,16 @@ async function createBuyOrder(
       { field: 'receiveAddress' },
     );
 
-  // Wire/card need no saved destination. Cash collection: the meeting address is
-  // assigned later by staff in CRM — the customer only places the order + wallet.
+  // Wire/card need no saved destination: customer pays from their own bank/card.
+  // Cash buys require the collection address the customer chose (street, city, window).
   const dest =
-    wire || card || !input.destinationId
+    wire || card
       ? null
       : ctx.db.get<DestinationRow>(
           "SELECT * FROM payout_destinations WHERE id = ? AND user_id = ? AND status = 'active' AND kind = 'courier'",
           [input.destinationId, userId],
         );
-  if (!wire && !card && input.destinationId && !dest)
-    throw badRequest('That collection address was not found. Leave it blank — our team will set the meeting point.', {
-      field: 'destinationId',
-    });
+  if (!wire && !card && !dest) throw badRequest('Choose the address where the courier collects the cash.', { field: 'destinationId' });
 
   const docs = requireAcceptance(input.accepted, 'order');
 
@@ -749,9 +746,9 @@ async function createBuyOrder(
     });
   });
 
-  // Wire/card/cash-without-meeting: wait in `created` until staff issues instructions
-  // (and, for cash, assigns the courier meeting address in CRM).
-  if (wire || card || !dest) return getOrderRow(ctx, id);
+  // Wire/card: wait in `created` until an admin issues payment instructions in CRM.
+  if (wire || card) return getOrderRow(ctx, id);
+  if (!dest) return getOrderRow(ctx, id);
   // Courier collection waits until an operator sets the fee and the customer accepts it.
   if (feePending) return getOrderRow(ctx, id);
 
@@ -1117,7 +1114,6 @@ export function assignWalletCredentials(
 
   const existing = orderWalletSnapshot(ctx, orderId);
   const hasDeposit = !!ctx.db.get('SELECT 1 FROM deposit_instructions WHERE order_id = ?', [o.id]);
-  const revealed = !!(existing?.revealedToCustomer || hasDeposit);
   void opts.confirmReplace;
 
   const snap = walletRowToSnapshot(wallet);
@@ -1328,6 +1324,17 @@ export function orderEvents(ctx: AppContext, orderId: string, includeInternal: b
     }));
 }
 
+/** Stored amount, or for older fee-pending buys with 0 atomic the indicative crypto from net × rate. */
+export function displayAmountAtomic(o: Pick<OrderRow, 'direction' | 'asset' | 'amount_atomic' | 'net_cents' | 'reference_price_micros'>): string {
+  if (o.direction !== 'buy') return o.amount_atomic;
+  return buyReceiveAmountAtomic({
+    asset: o.asset as AssetCode,
+    amountAtomic: BigInt(o.amount_atomic),
+    netCents: BigInt(o.net_cents),
+    referencePriceMicros: BigInt(o.reference_price_micros),
+  }).toString();
+}
+
 export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { internal?: boolean } = {}) {
   const deposit = ctx.db.get<{ address: string; memo: string | null; provider_ref: string | null; provider: string }>(
     'SELECT address, memo, provider_ref, provider FROM deposit_instructions WHERE order_id = ?',
@@ -1381,7 +1388,8 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
     asset: o.asset,
     network: o.network,
     networkLabel: networkLabel(o.asset, o.network),
-    amountAtomic: o.amount_atomic,
+    // Buy + fee-pending used to store 0; expose the indicative crypto amount from net cash × rate.
+    amountAtomic: displayAmountAtomic(o),
     quote: {
       id: o.quote_id,
       referencePriceMicros: o.reference_price_micros,

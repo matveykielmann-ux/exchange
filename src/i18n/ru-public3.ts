@@ -401,9 +401,20 @@ export const RU_PUBLIC3: Record<string, string> = {
   'No courier will come. Don’t hand cash to anyone for this order.': 'Курьер не приедет. Не передавайте никому наличные по этой заявке.',
   'Hand cash only to the courier at your saved address': 'Передавайте наличные только курьеру по сохранённому адресу',
   'Hand cash only to the courier at this meeting point': 'Передавайте наличные только курьеру в этой точке встречи',
+  'Hand cash only to the courier at your collection address': 'Передавайте наличные только курьеру по адресу забора',
+  'Hand cash only to the courier at the confirmed meeting place':
+    'Передавайте наличные только курьеру в подтверждённой точке встречи',
+  'We will choose the best meeting place': 'Мы подберём лучшее место встречи',
+  'Based on the location you gave, we will pick the best place for the cash exchange. The exact street address and time appear here when they are ready — you do not need to confirm a deposit.':
+    'Исходя из указанного вами местоположения, мы подберём самое удобное место для обмена наличных. Точный адрес и время появятся здесь, когда будут готовы — подтверждать депозит не нужно.',
+  'Location you provided': 'Указанное вами местоположение',
+  'Wait for the confirmed meeting place on this page. The courier checks your ID and collects exactly':
+    'Дождитесь подтверждённой точки встречи на этой странице. Курьер проверит документ и заберёт ровно',
   'Waiting for the courier meeting point': 'Ожидание точки встречи с курьером',
   'Our team will assign the street address, city, state and time where the courier will meet you. This page updates by itself when the details are ready.':
     'Наша команда назначит улицу, город, штат и время встречи с курьером. Страница обновится сама, когда детали будут готовы.',
+  'Our team will confirm the street address, city, state and time where the courier will meet you. This page updates by itself when the details are ready.':
+    'Наша команда подтвердит улицу, город, штат и время встречи с курьером. Страница обновится сама, когда детали будут готовы.',
   'Cash to hand over': 'Сумма наличных к передаче',
   Street: 'Улица',
   'City / state': 'Город / штат',
@@ -502,6 +513,8 @@ export const RU_PUBLIC3: Record<string, string> = {
     'Комиссия за обмен 3% для банковского перевода, wire и дебетовой карты — настроенный тариф. Стоимость доставки наличных с курьером зависит от заявки: оператор назначает её, и вы подтверждаете сумму в расчёте до продолжения обмена. Фиксированный тариф курьера не публикуется.',
   'Calculated individually': 'Рассчитывается индивидуально',
   'After courier fee': 'После комиссии курьера',
+  '(before courier fee)': '(до комиссии курьера)',
+  'before courier fee': 'до комиссии курьера',
   'Courier fee calculated individually': 'Комиссия курьера рассчитывается индивидуально',
   'There is no fixed courier tariff. An operator sets the delivery cost for your order; you confirm the amount before the exchange continues.':
     'Фиксированного тарифа курьера нет. Оператор назначает стоимость доставки для вашей заявки; вы подтверждаете сумму до продолжения обмена.',

@@ -156,11 +156,14 @@ describe('payout fees', () => {
 describe('calculateBuyQuote', () => {
   const buy = { asset: 'USDT' as const, network: 'tron' as const, referencePriceMicros: 1_000_000n, now: 1_000 };
 
-  it('leaves courier fee pending until an operator quotes it', () => {
+  it('leaves courier fee pending until an operator quotes it, with an indicative crypto amount', () => {
     const pending = calculateBuyQuote({ ...buy, cashCents: 1_000_00n });
     expect(pending.issues.map((i) => i.code)).toContain('courier_fee_pending');
     expect(pending.quote.feePending).toBe(true);
     expect(pending.quote.payoutFeeCents).toBe(0n);
+    // USDT ~$1: cash − spread converts to a non-zero indicative amount before the courier fee.
+    expect(pending.quote.amountAtomic).toBe(pending.quote.netCents * 10_000n);
+    expect(pending.quote.amountAtomic).toBeGreaterThan(0n);
   });
 
   it('reconciles cash − spread − courier fee and converts the rest, rounding the crypto down', () => {

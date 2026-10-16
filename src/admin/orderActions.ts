@@ -8,6 +8,7 @@
 import { formatUsd } from '@/domain/money';
 import type { OrderStatus } from '@/domain/order';
 import { t } from '@/i18n';
+import { buyReceiveAmountAtomic } from '@/domain/quote';
 import { formatAsset } from '@/lib/format';
 import type { ActionAvailability, OrderActionKey } from '@/services/adminTypes';
 import type { OrderView } from '@/services/types';
@@ -269,12 +270,22 @@ export function notifyTemplates(status: OrderStatus, onHold: boolean): { id: str
 
 /** What the customer sends and receives, in their own terms. */
 export function exchangeSides(o: Pick<OrderView, 'direction' | 'payIn' | 'asset' | 'amountAtomic' | 'networkLabel' | 'quote' | 'payout'>) {
+  const feePending = !!(o.quote.feePending);
+  const buyAmount =
+    o.direction === 'buy'
+      ? buyReceiveAmountAtomic({
+          asset: o.asset,
+          amountAtomic: o.amountAtomic,
+          netCents: o.quote.netCents,
+          referencePriceMicros: o.quote.referencePriceMicros,
+        })
+      : o.amountAtomic;
   return o.direction === 'buy'
     ? {
         sends: formatUsd(o.quote.grossCents),
         sendsNote: o.payIn === 'wire' ? t('Bank wire') : t('Cash by courier'),
-        receives: formatAsset(o.amountAtomic, o.asset),
-        receivesNote: o.networkLabel,
+        receives: formatAsset(buyAmount, o.asset),
+        receivesNote: feePending ? `${o.networkLabel} · ${t('before courier fee')}` : o.networkLabel,
       }
     : {
         sends: formatAsset(o.amountAtomic, o.asset),
