@@ -126,9 +126,6 @@ export const RU_PUBLIC: Record<string, string> = {
   'Do not transfer real funds.': 'Не переводите реальные средства.',
   'Addresses and payment details shown here must not be used for live transfers.':
     'Адреса и платёжные реквизиты, показанные здесь, нельзя использовать для реальных переводов.',
-  'Exchanges require connected providers.': 'Для обменов нужны подключённые провайдеры.',
-  'Custody, payout and verification services must be configured before funds can move.':
-    'Кастодиальные, выплатные и проверочные сервисы должны быть настроены, прежде чем средства смогут перемещаться.',
   'Internal testing label': 'Метка внутреннего тестирования',
   'Contact us': 'Связаться с нами',
   'Notifications, {0} unread': 'Уведомления, непрочитанных: {0}',
@@ -351,8 +348,8 @@ export const RU_PUBLIC: Record<string, string> = {
   'What is the largest amount I can sell online?': 'Какую максимальную сумму можно продать онлайн?',
   'Will anyone from your team ask me to send crypto?': 'Может ли ваш сотрудник попросить меня отправить криптовалюту?',
   'Why do I need to verify my identity?': 'Зачем подтверждать личность?',
-  'Exchanges that move funds require connected custody, payout and verification providers. Until those services are configured, money-moving steps are refused and no funds can be sent or received. The':
-    'Обмены с перемещением средств требуют подключённых кастодиальных, выплатных и проверочных провайдеров. Пока эти сервисы не настроены, шаги с деньгами отклоняются, и средства нельзя отправить или получить.',
+  'Yes. Place an exchange request after verifying your identity. Our team issues payment details, verifies your deposit, and records the payout. The':
+    'Да. Оформите заявку на обмен после подтверждения личности. Наша команда выдаёт реквизиты, проверяет поступление и фиксирует выплату.',
   'set out the terms that apply to every Exchange Request.': 'определяют условия, которые применяются к каждой заявке на обмен.',
   'Bitcoin (BTC), Ether (ETH), Tether (USDT on Ethereum or Tron) and USD Coin (USDC on Ethereum, Solana or Base).':
     'Bitcoin (BTC), Ether (ETH), Tether (USDT), USD Coin (USDC), XRP, Solana (SOL) и BNB — каждый в сетях, указанных при выборе актива.',

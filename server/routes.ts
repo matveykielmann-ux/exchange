@@ -925,6 +925,18 @@ function registerAdminRoutes(r: Router, app: AppContext) {
   orderAction('release-hold', REVIEWER, (ctx, id) => ops.releaseHold(app, staffActor(ctx), id, parse(reasonV, ctx.body).reason));
   orderAction('approve', REVIEWER, (ctx, id) => ops.approveReview(app, staffActor(ctx), id, parse(reasonV, ctx.body).reason));
   orderAction('reject', REVIEWER, (ctx, id) => ops.rejectOrder(app, staffActor(ctx), id, parse(reasonV, ctx.body).reason));
+  orderAction('confirm-deposit-manual', ADMIN, (ctx, id) => {
+    const b = parse(
+      v.object({
+        txHash: v.string({ min: 4, max: 200, label: 'a transaction id or reference' }),
+        amountAtomic: v.string({ min: 1, max: 40, label: 'an amount' }),
+        comment: v.string({ min: 4, max: 2000, label: 'a verification comment' }),
+        reason: v.optional(v.string({ max: 500, label: 'a reason' })),
+      }),
+      ctx.body,
+    );
+    return ops.confirmDepositManual(app, staffActor(ctx), id, b);
+  });
   orderAction('authorize-payout', ADMIN, (ctx, id) => ops.authorizePayout(app, staffActor(ctx), id, parse(reasonV, ctx.body).reason));
   orderAction('record-manual-payout', ADMIN, (ctx, id) => {
     const b = parse(
@@ -932,6 +944,7 @@ function registerAdminRoutes(r: Router, app: AppContext) {
         reason: v.string({ min: 4, max: 500, label: 'a reason' }),
         evidenceRef: v.string({ min: 4, max: 200, label: 'an evidence reference' }),
         evidenceNote: v.optional(v.string({ max: 2000, label: 'evidence notes' })),
+        amountCents: v.optional(v.nullable(v.int({ min: 1, max: 100_000_000_00 }))),
       }),
       ctx.body,
     );
@@ -940,6 +953,17 @@ function registerAdminRoutes(r: Router, app: AppContext) {
   orderAction('retry-payout', ADMIN, (ctx, id) => ops.retryPayout(app, staffActor(ctx), id, parse(reasonV, ctx.body).reason));
   orderAction('refund', ADMIN, (ctx, id) => ops.initiateRefund(app, staffActor(ctx), id, parse(reasonV, ctx.body).reason));
   orderAction('resubmit-refund', ADMIN, (ctx, id) => ops.submitRefund(app, staffActor(ctx), id, parse(reasonV, ctx.body).reason));
+  orderAction('record-manual-refund', ADMIN, (ctx, id) => {
+    const b = parse(
+      v.object({
+        reason: v.string({ min: 4, max: 500, label: 'a reason' }),
+        evidenceRef: v.string({ min: 4, max: 200, label: 'an evidence reference' }),
+        evidenceNote: v.optional(v.string({ max: 2000, label: 'evidence notes' })),
+      }),
+      ctx.body,
+    );
+    return ops.recordManualRefund(app, staffActor(ctx), id, b);
+  });
   orderAction('set-courier-fee', REVIEWER, (ctx, id) => {
     const b = parse(
       v.object({

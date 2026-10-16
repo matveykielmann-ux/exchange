@@ -257,7 +257,6 @@ export function listDestinations(ctx: AppContext, userId: string) {
  * first, so we never collect an address it cannot serve.
  */
 export async function addCourierAddress(ctx: AppContext, actor: Actor, userId: string, raw: CourierDeliveryInput) {
-  if (!isUsable(ctx.providers.cash.info())) throw notConfigured('Cash delivery');
   const input = normalizeCourierInput(raw);
   const errors = validateCourierDelivery(input, isoDay(ctx.clock.now()));
   const first = Object.entries(errors)[0];
@@ -266,15 +265,23 @@ export async function addCourierAddress(ctx: AppContext, actor: Actor, userId: s
     userId,
   ])!.n;
   if (count >= 10) throw conflict('You can save up to 10 payout destinations. Remove one first.');
-  let availability;
-  try {
-    availability = await ctx.providers.cash.checkAvailability(zip5(input.zip));
-  } catch (e) {
-    if (e instanceof ProviderNotConfiguredError) throw notConfigured('Cash delivery');
-    throw new ApiError(503, 'provider_unavailable', 'We couldn’t check courier availability. Try again shortly.');
+  // When a cash provider is configured, check coverage. Without one, the owner
+  // handles collection manually — still allow saving the address.
+  if (isUsable(ctx.providers.cash.info())) {
+    let availability;
+    try {
+      availability = await ctx.providers.cash.checkAvailability(zip5(input.zip));
+    } catch (e) {
+      if (e instanceof ProviderNotConfiguredError) {
+        /* fall through to manual path */
+      } else {
+        throw new ApiError(503, 'provider_unavailable', 'We couldn’t check courier availability. Try again shortly.');
+      }
+      availability = null;
+    }
+    if (availability && !availability.available)
+      throw badRequest(`Cash delivery isn’t available in ${zip5(input.zip)}. ${availability.reason}`.trim(), { field: 'zip' });
   }
-  if (!availability.available)
-    throw badRequest(`Cash delivery isn’t available in ${zip5(input.zip)}. ${availability.reason}`.trim(), { field: 'zip' });
 
   const id = newId('dst');
   const details: CourierDetails = {
@@ -317,8 +324,8 @@ export function addBankAccount(
   userId: string,
   input: { label: string; routingNumber: string; accountNumber: string; accountType: 'checking' | 'savings' },
 ) {
-  // Don't collect bank details we could never use.
-  if (!isUsable(ctx.providers.bankPayout.info())) throw notConfigured('Bank payout provider');
+  // Bank destinations are used for ACH/wire payouts — including owner-managed
+  // manual payouts when no bank payout provider is connected.
   const routing = input.routingNumber.replace(/\s/g, '');
   const account = input.accountNumber.replace(/\s/g, '');
   const err = validateRoutingNumber(routing) ?? validateAccountNumber(account);

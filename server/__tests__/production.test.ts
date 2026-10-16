@@ -161,6 +161,7 @@ describe('production mode without credentials', () => {
     const idType = await call('PUT', '/api/me/kyc/id-type', { idType: 'passport' }, cookie, csrf);
     expect(idType.status).toBe(200);
     expect(idType.body.submission).toMatchObject({ idType: 'passport', status: 'draft' });
+    // Bank destinations are allowed for owner-managed manual ACH/wire payouts.
     const bank = await call(
       'POST',
       '/api/me/destinations/bank',
@@ -168,7 +169,9 @@ describe('production mode without credentials', () => {
       cookie,
       csrf,
     );
-    expect(bank.body.error.code).toBe('NOT_CONFIGURED');
+    expect(bank.status).toBe(201);
+    expect(bank.body.kind).toBe('bank');
+    // Card capture still requires a PCI-capable card provider (or sandbox tokenizer).
     const card = await call('POST', '/api/me/destinations/card', {}, cookie, csrf);
     expect(card.body.error.code).toBe('NOT_CONFIGURED');
     const quote = await call(

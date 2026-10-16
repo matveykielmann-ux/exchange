@@ -35,7 +35,7 @@ describe('order state machine', () => {
     expect(transition(base(), { type: 'CUSTOMER_REPORTED_SENT', txHash: null }, 'customer', NOW).status).toBe('awaiting_deposit');
   });
 
-  it('only lets providers report deposits, confirmations and payout results', () => {
+  it('only lets providers raise provider deposit/payout events; operators use the manual path', () => {
     expect(() => transition(base(), observed, 'customer', NOW)).toThrow(ActorNotAllowedError);
     expect(() => transition(base(), observed, 'operator', NOW)).toThrow(ActorNotAllowedError);
     expect(() => transition(base({ status: 'confirming' }), { type: 'DEPOSIT_CONFIRMED', confirmations: 3 }, 'operator', NOW)).toThrow(
@@ -45,6 +45,30 @@ describe('order state machine', () => {
       ActorNotAllowedError,
     );
     expect(transition(base(), observed, 'provider', NOW).status).toBe('deposit_observed');
+    const manual = transition(
+      base(),
+      { type: 'MANUAL_DEPOSIT_CONFIRMED', txHash: 'a'.repeat(64), amountAtomic: 1000n, comment: 'Seen on explorer' },
+      'operator',
+      NOW,
+    );
+    expect(manual.status).toBe('deposit_confirmed');
+    expect(manual.patch.depositTxHash).toBe('a'.repeat(64));
+    expect(() =>
+      transition(
+        base(),
+        { type: 'MANUAL_DEPOSIT_CONFIRMED', txHash: 'a'.repeat(64), amountAtomic: 1000n, comment: 'Seen on explorer' },
+        'provider',
+        NOW,
+      ),
+    ).toThrow(ActorNotAllowedError);
+    expect(() =>
+      transition(
+        base(),
+        { type: 'MANUAL_DEPOSIT_CONFIRMED', txHash: 'a'.repeat(64), amountAtomic: 1000n, comment: 'Seen on explorer' },
+        'customer',
+        NOW,
+      ),
+    ).toThrow(ActorNotAllowedError);
   });
 
   it('flags late, short and closed-order deposits as exceptions that can only be refunded', () => {

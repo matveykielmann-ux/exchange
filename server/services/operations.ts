@@ -13,7 +13,8 @@ import { PAYOUT_METHODS } from '@/domain/payout';
 import { HOLDABLE_STATUSES, type OrderStatus } from '@/domain/order';
 import { formatUsd, type Cents } from '@/domain/money';
 import { requoteWithCourierFee } from '@/domain/quote';
-import { validateRefundAddress } from '@/domain/validation';
+import { validateRefundAddress, validateTxHash } from '@/domain/validation';
+import { validateWireReference } from '@/domain/wire';
 import type { Actor, AppContext } from '../context';
 import { ApiError, badRequest, conflict, notConfigured, notFound } from '../http/errors';
 import { newId } from '../lib/clock';
@@ -28,6 +29,7 @@ import {
   customerOrder,
   getOrderRow,
   insertEvent,
+  issueBuyCashCollection,
   issueSellDepositInstructions,
   openReview,
   screenAddress,
@@ -294,7 +296,99 @@ export function retryPayout(ctx: AppContext, actor: Actor, orderId: string, reas
  * and an evidence reference. The customer timeline states clearly that this is
  * an operator-recorded confirmation, not a provider webhook.
  */
-export function recordManualPayout(
+/**
+ * Staff confirms that funds were actually received after independent verification
+ * (blockchain explorer, bank statement, cash desk). Customer TXID uploads never
+ * call this. Marked `manual` and never confused with provider webhooks.
+ */
+export function confirmDepositManual(
+  ctx: AppContext,
+  actor: Actor,
+  orderId: string,
+  input: { txHash: string; amountAtomic: string; comment: string; reason?: string | null },
+) {
+  const order = getOrderRow(ctx, orderId);
+  if (order.on_hold === 1) throw conflict('Release the hold before confirming a deposit.', 'invalid_transition');
+  if (!['awaiting_deposit', 'deposit_observed', 'confirming'].includes(order.status))
+    throw conflict(`Deposits can be confirmed manually only while awaiting payment (it is ${order.status}).`, 'invalid_transition');
+  if (!ctx.db.get('SELECT 1 FROM deposit_instructions WHERE order_id = ?', [orderId]))
+    throw conflict('Issue deposit or payment instructions before confirming receipt.', 'credentials_required');
+
+  const comment = (input.comment ?? '').trim();
+  if (comment.length < 4)
+    throw badRequest('Describe what you verified (at least 4 characters).', { field: 'comment' });
+  const reason = (input.reason ?? '').trim() || comment;
+
+  const amountRaw = (input.amountAtomic ?? '').trim();
+  if (!/^\d{1,40}$/.test(amountRaw) || amountRaw === '0')
+    throw badRequest('Enter the verified amount in atomic units (positive integer).', { field: 'amountAtomic' });
+  const amountAtomic = BigInt(amountRaw);
+
+  let txHash = (input.txHash ?? '').trim();
+  if (order.direction === 'sell') {
+    const err = validateTxHash(txHash, order.network);
+    if (err) throw badRequest(err, { field: 'txHash' });
+  } else if (order.payout_method === 'wire') {
+    if (!txHash) txHash = `wire:${order.reference}`;
+    else {
+      const err = validateWireReference(txHash);
+      if (err) throw badRequest(err, { field: 'txHash' });
+    }
+  } else {
+    // Cash: desk log / collection id is enough; TXID is not a blockchain hash.
+    if (!txHash) txHash = `cash:${order.reference}`;
+    if (txHash.length < 4) throw badRequest('Enter a collection or desk reference (at least 4 characters).', { field: 'txHash' });
+  }
+
+  // Match against the assigned deposit address when this is a crypto sell.
+  if (order.direction === 'sell') {
+    const dep = ctx.db.get<{ address: string }>('SELECT address FROM deposit_instructions WHERE order_id = ?', [orderId]);
+    if (!dep?.address) throw conflict('No deposit address is assigned to this order.', 'credentials_required');
+  }
+
+  const already = ctx.db.get("SELECT 1 FROM order_events WHERE order_id = ? AND type IN ('DEPOSIT_CONFIRMED','MANUAL_DEPOSIT_CONFIRMED')", [
+    orderId,
+  ]);
+  if (already) throw conflict('This deposit was already confirmed.', 'already_confirmed');
+
+  const now = ctx.clock.now();
+  try {
+    ctx.db.run(
+      'INSERT INTO deposit_observations (id, order_id, provider, provider_event_id, tx_hash, amount_atomic, confirmations, observed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        newId('obs'),
+        orderId,
+        'manual',
+        `manual-deposit:${orderId}`,
+        txHash,
+        amountRaw,
+        order.confirmations_required,
+        now,
+      ],
+    );
+  } catch {
+    throw conflict('This deposit was already confirmed.', 'already_confirmed');
+  }
+  applyOrderEvent(ctx, orderId, { type: 'MANUAL_DEPOSIT_CONFIRMED', txHash, amountAtomic, comment }, actor, { reason });
+  audit(ctx, actor, {
+    action: 'order.deposit_confirmed_manual',
+    targetType: 'order',
+    targetId: orderId,
+    reason,
+    data: {
+      txHash,
+      amountAtomic: amountRaw,
+      network: order.network,
+      asset: order.asset,
+      comment,
+      confirmationKind: 'manual',
+    },
+  });
+  return afterDepositConfirmed(ctx, orderId);
+}
+
+/** Record that a refund was actually sent, when no refund provider webhook will arrive. */
+export function recordManualRefund(
   ctx: AppContext,
   actor: Actor,
   orderId: string,
@@ -303,7 +397,83 @@ export function recordManualPayout(
   const reason = requireReason(input.reason);
   const evidenceRef = input.evidenceRef.trim();
   if (evidenceRef.length < 4)
-    throw badRequest('Provide an evidence reference (at least 4 characters): bank reference, receipt id, or desk log id.', {
+    throw badRequest('Provide an evidence reference (at least 4 characters): TXID, bank reference, or desk log id.', {
+      field: 'evidenceRef',
+    });
+  const evidenceNote = (input.evidenceNote ?? '').trim().slice(0, 2000) || null;
+  const order = getOrderRow(ctx, orderId);
+  if (order.status !== 'refund_pending')
+    throw conflict(`Manual refund can be recorded only while a refund is pending (it is ${order.status}).`, 'invalid_transition');
+  if (order.direction === 'sell' && !order.refund_address)
+    throw conflict('Waiting for the customer’s refund address before recording a refund.', 'invalid_transition');
+
+  const existing = ctx.db.get<{ id: string; status: string }>('SELECT id, status FROM refunds WHERE order_id = ?', [orderId]);
+  if (existing?.status === 'completed') throw conflict('This refund was already completed.', 'already_completed');
+
+  const address =
+    order.direction === 'buy'
+      ? order.payout_method === 'wire'
+        ? 'wire-return-to-sender'
+        : 'courier-return'
+      : order.refund_address!;
+  const txHash = `manual:${evidenceRef.slice(0, 120)}`;
+
+  return ctx.db.tx(() => {
+    const now = ctx.clock.now();
+    if (!existing) {
+      ctx.db.run(
+        `INSERT INTO refunds (id, order_id, idempotency_key, provider, address, amount_atomic, status, provider_ref, tx_hash, initiated_by, reason, created_at, updated_at)
+         VALUES (?, ?, ?, 'manual', ?, ?, 'completed', ?, ?, ?, ?, ?, ?)`,
+        [newId('rfd'), orderId, `manual-refund:${orderId}`, address, order.deposit_amount_atomic, txHash, txHash, actor.id, reason, now, now],
+      );
+    } else {
+      ctx.db.run("UPDATE refunds SET status = 'completed', provider_ref = ?, tx_hash = ?, updated_at = ? WHERE id = ?", [
+        txHash,
+        txHash,
+        now,
+        existing.id,
+      ]);
+    }
+    const o = applyOrderEvent(
+      ctx,
+      orderId,
+      { type: 'MANUAL_REFUND_RECORDED', reason, evidenceRef: evidenceRef.slice(0, 200) },
+      actor,
+      { expectedStatus: 'refund_pending', reason },
+    );
+    audit(ctx, actor, {
+      action: 'refund.recorded_manual',
+      targetType: 'order',
+      targetId: orderId,
+      reason,
+      data: { evidenceRef: evidenceRef.slice(0, 200), evidenceNote, completionKind: 'manual' },
+    });
+    notify(ctx, {
+      userId: o.user_id,
+      to: emailOf(ctx, o.user_id),
+      template: 'refund_completed',
+      vars: { reference: o.reference, txHash },
+    });
+    return o;
+  });
+}
+
+export function recordManualPayout(
+  ctx: AppContext,
+  actor: Actor,
+  orderId: string,
+  input: {
+    reason: string;
+    evidenceRef: string;
+    evidenceNote?: string | null;
+    /** Optional actual amount paid in cents (sell) or left at quoted net when omitted. */
+    amountCents?: number | string | null;
+  },
+) {
+  const reason = requireReason(input.reason);
+  const evidenceRef = input.evidenceRef.trim();
+  if (evidenceRef.length < 4)
+    throw badRequest('Provide an evidence reference (at least 4 characters): bank reference, receipt id, TXID, or desk log id.', {
       field: 'evidenceRef',
     });
   const evidenceNote = (input.evidenceNote ?? '').trim().slice(0, 2000) || null;
@@ -313,6 +483,14 @@ export function recordManualPayout(
   if (order.on_hold === 1) throw conflict('Release the hold before recording a payout.', 'invalid_transition');
   if (order.payout_provider_ref)
     throw conflict('A provider payout is already in progress for this order.', 'invalid_transition');
+
+  let amountCents = order.net_cents;
+  if (input.amountCents !== undefined && input.amountCents !== null && input.amountCents !== '') {
+    const n = Number(input.amountCents);
+    if (!Number.isInteger(n) || n <= 0 || n > 100_000_000_00)
+      throw badRequest('Enter the actual payout amount in US cents as a positive whole number.', { field: 'amountCents' });
+    amountCents = n;
+  }
 
   const { key } = payoutProvider(ctx, order);
   return ctx.db.tx(() => {
@@ -333,7 +511,7 @@ export function recordManualPayout(
         `manual-payout:${orderId}:${attempt}`,
         key,
         order.direction === 'buy' ? 'crypto_transfer' : order.payout_method,
-        order.net_cents,
+        amountCents,
         `manual:${evidenceRef.slice(0, 120)}`,
         actor.id,
         reason,
@@ -602,11 +780,26 @@ export function availableActions(ctx: AppContext, o: OrderRow, role: string) {
       ),
     },
     {
+      action: 'confirm_deposit_manual',
+      label: 'Confirm deposit manually',
+      unavailable: notHeld(
+        why(
+          ['awaiting_deposit', 'deposit_observed', 'confirming'].includes(s) &&
+            !!ctx.db.get('SELECT 1 FROM deposit_instructions WHERE order_id = ?', [o.id]),
+          isAdmin,
+          'admin',
+          !['awaiting_deposit', 'deposit_observed', 'confirming'].includes(s)
+            ? 'Only while waiting for or verifying a deposit.'
+            : 'Issue deposit or payment instructions before confirming receipt.',
+        ),
+      ),
+    },
+    {
       action: 'authorize_payout',
-      label: 'Authorize payout',
+      label: 'Authorize payout (provider)',
       unavailable:
         notHeld(why(s === 'ready_for_payout', isAdmin, 'admin', 'Only when the order is ready for payout.')) ??
-        (isUsable(payout) ? null : `Payout provider is ${payout.state.replace(/_/g, ' ')}.`),
+        (isUsable(payout) ? null : `Automatic payout provider is ${payout.state.replace(/_/g, ' ')}. Use Record manual payout instead.`),
     },
     {
       action: 'record_manual_payout',
@@ -635,15 +828,34 @@ export function availableActions(ctx: AppContext, o: OrderRow, role: string) {
     {
       action: 'resubmit_refund',
       label: 'Resubmit refund to provider',
-      unavailable:
-        s === 'refund_pending' && o.direction === 'sell' && !o.refund_address
-          ? 'Waiting for the customer’s refund address.'
-          : why(
-              s === 'refund_pending' && refund?.status !== 'submitted',
-              isAdmin,
-              'admin',
-              refund?.status === 'submitted' ? 'Refund already submitted; waiting for the provider.' : 'Only while a refund is pending.',
-            ),
+      unavailable: (() => {
+        if (s === 'refund_pending' && o.direction === 'sell' && !o.refund_address)
+          return 'Waiting for the customer’s refund address.';
+        if (refund?.status === 'submitted') return why(false, isAdmin, 'admin', 'Refund already submitted; waiting for the provider.');
+        const refundProvider =
+          o.direction === 'buy'
+            ? o.payout_method === 'wire'
+              ? ctx.providers.bankPayout
+              : ctx.providers.cash
+            : ctx.providers.custody;
+        if (s === 'refund_pending' && !isUsable(refundProvider.info()))
+          return 'Automatic refund provider is not configured. Use Record manual refund instead.';
+        return why(s === 'refund_pending' && refund?.status !== 'submitted', isAdmin, 'admin', 'Only while a refund is pending.');
+      })(),
+    },
+    {
+      action: 'record_manual_refund',
+      label: 'Record manual refund',
+      unavailable: why(
+        s === 'refund_pending' && !(o.direction === 'sell' && !o.refund_address) && refund?.status !== 'completed',
+        isAdmin,
+        'admin',
+        s !== 'refund_pending'
+          ? 'Only while a refund is pending.'
+          : o.direction === 'sell' && !o.refund_address
+            ? 'Waiting for the customer’s refund address.'
+            : 'This refund was already completed.',
+      ),
     },
     {
       action: 'set_courier_fee',
@@ -769,33 +981,7 @@ export async function acceptCourierFee(ctx: AppContext, actor: Actor, userId: st
       o.deposit_deadline,
     );
   } else if (o.payout_destination_id) {
-    const existing = ctx.db.get('SELECT 1 FROM deposit_instructions WHERE order_id = ?', [o.id]);
-    if (!existing) {
-      const destination = payoutDetails(ctx, o.payout_destination_id);
-      if (destination.kind === 'courier') {
-        try {
-          const { providerRef } = await ctx.providers.cash.scheduleCollection({
-            orderId: o.id,
-            amountCents: BigInt(o.gross_cents),
-            destination,
-            idempotencyKey: `collection:${o.id}`,
-          });
-          ctx.db.tx(() => {
-            ctx.db.run(
-              'INSERT INTO deposit_instructions (id, order_id, provider, provider_ref, address, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-              [newId('dep'), o.id, ctx.config.mode === 'sandbox' ? 'sandbox' : 'cash', providerRef, 'courier-collection', null, ctx.clock.now()],
-            );
-            applyOrderEvent(ctx, o.id, { type: 'DEPOSIT_INSTRUCTIONS_ISSUED' }, { type: 'system', id: null, role: null, ip: null });
-          });
-        } catch (e) {
-          ctx.log.error('collection schedule failed after fee accept', {
-            orderId: o.id,
-            error: e instanceof Error ? e.message : String(e),
-          });
-          throw new ApiError(503, 'provider_unavailable', 'We could not arrange cash collection. Contact support.');
-        }
-      }
-    }
+    await issueBuyCashCollection(ctx, o);
   }
   return getOrderRow(ctx, orderId);
 }

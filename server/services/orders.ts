@@ -29,10 +29,10 @@ import {
 } from '@/domain/order';
 import { validateRefundAddress, validateTxHash } from '@/domain/validation';
 import { SYSTEM, type Actor, type AppContext } from '../context';
-import { ApiError, badRequest, conflict, notConfigured, notFound } from '../http/errors';
+import { ApiError, badRequest, conflict, notFound } from '../http/errors';
 import { newId, randomDigits } from '../lib/clock';
 import { isUsable } from '../providers/registry';
-import { ProviderError, ProviderNotConfiguredError, type PayoutProvider, type WebhookSource } from '../providers/types';
+import { ProviderError, ProviderNotConfiguredError, type WebhookSource } from '../providers/types';
 import { audit } from './audit';
 import {
   defaultWallet,
@@ -216,6 +216,7 @@ const SPECIFIC_NOTICE: ReadonlySet<string> = new Set([
   'DEPOSIT_INSTRUCTIONS_ISSUED',
   'CONFIRMATIONS_UPDATED',
   'DEPOSIT_CONFIRMED',
+  'MANUAL_DEPOSIT_CONFIRMED',
   'MANUAL_PAYOUT_RECORDED',
   'PAYOUT_COMPLETED',
   'CUSTOMER_CANCELLED',
@@ -224,6 +225,7 @@ const SPECIFIC_NOTICE: ReadonlySet<string> = new Set([
   'PAYOUT_FAILED',
   'REFUND_INITIATED',
   'REFUND_COMPLETED',
+  'MANUAL_REFUND_RECORDED',
 ]);
 
 /** Tells the customer (in their account and by email) that their order moved to a new status or was held or released. */
@@ -320,18 +322,42 @@ export function applyOrderEvent(
 
 /* ---------- Creating orders ---------- */
 
-function payoutProviderFor(ctx: AppContext, method: PayoutMethodId): PayoutProvider {
-  if (method === 'instant_debit') return ctx.providers.cardPayout;
-  if (method === 'ach' || method === 'wire') return ctx.providers.bankPayout;
-  return ctx.providers.cash;
-}
-
-export async function screenAddress(ctx: AppContext, network: NetworkId, address: string) {
+/**
+ * Screen an address when a screening provider is configured. When it is not,
+ * skip quietly so owner-managed manual ops can proceed — do not pretend the
+ * provider is connected, and do not invent a pass verdict for display.
+ */
+export async function screenAddress(
+  ctx: AppContext,
+  network: NetworkId,
+  address: string,
+): Promise<{ result: 'clear' | 'review' | 'blocked'; note: string }> {
+  if (!isUsable(ctx.providers.screening.info())) {
+    return { result: 'clear', note: 'Sanctions screening provider is not configured; operator review applies.' };
+  }
   try {
     return await ctx.providers.screening.screenAddress(network, address);
   } catch (e) {
-    if (e instanceof ProviderNotConfiguredError) throw notConfigured('Sanctions screening');
+    if (e instanceof ProviderNotConfiguredError) {
+      return { result: 'clear', note: 'Sanctions screening provider is not configured; operator review applies.' };
+    }
     throw new ApiError(503, 'provider_unavailable', 'Screening is temporarily unavailable. Try again shortly.');
+  }
+}
+
+/**
+ * Placement readiness for owner-managed ops: automatic adapters are optional
+ * when CRM credentials and admin actions can complete the flow safely.
+ * Card payouts stay blocked without a PCI-capable card provider.
+ */
+function assertPlacementReady(ctx: AppContext, quote: Quote) {
+  if (quote.direction === 'buy') return;
+  if (quote.payoutMethod === 'instant_debit' && !isUsable(ctx.providers.cardPayout.info())) {
+    throw new ApiError(
+      422,
+      'method_unavailable',
+      'Debit card payouts require a configured card payout provider (secure card capture). Choose bank transfer, wire, or cash by courier for manual processing.',
+    );
   }
 }
 
@@ -363,11 +389,9 @@ export async function createOrder(
   if (quote.direction === 'buy') return createBuyOrder(ctx, actor, userId, quote, quoteRow.used_at, quoteRow.issues, input);
   const now = ctx.clock.now();
 
-  // Readiness: refuse up front rather than take a deposit we cannot pay out.
-  if (!isUsable(ctx.providers.custody.info())) throw notConfigured('Deposit address provider');
-  const payoutProvider = payoutProviderFor(ctx, quote.payoutMethod);
-  if (!isUsable(payoutProvider.info())) throw notConfigured(`${PAYOUT_METHODS[quote.payoutMethod].name} payout provider`);
-  if (!isUsable(ctx.providers.screening.info())) throw notConfigured('Sanctions screening');
+  // Automatic custody/payout/screening adapters are optional when CRM wallets
+  // and record_manual_payout can complete the exchange. Card still needs PCI infra.
+  assertPlacementReady(ctx, quote);
 
   if (quoteRow.used_at) throw conflict('This quote has already been used. Get a new quote.', 'quote_used');
   if (isQuoteExpired(quote, now)) throw new ApiError(409, 'quote_expired', 'This quote has expired. Get a new quote to continue.');
@@ -624,11 +648,8 @@ async function createBuyOrder(
 ): Promise<OrderRow> {
   const now = ctx.clock.now();
   const wire = quote.payoutMethod === 'wire';
-  if (wire) {
-    if (!isUsable(ctx.providers.bankPayout.info())) throw notConfigured('Bank wire provider');
-  } else if (!isUsable(ctx.providers.cash.info())) throw notConfigured('Cash collection provider');
-  if (!isUsable(ctx.providers.custody.info())) throw notConfigured('Crypto custody provider');
-  if (!isUsable(ctx.providers.screening.info())) throw notConfigured('Sanctions screening');
+  // Wire and cash buys can be processed manually via CRM credentials / admin
+  // confirmation. Crypto payout uses record_manual_payout when custody is absent.
 
   if (usedAt) throw conflict('This quote has already been used. Get a new quote.', 'quote_used');
   if (isQuoteExpired(quote, now)) throw new ApiError(409, 'quote_expired', 'This quote has expired. Get a new quote to continue.');
@@ -739,42 +760,100 @@ async function createBuyOrder(
   // Courier collection waits until an operator sets the fee and the customer accepts it.
   if (feePending) return getOrderRow(ctx, id);
 
-  try {
-    const destination = payoutDetails(ctx, dest.id);
-    if (destination.kind !== 'courier') throw new Error('Collection address is not a courier address.');
-    const { providerRef } = await ctx.providers.cash.scheduleCollection({
-      orderId: id,
-      amountCents: quote.grossCents,
-      destination,
-      idempotencyKey: `collection:${id}`,
+  await issueCashCollectionInstructions(ctx, id, userId, dest.id, quote.grossCents, reference, deadline);
+  return getOrderRow(ctx, id);
+}
+
+/**
+ * Arrange cash collection: use the cash provider when configured; otherwise
+ * issue CRM/manual collection instructions so the owner can process in CRM.
+ */
+async function issueCashCollectionInstructions(
+  ctx: AppContext,
+  orderId: string,
+  userId: string,
+  destinationId: string,
+  grossCents: bigint,
+  reference: string,
+  deadline: number,
+  { notifyCustomer = true }: { notifyCustomer?: boolean } = {},
+): Promise<void> {
+  if (ctx.db.get('SELECT 1 FROM deposit_instructions WHERE order_id = ?', [orderId])) return;
+  const destination = payoutDetails(ctx, destinationId);
+  if (destination.kind !== 'courier') throw new Error('Collection address is not a courier address.');
+
+  const notifyCreated = () => {
+    if (!notifyCustomer) return;
+    const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [userId])!.email;
+    notify(ctx, {
+      userId,
+      to: email,
+      template: 'buy_order_created',
+      vars: { reference, cash: formatUsd(grossCents), deadline: new Date(deadline).toISOString() },
     });
+  };
+
+  if (!isUsable(ctx.providers.cash.info())) {
     ctx.db.tx(() => {
-      // No crypto deposit address exists for a buy; the row records the courier collection.
       ctx.db.run(
         'INSERT INTO deposit_instructions (id, order_id, provider, provider_ref, address, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [newId('dep'), id, 'cash', providerRef, 'courier-collection', null, ctx.clock.now()],
+        [newId('dep'), orderId, 'crm', `crm_cash_${orderId.replace(/^ord_/, '')}`, 'courier-collection-manual', null, ctx.clock.now()],
       );
-      applyOrderEvent(ctx, id, { type: 'DEPOSIT_INSTRUCTIONS_ISSUED' }, { type: 'system', id: null, role: null, ip: null });
-      const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [userId])!.email;
-      notify(ctx, {
-        userId,
-        to: email,
-        template: 'buy_order_created',
-        vars: { reference, cash: formatUsd(quote.grossCents), deadline: new Date(deadline).toISOString() },
-      });
+      applyOrderEvent(ctx, orderId, { type: 'DEPOSIT_INSTRUCTIONS_ISSUED' }, SYSTEM);
+      notifyCreated();
+    });
+    return;
+  }
+
+  try {
+    const { providerRef } = await ctx.providers.cash.scheduleCollection({
+      orderId,
+      amountCents: grossCents,
+      destination,
+      idempotencyKey: `collection:${orderId}`,
+    });
+    ctx.db.tx(() => {
+      ctx.db.run(
+        'INSERT INTO deposit_instructions (id, order_id, provider, provider_ref, address, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [
+          newId('dep'),
+          orderId,
+          ctx.config.mode === 'sandbox' ? 'sandbox' : 'cash',
+          providerRef,
+          'courier-collection',
+          null,
+          ctx.clock.now(),
+        ],
+      );
+      applyOrderEvent(ctx, orderId, { type: 'DEPOSIT_INSTRUCTIONS_ISSUED' }, SYSTEM);
+      notifyCreated();
     });
   } catch (e) {
-    ctx.log.error('cash collection request failed', { orderId: id, error: e instanceof Error ? e.message : String(e) });
+    ctx.log.error('cash collection request failed', { orderId, error: e instanceof Error ? e.message : String(e) });
     applyOrderEvent(
       ctx,
-      id,
+      orderId,
       { type: 'DEPOSIT_INSTRUCTIONS_FAILED', reason: e instanceof ProviderError ? e.message : 'Provider error' },
-      { type: 'system', id: null, role: null, ip: null },
+      SYSTEM,
     );
     if (e instanceof ProviderError && !e.retryable) throw new ApiError(422, 'collection_unavailable', e.message);
     throw new ApiError(503, 'provider_unavailable', 'We could not arrange cash collection. Get a new quote and try again.');
   }
-  return getOrderRow(ctx, id);
+}
+
+/** After the customer accepts a courier fee on a buy order, issue collection instructions. */
+export async function issueBuyCashCollection(ctx: AppContext, o: OrderRow): Promise<void> {
+  if (!o.payout_destination_id) return;
+  await issueCashCollectionInstructions(
+    ctx,
+    o.id,
+    o.user_id,
+    o.payout_destination_id,
+    BigInt(o.gross_cents),
+    o.reference,
+    o.deposit_deadline,
+    { notifyCustomer: false },
+  );
 }
 
 /**
@@ -1035,6 +1114,27 @@ export function assignWalletCredentials(
       reason: opts.reason?.trim() || null,
       data: { walletId, address: snap.address, previousAddress: existing?.address ?? null },
     });
+    insertEvent(ctx, o.id, {
+      type: 'DEPOSIT_ADDRESS_REPLACED',
+      from: o.status,
+      to: o.status,
+      actor,
+      visibility: 'customer',
+      detail: 'The deposit address for this order was updated. Use only the address shown on the order page.',
+      data: { address: snap.address, previousAddress: existing?.address ?? null, reason: opts.reason?.trim() || null },
+    });
+    const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [o.user_id])!.email;
+    notify(ctx, {
+      userId: o.user_id,
+      to: email,
+      template: 'deposit_address_updated',
+      orderId: o.id,
+      vars: {
+        reference: o.reference,
+        network: networkLabel(o.asset, o.network),
+        amount: formatAssetPlain(BigInt(o.amount_atomic), o.asset),
+      },
+    });
     return getOrderRow(ctx, o.id);
   });
 }
@@ -1265,17 +1365,23 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
     /** Buy: the wallet that receives the crypto. */
     receiveAddress: buy ? o.refund_address : null,
     documents: orderDocuments(ctx, o.id),
-    deposit: {
-      address,
-      memo: deposit?.memo ?? null,
-      deadline: o.deposit_deadline,
-      confirmations: { count: o.confirmations_count, required: o.confirmations_required },
-      txHash: o.deposit_tx_hash,
-      amountAtomic: o.deposit_amount_atomic,
-      exception: o.deposit_exception,
-      customerReportedSentAt: o.customer_reported_sent_at,
-      customerTxHash,
-    },
+    deposit: (() => {
+      const manualConfirm = events.some((e) => e.type === 'MANUAL_DEPOSIT_CONFIRMED');
+      const providerConfirm = events.some((e) => e.type === 'DEPOSIT_CONFIRMED');
+      return {
+        address,
+        memo: deposit?.memo ?? null,
+        deadline: o.deposit_deadline,
+        confirmations: { count: o.confirmations_count, required: o.confirmations_required },
+        txHash: o.deposit_tx_hash,
+        amountAtomic: o.deposit_amount_atomic,
+        exception: o.deposit_exception,
+        customerReportedSentAt: o.customer_reported_sent_at,
+        customerTxHash,
+        /** How deposit finality was established. Null until confirmed. */
+        confirmationKind: manualConfirm ? ('manual' as const) : providerConfirm ? ('provider' as const) : null,
+      };
+    })(),
     refundTxHash: o.refund_tx_hash,
     steps: orderSteps(
       o.status,

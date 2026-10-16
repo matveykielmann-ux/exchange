@@ -47,31 +47,36 @@ function preferred(o: OrderLike): [CardAction[], CardAction[]] {
       ];
     case 'ready_for_payout':
       return [
-        ['authorize_payout', 'record_manual_payout'],
-        ['record_manual_payout', 'reject'],
+        ['record_manual_payout', 'authorize_payout'],
+        ['authorize_payout', 'reject'],
       ];
     case 'failed':
       return [['retry_payout'], ['refund']];
     case 'refund_pending':
-      return [['resubmit_refund'], ['notify']];
+      return [['record_manual_refund', 'resubmit_refund'], ['resubmit_refund', 'notify']];
     case 'created':
       return needsCourierFee ? [['set_courier_fee'], ['notify', 'reject']] : [['notify'], ['reject']];
     case 'awaiting_deposit':
-      return needsCourierFee ? [['set_courier_fee'], ['notify', 'reject']] : [['notify'], ['reject']];
+      return needsCourierFee
+        ? [['set_courier_fee'], ['confirm_deposit_manual', 'notify', 'reject']]
+        : [['confirm_deposit_manual'], ['notify', 'reject']];
+    case 'deposit_observed':
+    case 'confirming':
+      return [['confirm_deposit_manual'], ['notify', 'reject']];
     default:
       return [[], ['notify']];
   }
 }
 
 export const WAITING: Partial<Record<OrderStatus, string>> = {
-  created: 'Waiting for deposit instructions (provider configuration)',
-  awaiting_deposit: 'Waiting for the customer’s crypto deposit',
-  deposit_observed: 'Waiting for network confirmations',
-  confirming: 'Waiting for network confirmations',
-  deposit_confirmed: 'Automatic checks are running',
-  payout_submitted: 'Waiting for the payout provider',
-  payout_processing: 'Waiting for the payout provider',
-  refund_pending: 'Waiting for the refund provider',
+  created: 'Waiting for payment instructions to be issued',
+  awaiting_deposit: 'Waiting for the customer’s payment — then confirm receipt manually',
+  deposit_observed: 'Verify the deposit, then confirm it manually or wait for monitoring',
+  confirming: 'Verify the deposit, then confirm it manually or wait for monitoring',
+  deposit_confirmed: 'Checks are running before payout',
+  payout_submitted: 'Waiting for the automatic payout provider',
+  payout_processing: 'Waiting for the automatic payout provider',
+  refund_pending: 'Record the refund after funds are returned, or wait for the provider',
   completed: 'Completed. Nothing to do.',
   refunded: 'Refunded. Nothing to do.',
   rejected: 'Rejected. Nothing to do.',
@@ -82,6 +87,7 @@ export const WAITING: Partial<Record<OrderStatus, string>> = {
 /** Actions that stay in the "More" menu even when allowed, in this order. */
 const MENU_ORDER: CardAction[] = [
   'set_courier_fee',
+  'confirm_deposit_manual',
   'request_info',
   'notify',
   'hold',
@@ -89,8 +95,10 @@ const MENU_ORDER: CardAction[] = [
   'flag',
   'reject',
   'record_manual_payout',
+  'authorize_payout',
   'retry_payout',
   'refund',
+  'record_manual_refund',
   'resubmit_refund',
   'assign',
   'note',
@@ -123,7 +131,11 @@ export function queueNextStep(o: OrderLike): { label: string; urgent: boolean } 
     case 'compliance_review':
       return { label: 'Review order', urgent: true };
     case 'ready_for_payout':
-      return { label: 'Send to payout provider', urgent: true };
+      return { label: 'Record payout', urgent: true };
+    case 'awaiting_deposit':
+    case 'deposit_observed':
+    case 'confirming':
+      return { label: 'Confirm deposit', urgent: true };
     case 'failed':
       return { label: 'Resolve payout', urgent: true };
     case 'refund_pending':
@@ -136,6 +148,7 @@ export function queueNextStep(o: OrderLike): { label: string; urgent: boolean } 
 /** Button labels for the card. */
 export const ACTION_LABEL: Record<CardAction, string> = {
   approve: 'Confirm',
+  confirm_deposit_manual: 'Confirm deposit manually',
   authorize_payout: 'Send to payout provider',
   record_manual_payout: 'Record manual payout',
   reject: 'Reject',
@@ -148,6 +161,7 @@ export const ACTION_LABEL: Record<CardAction, string> = {
   retry_payout: 'Retry payout',
   refund: 'Start refund',
   resubmit_refund: 'Resubmit refund to provider',
+  record_manual_refund: 'Record manual refund',
   assign: 'Assign',
   note: 'Add internal note',
   set_courier_fee: 'Set courier fee',
@@ -156,17 +170,21 @@ export const ACTION_LABEL: Record<CardAction, string> = {
 /** What each confirming action does, shown in its dialog. */
 export const ACTION_EXPLAIN: Partial<Record<CardAction, string>> = {
   approve: 'The review is approved and the order moves to payout. Payout still needs its own confirmation.',
+  confirm_deposit_manual:
+    'Records that you verified the deposit yourself (explorer, bank statement, or cash desk). A customer TXID or receipt alone is not enough. Marked as operator-recorded (manual), not a provider webhook.',
   authorize_payout:
-    'The payout instruction is sent to the configured payout provider. The order is completed only when that provider reports the payout as done.',
+    'The payout instruction is sent to the configured automatic payout provider. The order is completed only when that provider reports the payout as done. Prefer Record manual payout when you pay from your own accounts.',
   record_manual_payout:
-    'Records that the payout was completed through an explicit operational procedure (not a provider webhook). Requires a reason and an evidence reference. This is marked as operator-recorded, not provider-verified.',
+    'Records that the payout was completed through an explicit operational procedure (not a provider webhook). Requires a reason and an evidence reference (bank ref, TXID, or desk log). This is marked as operator-recorded, not provider-verified.',
   reject: 'The order is rejected. If the customer’s funds were already received, a refund is started under Section 9 of the Service Rules.',
   hold: 'Nothing moves this order toward a payout until the hold is released. Provider reports are still recorded.',
   release_hold: 'Processing continues from the current status.',
   flag: 'The order goes to compliance review before any payout.',
   retry_payout: 'The order goes back to “ready for payout”; confirm the payout again to resend it.',
   refund: 'A refund of the received funds is started instead of a payout.',
-  resubmit_refund: 'The refund instruction is sent to the provider again with the same idempotency key.',
+  resubmit_refund: 'The refund instruction is sent to the automatic provider again with the same idempotency key.',
+  record_manual_refund:
+    'Records that you actually returned the funds. Requires a reason and evidence. Marked as operator-recorded, not a provider webhook. Do not mark completed until the return is done.',
   set_courier_fee:
     'Sets the courier delivery or collection cost for this order and recalculates the quote. The customer must accept the updated amount before the exchange continues. There is no published flat courier tariff.',
 };
@@ -174,7 +192,10 @@ export const ACTION_EXPLAIN: Partial<Record<CardAction, string>> = {
 /** Default reasons recorded in the audit log; the operator can edit them. */
 export const DEFAULT_REASON: Partial<Record<CardAction, string>> = {
   approve: 'Review completed, checks passed.',
+  confirm_deposit_manual: 'Deposit verified independently; confirming manually.',
   authorize_payout: 'Deposit final and checks complete.',
+  record_manual_payout: 'Payout sent from operating account.',
+  record_manual_refund: 'Refund / return completed from operating account.',
   release_hold: 'Checks completed.',
   retry_payout: 'Retrying after the provider failure.',
   resubmit_refund: 'Resubmitting the refund.',
@@ -247,6 +268,7 @@ export function exchangeSides(o: Pick<OrderView, 'direction' | 'payIn' | 'asset'
 /** Result shown after each action succeeds. */
 export const SUCCESS: Partial<Record<CardAction, string>> = {
   approve: 'Confirmed. The order moved on to payout.',
+  confirm_deposit_manual: 'Deposit confirmed manually. Marked as operator-verified, not a provider report.',
   authorize_payout: 'Payout instruction sent to the payout provider.',
   record_manual_payout: 'Manual payout recorded with evidence. Marked as operator-recorded, not provider-verified.',
   reject: 'The order was rejected.',
@@ -258,6 +280,7 @@ export const SUCCESS: Partial<Record<CardAction, string>> = {
   retry_payout: 'The payout will be retried.',
   refund: 'The refund was started.',
   resubmit_refund: 'The refund was sent to the provider again.',
+  record_manual_refund: 'Manual refund recorded with evidence. Marked as operator-recorded, not provider-verified.',
   assign: 'Assignment saved.',
   note: 'Note added.',
   set_courier_fee: 'Courier fee set. The customer must accept the updated quote.',

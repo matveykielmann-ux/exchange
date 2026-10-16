@@ -21,6 +21,7 @@ export type Template =
   | 'buy_wire_instructions'
   | 'buy_wire_verified'
   | 'deposit_confirmed'
+  | 'deposit_address_updated'
   | 'info_requested'
   | 'payout_submitted'
   | 'order_completed'
@@ -75,6 +76,10 @@ const TEMPLATES: Record<Template, (v: Vars) => { subject: string; body: string }
   deposit_confirmed: (v) => ({
     subject: `Order ${v.reference}: deposit confirmed`,
     body: `Your deposit for order ${v.reference} is final on the network. We will update you when your payout is submitted.`,
+  }),
+  deposit_address_updated: (v) => ({
+    subject: `Order ${v.reference}: deposit address updated`,
+    body: `The deposit address for order ${v.reference} (${v.amount} on ${v.network}) was updated. Open the order page and send only to the address shown there. Never use an address from email or chat.`,
   }),
   info_requested: (v) => ({
     subject: `Order ${v.reference}: we need more information`,

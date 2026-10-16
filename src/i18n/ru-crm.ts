@@ -60,19 +60,69 @@ export const RU_CRM: Record<string, string> = {
     'Инструкция на выплату отправляется настроенному провайдеру. Заявка завершается только когда провайдер подтвердит выплату.',
   'Records that the payout was completed through an explicit operational procedure (not a provider webhook). Requires a reason and an evidence reference. This is marked as operator-recorded, not provider-verified.':
     'Фиксирует, что выплата завершена по явной операционной процедуре (не webhook провайдера). Нужны причина и ссылка на доказательство. Это запись оператора, а не подтверждение провайдера.',
+  'Records that you verified the deposit yourself (explorer, bank statement, or cash desk). A customer TXID or receipt alone is not enough. Marked as operator-recorded (manual), not a provider webhook.':
+    'Фиксирует, что вы сами проверили поступление (эксплорер, выписка или касса). TXID или квитанция клиента сами по себе недостаточны. Запись оператора (manual), не webhook провайдера.',
+  'The payout instruction is sent to the configured automatic payout provider. The order is completed only when that provider reports the payout as done. Prefer Record manual payout when you pay from your own accounts.':
+    'Инструкция на выплату отправляется настроенному автоматическому провайдеру. Заявка завершается только когда провайдер подтвердит выплату. Если платите со своих счетов, используйте «Записать ручную выплату».',
+  'Records that the payout was completed through an explicit operational procedure (not a provider webhook). Requires a reason and an evidence reference (bank ref, TXID, or desk log). This is marked as operator-recorded, not provider-verified.':
+    'Фиксирует, что выплата завершена по явной операционной процедуре (не webhook провайдера). Нужны причина и ссылка на доказательство (банковский референс, TXID или журнал). Это запись оператора, а не подтверждение провайдера.',
+  'The refund instruction is sent to the automatic provider again with the same idempotency key.':
+    'Инструкция на возврат снова отправляется автоматическому провайдеру с тем же ключом идемпотентности.',
+  'Records that you actually returned the funds. Requires a reason and evidence. Marked as operator-recorded, not a provider webhook. Do not mark completed until the return is done.':
+    'Фиксирует, что средства действительно возвращены. Нужны причина и доказательство. Запись оператора, не webhook провайдера. Не отмечайте завершённым до фактического возврата.',
+  'Deposit verified independently; confirming manually.': 'Депозит проверен самостоятельно; подтверждаю вручную.',
+  'Payout sent from operating account.': 'Выплата отправлена с операционного счёта.',
+  'Refund / return completed from operating account.': 'Возврат выполнен с операционного счёта.',
   'Payout instruction sent to the payout provider.': 'Инструкция на выплату отправлена провайдеру.',
   'Manual payout recorded with evidence. Marked as operator-recorded, not provider-verified.':
     'Ручная выплата записана с доказательством. Отмечено как запись оператора, не подтверждение провайдера.',
-  'Waiting for deposit instructions (provider configuration)': 'Ожидание инструкций для депозита (настройка провайдера)',
+  'Waiting for payment instructions to be issued': 'Ожидание выдачи платёжных реквизитов',
+  'Waiting for the customer’s payment — then confirm receipt manually':
+    'Ожидание оплаты клиента — затем подтвердите поступление вручную',
+  'Verify the deposit, then confirm it manually or wait for monitoring':
+    'Проверьте депозит, затем подтвердите вручную или дождитесь мониторинга',
+  'Checks are running before payout': 'Выполняются проверки перед выплатой',
+  'Waiting for the automatic payout provider': 'Ожидание автоматического провайдера выплаты',
+  'Record the refund after funds are returned, or wait for the provider':
+    'Зафиксируйте возврат после фактического исполнения или дождитесь провайдера',
   'Waiting for the customer’s crypto deposit': 'Ожидание криптодепозита от клиента',
   'Provide an evidence reference (at least 4 characters).': 'Укажите ссылку на доказательство (не менее 4 символов).',
   'This marks the payout as completed with an operator-recorded confirmation. It is not a provider-verified completion. Use only when you have reliable evidence.':
     'Это отмечает выплату как завершённую по записи оператора. Это не подтверждение провайдера. Используйте только при надёжных доказательствах.',
+  'This marks the refund as completed only after you actually returned the funds. It is not a provider-verified completion.':
+    'Это отмечает возврат как завершённый только после фактического возврата средств. Это не подтверждение провайдера.',
+  'Confirm only after you verified the funds yourself. A customer TXID or receipt is a tip, not proof. This is recorded as manual, not as a provider webhook.':
+    'Подтверждайте только после самостоятельной проверки поступления. TXID или квитанция клиента — подсказка, не доказательство. Запись будет ручной, не webhook провайдера.',
   'Evidence reference': 'Ссылка на доказательство',
   'Bank ref, receipt id, or desk log id': 'Банковский референс, ID квитанции или запись журнала',
+  'Bank ref, TXID, receipt id, or desk log id': 'Банковский референс, TXID, ID квитанции или запись журнала',
   'Evidence notes (internal, optional)': 'Заметки по доказательствам (внутренние, необязательно)',
   'Resolve payout': 'Разобрать выплату',
   'Check refund': 'Проверить возврат',
+  'Record payout': 'Зафиксировать выплату',
+  'Confirm deposit': 'Подтвердить депозит',
+  'Confirm deposit manually': 'Подтвердить поступление вручную',
+  'Record manual refund': 'Зафиксировать ручной возврат',
+  'Verified TXID': 'Проверенный TXID',
+  'Bank reference': 'Банковский референс',
+  'Collection / desk reference': 'Референс инкассации / журнала',
+  'Verified amount (atomic units)': 'Проверенная сумма (атомарные единицы)',
+  'Quoted amount': 'Сумма по котировке',
+  'Verification comment (what you checked)': 'Комментарий проверки (что сверили)',
+  'Enter the verified TXID, bank reference, or desk log id.': 'Укажите проверенный TXID, банковский референс или запись журнала.',
+  'Enter the verified amount in atomic units.': 'Укажите проверенную сумму в атомарных единицах.',
+  'Describe what you verified (at least 4 characters).': 'Опишите, что проверили (не менее 4 символов).',
+  'Verified manually by operations': 'Подтверждено вручную операциями',
+  'Confirmed by deposit monitoring': 'Подтверждено мониторингом депозита',
+  'Payout status': 'Статус выплаты',
+  'Manual payout recorded': 'Ручная выплата зафиксирована',
+  'Provider payout completed': 'Выплата провайдера завершена',
+  Evidence: 'Доказательство',
+  'Recorded by': 'Зафиксировал',
+  'Deposit confirmed manually. Marked as operator-verified, not a provider report.':
+    'Депозит подтверждён вручную. Отмечено как проверка оператора, не отчёт провайдера.',
+  'Manual refund recorded with evidence. Marked as operator-recorded, not provider-verified.':
+    'Ручной возврат записан с доказательством. Отмечено как запись оператора, не подтверждение провайдера.',
 
   // Actions
   Confirm: 'Подтвердить',

@@ -232,6 +232,8 @@ export interface OrderView {
     customerReportedSentAt: number | null;
     /** The hash the customer submitted for review. Only its format was checked. */
     customerTxHash: string | null;
+    /** How deposit finality was established. Null until confirmed. */
+    confirmationKind: 'provider' | 'manual' | null;
   };
   refundTxHash: string | null;
   steps: OrderStep[];

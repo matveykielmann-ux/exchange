@@ -727,6 +727,11 @@ function ActionDialog({
   );
   const [evidenceRef, setEvidenceRef] = useState('');
   const [evidenceNote, setEvidenceNote] = useState('');
+  const [depositTxHash, setDepositTxHash] = useState(o.deposit.customerTxHash ?? o.deposit.txHash ?? '');
+  const [depositAmount, setDepositAmount] = useState(
+    String(o.deposit.amountAtomic ?? (o.direction === 'buy' ? o.quote.grossCents : o.amountAtomic)),
+  );
+  const [depositComment, setDepositComment] = useState('');
   const [courierFeeUsd, setCourierFeeUsd] = useState('');
   const [template, setTemplate] = useState(templates[0]!.id);
   const [rejectReason, setRejectReason] = useState(REJECT_REASONS[0]!);
@@ -752,9 +757,23 @@ function ActionDialog({
       setErr(t('Write at least {0} characters.', [minLength]));
       return;
     }
-    if (action === 'record_manual_payout' && evidenceRef.trim().length < 4) {
+    if ((action === 'record_manual_payout' || action === 'record_manual_refund') && evidenceRef.trim().length < 4) {
       setErr(t('Provide an evidence reference (at least 4 characters).'));
       return;
+    }
+    if (action === 'confirm_deposit_manual') {
+      if (depositTxHash.trim().length < 4) {
+        setErr(t('Enter the verified TXID, bank reference, or desk log id.'));
+        return;
+      }
+      if (!/^\d+$/.test(depositAmount.trim()) || depositAmount.trim() === '0') {
+        setErr(t('Enter the verified amount in atomic units.'));
+        return;
+      }
+      if (depositComment.trim().length < 4) {
+        setErr(t('Describe what you verified (at least 4 characters).'));
+        return;
+      }
     }
     let feeCents: number | undefined;
     if (action === 'set_courier_fee') {
@@ -773,11 +792,19 @@ function ActionDialog({
       else if (action === 'request_info') await admin.act(o.id, 'request_info', { message: text.trim(), expectedStatus });
       else if (action === 'note') await admin.act(o.id, 'note', { body: text.trim() });
       else if (action === 'assign') await admin.act(o.id, 'assign', { operatorId: assignee || null });
-      else if (action === 'record_manual_payout')
+      else if (action === 'record_manual_payout' || action === 'record_manual_refund')
         await admin.act(o.id, action, {
           reason: reasonText.trim(),
           evidenceRef: evidenceRef.trim(),
           evidenceNote: evidenceNote.trim() || undefined,
+          expectedStatus,
+        });
+      else if (action === 'confirm_deposit_manual')
+        await admin.act(o.id, action, {
+          txHash: depositTxHash.trim(),
+          amountAtomic: depositAmount.trim(),
+          comment: depositComment.trim(),
+          reason: reasonText.trim() || depositComment.trim(),
           expectedStatus,
         });
       else if (action === 'set_courier_fee')
@@ -912,12 +939,62 @@ function ActionDialog({
               </div>
               <TextField id="courier-fee-reason" label={t('Reason (recorded in the audit log)')} value={text} onChange={setText} rows={2} />
             </>
-          ) : action === 'record_manual_payout' ? (
+          ) : action === 'confirm_deposit_manual' ? (
             <>
               <p className="notice notice--warn small">
                 {t(
-                  'This marks the payout as completed with an operator-recorded confirmation. It is not a provider-verified completion. Use only when you have reliable evidence.',
+                  'Confirm only after you verified the funds yourself. A customer TXID or receipt is a tip, not proof. This is recorded as manual, not as a provider webhook.',
                 )}
+              </p>
+              <div className="field">
+                <label className="field__label" htmlFor="deposit-txid">
+                  {o.direction === 'sell' ? t('Verified TXID') : o.payIn === 'wire' ? t('Bank reference') : t('Collection / desk reference')}
+                </label>
+                <input
+                  id="deposit-txid"
+                  className="input mono"
+                  value={depositTxHash}
+                  onChange={(e) => setDepositTxHash(e.target.value)}
+                  required
+                  minLength={4}
+                  maxLength={200}
+                />
+              </div>
+              <div className="field">
+                <label className="field__label" htmlFor="deposit-amount">
+                  {t('Verified amount (atomic units)')}
+                </label>
+                <input
+                  id="deposit-amount"
+                  className="input mono"
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  required
+                />
+                <p className="small muted">
+                  {t('Quoted amount')}: <span className="mono">{o.direction === 'buy' ? o.quote.grossCents : o.amountAtomic}</span>
+                  {o.direction === 'sell' ? ` · ${o.asset} / ${o.networkLabel}` : ' · USD cents'}
+                </p>
+              </div>
+              <TextField
+                id="deposit-comment"
+                label={t('Verification comment (what you checked)')}
+                value={depositComment}
+                onChange={setDepositComment}
+                rows={3}
+              />
+              <TextField id="deposit-reason" label={t('Reason (recorded in the audit log)')} value={text} onChange={setText} rows={2} />
+            </>
+          ) : action === 'record_manual_payout' || action === 'record_manual_refund' ? (
+            <>
+              <p className="notice notice--warn small">
+                {action === 'record_manual_payout'
+                  ? t(
+                      'This marks the payout as completed with an operator-recorded confirmation. It is not a provider-verified completion. Use only when you have reliable evidence.',
+                    )
+                  : t(
+                      'This marks the refund as completed only after you actually returned the funds. It is not a provider-verified completion.',
+                    )}
               </p>
               <TextField id="manual-reason" label={t('Reason (recorded in the audit log)')} value={text} onChange={setText} rows={2} />
               <div className="field">
@@ -929,7 +1006,7 @@ function ActionDialog({
                   className="input"
                   value={evidenceRef}
                   onChange={(e) => setEvidenceRef(e.target.value)}
-                  placeholder={t('Bank ref, receipt id, or desk log id')}
+                  placeholder={t('Bank ref, TXID, receipt id, or desk log id')}
                   required
                   minLength={4}
                   maxLength={200}
@@ -1042,21 +1119,49 @@ function ClientBlock({ detail }: { detail: AdminOrderDetail }) {
             {o.deposit.amountAtomic !== null ? (
               <>
                 {buy ? formatUsd(o.deposit.amountAtomic) : formatAsset(o.deposit.amountAtomic, o.asset)}
-                {!buy ? (
-                  <span className="small muted block">
-                    {t('{0} of {1} confirmations', [o.deposit.confirmations.count, o.deposit.confirmations.required])}
-                    {o.deposit.txHash ? (
-                      <span className="block">
-                        <TxHashLink txHash={o.deposit.txHash} network={o.network} className="mono small" />
-                      </span>
-                    ) : null}
-                  </span>
-                ) : null}
+                <span className="small muted block">
+                  {o.deposit.confirmationKind === 'manual'
+                    ? t('Verified manually by operations')
+                    : o.deposit.confirmationKind === 'provider'
+                      ? t('Confirmed by deposit monitoring')
+                      : null}
+                  {!buy ? (
+                    <>
+                      {' '}
+                      · {t('{0} of {1} confirmations', [o.deposit.confirmations.count, o.deposit.confirmations.required])}
+                    </>
+                  ) : null}
+                  {o.deposit.txHash ? (
+                    <span className="block">
+                      <TxHashLink txHash={o.deposit.txHash} network={o.network} className="mono small" />
+                    </span>
+                  ) : null}
+                </span>
               </>
             ) : (
               <span className="muted">{t('Not received yet')}</span>
             )}
             {o.deposit.exception ? <span className="badge badge--warn">{t(o.deposit.exception.replace('_', ' '))}</span> : null}
+          </Row>
+          <Row term={t('Payout status')}>
+            {o.payout.completionKind === 'manual'
+              ? t('Manual payout recorded')
+              : o.payout.completionKind === 'provider'
+                ? t('Provider payout completed')
+                : o.payout.providerRef
+                  ? t('Payout in progress')
+                  : t(o.status.replace(/_/g, ' '))}
+            {o.payout.evidenceRef ? (
+              <span className="small muted block mono">
+                {t('Evidence')}: {o.payout.evidenceRef}
+              </span>
+            ) : null}
+            {o.payout.manualRecordedBy ? (
+              <span className="small muted block">
+                {t('Recorded by')} {shortId(o.payout.manualRecordedBy)}
+                {o.payout.completedAt ? ` · ${formatDateTime(o.payout.completedAt)}` : ''}
+              </span>
+            ) : null}
           </Row>
           {!buy && o.deposit.customerTxHash ? (
             <Row term={t('Customer tx hash')}>

@@ -17,7 +17,7 @@ export const FAQ: FaqItem[] = [
     a: (
       <p>
         {t(
-          'Exchanges that move funds require connected custody, payout and verification providers. Until those services are configured, money-moving steps are refused and no funds can be sent or received. The',
+          'Yes. Place an exchange request after verifying your identity. Our team issues payment details, verifies your deposit, and records the payout. The',
         )}{' '}
         <Link to="/legal/terms">{t('Service Rules')}</Link> {t('set out the terms that apply to every Exchange Request.')}
       </p>

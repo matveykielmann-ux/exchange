@@ -13,9 +13,13 @@
  * - Only an authenticated provider event (or the sandbox provider, through the
  *   same webhook path) can report a deposit, confirmations or a provider payout
  *   result. A customer-submitted TXID never moves the order by itself.
+ * - An operator may also confirm a deposit after independent verification
+ *   (MANUAL_DEPOSIT_CONFIRMED). That path is marked manual and never treated as
+ *   a provider webhook.
  * - An operator can authorize a payout to a configured provider, or explicitly
  *   record a manual payout with evidence (MANUAL_PAYOUT_RECORDED). Provider
  *   completion and manual recording are distinct and never confused.
+ * - Manual refunds use MANUAL_REFUND_RECORDED the same way.
  * - A deposit that is late, of a different amount, or arrives on a closed
  *   order is never paid at the locked rate; it can only be refunded.
  */
@@ -82,6 +86,11 @@ export type OrderEvent =
   | { type: 'DEPOSIT_OBSERVED'; txHash: string; amountAtomic: AtomicAmount; confirmations: number }
   | { type: 'CONFIRMATIONS_UPDATED'; confirmations: number }
   | { type: 'DEPOSIT_CONFIRMED'; confirmations: number }
+  /**
+   * Operator-verified deposit after checking the chain / bank / cash desk.
+   * Not a provider webhook and not proof from a customer TXID upload alone.
+   */
+  | { type: 'MANUAL_DEPOSIT_CONFIRMED'; txHash: string; amountAtomic: AtomicAmount; comment: string }
   | { type: 'SCREENING_CLEARED' }
   | { type: 'REVIEW_REQUIRED'; reason: string }
   | { type: 'INFO_REQUESTED'; message: string }
@@ -97,6 +106,8 @@ export type OrderEvent =
   | { type: 'PAYOUT_RETRY_AUTHORIZED'; reason: string }
   | { type: 'REFUND_INITIATED'; reason: string }
   | { type: 'REFUND_COMPLETED'; txHash: string }
+  /** Operator-recorded refund after funds were actually returned. Not a provider webhook. */
+  | { type: 'MANUAL_REFUND_RECORDED'; reason: string; evidenceRef: string }
   | { type: 'HOLD_PLACED'; reason: string }
   | { type: 'HOLD_RELEASED'; reason: string };
 
@@ -172,6 +183,7 @@ export const EVENT_ACTORS: Record<OrderEventType, readonly ActorType[]> = {
   DEPOSIT_OBSERVED: ['provider'],
   CONFIRMATIONS_UPDATED: ['provider'],
   DEPOSIT_CONFIRMED: ['provider'],
+  MANUAL_DEPOSIT_CONFIRMED: ['operator'],
   SCREENING_CLEARED: ['system'],
   REVIEW_REQUIRED: ['system', 'operator'],
   INFO_REQUESTED: ['operator'],
@@ -186,6 +198,7 @@ export const EVENT_ACTORS: Record<OrderEventType, readonly ActorType[]> = {
   PAYOUT_RETRY_AUTHORIZED: ['operator'],
   REFUND_INITIATED: ['operator'],
   REFUND_COMPLETED: ['provider'],
+  MANUAL_REFUND_RECORDED: ['operator'],
   HOLD_PLACED: ['operator'],
   HOLD_RELEASED: ['operator'],
 };
@@ -197,10 +210,12 @@ export const EVENT_ACTORS: Record<OrderEventType, readonly ActorType[]> = {
  */
 export const BLOCKED_WHILE_ON_HOLD: ReadonlySet<OrderEventType> = new Set([
   'SCREENING_CLEARED',
+  'MANUAL_DEPOSIT_CONFIRMED',
   'REVIEW_APPROVED',
   'PAYOUT_AUTHORIZED',
   'PAYOUT_SUBMITTED',
   'MANUAL_PAYOUT_RECORDED',
+  'MANUAL_REFUND_RECORDED',
   'PAYOUT_RETRY_AUTHORIZED',
 ]);
 
@@ -312,6 +327,53 @@ const depositConfirmed: Resolver = (s, e) => {
   };
 };
 
+/** Operator confirms funds after independent verification. Distinct from provider DEPOSIT_CONFIRMED. */
+const manualDepositConfirmed: Resolver = (s, e, now) => {
+  const d = ev(e, 'MANUAL_DEPOSIT_CONFIRMED');
+  const comment = d.comment.trim();
+  if (comment.length < 4)
+    throw new InvalidOrderTransitionError(s.status, e.type, 'A manual deposit confirmation needs a comment (at least 4 characters).');
+  const txHash = d.txHash.trim();
+  if (txHash.length < 4)
+    throw new InvalidOrderTransitionError(
+      s.status,
+      e.type,
+      'Record the verified transaction id, bank reference, or desk log id (at least 4 characters).',
+    );
+  if (d.amountAtomic <= 0n) throw new InvalidOrderTransitionError(s.status, e.type, 'Deposit amount must be positive.');
+  if (s.depositTxHash && s.depositTxHash !== txHash)
+    throw new InvalidOrderTransitionError(
+      s.status,
+      e.type,
+      'A different deposit identifier is already recorded on this order.',
+    );
+  const exception: DepositException | null = CLOSED_PRE_DEPOSIT.has(s.status)
+    ? s.status === 'expired'
+      ? 'late'
+      : 'order_closed'
+    : now >= s.depositDeadline
+      ? 'late'
+      : d.amountAtomic !== s.quotedAmountAtomic
+        ? 'amount_mismatch'
+        : null;
+  return {
+    status: 'deposit_confirmed',
+    patch: {
+      depositTxHash: txHash,
+      depositAmountAtomic: d.amountAtomic,
+      depositException: exception,
+      confirmationsCount: s.confirmationsRequired,
+    },
+    detail: say(
+      s,
+      'Your deposit was verified by our team. This is an operator-recorded confirmation, not an automated network monitor report.',
+      'Your cash was verified by our team. This is an operator-recorded confirmation, not an automated courier report.',
+      'Your wire was verified by our team. This is an operator-recorded confirmation, not an automated bank match report.',
+    ),
+    visibility: 'customer',
+  };
+};
+
 const screeningCleared: Resolver = (s, e) => {
   if (s.depositException || s.reviewReason)
     throw new InvalidOrderTransitionError(s.status, e.type, 'This order must go through compliance review.');
@@ -415,6 +477,25 @@ const manualPayoutRecorded: Resolver = (s, e) => {
       s,
       'Your payout was recorded as completed by operations. This is an operator-recorded confirmation, not an automated provider report.',
       'Your crypto transfer was recorded as completed by operations. This is an operator-recorded confirmation, not an automated custody report.',
+    ),
+    visibility: 'customer',
+  };
+};
+
+const manualRefundRecorded: Resolver = (s, e) => {
+  const m = ev(e, 'MANUAL_REFUND_RECORDED');
+  if (!m.reason.trim()) throw new InvalidOrderTransitionError(s.status, e.type, 'A manual refund record needs a reason.');
+  const evidence = m.evidenceRef.trim();
+  if (evidence.length < 4)
+    throw new InvalidOrderTransitionError(s.status, e.type, 'A manual refund record needs an evidence reference (at least 4 characters).');
+  return {
+    status: 'refunded',
+    patch: { refundTxHash: `manual:${evidence.slice(0, 120)}` },
+    detail: say(
+      s,
+      'Your refund was recorded as completed by operations. This is an operator-recorded confirmation, not an automated custody report.',
+      'Your cash return was recorded as completed by operations. This is an operator-recorded confirmation, not an automated courier report.',
+      'Your wire return was recorded as completed by operations. This is an operator-recorded confirmation, not an automated bank report.',
     ),
     visibility: 'customer',
   };
@@ -537,17 +618,20 @@ const TABLE: Partial<Record<OrderStatus, Partial<Record<OrderEventType, Resolver
       ),
     ),
     DEPOSIT_OBSERVED: depositObserved,
+    MANUAL_DEPOSIT_CONFIRMED: manualDepositConfirmed,
     REVIEW_REQUIRED: reviewRequired,
     ORDER_REJECTED: orderRejected,
   },
   deposit_observed: {
     CONFIRMATIONS_UPDATED: confirmationsUpdated,
     DEPOSIT_CONFIRMED: depositConfirmed,
+    MANUAL_DEPOSIT_CONFIRMED: manualDepositConfirmed,
     REVIEW_REQUIRED: reviewRequired,
   },
   confirming: {
     CONFIRMATIONS_UPDATED: confirmationsUpdated,
     DEPOSIT_CONFIRMED: depositConfirmed,
+    MANUAL_DEPOSIT_CONFIRMED: manualDepositConfirmed,
     REVIEW_REQUIRED: reviewRequired,
   },
   deposit_confirmed: {
@@ -603,9 +687,9 @@ const TABLE: Partial<Record<OrderStatus, Partial<Record<OrderEventType, Resolver
       };
     },
   },
-  expired: { DEPOSIT_OBSERVED: depositObserved },
-  cancelled: { DEPOSIT_OBSERVED: depositObserved },
-  rejected: { DEPOSIT_OBSERVED: depositObserved },
+  expired: { DEPOSIT_OBSERVED: depositObserved, MANUAL_DEPOSIT_CONFIRMED: manualDepositConfirmed },
+  cancelled: { DEPOSIT_OBSERVED: depositObserved, MANUAL_DEPOSIT_CONFIRMED: manualDepositConfirmed },
+  rejected: { DEPOSIT_OBSERVED: depositObserved, MANUAL_DEPOSIT_CONFIRMED: manualDepositConfirmed },
   refund_pending: {
     REFUND_COMPLETED: to(
       'refunded',
@@ -618,6 +702,7 @@ const TABLE: Partial<Record<OrderStatus, Partial<Record<OrderEventType, Resolver
         ),
       (e) => ({ refundTxHash: ev(e, 'REFUND_COMPLETED').txHash }),
     ),
+    MANUAL_REFUND_RECORDED: manualRefundRecorded,
   },
 };
 
@@ -774,10 +859,12 @@ export function orderSteps(
   const firstAt = (...types: PersistedOrderEvent['type'][]) => events.find((e) => types.includes(e.type))?.createdAt ?? null;
   const reachedReview = events.some((e) => e.toStatus === 'compliance_review');
   const refunding = status === 'refund_pending' || status === 'refunded';
-  const closedEarly = (status === 'cancelled' || status === 'expired' || status === 'rejected') && !firstAt('DEPOSIT_OBSERVED');
+  const closedEarly =
+    (status === 'cancelled' || status === 'expired' || status === 'rejected') &&
+    !firstAt('DEPOSIT_OBSERVED', 'MANUAL_DEPOSIT_CONFIRMED');
 
-  const depositAt = firstAt('DEPOSIT_OBSERVED');
-  const confirmedAt = firstAt('DEPOSIT_CONFIRMED');
+  const depositAt = firstAt('DEPOSIT_OBSERVED', 'MANUAL_DEPOSIT_CONFIRMED');
+  const confirmedAt = firstAt('DEPOSIT_CONFIRMED', 'MANUAL_DEPOSIT_CONFIRMED');
   const submittedAt = firstAt('PAYOUT_SUBMITTED');
   const completedAt = firstAt('PAYOUT_COMPLETED', 'MANUAL_PAYOUT_RECORDED');
   const instructionsAt = firstAt('DEPOSIT_INSTRUCTIONS_ISSUED');
@@ -832,7 +919,7 @@ export function orderSteps(
       key: 'refund',
       label: wire ? 'Wire return' : buy ? 'Cash return' : 'Refund',
       state: status === 'refunded' ? 'done' : 'current',
-      at: firstAt('REFUND_COMPLETED'),
+      at: firstAt('REFUND_COMPLETED', 'MANUAL_REFUND_RECORDED'),
     });
     return steps;
   }

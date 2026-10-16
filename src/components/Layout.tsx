@@ -34,28 +34,24 @@ const LEGAL_LINKS = [
 ];
 
 /**
- * Service status banner. When money-moving providers are not connected, say so
- * plainly. Shown only in production mode with incomplete provider setup.
+ * Service status banner. Only warn when real-money operations are policy-disabled.
+ * Missing automatic providers do not block owner-managed manual exchange ops.
  */
 function ModeBanner() {
   const config = useConfig();
   if (config.mode === 'sandbox') return null;
-  const moneyKeys = new Set(['custody', 'bankPayout', 'cardPayout', 'cash']);
-  const moneyReady = config.providers.filter((p) => moneyKeys.has(p.key)).every((p) => p.state === 'configured');
-  if (!config.realMoneyEnabled || !moneyReady) {
-    return (
-      <div className="preview-banner" role="region" aria-label={t('Service notice')}>
-        <div className="container">
-          <span>
-            <strong>{t('Exchanges require connected providers.')}</strong>{' '}
-            {t('Custody, payout and verification services must be configured before funds can move.')}
-          </span>
-          <Link to="/help">{t('Help')}</Link>
-        </div>
+  if (config.realMoneyEnabled) return null;
+  return (
+    <div className="preview-banner" role="region" aria-label={t('Service notice')}>
+      <div className="container">
+        <span>
+          <strong>{t('Do not transfer real funds.')}</strong>{' '}
+          {t('Addresses and payment details shown here must not be used for live transfers.')}
+        </span>
+        <Link to="/help">{t('Help')}</Link>
       </div>
-    );
-  }
-  return null;
+    </div>
+  );
 }
 
 function ThemeToggle() {
