@@ -83,7 +83,7 @@ Courier delivery reuses the payout states: payout submitted means the courier is
 - Passwords are hashed with scrypt. Sessions are 256-bit random tokens in an `HttpOnly; SameSite=Lax` (and `Secure` over https) cookie. Only an HMAC of the token is stored. Sessions have a fixed lifetime (`SESSION_TTL_HOURS`) and are revoked on a password change or reset.
 - CSRF uses a per-session token sent back in `X-CSRF-Token`, plus an `Origin` check on every mutation. Only signature-authenticated webhooks are exempt.
 - Staff sign in at `/admin/login` (`staffOnly`), which refuses customer accounts with the same answer as a wrong password. The owner is the master account; staff accounts are created only by the CLI or an owner, never by public sign-up.
-- Roles: `customer < support < reviewer < admin < owner`. The router checks roles on every route, and the UI hides what the server would refuse. Admins can grant roles up to reviewer; only owners grant admin or owner. Production requires staff TOTP (`REQUIRE_STAFF_MFA`).
+- Roles: `customer < support < reviewer < admin < owner`. The router checks roles on every route, and the UI hides what the server would refuse. Admins can grant roles up to reviewer; only owners grant admin or owner. Staff TOTP is optional (`REQUIRE_STAFF_MFA`, off by default).
 - Rate limits: per-IP limits on auth, quotes, orders, chat, live events and webhooks. Accounts lock after 5 failed sign-ins.
 - Exchanging needs an account: `/exchange` is behind sign-in, and the server requires a session for firm quotes and orders.
 - Payout details (including courier addresses) and TOTP secrets are encrypted with AES-256-GCM. Card numbers are never accepted (provider tokens only) and CVV is never accepted. Staff views mask PII.

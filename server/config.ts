@@ -274,7 +274,8 @@ export function loadConfig(env: Env = process.env): AppConfig {
     trustProxy: bool(env.TRUST_PROXY, false),
     logLevel,
     staticDir: bool(env.SERVE_STATIC, true) ? path.resolve(env.STATIC_DIR ?? './dist') : null,
-    requireStaffMfa: bool(env.REQUIRE_STAFF_MFA, production),
+    // Off by default (owner-operated CRM uses password + role checks). Set REQUIRE_STAFF_MFA=true to force TOTP.
+    requireStaffMfa: bool(env.REQUIRE_STAFF_MFA, false),
     manualReviewThresholdCents: BigInt(/^\d+$/.test(thresholdUsd) ? thresholdUsd : '0') * 100n,
     sessionTtlMs: Number(env.SESSION_TTL_HOURS ?? 12) * 3_600_000,
     sandbox: {

@@ -17,7 +17,7 @@ ENV_FILE=.env.local.production ./deploy/create-owner.sh --email owner@local.test
 ```
 
 - Customer: [https://localhost:43127](https://localhost:43127)
-- CRM: [https://127.0.0.1:43127/admin/login](https://127.0.0.1:43127/admin/login) (staff MFA required)
+- CRM: [https://127.0.0.1:43127/admin/login](https://127.0.0.1:43127/admin/login)
 - API: `:8742` (proxied through Vite)
 
 Or: `pnpm start:local-prod` (same as `./deploy/run-local-production.sh`).

@@ -21,7 +21,7 @@ CryptoBit Exchange on one Linux server with Docker: the app container (API + bui
 Two modes, chosen with `APP_MODE`:
 
 - **`sandbox`**: simulated providers, seed data, sandbox lab, signed simulated webhooks. Use it for staging and demos. Keep it private (Caddy `basic_auth`, see the Caddyfile). Any `SANDBOX_*` variable is rejected in production mode.
-- **`production`**: real adapters only. Each one is `NOT_CONFIGURED` until its credentials are set. Staff must use an authenticator app (`REQUIRE_STAFF_MFA` defaults to on).
+- **`production`**: real adapters only. Each one is `NOT_CONFIGURED` until its credentials are set. Optional staff TOTP via `REQUIRE_STAFF_MFA=true` (off by default).
 
 ## 1. Prepare the server
 
