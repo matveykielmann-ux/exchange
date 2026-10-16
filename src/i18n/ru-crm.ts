@@ -344,13 +344,20 @@ export const RU_CRM: Record<string, string> = {
   'Meeting notes': 'Заметки для встречи',
   'First available': 'Первый доступный день',
   'No courier address on this order yet.': 'В этой заявке ещё нет адреса курьера.',
+  'No meeting point yet. Set the street, city, state and time where the courier will wait for this customer.':
+    'Точки встречи ещё нет. Укажите улицу, город, штат и время, где курьер будет ждать клиента.',
   'Courier meeting details saved.': 'Данные встречи с курьером сохранены.',
   'Set where the courier should go and any notes for the visit.':
     'Укажите, куда должен подъехать курьер, и любые заметки к визиту.',
+  'Assign the meeting point for this order. The customer sees it live on their order page.':
+    'Назначьте точку встречи по этой заявке. Клиент увидит её на странице заявки в реальном времени.',
   'Apt / suite (optional)': 'Кв. / офис (необязательно)',
   'Edit meeting details': 'Изменить данные встречи',
+  'Set meeting details': 'Указать данные встречи',
   'Save meeting details': 'Сохранить данные встречи',
   'Gate code, landmark, who meets the courier…': 'Код домофона, ориентир, кто встречает курьера…',
+  'Cash to collect': 'Сумма наличных к забору',
+  Customer: 'Клиент',
   Payout: 'Выплата',
   Account: 'Счёт',
   'Bank details': 'Реквизиты',

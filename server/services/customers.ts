@@ -225,6 +225,9 @@ interface CourierDetails {
   window: CourierWindow;
   preferredDate: string | null;
   instructions: string;
+  /** Staff-assigned meeting for one order — hidden from the customer's saved-address list. */
+  orderMeeting?: boolean;
+  orderId?: string;
 }
 
 const readCourier = (ctx: AppContext, d: DestinationRow) =>
@@ -261,6 +264,14 @@ export function destinationView(ctx: AppContext, d: DestinationRow) {
 export function listDestinations(ctx: AppContext, userId: string) {
   return ctx.db
     .all<DestinationRow>("SELECT * FROM payout_destinations WHERE user_id = ? AND status = 'active' ORDER BY created_at", [userId])
+    .filter((d) => {
+      if (d.kind !== 'courier') return true;
+      try {
+        return !readCourier(ctx, d).orderMeeting;
+      } catch {
+        return true;
+      }
+    })
     .map((d) => destinationView(ctx, d));
 }
 
@@ -497,21 +508,30 @@ export function revealOrderCardDestination(ctx: AppContext, actor: Actor, orderI
 }
 
 /**
- * Staff: update courier meeting / collection details on the order's destination.
- * Used after the customer supplies an address so ops can set the visit logistics.
+ * Staff: set or update the courier meeting for a cash-collection / cash-delivery
+ * order. For buy→cash the customer places the order without an address; ops
+ * assign street, city, state, time window and notes here. Creates an
+ * order-scoped destination (hidden from the customer's saved-address list).
  */
 export function updateOrderCourierMeeting(ctx: AppContext, actor: Actor, orderId: string, raw: CourierDeliveryInput) {
   if (!actor.role || !['support', 'reviewer', 'admin', 'owner'].includes(actor.role))
     throw new ApiError(403, 'forbidden', 'Only staff can update courier meeting details.');
-  const o = ctx.db.get<{ id: string; user_id: string; payout_method: string; payout_destination_id: string | null }>(
-    'SELECT id, user_id, payout_method, payout_destination_id FROM orders WHERE id = ?',
+  const o = ctx.db.get<{
+    id: string;
+    user_id: string;
+    direction: string;
+    status: string;
+    payout_method: string;
+    payout_destination_id: string | null;
+    courier_fee_pending: number;
+    courier_fee_accepted_at: number | null;
+    version: number;
+  }>(
+    'SELECT id, user_id, direction, status, payout_method, payout_destination_id, courier_fee_pending, courier_fee_accepted_at, version FROM orders WHERE id = ?',
     [orderId],
   );
   if (!o) throw notFound('Order not found.');
-  if (o.payout_method !== 'courier_cash' || !o.payout_destination_id)
-    throw conflict('This order has no courier meeting address.', 'not_courier');
-  const d = ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [o.payout_destination_id]);
-  if (!d || d.kind !== 'courier') throw notFound('Courier destination not found.');
+  if (o.payout_method !== 'courier_cash') throw conflict('This order is not a courier cash order.', 'not_courier');
 
   const input = normalizeCourierInput(raw);
   const errors = validateCourierDelivery(input, isoDay(ctx.clock.now()));
@@ -520,9 +540,14 @@ export function updateOrderCourierMeeting(ctx: AppContext, actor: Actor, orderId
   const first = Object.entries(errors)[0];
   if (first) throw badRequest(first[1], { field: first[0] });
 
-  const existing = readCourier(ctx, d);
+  const profile = getProfile(ctx, o.user_id);
+  let destinationId = o.payout_destination_id;
+  let d = destinationId ? ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [destinationId]) : null;
+  if (d && d.kind !== 'courier') throw notFound('Courier destination not found.');
+
+  const existing = d ? readCourier(ctx, d) : null;
   const details: CourierDetails = {
-    holderName: existing.holderName || getProfile(ctx, o.user_id).full_name,
+    holderName: existing?.holderName || profile.full_name,
     phone: input.phone,
     line1: input.line1,
     line2: input.line2,
@@ -532,21 +557,62 @@ export function updateOrderCourierMeeting(ctx: AppContext, actor: Actor, orderId
     window: input.window,
     preferredDate: input.preferredDate || null,
     instructions: input.instructions,
+    orderMeeting: true,
+    orderId,
   };
+  const label = courierLabel(input.city, input.state, input.zip);
+  const now = ctx.clock.now();
+
   ctx.db.tx(() => {
-    ctx.db.run('UPDATE payout_destinations SET label = ?, details_enc = ? WHERE id = ?', [
-      courierLabel(input.city, input.state, input.zip),
-      encrypt(ctx.config.dataEncryptionKey, JSON.stringify(details)),
-      d.id,
-    ]);
+    if (!d) {
+      destinationId = newId('dst');
+      ctx.db.run(
+        "INSERT INTO payout_destinations (id, user_id, kind, label, last4, methods, details_enc, created_at) VALUES (?, ?, 'courier', ?, '', ?, ?, ?)",
+        [
+          destinationId,
+          o.user_id,
+          label,
+          JSON.stringify(['courier_cash']),
+          encrypt(ctx.config.dataEncryptionKey, JSON.stringify(details)),
+          now,
+        ],
+      );
+      // Snapshot trigger allows assigning a meeting destination once when it was null (buy cash).
+      ctx.db.run('UPDATE orders SET payout_destination_id = ?, payout_label = ?, updated_at = ?, version = version + 1 WHERE id = ?', [
+        destinationId,
+        label,
+        now,
+        orderId,
+      ]);
+    } else {
+      // Destination details are mutable; order snapshot fields stay put.
+      ctx.db.run('UPDATE payout_destinations SET label = ?, details_enc = ? WHERE id = ?', [
+        label,
+        encrypt(ctx.config.dataEncryptionKey, JSON.stringify(details)),
+        d.id,
+      ]);
+      ctx.db.run('UPDATE orders SET updated_at = ?, version = version + 1 WHERE id = ?', [now, orderId]);
+      destinationId = d.id;
+    }
     audit(ctx, actor, {
       action: 'order.courier_meeting_updated',
       targetType: 'order',
       targetId: orderId,
-      data: { destinationId: d.id, city: input.city, state: input.state, zip: zip5(input.zip), window: input.window },
+      data: { destinationId, city: input.city, state: input.state, zip: zip5(input.zip), window: input.window, created: !d },
     });
   });
-  return courierDelivery(ctx, d.id, { masked: false });
+
+  const updated = ctx.db.get<{ user_id: string; status: string; version: number }>('SELECT user_id, status, version FROM orders WHERE id = ?', [
+    orderId,
+  ])!;
+  ctx.db.afterCommit(() =>
+    ctx.bus.publish([{ userId: updated.user_id }, { staff: true }], {
+      type: 'order.updated',
+      data: { orderId, status: updated.status, version: updated.version },
+    }),
+  );
+
+  return courierDelivery(ctx, destinationId!, { masked: false });
 }
 
 /** Full bank destination for CRM (ACH / wire). Never returned on customer APIs. */

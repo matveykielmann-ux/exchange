@@ -231,6 +231,8 @@ export interface OrderView {
   cardPayInPending?: boolean;
   /** Sell order with no deposit address yet. */
   depositCredentialsPending?: boolean;
+  /** Buy cash: waiting for staff to assign the courier meeting address. */
+  courierMeetingPending?: boolean;
   documents: OrderDocumentView[];
   deposit: {
     address: string | null;

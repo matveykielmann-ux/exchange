@@ -1,13 +1,12 @@
 /**
  * Buy flow (cash or wire → crypto): the customer states the US dollars they
- * will pay, how (cash handed to a courier, or a bank wire), where the courier
- * should collect cash, and the wallet that receives the crypto. The server
- * prices it, stores a firm quote and creates the order; the crypto is sent
- * only after the cash is counted or the wire is matched and verified.
+ * will pay, how (cash handed to a courier, or a bank wire), and the wallet
+ * that receives the crypto. For cash, staff assign the courier meeting point
+ * in CRM after the order is placed. The crypto is sent only after the cash is
+ * counted or the wire is matched and verified.
  */
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { AddCourierForm } from '@/components/AddCourierForm';
 import { Checkbox } from '@/components/Checkbox';
 import { Countdown } from '@/components/Countdown';
 import { AssetNetworkFields } from '@/components/ExchangeInputs';
@@ -27,13 +26,12 @@ import { amountIssues, buyPayInMethod, isBuyPayIn, PRICING_POLICY, type BuyPayIn
 import { WIRE_RECEIPT_WINDOW_MS } from '@/domain/wire';
 import { validateCashAmount, validateReceiveAddress } from '@/domain/validation';
 import { errorMessage } from '@/lib/errors';
-import { courierAddress, describeDestination, formatAsset } from '@/lib/format';
+import { formatAsset } from '@/lib/format';
 import { useExpired } from '@/lib/useExpired';
 import { clientId } from '@/services/http';
 import type { QuoteData } from '@/services/types';
 import { useUser } from '@/state/auth';
 import { useConfig } from '@/state/config';
-import { useDestinations } from '@/state/useDestinations';
 import { useServices } from '@/state/services';
 import { t } from '@/i18n';
 
@@ -96,10 +94,6 @@ function useBuyDraft() {
   const reset = useCallback(() => setDraft(save(INITIAL)), [save]);
   return { draft, update, reset };
 }
-
-/** The courier address without the delivery wording ("Cash to …") that describeDestination uses for payouts. */
-const collectionAddress = (d: Parameters<typeof describeDestination>[0]) =>
-  d.courier ? courierAddress(d.courier) : describeDestination(d);
 
 function cashCents(cash: string): bigint | null {
   const p = parseDecimal(cash.replace(/,/g, ''), 2);
@@ -178,7 +172,7 @@ function BuyIssues({ issues, payIn = 'courier_cash' }: { issues: QuoteIssue[]; p
   );
 }
 
-const STEPS = ['Amount', 'Collection & wallet', 'Review'] as const;
+const STEPS = ['Amount', 'Wallet', 'Review'] as const;
 const REMOTE_PAY_STEPS = ['Amount', 'Wallet', 'Review'] as const;
 
 function Stepper({ current, payIn }: { current: number; payIn: BuyPayIn }) {
@@ -369,20 +363,12 @@ function ReceiveAddressField({ draft, update, error, onBlur }: DraftProps & { er
   );
 }
 
+/** Cash buy step 2: only the receiving wallet. Staff assign the courier meeting in CRM. */
 function DetailsStep({ draft, update, onBack, onNext }: DraftProps & { onBack: () => void; onNext: () => void }) {
   const user = useUser();
-  const { list: destinations, reload } = useDestinations();
   const [touched, setTouched] = useState(false);
-  const [adding, setAdding] = useState(false);
-
   if (!user) return <SignInStep onBack={onBack} />;
-
-  const usable = destinations?.filter((d) => d.kind === 'courier') ?? [];
   const addressError = touched || draft.receiveAddress ? validateReceiveAddress(draft.receiveAddress, draft.network) : null;
-  const destinationOk = usable.some((d) => d.id === draft.destinationId);
-  const destinationError = touched && !destinationOk ? t('Save or choose a collection address.') : null;
-  const valid = destinationOk && !validateReceiveAddress(draft.receiveAddress, draft.network);
-
   return (
     <form
       className="flow__main"
@@ -390,65 +376,22 @@ function DetailsStep({ draft, update, onBack, onNext }: DraftProps & { onBack: (
       onSubmit={(e: FormEvent) => {
         e.preventDefault();
         setTouched(true);
-        if (valid) onNext();
-        else document.getElementById(!destinationOk ? (usable.length ? 'collect-0' : 'courier-phone') : 'receive-address')?.focus();
+        if (!validateReceiveAddress(draft.receiveAddress, draft.network)) onNext();
+        else document.getElementById('receive-address')?.focus();
       }}
     >
-      <h2 className="flow__step-title">{t('Where should the courier collect the cash?')}</h2>
-      <fieldset className="option-list">
-        <legend className="field__label">{t('Collection address')}</legend>
-        {destinations === null ? (
-          <p className="muted">{t('Loading saved addresses…')}</p>
-        ) : usable.length === 0 ? (
-          <p className="muted">{t('No saved addresses yet. Add one below.')}</p>
-        ) : (
-          usable.map((d, i) => (
-            <label className="option" key={d.id} htmlFor={`collect-${i}`}>
-              <input
-                id={`collect-${i}`}
-                type="radio"
-                name="collection"
-                checked={draft.destinationId === d.id}
-                onChange={() => update({ destinationId: d.id })}
-              />
-              <span>
-                <span className="option__title">{d.label}</span>
-                <span className="option__meta tabular" style={{ display: 'block' }}>
-                  {collectionAddress(d)}
-                </span>
-              </span>
-            </label>
-          ))
-        )}
-        {destinationError ? (
-          <p className="field__error">
-            <Icon name="alert" /> {destinationError}
-          </p>
-        ) : null}
-      </fieldset>
-      {adding || (destinations !== null && usable.length === 0) ? (
-        <AddCourierForm
-          purpose="collection"
-          onAdded={(d) => {
-            setAdding(false);
-            update({ destinationId: d.id });
-            reload();
-          }}
-          onCancel={usable.length ? () => setAdding(false) : undefined}
-        />
-      ) : (
-        <div>
-          <button type="button" className="btn btn--secondary" onClick={() => setAdding(true)}>
-            {t('Add a collection address')}
-          </button>
-        </div>
-      )}
+      <h2 className="flow__step-title">{t('Where should we send the crypto?')}</h2>
+      <Notice tone="info" title={t('Courier meeting point')}>
+        <p>
+          {t(
+            'After you place this order, our team will send you the street address, city, state and time where the courier will meet you to collect the cash. You do not choose the meeting point here.',
+          )}
+        </p>
+      </Notice>
       <p className="small muted">
         {t('The courier collects the cash only from you, the verified account holder, after checking your photo ID.')}
       </p>
-
       <ReceiveAddressField draft={draft} update={update} error={addressError} onBlur={() => setTouched(true)} />
-
       <div className="flow__actions">
         <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
           <Icon name="arrowLeft" width={18} height={18} /> {t('Back')}
@@ -510,7 +453,6 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
   const firm = useBuyQuote(draft, { firm: true });
   const locked = firm.data;
   const expired = useExpired(locked?.quote.expiresAt ?? null);
-  const destination = useDestinations().list?.find((d) => d.id === draft.destinationId) ?? null;
   const orderDocs = config.legal.filter((d) => d.acceptance === 'order');
   const [ackCash, setAckCash] = useState(false);
   const [ackDocs, setAckDocs] = useState(false);
@@ -522,7 +464,6 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
   if (!user) return null;
   const wire = draft.payIn === 'wire';
   const card = draft.payIn === 'card';
-  const remotePay = wire || card;
   const canConfirm =
     !!locked &&
     !expired &&
@@ -530,11 +471,10 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
     locked.issues.every((i) => i.code === 'courier_fee_pending') &&
     ackCash &&
     ackDocs &&
-    (remotePay || !!destination) &&
     !submitting;
 
   async function confirm() {
-    if (!locked || (!remotePay && !destination)) return;
+    if (!locked) return;
     if (keyRef.current?.quoteId !== locked.quote.id) keyRef.current = { quoteId: locked.quote.id, key: clientId('order') };
     setSubmitting(true);
     setError(null);
@@ -542,8 +482,8 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
       const order = await services.orders.create(
         {
           quoteId: locked.quote.id,
-          // A wire has no saved destination; the server ignores this field for it.
-          destinationId: destination?.id ?? '',
+          // Cash: staff assign the meeting in CRM. Wire/card: no destination.
+          destinationId: '',
           receiveAddress: draft.receiveAddress,
           accepted: orderDocs.map((d) => ({ slug: d.slug, version: d.version })),
         },
@@ -693,10 +633,15 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
                   <dt>{t('You pay by')}</dt>
                   <dd>{t('Bank wire. Instructions appear on your order page after you confirm.')}</dd>
                 </div>
+              ) : card ? (
+                <div>
+                  <dt>{t('You pay by')}</dt>
+                  <dd>{t('Card. Payment instructions appear on your order page after you confirm.')}</dd>
+                </div>
               ) : (
                 <div>
                   <dt>{t('Cash collected at')}</dt>
-                  <dd>{destination ? collectionAddress(destination) : '—'}</dd>
+                  <dd>{t('Meeting point sent by our team after you confirm (shown on the order page).')}</dd>
                 </div>
               )}
               <div>

@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { REGEXP_ONLY_DIGITS } from 'input-otp';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Checkbox } from '@/components/Checkbox';
 import { ErrorSummary, Field } from '@/components/Field';
 import { errorMessage } from '@/lib/errors';
+import { syncThemeForScope } from '@/lib/theme';
 import { Notice } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { US_STATE_NAMES, US_STATES_50 } from '@/domain/usStates';
@@ -70,6 +71,11 @@ export function SignInPage({ staff = false }: { staff?: boolean }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!staff) return;
+    syncThemeForScope('crm');
+    return () => syncThemeForScope('site');
+  }, [staff]);
 
   const done = (role: Parameters<typeof isStaff>[0]) =>
     navigate(staff ? (returnTo.startsWith('/admin') ? returnTo : '/admin') : returnTo || (isStaff(role) ? '/admin' : '/account'), {

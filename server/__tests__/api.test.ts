@@ -533,18 +533,6 @@ describe('API', () => {
     const c = env.client();
     await customer(c, 'buyer@example.test');
     const tomorrow = new Date(env.ctx.clock.now() + 86_400_000).toISOString().slice(0, 10);
-    const dest = await c.post('/api/me/destinations/courier', {
-      phone: '(212) 555-0142',
-      line1: '200 Example Street',
-      line2: '',
-      city: 'New York',
-      state: 'NY',
-      zip: '10001',
-      window: 'any',
-      preferredDate: tomorrow,
-      instructions: '',
-    });
-    expect(dest.status).toBe(201);
 
     const indicative = await c.get('/api/quotes/indicative?direction=buy&asset=USDT&network=tron&cashCents=100000');
     expect(indicative.status).toBe(200);
@@ -554,7 +542,8 @@ describe('API', () => {
     const q = await c.post('/api/quotes', { direction: 'buy', asset: 'USDT', network: 'tron', cashCents: '100000' });
     expect(q.status).toBe(201);
     const wallet = 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE';
-    const body = { quoteId: q.body.quote.id, destinationId: dest.body.id, receiveAddress: wallet, accepted: docs('order') };
+    // Cash buy: no collection address from the customer — staff assign the meeting in CRM.
+    const body = { quoteId: q.body.quote.id, destinationId: '', receiveAddress: wallet, accepted: docs('order') };
     // The receiving wallet must be valid for the network.
     const badWallet = await c.post('/api/orders', { ...body, receiveAddress: TEST_ETH_ADDRESS }, { 'idempotency-key': 'buy-order-bad' });
     expect(badWallet.status).toBe(400);
@@ -563,6 +552,8 @@ describe('API', () => {
     expect(o.status).toBe(201);
     expect(o.body).toMatchObject({ direction: 'buy', status: 'created', refundAddress: null, receiveAddress: wallet });
     expect(o.body.courierFee.pending).toBe(true);
+    expect(o.body.courierMeetingPending).toBe(true);
+    expect(o.body.payout.delivery).toBeNull();
     expect(o.body.reference).toMatch(/^\d{10}$/);
     expect(o.body.deposit.address).toBeNull();
     const id = o.body.id as string;
@@ -571,11 +562,34 @@ describe('API', () => {
     expect(
       (await reviewer.post(`/api/admin/orders/${id}/set-courier-fee`, { feeCents: 2500, reason: 'Collection fee for NYC.' })).status,
     ).toBe(200);
-    const acceptedBuy = await c.post(`/api/orders/${id}/accept-courier-fee`);
-    expect(acceptedBuy.status).toBe(200);
-    expect(acceptedBuy.body.status).toBe('awaiting_deposit');
-    expect(acceptedBuy.body.quote.payoutFeeCents).toBe('2500');
-    expect(BigInt(acceptedBuy.body.amountAtomic)).toBeGreaterThan(0n);
+    // Accepting the fee before a meeting point is set keeps the order in created.
+    const acceptedEarly = await c.post(`/api/orders/${id}/accept-courier-fee`);
+    expect(acceptedEarly.status).toBe(200);
+    expect(acceptedEarly.body.status).toBe('created');
+    expect(acceptedEarly.body.courierFee.acceptedAt).toBeTypeOf('number');
+
+    const meeting = await reviewer.post(`/api/admin/orders/${id}/courier-meeting`, {
+      phone: '(212) 555-0142',
+      line1: '200 Example Street',
+      line2: '',
+      city: 'New York',
+      state: 'NY',
+      zip: '10001',
+      window: 'any',
+      preferredDate: tomorrow,
+      instructions: 'Meet at the lobby',
+    });
+    expect(meeting.status).toBe(200);
+    const afterMeeting = await c.get(`/api/orders/${id}`);
+    expect(afterMeeting.body.status).toBe('awaiting_deposit');
+    expect(afterMeeting.body.courierMeetingPending).toBe(false);
+    expect(afterMeeting.body.payout.delivery).toMatchObject({
+      city: 'New York',
+      state: 'NY',
+      line1: '200 Example Street',
+    });
+    expect(afterMeeting.body.quote.payoutFeeCents).toBe('2500');
+    expect(BigInt(afterMeeting.body.amountAtomic)).toBeGreaterThan(0n);
     // A retried confirm returns the same order.
     expect((await c.post('/api/orders', body, { 'idempotency-key': 'buy-order-1' })).body.id).toBe(id);
     expect(env.ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM orders WHERE direction = 'buy'")!.n).toBe(1);

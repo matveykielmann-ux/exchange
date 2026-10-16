@@ -1190,4 +1190,93 @@ BEGIN SELECT RAISE(ABORT, 'order snapshot fields are immutable'); END;
 `);
     },
   },
+  {
+    id: 14,
+    name: 'buy_cash_meeting_assigned_by_staff',
+    disableForeignKeys: true,
+    sql: `
+-- Buy cash: customer places the order without a meeting address; staff assign it in CRM.
+DROP TRIGGER IF EXISTS orders_snapshot_immutable;
+CREATE TABLE orders_v14 (
+  id TEXT PRIMARY KEY,
+  reference TEXT NOT NULL UNIQUE,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  quote_id TEXT NOT NULL UNIQUE REFERENCES quotes(id),
+  ${ORDER_STATUS_CHECK.replace('status IN', 'status TEXT NOT NULL CHECK (status IN')}),
+  version INTEGER NOT NULL DEFAULT 1,
+  source TEXT NOT NULL CHECK (source IN ('sandbox','live')),
+  asset TEXT NOT NULL,
+  network TEXT NOT NULL,
+  ${digits('amount_atomic')},
+  ${digits('reference_price_micros')},
+  ${cents('gross_cents')},
+  spread_bps INTEGER NOT NULL,
+  ${cents('spread_cents')},
+  ${cents('payout_fee_cents')},
+  ${cents('net_cents')},
+  payout_method TEXT NOT NULL CHECK (payout_method IN ('ach','wire','instant_debit','courier_cash')),
+  payout_destination_id TEXT REFERENCES payout_destinations(id),
+  payout_label TEXT NOT NULL,
+  payout_last4 TEXT NOT NULL,
+  refund_address TEXT CHECK (refund_address IS NULL OR length(refund_address) BETWEEN 20 AND 128),
+  deposit_deadline INTEGER NOT NULL,
+  confirmations_required INTEGER NOT NULL CHECK (confirmations_required > 0),
+  confirmations_count INTEGER NOT NULL DEFAULT 0 CHECK (confirmations_count >= 0),
+  deposit_tx_hash TEXT,
+  ${digits('deposit_amount_atomic', true)},
+  deposit_exception TEXT CHECK (deposit_exception IS NULL OR deposit_exception IN ('amount_mismatch','late','order_closed')),
+  review_reason TEXT,
+  payout_provider_ref TEXT,
+  refund_tx_hash TEXT,
+  assigned_operator_id TEXT REFERENCES users(id),
+  customer_reported_sent_at INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  closed_at INTEGER,
+  direction TEXT NOT NULL DEFAULT 'sell' CHECK (direction IN ('sell','buy')),
+  on_hold INTEGER NOT NULL DEFAULT 0 CHECK (on_hold IN (0,1)),
+  courier_fee_pending INTEGER NOT NULL DEFAULT 0 CHECK (courier_fee_pending IN (0,1)),
+  courier_fee_accepted_at INTEGER,
+  CHECK (gross_cents - spread_cents - payout_fee_cents = net_cents),
+  CHECK (direction = 'sell' OR refund_address IS NOT NULL),
+  CHECK (
+    payout_destination_id IS NOT NULL
+    OR (direction = 'buy' AND payout_method IN ('wire','instant_debit','courier_cash'))
+  )
+);
+INSERT INTO orders_v14 SELECT
+  id, reference, user_id, quote_id, status, version, source, asset, network, amount_atomic, reference_price_micros,
+  gross_cents, spread_bps, spread_cents, payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label,
+  payout_last4, refund_address, deposit_deadline, confirmations_required, confirmations_count, deposit_tx_hash,
+  deposit_amount_atomic, deposit_exception, review_reason, payout_provider_ref, refund_tx_hash, assigned_operator_id,
+  customer_reported_sent_at, created_at, updated_at, closed_at, direction, on_hold, courier_fee_pending, courier_fee_accepted_at
+FROM orders;
+DROP TABLE orders;
+ALTER TABLE orders_v14 RENAME TO orders;
+CREATE INDEX orders_user ON orders(user_id, created_at DESC);
+CREATE INDEX orders_status ON orders(status, updated_at);
+CREATE INDEX orders_assigned ON orders(assigned_operator_id);
+CREATE INDEX orders_created ON orders(created_at DESC);
+CREATE INDEX orders_deadline ON orders(status, deposit_deadline);
+DROP TRIGGER IF EXISTS orders_refund_address_once;
+CREATE TRIGGER orders_refund_address_once BEFORE UPDATE OF refund_address ON orders
+WHEN OLD.refund_address IS NOT NULL
+BEGIN SELECT RAISE(ABORT, 'the refund address is already set'); END;
+CREATE TRIGGER orders_snapshot_immutable BEFORE UPDATE OF
+  quote_id, user_id, source, asset, network, amount_atomic, reference_price_micros, gross_cents, spread_bps, spread_cents,
+  payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label, payout_last4,
+  deposit_deadline, confirmations_required, reference, created_at, direction
+ON orders
+WHEN NOT (
+  (OLD.courier_fee_pending = 1 AND NEW.courier_fee_pending = 0)
+  OR (
+    OLD.direction = 'buy'
+    AND OLD.payout_method = 'courier_cash'
+    AND OLD.payout_destination_id IS NULL
+    AND NEW.payout_destination_id IS NOT NULL
+  )
+)
+BEGIN SELECT RAISE(ABORT, 'order snapshot fields are immutable'); END;
+`,
+  },
 ];

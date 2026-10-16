@@ -359,9 +359,9 @@
   border-color: var(--ink-700);
 }
 .chip[aria-pressed='true'] {
-  background: var(--navy);
-  border-color: var(--navy);
-  color: #fff;
+  background: var(--ink-900);
+  border-color: var(--ink-900);
+  color: var(--canvas);
 }
 
 .filters {
@@ -956,7 +956,7 @@
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--surface);
-  box-shadow: 0 30px 80px -20px rgb(0 0 0 / 80%);
+  box-shadow: var(--shadow-panel);
 }
 .dialog__head {
   display: flex;

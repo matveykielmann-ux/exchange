@@ -1,8 +1,10 @@
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { LiveIndicator } from '@/components/chat/Chat';
 import { Icon, type IconName } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { syncThemeForScope } from '@/lib/theme';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import type { Role } from '@/services/types';
 import { useUser } from '@/state/auth';
@@ -39,6 +41,11 @@ export function AdminLayout() {
   const items = NAV.filter(visible);
   const adminItems = NAV_ADMIN.filter(visible);
   const customerSiteHref = config.crmOrigin ? config.publicOrigin : '/';
+  // CRM keeps its own light default (and toggle) separate from the customer site.
+  useEffect(() => {
+    syncThemeForScope('crm');
+    return () => syncThemeForScope('site');
+  }, []);
 
   return (
     <div className="admin">
@@ -84,6 +91,7 @@ export function AdminLayout() {
             <LiveIndicator state={live} />
           </div>
           <div className="row admin-bar__user" style={{ gap: 8 }}>
+            <ThemeToggle scope="crm" />
             <LanguageSwitch />
             <span className="small">
               <span className="admin-bar__email">{user?.email}</span>{' '}

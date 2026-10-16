@@ -400,6 +400,15 @@ export const RU_PUBLIC3: Record<string, string> = {
   'Sandbox order.': 'Тестовая заявка.',
   'No courier will come. Don’t hand cash to anyone for this order.': 'Курьер не приедет. Не передавайте никому наличные по этой заявке.',
   'Hand cash only to the courier at your saved address': 'Передавайте наличные только курьеру по сохранённому адресу',
+  'Hand cash only to the courier at this meeting point': 'Передавайте наличные только курьеру в этой точке встречи',
+  'Waiting for the courier meeting point': 'Ожидание точки встречи с курьером',
+  'Our team will assign the street address, city, state and time where the courier will meet you. This page updates by itself when the details are ready.':
+    'Наша команда назначит улицу, город, штат и время встречи с курьером. Страница обновится сама, когда детали будут готовы.',
+  'Cash to hand over': 'Сумма наличных к передаче',
+  Street: 'Улица',
+  'City / state': 'Город / штат',
+  'Meet the courier only at the address above. They check your ID and collect exactly':
+    'Встречайте курьера только по адресу выше. Он проверит документ и заберёт ровно',
   'Nobody from this service will ask you to pay elsewhere, send crypto, or hand cash to someone without an ID check. If anything seems wrong, stop and contact support.':
     'Никто из сервиса не попросит заплатить в другом месте, отправить криптовалюту или передать наличные без проверки документа. Если что-то кажется странным, остановитесь и напишите в поддержку.',
   Progress: 'Ход выполнения',

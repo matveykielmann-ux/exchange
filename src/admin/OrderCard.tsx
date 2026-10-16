@@ -310,14 +310,14 @@ function CourierMeetingBlock({ detail, onResult, reload }: { detail: AdminOrderD
   const { admin } = useServices();
   const o = detail.order;
   const d = detail.courierDelivery;
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(!d);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
-    phone: '',
+    phone: detail.customer.phone ?? '',
     line1: '',
     line2: '',
     city: '',
-    state: '',
+    state: detail.customer.stateOfResidence ?? '',
     zip: '',
     window: 'any' as CourierWindow,
     preferredDate: '',
@@ -325,13 +325,14 @@ function CourierMeetingBlock({ detail, onResult, reload }: { detail: AdminOrderD
   });
   if (o.payout.method !== 'courier_cash') return null;
   const buy = o.direction === 'buy';
+  const canEdit = !d || !d.masked;
   const startEdit = () => {
     setForm({
-      phone: d && !d.masked ? d.phone : '',
+      phone: d && !d.masked ? d.phone : (detail.customer.phone ?? ''),
       line1: d && !d.masked ? d.line1 : '',
       line2: d && !d.masked ? d.line2 : '',
       city: d?.city ?? '',
-      state: d?.state ?? '',
+      state: d?.state ?? detail.customer.stateOfResidence ?? '',
       zip: d?.zip ?? '',
       window: (d?.window as CourierWindow) || 'any',
       preferredDate: d?.preferredDate ?? '',
@@ -344,6 +345,19 @@ function CourierMeetingBlock({ detail, onResult, reload }: { detail: AdminOrderD
       <h3 id="block-courier-meeting" className="order-block__title">
         {buy ? t('Courier collection meeting') : t('Courier delivery meeting')}
       </h3>
+      <dl className="kv" style={{ marginBottom: 12 }}>
+        <Row term={t('Cash to collect')}>
+          <span className="tabular">{formatUsd(o.quote.grossCents)}</span>
+        </Row>
+        <Row term={t('Customer')}>
+          {detail.customer.name}
+          {detail.customer.phone ? (
+            <span className="small muted block tabular">
+              {detail.customer.phone}
+            </span>
+          ) : null}
+        </Row>
+      </dl>
       {d ? (
         <dl className="kv">
           <Row term={t('Recipient')}>{d.recipient}</Row>
@@ -363,9 +377,13 @@ function CourierMeetingBlock({ detail, onResult, reload }: { detail: AdminOrderD
           {d.masked ? <p className="small muted">{t('Street address and phone are masked for your role.')}</p> : null}
         </dl>
       ) : (
-        <p className="small muted">{t('No courier address on this order yet.')}</p>
+        <p className="small muted">
+          {buy
+            ? t('No meeting point yet. Set the street, city, state and time where the courier will wait for this customer.')
+            : t('No courier address on this order yet.')}
+        </p>
       )}
-      {d && !d.masked ? (
+      {canEdit ? (
         editing ? (
           <form
             className="stack"
@@ -385,7 +403,11 @@ function CourierMeetingBlock({ detail, onResult, reload }: { detail: AdminOrderD
               }
             }}
           >
-            <p className="small muted">{t('Set where the courier should go and any notes for the visit.')}</p>
+            <p className="small muted">
+              {buy
+                ? t('Assign the meeting point for this order. The customer sees it live on their order page.')
+                : t('Set where the courier should go and any notes for the visit.')}
+            </p>
             <label className="field">
               <span className="field__label">{t('Phone')}</span>
               <input className="input" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} required />
@@ -456,14 +478,16 @@ function CourierMeetingBlock({ detail, onResult, reload }: { detail: AdminOrderD
               <button type="submit" className="btn btn--secondary" disabled={busy}>
                 {busy ? t('Saving…') : t('Save meeting details')}
               </button>
-              <button type="button" className="btn btn--ghost" onClick={() => setEditing(false)}>
-                {t('Cancel')}
-              </button>
+              {d ? (
+                <button type="button" className="btn btn--ghost" onClick={() => setEditing(false)}>
+                  {t('Cancel')}
+                </button>
+              ) : null}
             </div>
           </form>
         ) : (
           <button type="button" className="btn btn--secondary" style={{ marginTop: 12 }} onClick={startEdit}>
-            {t('Edit meeting details')}
+            {d ? t('Edit meeting details') : t('Set meeting details')}
           </button>
         )
       ) : null}

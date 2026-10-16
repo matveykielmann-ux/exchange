@@ -664,15 +664,19 @@ async function createBuyOrder(
       { field: 'receiveAddress' },
     );
 
-  // Wire/card need no saved destination: customer pays from their own bank/card.
+  // Wire/card need no saved destination. Cash collection: the meeting address is
+  // assigned later by staff in CRM — the customer only places the order + wallet.
   const dest =
-    wire || card
+    wire || card || !input.destinationId
       ? null
       : ctx.db.get<DestinationRow>(
           "SELECT * FROM payout_destinations WHERE id = ? AND user_id = ? AND status = 'active' AND kind = 'courier'",
           [input.destinationId, userId],
         );
-  if (!wire && !card && !dest) throw badRequest('Choose the address where the courier collects the cash.', { field: 'destinationId' });
+  if (!wire && !card && input.destinationId && !dest)
+    throw badRequest('That collection address was not found. Leave it blank — our team will set the meeting point.', {
+      field: 'destinationId',
+    });
 
   const docs = requireAcceptance(input.accepted, 'order');
 
@@ -745,9 +749,9 @@ async function createBuyOrder(
     });
   });
 
-  // Wire/card: wait in `created` until an admin issues payment instructions in CRM.
-  if (wire || card) return getOrderRow(ctx, id);
-  if (!dest) return getOrderRow(ctx, id);
+  // Wire/card/cash-without-meeting: wait in `created` until staff issues instructions
+  // (and, for cash, assigns the courier meeting address in CRM).
+  if (wire || card || !dest) return getOrderRow(ctx, id);
   // Courier collection waits until an operator sets the fee and the customer accepts it.
   if (feePending) return getOrderRow(ctx, id);
 
@@ -1443,6 +1447,8 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
     cardPayInPending: payIn === 'card' && o.status === 'created' && !cardPayInSnap,
     /** True when a sell has no deposit address yet (no CRM wallet / not assigned). */
     depositCredentialsPending: !buy && o.status === 'created' && !deposit,
+    /** Buy cash: waiting for staff to assign the courier meeting address in CRM. */
+    courierMeetingPending: buy && payIn === 'courier_cash' && !o.payout_destination_id,
     /** Sell: where crypto is returned, once the customer has given it. Null for a buy, whose cash is returned by courier. */
     refundAddress: buy ? null : o.refund_address,
     /** Sell: a refund is pending and waits for the customer's return address. */

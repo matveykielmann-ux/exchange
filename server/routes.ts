@@ -1014,7 +1014,7 @@ function registerAdminRoutes(r: Router, app: AppContext) {
   });
   r.post(
     '/api/admin/orders/:id/courier-meeting',
-    (ctx) => {
+    async (ctx) => {
       const b = parse(
         v.object({
           phone: v.string({ min: 7, max: 40, label: 'a phone number' }),
@@ -1029,19 +1029,35 @@ function registerAdminRoutes(r: Router, app: AppContext) {
         }),
         ctx.body,
       );
-      return {
-        body: customers.updateOrderCourierMeeting(app, staffActor(ctx), ctx.params.id!, {
-          phone: b.phone,
-          line1: b.line1,
-          line2: b.line2 ?? '',
-          city: b.city,
-          state: b.state,
-          zip: b.zip,
-          window: b.window,
-          preferredDate: b.preferredDate ?? '',
-          instructions: b.instructions ?? '',
-        }),
-      };
+      const meeting = customers.updateOrderCourierMeeting(app, staffActor(ctx), ctx.params.id!, {
+        phone: b.phone,
+        line1: b.line1,
+        line2: b.line2 ?? '',
+        city: b.city,
+        state: b.state,
+        zip: b.zip,
+        window: b.window,
+        preferredDate: b.preferredDate ?? '',
+        instructions: b.instructions ?? '',
+      });
+      // If the customer already accepted the courier fee while waiting for a meeting
+      // address, issue collection instructions now.
+      const row = orders.getOrderRow(app, ctx.params.id!);
+      if (
+        row.direction === 'buy' &&
+        row.payout_method === 'courier_cash' &&
+        row.payout_destination_id &&
+        row.courier_fee_pending === 0 &&
+        row.courier_fee_accepted_at !== null &&
+        row.status === 'created'
+      ) {
+        try {
+          await orders.issueBuyCashCollection(app, row);
+        } catch {
+          /* meeting is saved; collection can be retried from CRM */
+        }
+      }
+      return { body: meeting };
     },
     { ...staff(SUPPORT), rateLimit: WRITE_LIMIT },
   );

@@ -9,6 +9,7 @@ import { StatusRail } from '@/components/TransactionProgress';
 import { LiveIndicator } from '@/components/chat/Chat';
 import { Notice, StatusBadge } from '@/components/ui';
 import { ASSETS, NETWORKS, networkLabel } from '@/domain/assets';
+import { COURIER_WINDOW_LABELS } from '@/domain/courier';
 import { explorerAddressUrl } from '@/domain/explorer';
 import { formatUsd } from '@/domain/money';
 import { exchangeRateMicros, valueAtRateCents } from '@/domain/quote';
@@ -1397,34 +1398,93 @@ export function OrderPage() {
             </section>
           ) : null}
 
-          {order.status === 'awaiting_deposit' && buy && !wire ? (
+          {buy && !wire && order.payIn === 'courier_cash' ? (
             <section className="stack" aria-labelledby="collect-title">
               <h2 id="collect-title" className="flow__step-title">
                 {t('Have')} {formatUsd(order.quote.grossCents)} {t('in cash ready')}
               </h2>
-              <div className="deposit-box">
-                <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <strong>{t('Courier collection')}</strong>
-                  <Countdown to={order.deposit.deadline} prefix={t('Collection window closes in')} ended={t('Window closed')} />
+              {order.courierMeetingPending || !order.payout.delivery ? (
+                <Notice tone="info" title={t('Waiting for the courier meeting point')}>
+                  <p>
+                    {t(
+                      'Our team will assign the street address, city, state and time where the courier will meet you. This page updates by itself when the details are ready.',
+                    )}
+                  </p>
+                  <SupportContact title={t('Questions about this order?')} orderReference={order.reference} />
+                </Notice>
+              ) : (
+                <div className="deposit-box">
+                  <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <strong>{t('Courier collection')}</strong>
+                    {order.status === 'awaiting_deposit' ? (
+                      <Countdown to={order.deposit.deadline} prefix={t('Collection window closes in')} ended={t('Window closed')} />
+                    ) : null}
+                  </div>
+                  <dl className="dl" style={{ marginTop: 12 }}>
+                    <div>
+                      <dt>{t('Cash to hand over')}</dt>
+                      <dd className="tabular">{formatUsd(order.quote.grossCents)}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('Street')}</dt>
+                      <dd>
+                        {order.payout.delivery.line1}
+                        {order.payout.delivery.line2 ? (
+                          <span className="small muted block">{order.payout.delivery.line2}</span>
+                        ) : null}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{t('City / state')}</dt>
+                      <dd>
+                        {order.payout.delivery.city}, {order.payout.delivery.state} {order.payout.delivery.zip}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{t('Time window')}</dt>
+                      <dd>
+                        {t(COURIER_WINDOW_LABELS[order.payout.delivery.window])}
+                        {order.payout.delivery.preferredDate
+                          ? t(' · preferred {0}', [order.payout.delivery.preferredDate])
+                          : ''}
+                      </dd>
+                    </div>
+                    {order.payout.delivery.instructions ? (
+                      <div>
+                        <dt>{t('Meeting notes')}</dt>
+                        <dd>{order.payout.delivery.instructions}</dd>
+                      </div>
+                    ) : null}
+                    <div>
+                      <dt>{t('Phone')}</dt>
+                      <dd className="tabular">{order.payout.delivery.phone}</dd>
+                    </div>
+                  </dl>
+                  <ol className="small next-steps">
+                    <li>{t('Upload the photo ID you will show the courier (below).')}</li>
+                    <li>
+                      {t('Meet the courier only at the address above. They check your ID and collect exactly')}{' '}
+                      {formatUsd(order.quote.grossCents)}.
+                    </li>
+                    <li>
+                      {t('The cash is counted and verified, then')} {formatAsset(order.amountAtomic, order.asset)} {t('is sent to your')}{' '}
+                      {networkLabel(order.asset, order.network)} {t('wallet.')}
+                    </li>
+                  </ol>
+                  <div style={{ marginTop: 12 }}>
+                    <SupportContact title={t('Questions about this order?')} orderReference={order.reference} />
+                  </div>
                 </div>
-                <ol className="small next-steps">
-                  <li>{t('Upload the photo ID you will show the courier (below).')}</li>
-                  <li>
-                    {t('The courier calls to confirm the time, checks your ID and collects exactly')} {formatUsd(order.quote.grossCents)}.
-                  </li>
-                  <li>
-                    {t('The cash is counted and verified, then')} {formatAsset(order.amountAtomic, order.asset)} {t('is sent to your')}{' '}
-                    {networkLabel(order.asset, order.network)} {t('wallet.')}
-                  </li>
-                </ol>
-              </div>
-              <Notice tone="warn" title={t('Hand cash only to the courier at your saved address')}>
-                <p>
-                  {t(
-                    'Nobody from this service will ask you to pay elsewhere, send crypto, or hand cash to someone without an ID check. If anything seems wrong, stop and contact support.',
-                  )}
-                </p>
-              </Notice>
+              )}
+              {order.payout.delivery ? (
+                <Notice tone="warn" title={t('Hand cash only to the courier at this meeting point')}>
+                  <p>
+                    {t(
+                      'Nobody from this service will ask you to pay elsewhere, send crypto, or hand cash to someone without an ID check. If anything seems wrong, stop and contact support.',
+                    )}
+                  </p>
+                </Notice>
+              ) : null}
             </section>
           ) : null}
 

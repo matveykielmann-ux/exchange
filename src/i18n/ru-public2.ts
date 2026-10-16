@@ -174,6 +174,13 @@ export const RU_PUBLIC2: Record<string, string> = {
   Back: 'Назад',
   'Save or choose a collection address.': 'Сохраните или выберите адрес забора.',
   'Where should the courier collect the cash?': 'Где курьеру забрать наличные?',
+  'Courier meeting point': 'Точка встречи с курьером',
+  'After you place this order, our team will send you the street address, city, state and time where the courier will meet you to collect the cash. You do not choose the meeting point here.':
+    'После оформления заявки наша команда пришлёт улицу, город, штат и время, где курьер встретит вас для забора наличных. Точку встречи здесь выбирать не нужно.',
+  'Meeting point sent by our team after you confirm (shown on the order page).':
+    'Точку встречи пришлёт наша команда после подтверждения (на странице заявки).',
+  'Card. Payment instructions appear on your order page after you confirm.':
+    'Карта. Инструкции по оплате появятся на странице заявки после подтверждения.',
   'Collection address': 'Адрес забора',
   'Loading saved addresses…': 'Загрузка сохранённых адресов…',
   'No saved addresses yet. Add one below.': 'Сохранённых адресов пока нет. Добавьте адрес ниже.',
