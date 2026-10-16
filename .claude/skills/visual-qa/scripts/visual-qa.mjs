@@ -681,7 +681,7 @@ async function buyJourney(browser, width, server) {
   await page.waitForURL('**/orders/ord_*');
   await waitForHeading(page, 'Awaiting cash collection', where);
   const reference = (await page.locator('.eyebrow .mono').first().textContent())?.trim();
-  if (!/^CBX-/.test(reference ?? '')) fail(where, `unexpected order reference "${reference}"`);
+  if (!/^\d{10}$/.test(reference ?? '')) fail(where, `unexpected order reference "${reference}"`);
   await expectText(page, 'no courier will come', 'sandbox labelled');
   await shot(page, '04-order');
   step(4, `order ${reference} placed`);
@@ -700,7 +700,7 @@ async function buyJourney(browser, width, server) {
   // Server restart: the order, its status and the autopilot carry on.
   const restarted = await restartServer(server);
   await page.reload({ waitUntil: 'load' });
-  await expectText(page, reference ?? 'CBX-', 'order survives a server restart', 15_000);
+  await expectText(page, reference ?? '0000000000', 'order survives a server restart', 15_000);
   step(6, restarted ? 'server restarted; order intact' : 'external server: restart skipped');
 
   await waitForHeading(page, 'Ready to send crypto', where, 60_000);
