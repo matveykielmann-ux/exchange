@@ -496,6 +496,47 @@ export function revealOrderCardDestination(ctx: AppContext, actor: Actor, orderI
   };
 }
 
+/**
+ * Reveals full bank account details for an order's ACH/wire payout destination.
+ * Audits the view without recording the account number. Never returned on customer APIs.
+ */
+export function revealOrderBankDestination(ctx: AppContext, actor: Actor, orderId: string) {
+  if (!actor.role || !['support', 'reviewer', 'admin', 'owner'].includes(actor.role))
+    throw new ApiError(403, 'forbidden', 'Only staff can view full bank account details.');
+  const o = ctx.db.get<{ id: string; direction: string; payout_method: string; payout_destination_id: string | null }>(
+    'SELECT id, direction, payout_method, payout_destination_id FROM orders WHERE id = ?',
+    [orderId],
+  );
+  if (!o) throw notFound('Order not found.');
+  if (o.direction !== 'sell' || (o.payout_method !== 'ach' && o.payout_method !== 'wire') || !o.payout_destination_id)
+    throw conflict('This order has no bank payout destination.', 'not_bank_payout');
+  const d = ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [o.payout_destination_id]);
+  if (!d || d.kind !== 'bank') throw notFound('Bank destination not found.');
+  const plain = JSON.parse(decrypt(ctx.config.dataEncryptionKey, d.details_enc)) as {
+    routingNumber?: string;
+    accountNumber?: string;
+    accountType?: string;
+    holderName?: string;
+  };
+  if (!plain.routingNumber || !plain.accountNumber)
+    throw conflict('This bank destination has incomplete account details.', 'incomplete_bank');
+  audit(ctx, actor, {
+    action: 'destination.bank_viewed',
+    targetType: 'order',
+    targetId: orderId,
+    data: { destinationId: d.id, last4: d.last4 },
+  });
+  return {
+    destinationId: d.id,
+    last4: d.last4,
+    label: d.label,
+    routingNumber: plain.routingNumber,
+    accountNumber: plain.accountNumber,
+    accountType: plain.accountType === 'savings' ? 'savings' : 'checking',
+    holderName: plain.holderName ?? '',
+  };
+}
+
 export function removeDestination(ctx: AppContext, actor: Actor, userId: string, id: string) {
   const d = ctx.db.get<DestinationRow>("SELECT * FROM payout_destinations WHERE id = ? AND user_id = ? AND status = 'active'", [
     id,

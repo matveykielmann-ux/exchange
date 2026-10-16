@@ -667,19 +667,9 @@
   }
 }
 
-/* Side panel with the order card */
-[data-slot='sheet-content'].order-sheet {
-  width: min(760px, 100vw);
+.order-detail-page {
+  width: 100%;
   max-width: none;
-  overflow-y: auto;
-  padding: var(--s-6);
-  background: var(--canvas);
-  border-left: 1px solid var(--line);
-}
-@media (max-width: 560px) {
-  [data-slot='sheet-content'].order-sheet {
-    padding: var(--s-4);
-  }
 }
 
 .order-card__head {

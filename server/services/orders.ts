@@ -982,7 +982,7 @@ export function orderCardPayInSnapshot(ctx: AppContext, orderId: string) {
   );
 }
 
-/** Staff: assign or replace wire credentials on an order (replace needs confirm + reason once revealed). */
+/** Staff: assign or replace wire credentials on an order (replace needs confirm once revealed). */
 export function assignWireCredentials(
   ctx: AppContext,
   actor: Actor,
@@ -999,11 +999,9 @@ export function assignWireCredentials(
   const existing = orderWireSnapshot(ctx, orderId);
   if (existing?.revealedToCustomer && !opts.confirmReplace)
     throw conflict(
-      'The customer already has wire instructions. Confirm replacement and provide a reason to overwrite the snapshot.',
+      'The customer already has wire instructions. Confirm replacement to overwrite the snapshot.',
       'confirm_replace_required',
     );
-  if (existing?.revealedToCustomer && !opts.reason?.trim())
-    throw badRequest('Enter a reason for replacing issued credentials.', { field: 'reason' });
 
   const snap = wireRowToSnapshot(set);
   return ctx.db.tx(() => {
@@ -1056,11 +1054,9 @@ export function assignCustomWireCredentials(
   const revealed = !!existing?.revealedToCustomer || o.status !== 'created';
   if (existing?.revealedToCustomer && !input.confirmReplace)
     throw conflict(
-      'The customer already has wire instructions. Confirm replacement and provide a reason to overwrite the snapshot.',
+      'The customer already has wire instructions. Confirm replacement to overwrite the snapshot.',
       'confirm_replace_required',
     );
-  if (existing?.revealedToCustomer && !input.reason?.trim())
-    throw badRequest('Enter a reason for replacing issued credentials.', { field: 'reason' });
 
   const snap = {
     wireSetId: null as string | null,
@@ -1129,10 +1125,9 @@ export function assignWalletCredentials(
 
   if (revealed && !opts.confirmReplace)
     throw conflict(
-      'The customer already has a deposit address. Confirm replacement and provide a reason to overwrite the snapshot.',
+      'The customer already has a deposit address. Confirm replacement to overwrite the snapshot.',
       'confirm_replace_required',
     );
-  if (revealed && !opts.reason?.trim()) throw badRequest('Enter a reason for replacing the deposit address.', { field: 'reason' });
 
   const snap = walletRowToSnapshot(wallet);
   return ctx.db.tx(() => {

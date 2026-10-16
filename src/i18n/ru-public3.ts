@@ -542,13 +542,24 @@ export const RU_PUBLIC3: Record<string, string> = {
     'Вставьте реальный https-URL платёжной страницы вашего процессинга и/или текстовые инструкции. Не создавайте фальшивую платёжную страницу.',
   'Provide a payment page URL and/or payment instructions.': 'Укажите URL платёжной страницы и/или инструкции по оплате.',
   'Customer card for payout': 'Карта клиента для выплаты',
+  'Customer bank for payout': 'Банковский счёт клиента для выплаты',
   'Full card number': 'Полный номер карты',
   'Cardholder': 'Держатель карты',
+  'Account holder': 'Владелец счёта',
+  'Account type': 'Тип счёта',
+  Checking: 'Расчётный',
+  Savings: 'Накопительный',
+  'Routing number': 'Routing number',
   'Reveal full card number': 'Показать полный номер карты',
+  'Reveal bank account details': 'Показать банковские реквизиты',
   'Full card number revealed. This view was recorded in the audit log.':
     'Полный номер карты показан. Этот просмотр записан в журнал аудита.',
+  'Bank details revealed. This view was recorded in the audit log.':
+    'Банковские реквизиты показаны. Этот просмотр записан в журнал аудита.',
   'CVV/CVC is never stored. Pay out through your external service, then record the payout.':
     'CVV/CVC никогда не хранится. Выполните выплату во внешнем сервисе, затем зафиксируйте её.',
+  'Pay out through your external service, then record the payout on this order.':
+    'Выполните выплату во внешнем сервисе, затем зафиксируйте её в этой заявке.',
   'Awaiting payment instructions': 'Ожидание платёжных инструкций',
   'Your order is accepted. We are preparing the card payment page or instructions. When they are ready, they will appear here.':
     'Заявка принята. Мы готовим платёжную страницу или инструкции для оплаты картой. Когда они будут готовы, они появятся здесь.',

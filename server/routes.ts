@@ -852,6 +852,16 @@ function registerAdminRoutes(r: Router, app: AppContext) {
                   revealPath: `/api/admin/orders/${o.id}/card-destination`,
                 }
               : null,
+          bankDestinationSummary:
+            o.direction === 'sell' && (o.payout_method === 'ach' || o.payout_method === 'wire') && o.payout_destination_id
+              ? {
+                  destinationId: o.payout_destination_id,
+                  last4: o.payout_last4,
+                  label: o.payout_label,
+                  /** Full account/routing requires a separate audited reveal call. */
+                  revealPath: `/api/admin/orders/${o.id}/bank-destination`,
+                }
+              : null,
           notes: ops.orderNotes(app, o.id),
           reviews: app.db.all(
             'SELECT id, status, reason, opened_by AS openedBy, decided_by AS decidedBy, decision_reason AS decisionReason, created_at AS createdAt, decided_at AS decidedAt FROM compliance_reviews WHERE order_id = ? ORDER BY created_at',
@@ -1110,6 +1120,11 @@ function registerAdminRoutes(r: Router, app: AppContext) {
     '/api/admin/orders/:id/card-destination',
     (ctx) => ({ body: customers.revealOrderCardDestination(app, staffActor(ctx), ctx.params.id!) }),
     { ...staff(ADMIN), rateLimit: WRITE_LIMIT },
+  );
+  r.get(
+    '/api/admin/orders/:id/bank-destination',
+    (ctx) => ({ body: customers.revealOrderBankDestination(app, staffActor(ctx), ctx.params.id!) }),
+    { ...staff(SUPPORT), rateLimit: WRITE_LIMIT },
   );
 
   /* ---------- Credentials (wire sets + crypto wallets) ---------- */

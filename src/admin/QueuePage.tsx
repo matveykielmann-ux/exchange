@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { formatUsd } from '@/domain/money';
 import {
   buyPayIn,
@@ -19,7 +18,6 @@ import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import type { Overview, QueueItem, QueueQuery } from '@/services/adminTypes';
 import { useServices } from '@/state/services';
 import { useLiveEvents } from '@/state/useLive';
-import { OrderCard } from './OrderCard';
 import { queueNextStep } from './orderActions';
 import { AdminHead, LoadError, Pager } from './shared';
 import { useLoad } from './lib';
@@ -82,14 +80,15 @@ function amounts(o: QueueItem) {
 
 /**
  * The CRM home: every order, those waiting on a person first. A row opens the
- * order card in a side panel; filters and the open order live in the URL.
+ * order on its own full page; filters live in the URL.
  */
 export function QueuePage() {
   useDocumentTitle('Orders');
   const { admin } = useServices();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const query = readQuery(params);
-  const key = [...params.entries()].filter(([k]) => k !== 'open').join('&');
+  const key = [...params.entries()].join('&');
   const { data, error, reload } = useLoad(() => admin.queue(query), [key]);
   const overview = useLoad(() => admin.overview(), []);
   useLiveEvents((e) => {
@@ -99,7 +98,8 @@ export function QueuePage() {
     }
   });
   const [search, setSearch] = useState(query.q ?? '');
-  const openId = params.get('open');
+
+  const openOrder = (id: string) => navigate(`/admin/orders/${id}`);
 
   const set = (patch: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
@@ -304,7 +304,7 @@ export function QueuePage() {
                   return (
                     <tr key={o.id} className={step.urgent ? 'is-urgent' : undefined}>
                       <th scope="row">
-                        <button type="button" className="link-button mono" onClick={() => set({ open: o.id })}>
+                        <button type="button" className="link-button mono" onClick={() => openOrder(o.id)}>
                           {o.reference}
                         </button>
                         <span className="small muted block tabular">{formatDateTime(o.createdAt)}</span>
@@ -340,7 +340,7 @@ export function QueuePage() {
                         <button
                           type="button"
                           className={`btn ${step.urgent ? '' : 'btn--ghost'}`}
-                          onClick={() => set({ open: o.id })}
+                          onClick={() => openOrder(o.id)}
                           aria-label={`${t(step.label)} · ${o.reference}`}
                         >
                           {t(step.label)}
@@ -364,13 +364,6 @@ export function QueuePage() {
       ) : !error ? (
         <p className="muted">{t('Loading…')}</p>
       ) : null}
-
-      <Sheet open={!!openId} onOpenChange={(v) => (v ? undefined : set({ open: null }))}>
-        <SheetContent side="right" className="order-sheet" aria-describedby={undefined}>
-          <SheetTitle className="visually-hidden">{t('Order')}</SheetTitle>
-          {openId ? <OrderCard id={openId} headingLevel={2} /> : null}
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }

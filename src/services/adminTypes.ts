@@ -137,6 +137,8 @@ export interface AdminOrderDetail {
   courierDelivery: CourierDeliveryView | null;
   /** Sell → card: last4 summary; full PAN via audited reveal. */
   cardDestinationSummary: { destinationId: string; last4: string; label: string; revealPath: string } | null;
+  /** Sell → ACH/wire: last4 summary; full account via audited reveal. */
+  bankDestinationSummary: { destinationId: string; last4: string; label: string; revealPath: string } | null;
   notes: { id: string; body: string; createdAt: number; author: { id: string; email: string } }[];
   /** Every notice sent to the customer about this order (in-account and email record). */
   notifications: import('./types').Notification[];
@@ -409,6 +411,15 @@ export interface AdminApi {
       cardNumber: string;
       holderName: string;
       currency: string;
+    }>;
+    revealBankDestination(orderId: string): Promise<{
+      destinationId: string;
+      last4: string;
+      label: string;
+      routingNumber: string;
+      accountNumber: string;
+      accountType: 'checking' | 'savings';
+      holderName: string;
     }>;
     reviewPaymentConfirmation(
       orderId: string,

@@ -309,6 +309,16 @@ export async function createApiServices(base = ''): Promise<Services> {
         http.get<{ destinationId: string; last4: string; cardNumber: string; holderName: string; currency: string }>(
           `/api/admin/orders/${encodeURIComponent(orderId)}/card-destination`,
         ),
+      revealBankDestination: (orderId) =>
+        http.get<{
+          destinationId: string;
+          last4: string;
+          label: string;
+          routingNumber: string;
+          accountNumber: string;
+          accountType: 'checking' | 'savings';
+          holderName: string;
+        }>(`/api/admin/orders/${encodeURIComponent(orderId)}/bank-destination`),
       reviewPaymentConfirmation: async (orderId, body) =>
         toOrder(await http.post(`/api/admin/orders/${encodeURIComponent(orderId)}/review-payment-confirmation`, body)),
       postVerificationMessage: async (orderId, body) =>

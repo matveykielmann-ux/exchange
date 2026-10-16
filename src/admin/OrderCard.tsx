@@ -37,7 +37,7 @@ type Result = { tone: 'success' | 'danger'; text: string } | null;
 
 /**
  * The order card: everything an operator needs to decide and act on one
- * order. Used as the side panel of the order queue and as the full order page.
+ * order. Rendered on the full order page opened from the queue.
  */
 export function OrderCard({ id, headingLevel = 1 }: { id: string; headingLevel?: 1 | 2 }) {
   const { admin } = useServices();
@@ -90,6 +90,7 @@ export function OrderCard({ id, headingLevel = 1 }: { id: string; headingLevel?:
       <CredentialsBlock detail={data} onResult={setResult} reload={reload} />
       <CardPayInBlock detail={data} onResult={setResult} reload={reload} />
       <CardDestinationBlock detail={data} onResult={setResult} />
+      <BankDestinationBlock detail={data} onResult={setResult} />
       <PaymentReviewBlock detail={data} onResult={setResult} reload={reload} />
       <VerificationBlock detail={data} onResult={setResult} reload={reload} />
       <RefundRequestBlock detail={data} onResult={setResult} reload={reload} />
@@ -239,6 +240,78 @@ function CardDestinationBlock({ detail, onResult }: { detail: AdminOrderDetail; 
   );
 }
 
+/* ---------- Bank payout destination (sell → ACH / wire) ---------- */
+
+function BankDestinationBlock({ detail, onResult }: { detail: AdminOrderDetail; onResult(r: Result): void }) {
+  const { admin } = useServices();
+  const summary = detail.bankDestinationSummary;
+  const o = detail.order;
+  const [revealed, setRevealed] = useState<{
+    routingNumber: string;
+    accountNumber: string;
+    accountType: string;
+    holderName: string;
+  } | null>(null);
+  const [busy, setBusy] = useState(false);
+  if (!summary || o.direction !== 'sell' || (o.payout.method !== 'ach' && o.payout.method !== 'wire')) return null;
+  return (
+    <section className="order-block" aria-labelledby="block-bank-dest">
+      <h3 id="block-bank-dest" className="order-block__title">
+        {t('Customer bank for payout')}
+      </h3>
+      <dl className="kv">
+        <Row term={t('Label')}>{summary.label}</Row>
+        <Row term={t('Account')}>•••• {summary.last4}</Row>
+        <Row term={t('Method')}>{t(o.payout.methodName)}</Row>
+        <Row term={t('Payout amount')}>{formatUsd(o.quote.netCents)} USD</Row>
+        <Row term={t('Gross / fees')}>
+          {formatUsd(o.quote.grossCents)} − {formatUsd(o.quote.payoutFeeCents)} fee
+        </Row>
+        {revealed ? (
+          <>
+            <Row term={t('Account holder')}>{revealed.holderName || '—'}</Row>
+            <Row term={t('Account type')}>{t(revealed.accountType === 'savings' ? 'Savings' : 'Checking')}</Row>
+            <Row term={t('Routing number')}>
+              <span className="mono">{revealed.routingNumber}</span>
+            </Row>
+            <Row term={t('Account number')}>
+              <span className="mono">{revealed.accountNumber}</span>
+            </Row>
+          </>
+        ) : null}
+      </dl>
+      {!revealed ? (
+        <button
+          type="button"
+          className="btn btn--secondary"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              const r = await admin.credentials.revealBankDestination(o.id);
+              setRevealed({
+                routingNumber: r.routingNumber,
+                accountNumber: r.accountNumber,
+                accountType: r.accountType,
+                holderName: r.holderName,
+              });
+              onResult({ tone: 'success', text: t('Bank details revealed. This view was recorded in the audit log.') });
+            } catch (e) {
+              onResult({ tone: 'danger', text: errorMessage(e) });
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? t('Loading…') : t('Reveal bank account details')}
+        </button>
+      ) : (
+        <p className="small muted">{t('Pay out through your external service, then record the payout on this order.')}</p>
+      )}
+    </section>
+  );
+}
+
 /* ---------- Operation credentials (wire / deposit wallet) ---------- */
 
 function CredentialsBlock({ detail, onResult, reload }: { detail: AdminOrderDetail; onResult(r: Result): void; reload(): void }) {
@@ -251,7 +324,6 @@ function CredentialsBlock({ detail, onResult, reload }: { detail: AdminOrderDeta
   const [wallets, setWallets] = useState<{ id: string; name: string; address: string; isDefault: boolean }[]>([]);
   const [selected, setSelected] = useState('');
   const [confirmReplace, setConfirmReplace] = useState(false);
-  const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -284,16 +356,14 @@ function CredentialsBlock({ detail, onResult, reload }: { detail: AdminOrderDeta
     setBusy(true);
     try {
       if (wire) {
-        await admin.credentials.assignWire(o.id, selected, { confirmReplace: revealed ? confirmReplace : undefined, reason: revealed ? reason : undefined });
+        await admin.credentials.assignWire(o.id, selected, { confirmReplace: revealed ? confirmReplace : undefined });
       } else {
         await admin.credentials.assignWallet(o.id, selected, {
           confirmReplace: revealed ? confirmReplace : undefined,
-          reason: revealed ? reason : undefined,
         });
       }
       onResult({ tone: 'success', text: t('Credentials saved on this order.') });
       setConfirmReplace(false);
-      setReason('');
       reload();
     } catch (e) {
       onResult({ tone: 'danger', text: errorMessage(e) });
@@ -328,6 +398,8 @@ function CredentialsBlock({ detail, onResult, reload }: { detail: AdminOrderDeta
                 <span className="mono small">{snap.wire.swiftBic}</span>
               </Row>
             ) : null}
+            {snap.wire.bankAddress ? <Row term={t('Bank address')}>{snap.wire.bankAddress}</Row> : null}
+            {snap.wire.instructions ? <Row term={t('Instructions')}>{snap.wire.instructions}</Row> : null}
           </dl>
         ) : (
           <p className="small muted">{t('No bank credentials on this order yet. Assign a set below to issue instructions.')}</p>
@@ -366,18 +438,17 @@ function CredentialsBlock({ detail, onResult, reload }: { detail: AdminOrderDeta
           </select>
         </label>
         {revealed ? (
-          <>
-            <label className="row" style={{ gap: 8 }}>
-              <input type="checkbox" checked={confirmReplace} onChange={(e) => setConfirmReplace(e.target.checked)} />
-              <span className="small">{t('I confirm replacing credentials the customer may already have')}</span>
-            </label>
-            <label className="field">
-              <span className="field__label">{t('Reason for replacement')}</span>
-              <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} />
-            </label>
-          </>
+          <label className="row" style={{ gap: 8 }}>
+            <input type="checkbox" checked={confirmReplace} onChange={(e) => setConfirmReplace(e.target.checked)} />
+            <span className="small">{t('I confirm replacing credentials the customer may already have')}</span>
+          </label>
         ) : null}
-        <button type="button" className="btn btn--secondary" disabled={!selected || busy || (revealed && (!confirmReplace || reason.trim().length < 4))} onClick={() => void assign()}>
+        <button
+          type="button"
+          className="btn btn--secondary"
+          disabled={!selected || busy || (revealed && !confirmReplace)}
+          onClick={() => void assign()}
+        >
           {busy
             ? t('Saving…')
             : revealed
@@ -420,7 +491,6 @@ function CustomWireForm({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirmReplace, setConfirmReplace] = useState(false);
-  const [reason, setReason] = useState('');
   const [form, setForm] = useState({
     beneficiary: '',
     bankName: '',
@@ -453,7 +523,6 @@ function CustomWireForm({
             bankAddress: form.bankAddress || null,
             instructions: form.instructions || null,
             confirmReplace: revealed ? confirmReplace : undefined,
-            reason: revealed ? reason : undefined,
           });
           onResult({ tone: 'success', text: t('Credentials saved on this order.') });
           setOpen(false);
@@ -488,19 +557,13 @@ function CustomWireForm({
         </label>
       ))}
       {revealed ? (
-        <>
-          <label className="row" style={{ gap: 8 }}>
-            <input type="checkbox" checked={confirmReplace} onChange={(e) => setConfirmReplace(e.target.checked)} />
-            <span className="small">{t('I confirm replacing credentials the customer may already have')}</span>
-          </label>
-          <label className="field">
-            <span className="field__label">{t('Reason for replacement')}</span>
-            <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} required />
-          </label>
-        </>
+        <label className="row" style={{ gap: 8 }}>
+          <input type="checkbox" checked={confirmReplace} onChange={(e) => setConfirmReplace(e.target.checked)} />
+          <span className="small">{t('I confirm replacing credentials the customer may already have')}</span>
+        </label>
       ) : null}
       <div className="row" style={{ gap: 8 }}>
-        <button type="submit" className="btn btn--secondary" disabled={busy || (revealed && (!confirmReplace || reason.trim().length < 4))}>
+        <button type="submit" className="btn btn--secondary" disabled={busy || (revealed && !confirmReplace)}>
           {busy ? t('Saving…') : t('Save for this order')}
         </button>
         <button type="button" className="btn btn--ghost" onClick={() => setOpen(false)}>
