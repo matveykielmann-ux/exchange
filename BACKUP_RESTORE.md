@@ -7,8 +7,9 @@ CryptoBit Exchange uses **SQLite** (WAL mode) on a Docker volume (`arcvale-data`
 | Asset | Where | Notes |
 | --- | --- | --- |
 | Database | `/app/data/arcvale-production.db` (+ WAL/SHM while running) | Use the CLI `backup` command (`VACUUM INTO`) — never copy the live file with `cp` while the app is writing. |
-| Config (without secrets in the archive) | Host copy of `.env.production` template keys only, or a sealed secret store | Do **not** put `SESSION_SECRET` / `DATA_ENCRYPTION_KEY` in an open tarball. |
-| Uploaded documents | Application DB metadata only today | Sandbox discards upload bytes after checksum; production refuses document storage (`NOT_CONFIGURED`) until a document provider exists. There is no separate uploads directory to sync yet. |
+| Order attachments | `FILES_DIR` (default `/app/data/files`) | Encrypted blobs (AES-256-GCM). Metadata and `order_documents` rows stay in SQLite. |
+| KYC identity files | SQLite `kyc_files.content_enc` | Encrypted in the database; included in the DB backup. |
+| Config (without secrets in the archive) | Host copy of `.env.production` template keys only, or a sealed secret store | Do **not** put `SESSION_SECRET` / `DATA_ENCRYPTION_KEY` in an open tarball. Without `DATA_ENCRYPTION_KEY`, backups of encrypted files are unreadable. |
 
 ## Nightly backup (VPS)
 
@@ -20,7 +21,7 @@ From the repo root on the server:
 # 15 3 * * * cd /opt/cryptobit && ./deploy/scripts/backup.sh >> /var/log/cryptobit-backup.log 2>&1
 ```
 
-Produces `backups/arcvale-<UTC>.db.gz` + `.sha256`, verifies the audit hash chain, prunes files older than `KEEP_DAYS` (default 14).
+Produces `backups/arcvale-<UTC>.db.gz` + `.sha256` and `backups/arcvale-<UTC>-files.tar.gz` + `.sha256`, verifies the audit hash chain, prunes files older than `KEEP_DAYS` (default 14).
 
 Copy `backups/` off the server (object storage or another host). A backup that only exists on the same disk is not a backup.
 

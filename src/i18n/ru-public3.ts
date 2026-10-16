@@ -205,6 +205,7 @@ export const RU_PUBLIC3: Record<string, string> = {
   'Demo upload': 'Демо-загрузка',
   'KB · received': 'КБ · получен',
   ' · checked; file not retained on this instance': ' · проверен; файл на этом экземпляре не сохраняется',
+  ' · metadata only; file content was not retained': ' · только метаданные; содержимое файла не сохранено',
   'Upload the photo ID you will show the courier. The courier collects cash only from the verified account holder.':
     'Загрузите документ с фото, который покажете курьеру. Курьер забирает наличные только у подтверждённого владельца аккаунта.',
   ' Sandbox: use a test image, not a real document. The file is checked and then discarded.':

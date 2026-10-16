@@ -16,6 +16,8 @@ services:
       PORT: '8787'
       TRUST_PROXY: 'true'
       STATIC_DIR: /app/dist
+      # Same volume as the SQLite DB; override only if you intentionally split storage.
+      FILES_DIR: ${FILES_DIR:-/app/data/files}
     volumes:
       - arcvale-data:/app/data
       - ./backups:/app/backups
@@ -43,9 +45,8 @@ services:
       - '443:443'
       - '443:443/udp'
     environment:
-      # Prefer PUBLIC_DOMAIN / CRM_DOMAIN; ARCVALE_DOMAIN remains as a fallback alias.
-      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-${ARCVALE_DOMAIN:?Set PUBLIC_DOMAIN (or ARCVALE_DOMAIN) in .env.production}}
-      CRM_DOMAIN: ${CRM_DOMAIN:?Set CRM_DOMAIN in .env.production (e.g. crm.example.com)}
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?Set PUBLIC_DOMAIN in .env.production}
+      CRM_DOMAIN: ${CRM_DOMAIN:?Set CRM_DOMAIN in .env.production (e.g. crm.YOUR_DOMAIN)}
       ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env.production}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro

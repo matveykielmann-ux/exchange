@@ -1,18 +1,19 @@
 /**
- * Documents a customer uploads for an order: the photo ID the courier checks
- * at a cash handover. This is a demo flow. The file is validated (declared
- * type must match its magic bytes, size limit, sanitized name) and
- * fingerprinted with SHA-256; in sandbox mode the content is then discarded
- * and never written anywhere. There is no document-storage provider yet, so
- * production mode refuses uploads with NOT_CONFIGURED rather than keeping
- * identity documents in the application database.
+ * Documents attached to an order: courier photo ID, payment receipts, admin
+ * verification attachments and refund attachments. Files are validated
+ * (magic bytes, size, sanitized name), fingerprinted with SHA-256, encrypted
+ * with DATA_ENCRYPTION_KEY and written under FILES_DIR. Metadata stays in
+ * SQLite (`order_documents.stored = 1`). Content is never served as a static
+ * URL — only through authorized download handlers.
  */
 import { createHash } from 'node:crypto';
 import type { Actor, AppContext } from '../context';
-import { ApiError, badRequest, conflict, notConfigured } from '../http/errors';
+import { ApiError, badRequest, conflict, forbidden, notFound } from '../http/errors';
 import { newId } from '../lib/clock';
+import { STAFF_ROLES, type Role } from '../http/router';
 import { audit } from './audit';
-import { customerOrder, orderDocuments } from './orders';
+import { deleteOrderFile, readOrderFile, writeOrderFile } from './fileStore';
+import { customerOrder, getOrderRow, orderDocuments } from './orders';
 
 export const DOCUMENT_MAX_BYTES = 4 * 1024 * 1024;
 export const DOCUMENT_TYPES = ['image/jpeg', 'image/png', 'application/pdf'] as const;
@@ -67,7 +68,6 @@ export function uploadOrderDocument(
   input: { kind: 'id_document'; fileName: string; contentType: DocumentType; dataBase64: string },
 ) {
   const o = customerOrder(ctx, userId, orderId);
-  if (ctx.config.mode !== 'sandbox') throw notConfigured('Document storage');
   if (o.payout_method !== 'courier_cash')
     throw conflict('This order has no cash handover, so no ID upload is needed.', 'invalid_transition');
   if (o.status !== 'created' && o.status !== 'awaiting_deposit')
@@ -79,25 +79,113 @@ export function uploadOrderDocument(
     throw conflict(`An order can have at most ${MAX_PER_ORDER} uploads. Contact support if you need to replace one.`, 'too_many_documents');
 
   const { bytes, detected } = decodeUpload(input, { maxBytes: DOCUMENT_MAX_BYTES, allowed: DOCUMENT_TYPES });
-
   const id = newId('doc');
   const sha256 = createHash('sha256').update(bytes).digest('hex');
-  ctx.db.tx(() => {
-    ctx.db.run(
-      `INSERT INTO order_documents (id, order_id, user_id, kind, file_name, content_type, size_bytes, sha256, stored, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
-      [id, o.id, userId, input.kind, cleanName(input.fileName), detected, bytes.length, sha256, ctx.clock.now()],
-    );
-    audit(ctx, actor, {
-      action: 'order.document_uploaded',
-      targetType: 'order',
-      targetId: o.id,
-      data: { documentId: id, kind: input.kind, contentType: detected, sizeBytes: bytes.length, stored: false },
+  writeOrderFile(ctx, id, bytes);
+  try {
+    ctx.db.tx(() => {
+      ctx.db.run(
+        `INSERT INTO order_documents (id, order_id, user_id, kind, file_name, content_type, size_bytes, sha256, stored, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+        [id, o.id, userId, input.kind, cleanName(input.fileName), detected, bytes.length, sha256, ctx.clock.now()],
+      );
+      audit(ctx, actor, {
+        action: 'order.document_uploaded',
+        targetType: 'order',
+        targetId: o.id,
+        data: { documentId: id, kind: input.kind, contentType: detected, sizeBytes: bytes.length, stored: true },
+      });
     });
-  });
-  // Nothing keeps a reference to the content: it is discarded with the request.
+  } catch (e) {
+    deleteOrderFile(ctx, id);
+    throw e;
+  }
   ctx.db.afterCommit(() =>
     ctx.bus.publish([{ userId: o.user_id }, { staff: true }], { type: 'order.updated', data: { orderId: o.id, status: o.status } }),
   );
   return orderDocuments(ctx, o.id);
+}
+
+type DocRow = {
+  id: string;
+  order_id: string;
+  user_id: string;
+  kind: string;
+  file_name: string;
+  content_type: string;
+  size_bytes: number;
+  sha256: string;
+  stored: number;
+  visibility: string;
+  created_at: number;
+};
+
+/** Persist a validated upload for payment/refund/admin attachments (caller is already in a tx when needed). */
+export function persistOrderAttachment(
+  ctx: AppContext,
+  actor: Actor,
+  userId: string,
+  orderId: string,
+  file: { fileName: string; contentType: DocumentType; dataBase64: string },
+  kind: 'payment_receipt' | 'refund_attachment' | 'admin_attachment',
+  message?: string | null,
+): string {
+  const { bytes, detected } = decodeUpload(file, { maxBytes: DOCUMENT_MAX_BYTES, allowed: DOCUMENT_TYPES });
+  const id = newId('doc');
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
+  writeOrderFile(ctx, id, bytes);
+  try {
+    ctx.db.run(
+      `INSERT INTO order_documents
+        (id, order_id, user_id, kind, file_name, content_type, size_bytes, sha256, stored, created_at, visibility, message, author_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 'owner_staff', ?, ?)`,
+      [id, orderId, userId, kind, cleanName(file.fileName), detected, bytes.length, sha256, ctx.clock.now(), message ?? null, actor.id],
+    );
+  } catch (e) {
+    deleteOrderFile(ctx, id);
+    throw e;
+  }
+  return id;
+}
+
+/**
+ * Download an order attachment. Customers may open their own `owner_staff`
+ * files; any staff role may open order attachments used in operations.
+ * Support cannot open KYC identity files (separate handlers).
+ */
+export function downloadOrderDocument(
+  ctx: AppContext,
+  actor: Actor,
+  opts: { userId: string; role: Role; orderId: string; documentId: string },
+) {
+  const row = ctx.db.get<DocRow>('SELECT * FROM order_documents WHERE id = ? AND order_id = ?', [opts.documentId, opts.orderId]);
+  if (!row) throw notFound('Document not found.');
+  const staff = STAFF_ROLES.includes(opts.role);
+  if (!staff) {
+    if (row.user_id !== opts.userId) throw notFound('Document not found.');
+    if (row.visibility === 'staff_only') throw forbidden('This file is only available to staff.');
+    customerOrder(ctx, opts.userId, opts.orderId);
+  } else {
+    getOrderRow(ctx, opts.orderId);
+  }
+  if (row.stored !== 1) throw conflict('This file was not retained on the server.', 'file_not_stored');
+  const bytes = readOrderFile(ctx, row.id);
+  const sha = createHash('sha256').update(bytes).digest('hex');
+  if (sha !== row.sha256) throw new ApiError(500, 'internal', 'Stored file failed integrity check.');
+  if (staff) {
+    audit(ctx, actor, {
+      action: 'order.document_viewed',
+      targetType: 'order',
+      targetId: opts.orderId,
+      data: { documentId: row.id, kind: row.kind },
+    });
+  }
+  return {
+    id: row.id,
+    kind: row.kind,
+    fileName: row.file_name,
+    contentType: row.content_type,
+    sizeBytes: row.size_bytes,
+    dataBase64: bytes.toString('base64'),
+  };
 }

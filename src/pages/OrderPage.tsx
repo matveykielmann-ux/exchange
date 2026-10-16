@@ -641,7 +641,7 @@ function IdUpload({ order, onChange }: { order: OrderView; onChange: () => void 
                   <span className="small muted" style={{ display: 'block' }}>
                     {d.contentType.replace(/^.*\//, '').toUpperCase()} · {Math.max(1, Math.round(d.sizeBytes / 1024))} {t('KB · received')}{' '}
                     {formatDateTime(d.createdAt)}
-                    {d.stored ? '' : t(' · checked; file not retained on this instance')}
+                    {d.stored ? '' : t(' · metadata only; file content was not retained')}
                   </span>
                 </span>
               </li>

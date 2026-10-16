@@ -3,14 +3,13 @@
  * requests via support. Submitting a confirmation never auto-credits a deposit
  * or completes a payout — staff must review.
  */
-import { createHash } from 'node:crypto';
 import { validateTxHash } from '@/domain/validation';
 import { validateWireReference } from '@/domain/wire';
 import type { Actor, AppContext } from '../context';
 import { ApiError, badRequest, conflict, forbidden } from '../http/errors';
 import { newId } from '../lib/clock';
 import { audit } from './audit';
-import { DOCUMENT_MAX_BYTES, DOCUMENT_TYPES, cleanName, decodeUpload, type DocumentType } from './documents';
+import { persistOrderAttachment, type DocumentType } from './documents';
 import { applyOrderEvent, customerOrder, getOrderRow, orderDocuments } from './orders';
 import { notify } from './notifications';
 
@@ -62,16 +61,7 @@ function insertReceiptDocument(
   kind: 'payment_receipt' | 'refund_attachment' | 'admin_attachment',
   message?: string | null,
 ) {
-  const { bytes, detected } = decodeUpload(file, { maxBytes: DOCUMENT_MAX_BYTES, allowed: DOCUMENT_TYPES });
-  const id = newId('doc');
-  const sha256 = createHash('sha256').update(bytes).digest('hex');
-  ctx.db.run(
-    `INSERT INTO order_documents
-      (id, order_id, user_id, kind, file_name, content_type, size_bytes, sha256, stored, created_at, visibility, message, author_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'owner_staff', ?, ?)`,
-    [id, orderId, userId, kind, cleanName(file.fileName), detected, bytes.length, sha256, ctx.clock.now(), message ?? null, actor.id],
-  );
-  return id;
+  return persistOrderAttachment(ctx, actor, userId, orderId, file, kind, message);
 }
 
 function kycVerified(ctx: AppContext, userId: string): boolean {

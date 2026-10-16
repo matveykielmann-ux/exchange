@@ -5,6 +5,7 @@
  * silently doing something else.
  */
 import { randomBytes } from 'node:crypto';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 export type AppMode = 'sandbox' | 'production';
@@ -32,8 +33,13 @@ export interface AppConfig {
   /** Origins allowed for unsafe browser requests (CSRF). Always includes publicOrigin; crmOrigin when set. */
   allowedOrigins: string[];
   databasePath: string;
+  /**
+   * Persistent directory for encrypted order attachments (not served statically).
+   * Defaults to `<dir-of-DATABASE_PATH>/files`, or a temp dir when the DB is `:memory:`.
+   */
+  filesDir: string;
   sessionSecret: string;
-  /** 32-byte key for AES-256-GCM encryption of payout details and TOTP secrets. */
+  /** 32-byte key for AES-256-GCM encryption of payout details, TOTP secrets and file blobs. */
   dataEncryptionKey: Buffer;
   trustProxy: boolean;
   logLevel: LogLevel;
@@ -176,6 +182,24 @@ export function loadConfig(env: Env = process.env): AppConfig {
   if (!production && /production/i.test(path.basename(databasePath)))
     problems.push('A sandbox server must not open a database file named for production.');
 
+  const defaultFilesDir =
+    databasePath === ':memory:'
+      ? path.join(tmpdir(), 'arcvale-files-memory')
+      : path.join(path.dirname(databasePath), 'files');
+  const filesDirExplicit = !!(env.FILES_DIR && env.FILES_DIR.trim());
+  const filesDir = path.resolve(filesDirExplicit ? env.FILES_DIR!.trim() : defaultFilesDir);
+  // Reject an explicitly configured temp path in production (defaults next to DATABASE_PATH are fine for tests).
+  const tmpRoot = path.resolve(tmpdir());
+  if (
+    production &&
+    filesDirExplicit &&
+    (filesDir === tmpRoot || filesDir.startsWith(tmpRoot + path.sep) || filesDir === '/tmp' || filesDir.startsWith('/tmp/'))
+  )
+    problems.push('FILES_DIR must be a persistent path in production (not a temporary directory).');
+  // Keep uploads on the data volume: refuse paths that look like the build output.
+  if (/[/\\]dist([/\\]|$)/.test(filesDir) || /[/\\]node_modules([/\\]|$)/.test(filesDir))
+    problems.push('FILES_DIR must not be inside dist/ or node_modules/.');
+
   const logLevel = (env.LOG_LEVEL ?? 'info') as LogLevel;
   if (!['debug', 'info', 'warn', 'error'].includes(logLevel)) problems.push('LOG_LEVEL must be debug, info, warn or error.');
 
@@ -244,6 +268,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     crmOrigin,
     allowedOrigins,
     databasePath,
+    filesDir,
     sessionSecret,
     dataEncryptionKey,
     trustProxy: bool(env.TRUST_PROXY, false),

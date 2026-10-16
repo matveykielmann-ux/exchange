@@ -29,7 +29,7 @@ import { listNotifications, markNotificationsRead, orderNotifications, unreadNot
 import * as ops from './services/operations';
 import * as orders from './services/orders';
 import { firmQuote, indicativeQuote, referencePrice, type QuoteInput } from './services/quotes';
-import { DOCUMENT_TYPES, uploadOrderDocument } from './services/documents';
+import { DOCUMENT_TYPES, downloadOrderDocument, uploadOrderDocument } from './services/documents';
 import * as payConfirm from './services/paymentConfirmations';
 import * as kyc from './services/kyc';
 import { ID_DOCUMENT_TYPES, KYC_FILE_KINDS, KYC_FILE_MAX_BYTES } from '@/domain/identity';
@@ -616,6 +616,18 @@ export function registerRoutes(r: Router, app: AppContext) {
     },
     { auth: 'user', maxBodyBytes: 6 * 1024 * 1024, rateLimit: { bucket: 'documents', max: 10, windowMs: 60 * 60_000 } },
   );
+  r.get(
+    '/api/orders/:id/documents/:docId',
+    (ctx) => ({
+      body: downloadOrderDocument(app, actorOf(ctx), {
+        userId: me(ctx),
+        role: ctx.auth!.role,
+        orderId: ctx.params.id!,
+        documentId: ctx.params.docId!,
+      }),
+    }),
+    { auth: 'user', rateLimit: { bucket: 'documents-read', max: 60, windowMs: 60_000 } },
+  );
 
   r.post(
     '/api/orders/:id/payment-confirmation',
@@ -851,6 +863,18 @@ function registerAdminRoutes(r: Router, app: AppContext) {
       };
     },
     staff(),
+  );
+  r.get(
+    '/api/admin/orders/:id/documents/:docId',
+    (ctx) => ({
+      body: downloadOrderDocument(app, staffActor(ctx), {
+        userId: me(ctx),
+        role: ctx.auth!.role,
+        orderId: ctx.params.id!,
+        documentId: ctx.params.docId!,
+      }),
+    }),
+    staff(SUPPORT),
   );
 
   const orderAction = (path: string, roles: Role[], run: (ctx: Ctx, id: string) => unknown) =>

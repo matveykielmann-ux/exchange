@@ -150,7 +150,7 @@ export interface OrderDocumentView {
   contentType: string;
   sizeBytes: number;
   sha256: string;
-  /** False in the sandbox: the file was checked and discarded; only this record is kept. */
+  /** True when the encrypted file bytes are kept under FILES_DIR (or historically retained). */
   stored: boolean;
   createdAt: number;
 }

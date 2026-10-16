@@ -155,11 +155,12 @@ describe('production mode without credentials', () => {
     expect(cookies.every((c) => /Secure/.test(c))).toBe(true);
     const cookie = cookies.map((c) => c.split(';')[0]).join('; ');
     const csrf = signup.body.csrfToken as string;
+    // Provider-backed identity hop stays off without KYC_PROVIDER_*; document KYC uses local encrypted storage.
     const kyc = await call('POST', '/api/me/verification', {}, cookie, csrf);
     expect(kyc.body.error.code).toBe('NOT_CONFIGURED');
-    // Identity documents are not kept until a document-storage decision is made for production.
     const idType = await call('PUT', '/api/me/kyc/id-type', { idType: 'passport' }, cookie, csrf);
-    expect(idType.body.error.code).toBe('NOT_CONFIGURED');
+    expect(idType.status).toBe(200);
+    expect(idType.body.submission).toMatchObject({ idType: 'passport', status: 'draft' });
     const bank = await call(
       'POST',
       '/api/me/destinations/bank',

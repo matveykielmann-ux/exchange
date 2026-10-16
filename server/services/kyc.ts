@@ -5,13 +5,11 @@
  * more information or rejects in the CRM, always with a recorded reason.
  *
  * Files are checked like order documents (magic bytes, size, clean name) and
- * kept encrypted at rest (AES-256-GCM with the data encryption key). Only the
- * customer who uploaded a file and reviewer-level staff can open it; support
- * staff cannot. Every staff view of a file is written to the audit log.
- *
- * There is no document-storage provider yet, so production mode refuses
- * uploads with NOT_CONFIGURED; the sandbox keeps the (test) files in its own
- * database.
+ * kept encrypted at rest in SQLite (`content_enc`, AES-256-GCM with
+ * DATA_ENCRYPTION_KEY). Only the customer who uploaded a file and
+ * reviewer-level staff can open it; support staff cannot. Every staff view of
+ * a file is written to the audit log. Order attachments use FILES_DIR instead
+ * (see `documents.ts` / `fileStore.ts`).
  */
 import { createHash } from 'node:crypto';
 import {
@@ -98,10 +96,6 @@ function submissionView(ctx: AppContext, s: SubmissionRow, forCustomer = false) 
   };
 }
 
-function requireStorage(ctx: AppContext) {
-  if (ctx.config.mode !== 'sandbox') throw notConfigured('Document storage');
-}
-
 /** The customer’s verification status and their latest submission. */
 export function customerKyc(ctx: AppContext, userId: string) {
   const p = getProfile(ctx, userId);
@@ -136,7 +130,6 @@ function openSubmission(ctx: AppContext, actor: Actor, userId: string, idType?: 
 }
 
 export function setIdType(ctx: AppContext, actor: Actor, userId: string, idType: IdDocumentType) {
-  requireStorage(ctx);
   const s = openSubmission(ctx, actor, userId, idType);
   if (s.id_type !== idType) {
     ctx.db.tx(() => {
@@ -155,7 +148,6 @@ export function uploadKycFile(
   userId: string,
   input: { kind: KycFileKind; fileName: string; contentType: DocumentType; dataBase64: string },
 ) {
-  requireStorage(ctx);
   const s = openSubmission(ctx, actor, userId);
   if (input.kind === 'id_back' && s.id_type === 'passport') throw badRequest('A passport needs only the photo page.', { field: 'kind' });
   const { bytes, detected } = decodeUpload(input, { maxBytes: KYC_FILE_MAX_BYTES, allowed: acceptedFileTypes(input.kind) });
@@ -194,7 +186,6 @@ export function uploadKycFile(
 
 /** Sends a complete submission for review. Sanctions screening runs first and can reject it outright. */
 export async function submitKyc(ctx: AppContext, actor: Actor, userId: string) {
-  requireStorage(ctx);
   const s = openSubmission(ctx, actor, userId);
   const missing = missingKycFiles(
     s.id_type,

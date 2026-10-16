@@ -583,7 +583,7 @@ describe('API', () => {
     // A buy has no transaction hash to submit.
     expect((await c.post(`/api/orders/${id}/report-sent`, { txHash: 'ab'.repeat(32) })).status).toBe(409);
 
-    // ID upload: the declared type must match the bytes; the file is checked, fingerprinted and discarded.
+    // ID upload: magic bytes / size / name checks; content is encrypted under FILES_DIR.
     const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(64, 1)]).toString('base64');
     const upload = (contentType: string, dataBase64: string) =>
       c.post(`/api/orders/${id}/documents`, { kind: 'id_document', fileName: '../id photo.png', contentType, dataBase64 });
@@ -593,7 +593,19 @@ describe('API', () => {
     const up = await upload('image/png', png);
     expect(up.status).toBe(201);
     expect(up.body.documents).toHaveLength(1);
-    expect(up.body.documents[0]).toMatchObject({ fileName: 'id photo.png', contentType: 'image/png', stored: false, sizeBytes: 72 });
+    expect(up.body.documents[0]).toMatchObject({ fileName: 'id photo.png', contentType: 'image/png', stored: true, sizeBytes: 72 });
+    const docId = up.body.documents[0].id as string;
+    const dl = await c.get(`/api/orders/${id}/documents/${docId}`);
+    expect(dl.status).toBe(200);
+    expect(dl.body.dataBase64).toBe(png);
+    const stranger = env.client();
+    await customer(stranger, 'other-doc@example.test');
+    expect((await stranger.get(`/api/orders/${id}/documents/${docId}`)).status).toBe(404);
+    const staffDl = await (await staff(env.app, env.base, 'admin', 'doc-admin@arcvale.test')).get(
+      `/api/admin/orders/${id}/documents/${docId}`,
+    );
+    expect(staffDl.status).toBe(200);
+    expect(staffDl.body.dataBase64).toBe(png);
 
     // Deposit events for a buy must come from the cash provider, not custody.
     const wrong = deliver(env.ctx, 'custody', {

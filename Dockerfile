@@ -22,7 +22,7 @@ WORKDIR /app
 RUN apt-get update \
   && apt-get install -y --no-install-recommends tini \
   && rm -rf /var/lib/apt/lists/* \
-  && mkdir -p /app/data /app/backups \
+  && mkdir -p /app/data /app/data/files /app/backups \
   && chown -R node:node /app/data /app/backups
 COPY --from=build --chown=root:root /app/dist ./dist
 COPY --from=build --chown=root:root /app/dist-server ./dist-server

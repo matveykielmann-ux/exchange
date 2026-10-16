@@ -71,6 +71,7 @@ const commands: Record<string, () => Promise<void> | void> = {
     out(`crm origin: ${c.crmOrigin ?? '(same host as PUBLIC_ORIGIN — local/dev only)'}`);
     out(`allowed origins: ${c.allowedOrigins.join(', ')}`);
     out(`database: ${c.databasePath}`);
+    out(`files dir: ${c.filesDir}`);
     out(`staff MFA required: ${c.requireStaffMfa}`);
     out('providers:');
     for (const p of providerInfos(app.ctx.providers)) out(`  ${p.key.padEnd(11)} ${p.state.padEnd(18)} ${p.detail}`);

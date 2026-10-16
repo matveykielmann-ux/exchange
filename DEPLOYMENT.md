@@ -19,6 +19,7 @@ This is the primary runbook for putting the app on a VPS with:
 | Caddy | HTTPS for `PUBLIC_DOMAIN` and `CRM_DOMAIN`, reverse-proxies both to `app:8787`. |
 | Browser origins | Customer cookies stay on `PUBLIC_ORIGIN`; CRM cookies stay on `CRM_ORIGIN` (host-only, no `Domain=`). Admin APIs still require staff role + MFA. |
 | SPA surface | Same JS bundle: on the CRM host only `/admin*` is shown; on the customer host `/admin*` redirects to the CRM origin. |
+| Files | Encrypted order attachments under `FILES_DIR` (default `/app/data/files` on the data volume). KYC files encrypted in SQLite. No public URL to raw uploads. |
 
 Local single-host mode (no `CRM_ORIGIN`) keeps the previous behaviour: customer site and `/admin` on one origin. Production **requires** `CRM_ORIGIN`.
 
