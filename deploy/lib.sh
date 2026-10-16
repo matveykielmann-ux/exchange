@@ -3,9 +3,11 @@
 # Sourced by install.sh / preflight.sh / configure-env.sh — not executed alone.
 # shellcheck shell=bash
 
+CRYPTOBIT_LIB_LOADED=1
+# Compat alias for older sourced snippets.
 ARCVALE_LIB_LOADED=1
 
-arcvale_root() {
+repo_root() {
   # Prefer caller-set ROOT; otherwise resolve from this file's directory.
   if [[ -n "${ROOT:-}" ]]; then
     printf '%s\n' "$ROOT"
@@ -16,27 +18,31 @@ arcvale_root() {
   printf '%s\n' "$here"
 }
 
+# Backward-compatible name (scripts may still call arcvale_root).
+arcvale_root() { repo_root; }
+
 log() { printf '%s\n' "$*"; }
 log_err() { printf '%s\n' "$*" >&2; }
 
 # Never print secret values. Redact lines that look like key assignments.
 redact_line() {
   local line="$1"
-  if [[ "$line" =~ ^(SESSION_SECRET|DATA_ENCRYPTION_KEY|.*_API_KEY|.*_WEBHOOK_SECRET|ARCVALE_NEW_PASSWORD)= ]]; then
+  if [[ "$line" =~ ^(SESSION_SECRET|DATA_ENCRYPTION_KEY|.*_API_KEY|.*_WEBHOOK_SECRET|ARCVALE_NEW_PASSWORD|CRYPTOBIT_NEW_PASSWORD)= ]]; then
     printf '%s=***REDACTED***\n' "${line%%=*}"
   else
     printf '%s\n' "$line"
   fi
 }
 
-# --- status reporting (PASS / WARN / FAIL / BLOCKER) ---
+# --- status reporting (PASS / WARN / FAIL / BLOCKER) with readiness layers ---
+# Layers: tech | dns | backup | integrations | money
 REPORT_LINES=()
 REPORT_HAS_BLOCKER=0
 REPORT_HAS_FAIL=0
 
 report() {
-  local level="$1" code="$2" message="$3"
-  REPORT_LINES+=("${level}|${code}|${message}")
+  local level="$1" code="$2" message="$3" layer="${4:-tech}"
+  REPORT_LINES+=("${layer}|${level}|${code}|${message}")
   case "$level" in
     BLOCKER) REPORT_HAS_BLOCKER=1 ;;
     FAIL) REPORT_HAS_FAIL=1 ;;
@@ -44,28 +50,70 @@ report() {
   printf '[%s] %s — %s\n' "$level" "$code" "$message"
 }
 
-print_report_summary() {
-  local line level code msg ready_tech ready_money
-  log ""
-  log "======== Preflight / install report ========"
-  for line in "${REPORT_LINES[@]+"${REPORT_LINES[@]}"}"; do
-    level="${line%%|*}"
+_layer_worst() {
+  # stdin: lines "layer|level|..." ; arg1 = layer name → prints PASS|WARN|FAIL|BLOCKER|NONE
+  local want="$1" line level code_layer worst="NONE"
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    code_layer="${line%%|*}"
+    [[ "$code_layer" == "$want" ]] || continue
     rest="${line#*|}"
-    code="${rest%%|*}"
-    msg="${rest#*|}"
-    printf '  %-8s %-28s %s\n' "$level" "$code" "$msg"
+    level="${rest%%|*}"
+    case "$level" in
+      BLOCKER) worst="BLOCKER" ;;
+      FAIL) [[ "$worst" != "BLOCKER" ]] && worst="FAIL" ;;
+      WARN) [[ "$worst" == "NONE" || "$worst" == "PASS" ]] && worst="WARN" ;;
+      PASS) [[ "$worst" == "NONE" ]] && worst="PASS" ;;
+    esac
   done
+  printf '%s\n' "$worst"
+}
+
+_layer_label() {
+  case "$1" in
+    PASS) printf 'YES' ;;
+    WARN) printf 'PARTIAL (warnings)' ;;
+    FAIL) printf 'NO (failures)' ;;
+    BLOCKER) printf 'NO (blockers)' ;;
+    *) printf 'NOT ASSESSED' ;;
+  esac
+}
+
+print_report_summary() {
+  local line level code msg layer
+  local tech dns backup integ money
+  local dump=""
+  log ""
+  log "======== CryptoBit Exchange preflight report ========"
+  for line in "${REPORT_LINES[@]+"${REPORT_LINES[@]}"}"; do
+    layer="${line%%|*}"
+    rest="${line#*|}"
+    level="${rest%%|*}"
+    rest2="${rest#*|}"
+    code="${rest2%%|*}"
+    msg="${rest2#*|}"
+    printf '  %-8s %-28s %s\n' "$level" "$code" "$msg"
+    dump+="${line}"$'\n'
+  done
+  tech="$(_layer_worst tech <<<"$dump")"
+  dns="$(_layer_worst dns <<<"$dump")"
+  backup="$(_layer_worst backup <<<"$dump")"
+  integ="$(_layer_worst integrations <<<"$dump")"
+  money="$(_layer_worst money <<<"$dump")"
+
   log "--------------------------------------------"
-  if [[ "$REPORT_HAS_BLOCKER" -eq 0 && "$REPORT_HAS_FAIL" -eq 0 ]]; then
-    ready_tech="YES — application stack checks passed"
-  else
-    ready_tech="NO — fix BLOCKER/FAIL items before go-live"
-  fi
-  ready_money="NO until contracted providers are configured and compliance gate is signed"
-  log "Technical readiness:  $ready_tech"
-  log "Integration readiness: see provider states (NOT_CONFIGURED is expected until credentials exist)"
-  log "Real-money readiness:  $ready_money"
-  log "============================================"
+  log "Readiness layers (do not conflate):"
+  log "  1. Application (tech):     $(_layer_label "$tech")  [$tech]"
+  log "  2. DNS / TLS:              $(_layer_label "$dns")  [$dns]"
+  log "  3. Backups:                $(_layer_label "$backup")  [$backup]"
+  log "  4. Integrations:           $(_layer_label "$integ")  [$integ]"
+  log "  5. Real-money clearance:   $(_layer_label "$money")  [$money]"
+  log ""
+  log "Notes:"
+  log "  • /api/ready = process + DB only — not financial go-live."
+  log "  • Providers in not_configured stay blocked (no production simulation)."
+  log "  • CoinGecko is reference prices only, not settlement."
+  log "===================================================="
   if [[ "$REPORT_HAS_BLOCKER" -ne 0 ]]; then
     return 2
   fi
@@ -78,7 +126,7 @@ print_report_summary() {
 # --- .env helpers (never log values) ---
 
 env_file_default() {
-  printf '%s\n' "$(arcvale_root)/.env.production"
+  printf '%s\n' "$(repo_root)/.env.production"
 }
 
 # Return value for KEY from FILE, empty if missing. Strips surrounding quotes.
@@ -100,14 +148,33 @@ env_has_value() {
   [[ -n "$val" ]]
 }
 
+# True when value is empty or still a template placeholder (must not ship to production).
 is_placeholder() {
   local val="$1"
+  [[ -z "$val" ]] && return 0
+  # Any leftover YOUR_DOMAIN token is forbidden.
+  if [[ "$val" == *YOUR_DOMAIN* ]]; then
+    return 0
+  fi
   case "$val" in
-    ''|YOUR_DOMAIN|crm.YOUR_DOMAIN|ops@YOUR_DOMAIN|https://YOUR_DOMAIN|https://crm.YOUR_DOMAIN|change-me*|CHANGE_ME*)
+    change-me*|CHANGE_ME*|example.com|crm.example.com|https://example.com|https://crm.example.com)
+      # Bare example.com is reserved for documentation — use a real hostname.
       return 0
       ;;
   esac
   return 1
+}
+
+# Exit non-zero with a clear message if domain/email still contain placeholders.
+refuse_placeholder() {
+  local label="$1" val="$2"
+  if is_placeholder "$val"; then
+    log_err "${label} is missing or still a placeholder (${val:-empty})."
+    log_err "Replace YOUR_DOMAIN with your real hostname, e.g. exchange.example.com"
+    log_err "Example: ./deploy/configure-env.sh --domain exchange.example.com --email ops@example.com"
+    return 1
+  fi
+  return 0
 }
 
 # Set KEY=VALUE only when KEY is missing or empty/placeholder. Never overwrite real secrets.

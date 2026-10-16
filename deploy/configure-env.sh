@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Prepare .env.production for CryptoBit Exchange without overwriting live secrets.
-# Usage:
-#   PUBLIC_DOMAIN=example.com ACME_EMAIL=ops@example.com ./deploy/configure-env.sh
-#   ./deploy/configure-env.sh --domain example.com --email ops@example.com
+# Usage (replace with your real hostname and ops mailbox — never leave YOUR_DOMAIN):
+#   ./deploy/configure-env.sh --domain exchange.example.com --email ops@example.com
+#   PUBLIC_DOMAIN=exchange.example.com ACME_EMAIL=ops@example.com ./deploy/configure-env.sh
 # Idempotent: existing SESSION_SECRET / DATA_ENCRYPTION_KEY are never replaced.
 set -euo pipefail
 
@@ -32,6 +32,9 @@ Usage: configure-env.sh [--domain HOST] [--email ADDR] [--crm-domain HOST]
 Creates or updates .env.production from .env.example.
 Never overwrites non-empty SESSION_SECRET or DATA_ENCRYPTION_KEY.
 Writes a one-time offline key reminder under secrets/ (gitignored) when a new key is generated.
+
+HOST must be a real DNS name — not the literal string YOUR_DOMAIN.
+Example: --domain exchange.example.com --email ops@example.com
 EOF
       exit 0
       ;;
@@ -59,38 +62,46 @@ else
   log "Using existing $ENV_FILE (secrets will not be overwritten)."
 fi
 
-# Domain / origins
+# Domain / origins — never accept the literal YOUR_DOMAIN token.
+if [[ -n "$DOMAIN" ]] && is_placeholder "$DOMAIN"; then
+  refuse_placeholder PUBLIC_DOMAIN "$DOMAIN" || exit 1
+fi
 if [[ -z "$DOMAIN" ]]; then
   DOMAIN="$(env_get PUBLIC_DOMAIN "$ENV_FILE")"
 fi
 if is_placeholder "$DOMAIN"; then
   if [[ -t 0 ]]; then
-    read -r -p "Public domain (e.g. exchange.example.com): " DOMAIN
+    read -r -p "Public domain (e.g. exchange.example.com — not YOUR_DOMAIN): " DOMAIN
   else
-    log_err "PUBLIC_DOMAIN is required (pass --domain or set PUBLIC_DOMAIN)."
+    log_err "PUBLIC_DOMAIN is required (pass --domain with a real hostname, not YOUR_DOMAIN)."
     exit 1
   fi
 fi
-if is_placeholder "$DOMAIN"; then
-  log_err "PUBLIC_DOMAIN still looks like a placeholder."
-  exit 1
-fi
+refuse_placeholder PUBLIC_DOMAIN "$DOMAIN" || exit 1
 
+if [[ -n "$CRM_SUB" ]] && is_placeholder "$CRM_SUB"; then
+  refuse_placeholder CRM_DOMAIN "$CRM_SUB" || exit 1
+fi
 if [[ -z "$CRM_SUB" ]] || is_placeholder "$CRM_SUB"; then
   CRM_SUB="crm.${DOMAIN}"
 fi
+refuse_placeholder CRM_DOMAIN "$CRM_SUB" || exit 1
 
+if [[ -n "$EMAIL" ]] && is_placeholder "$EMAIL"; then
+  refuse_placeholder ACME_EMAIL "$EMAIL" || exit 1
+fi
 if [[ -z "$EMAIL" ]]; then
   EMAIL="$(env_get ACME_EMAIL "$ENV_FILE")"
 fi
 if is_placeholder "$EMAIL"; then
   if [[ -t 0 ]]; then
-    read -r -p "ACME email for Let's Encrypt: " EMAIL
+    read -r -p "ACME email for Let's Encrypt (e.g. ops@example.com): " EMAIL
   else
-    log_err "ACME_EMAIL is required (pass --email or set ACME_EMAIL)."
+    log_err "ACME_EMAIL is required (pass --email with a real mailbox, not ops@YOUR_DOMAIN)."
     exit 1
   fi
 fi
+refuse_placeholder ACME_EMAIL "$EMAIL" || exit 1
 
 env_set_if_empty APP_MODE production "$ENV_FILE"
 env_set_if_empty NODE_ENV production "$ENV_FILE"

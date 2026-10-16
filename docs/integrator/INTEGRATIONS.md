@@ -34,10 +34,10 @@ Alternative: `RATES_PROVIDER_URL` + `RATES_PROVIDER_API_KEY` for a contracted ra
 | --- | --- |
 | Env | `CUSTODY_PROVIDER_URL`, `CUSTODY_PROVIDER_API_KEY`, `CUSTODY_PROVIDER_WEBHOOK_SECRET` (≥32 chars) |
 | Where to get | Your contracted custody / wallet infrastructure vendor |
-| Config check | `check-config` → `custody configured` |
-| Availability | Vendor health/sandbox; webhook `POST /api/webhooks/custody` with `X-Arcvale-Signature` |
+| Config check | `check-config` → `custody configured` (otherwise **incomplete / not_configured**) |
+| Availability | Vendor health/sandbox; webhook `POST /api/webhooks/custody` with `X-Arcvale-Signature` (legacy header name — keep) |
 | Scenarios before activation | Deposit address issuance, observed → confirmed chain, refund path on vendor sandbox |
-| Manual | Map vendor API to the generic contract in `server/providers/production/` if shapes differ; never paste private keys into Arcvale |
+| Manual | Map vendor API to the generic contract in `server/providers/production/` if shapes differ; never paste private keys into CryptoBit Exchange |
 
 Until configured: deposit address issuance and refunds that need custody stay blocked.
 
@@ -69,7 +69,7 @@ Deposit confirmations arrive as **signed custody webhooks** (`deposit.observed`,
 | Env | `CARD_PAYOUT_PROVIDER_URL`, `CARD_PAYOUT_PROVIDER_API_KEY`, `CARD_PAYOUT_PROVIDER_WEBHOOK_SECRET` |
 | Where to get | Instant-debit / card payout vendor |
 | Config check | `cardPayout configured` |
-| Note | Card PANs never enter Arcvale; destination is a provider token |
+| Note | Card PANs never enter CryptoBit Exchange; destination is a provider token |
 | Scenarios | Same as bank payouts via `POST /api/webhooks/cardPayout` |
 
 ---

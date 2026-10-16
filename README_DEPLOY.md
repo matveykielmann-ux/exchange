@@ -32,9 +32,9 @@ Two modes, chosen with `APP_MODE`:
 - SSH keys only; disable password login. Turn on unattended security updates.
 
 ```bash
-sudo mkdir -p /opt/arcvale && sudo chown "$USER" /opt/arcvale
-git clone <your repository URL> /opt/arcvale
-cd /opt/arcvale
+sudo mkdir -p /opt/cryptobit && sudo chown "$USER" /opt/cryptobit
+git clone <your repository URL> /opt/cryptobit
+cd /opt/cryptobit
 mkdir -p backups && sudo chown 1000:1000 backups   # the container's node user writes backups here
 ```
 
@@ -121,7 +121,7 @@ Sandbox only: `... dist-server/cli.js seed` creates demo staff and customer acco
 ```bash
 ./deploy/scripts/backup.sh                 # consistent online copy → backups/arcvale-<UTC>.db.gz (+ .sha256)
 crontab -e                                  # nightly:
-15 3 * * * cd /opt/arcvale && ./deploy/scripts/backup.sh >> /var/log/arcvale-backup.log 2>&1
+15 3 * * * cd /opt/cryptobit && ./deploy/scripts/backup.sh >> /var/log/cryptobit-backup.log 2>&1
 ```
 Backups also verify the audit-log hash chain. Copy `backups/` off the server (object storage or another host). Test a restore at least monthly on a separate machine.
 

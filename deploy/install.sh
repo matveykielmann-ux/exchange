@@ -3,8 +3,8 @@
 # Idempotent: safe to re-run. Never wipes the database, never rotates encryption keys,
 # never resets an existing owner. Destructive actions are not automated.
 #
-# Usage (from repository root on the VPS):
-#   ./deploy/configure-env.sh --domain YOUR_DOMAIN --email ops@YOUR_DOMAIN
+# Usage (from repository root on the VPS — replace with real values, not YOUR_DOMAIN):
+#   ./deploy/configure-env.sh --domain exchange.example.com --email ops@example.com
 #   ./deploy/install.sh
 #   ./deploy/install.sh --skip-dns          # when DNS is not pointed yet
 #   ./deploy/install.sh --dry-run          # checks only; no compose up
@@ -55,8 +55,17 @@ log "    dry-run: $DRY_RUN"
 
 # 1) Ensure env exists
 if [[ ! -f "$ENV_FILE" ]]; then
-  log "No .env.production — running configure-env.sh"
+  log "No .env.production — running configure-env.sh (you will be prompted for a real domain)."
   "$ROOT/deploy/configure-env.sh"
+fi
+
+# Refuse literal template domains before any compose action.
+if [[ -f "$ENV_FILE" ]]; then
+  refuse_placeholder PUBLIC_DOMAIN "$(env_get PUBLIC_DOMAIN "$ENV_FILE")" || exit 2
+  refuse_placeholder CRM_DOMAIN "$(env_get CRM_DOMAIN "$ENV_FILE")" || exit 2
+  refuse_placeholder PUBLIC_ORIGIN "$(env_get PUBLIC_ORIGIN "$ENV_FILE")" || exit 2
+  refuse_placeholder CRM_ORIGIN "$(env_get CRM_ORIGIN "$ENV_FILE")" || exit 2
+  refuse_placeholder ACME_EMAIL "$(env_get ACME_EMAIL "$ENV_FILE")" || exit 2
 fi
 
 # 2) Preflight
@@ -156,25 +165,26 @@ log "======== Install summary ========"
 log "Stack:           docker compose up (restart: unless-stopped)"
 log "Customer site:   ${pub}"
 log "CRM:             ${crm}/admin/login"
-log "Data volume:     arcvale-data → /app/data (SQLite + FILES_DIR)"
+log "Data volume:     arcvale-data (compat name) → /app/data (SQLite + FILES_DIR)"
 log "Backups dir:     ${ROOT}/backups"
 log ""
-log "READY (technical):"
+log "READY (application tech — not financial go-live):"
 log "  - App health check passed"
 log "  - Migrations applied on start"
 log "  - Caddy terminates TLS for both hostnames (once DNS points here)"
 log ""
 log "MANUAL NEXT STEPS:"
 log "  1. Confirm DNS A records for PUBLIC_DOMAIN and CRM_DOMAIN → this VPS"
-log "  2. Create owner (once): ARCVALE_NEW_PASSWORD='…' ./deploy/create-owner.sh --email you@$(env_get PUBLIC_DOMAIN "$ENV_FILE")"
+log "  2. Create owner (interactive password): ./deploy/create-owner.sh --email you@$(env_get PUBLIC_DOMAIN "$ENV_FILE")"
 log "  3. Sign in at ${crm}/admin/login with TOTP"
 log "  4. Store DATA_ENCRYPTION_KEY offline (secrets/ + password manager)"
 log "  5. Configure providers when contracts exist — see docs/integrator/INTEGRATIONS.md"
 log "  6. Off-site backup: copy backups/ elsewhere nightly"
+log "  7. Re-run ./deploy/preflight.sh and read the five readiness layers"
 log ""
-log "BLOCKERS for real money:"
-log "  - Providers without credentials stay NOT_CONFIGURED and refuse money movement"
-log "  - Complete docs/compliance-readiness.md before enabling live settlement"
+log "NOT cleared for real money:"
+log "  - Providers without credentials stay not_configured and refuse money movement"
+log "  - Complete docs/compliance-readiness.md before live settlement"
 log "================================="
 
 if [[ "$pf_ec" -eq 2 ]]; then

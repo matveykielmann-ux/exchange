@@ -15,7 +15,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { BRAND } from '@/config/brand';
-import { createInterface } from 'node:readline/promises';
 import { createApp } from './app';
 import { ConfigError, loadConfig, type AppConfig } from './config';
 import { migrate, migrationStatus, openDatabase } from './db/database';
@@ -53,15 +52,43 @@ function arg(name: string): string | undefined {
 }
 
 async function readPassword(): Promise<string> {
-  if (process.env.ARCVALE_NEW_PASSWORD) return process.env.ARCVALE_NEW_PASSWORD;
+  // Prefer CRYPTOBIT_NEW_PASSWORD; ARCVALE_NEW_PASSWORD kept for deploy-script compatibility.
+  const fromEnv = process.env.CRYPTOBIT_NEW_PASSWORD || process.env.ARCVALE_NEW_PASSWORD;
+  if (fromEnv) return fromEnv;
   if (!process.stdin.isTTY) {
     let data = '';
     for await (const chunk of process.stdin) data += chunk;
     return data.trim();
   }
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const p = await rl.question('Password (min 12 characters): ');
-  rl.close();
+  // Hidden prompt — password must not echo to the terminal.
+  const stdin = process.stdin;
+  const stdout = process.stdout;
+  stdout.write('Password (min 12 characters): ');
+  stdin.setRawMode?.(true);
+  stdin.resume();
+  stdin.setEncoding('utf8');
+  let p = '';
+  await new Promise<void>((resolve) => {
+    const onData = (ch: string) => {
+      if (ch === '\n' || ch === '\r' || ch === '\u0004') {
+        stdin.setRawMode?.(false);
+        stdin.off('data', onData);
+        stdout.write('\n');
+        resolve();
+        return;
+      }
+      if (ch === '\u0003') {
+        stdin.setRawMode?.(false);
+        process.exit(130);
+      }
+      if (ch === '\u007f' || ch === '\b') {
+        p = p.slice(0, -1);
+        return;
+      }
+      p += ch;
+    };
+    stdin.on('data', onData);
+  });
   return p.trim();
 }
 

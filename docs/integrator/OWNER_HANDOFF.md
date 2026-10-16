@@ -11,7 +11,7 @@ Do not put real credentials into git or chat logs. Prefer a sealed channel / pas
 | ACME contact email | `ops@example.com` | Let's Encrypt notices |
 | VPS access | SSH key to Ubuntu/Debian host | Installer runs on the server |
 | DNS control | Ability to create two `A` records | TLS cannot issue without this |
-| Owner staff email | `you@example.com` | First `owner` account (CLI) |
+| Owner staff email | `you@example.com` (not `you@YOUR_DOMAIN`) | First `owner` via `./deploy/create-owner.sh` (interactive hidden password) |
 | Offline vault | Password manager / HSM process | Store `DATA_ENCRYPTION_KEY` forever |
 
 ## DNS records the owner (or their DNS provider) must create

@@ -98,15 +98,29 @@ describe('deploy/lib.sh env helpers', () => {
     expect(r.stdout.trim()).toBe('REFUSE');
   });
 
-  it('is_placeholder recognises domain placeholders', () => {
+  it('is_placeholder recognises YOUR_DOMAIN tokens and bare example.com', () => {
     const r = bash(`
       set -euo pipefail
       source "${LIB}"
       is_placeholder "YOUR_DOMAIN" && echo yes || echo no
+      is_placeholder "https://crm.YOUR_DOMAIN" && echo yes || echo no
+      is_placeholder "you@YOUR_DOMAIN" && echo yes || echo no
       is_placeholder "exchange.example.com" && echo yes || echo no
+      is_placeholder "ops@example.com" && echo yes || echo no
     `);
     expect(r.status).toBe(0);
-    expect(r.stdout.trim().split('\n')).toEqual(['yes', 'no']);
+    expect(r.stdout.trim().split('\n')).toEqual(['yes', 'yes', 'yes', 'no', 'no']);
+  });
+
+  it('install and configure refuse literal YOUR_DOMAIN', () => {
+    const r = bash(`
+      set -euo pipefail
+      source "${LIB}"
+      refuse_placeholder PUBLIC_DOMAIN "YOUR_DOMAIN" && echo ok || echo blocked
+      refuse_placeholder PUBLIC_DOMAIN "exchange.example.com" && echo ok || echo blocked
+    `);
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim().split('\n')).toEqual(['blocked', 'ok']);
   });
 });
 
@@ -272,5 +286,28 @@ describe('install.sh safety', () => {
     expect(src).not.toMatch(/docker volume rm/);
     expect(src).not.toMatch(/rm -rf .*arcvale-data/);
     expect(src).toMatch(/--dry-run/);
+    expect(src).toMatch(/refuse_placeholder/);
+  });
+});
+
+describe('create-owner.sh password handling', () => {
+  it('prefers interactive hidden entry and never puts password on argv', () => {
+    const src = readFileSync(path.join(ROOT, 'deploy/create-owner.sh'), 'utf8');
+    expect(src).toMatch(/read -r -s -p "Password:/);
+    expect(src).toMatch(/Confirm password/);
+    expect(src).toMatch(/-e ARCVALE_NEW_PASSWORD=/);
+    expect(src).not.toMatch(/--password/);
+    expect(src).toMatch(/idempotent/);
+  });
+});
+
+describe('preflight readiness layers', () => {
+  it('summary reports five separate readiness layers', () => {
+    const lib = readFileSync(path.join(ROOT, 'deploy/lib.sh'), 'utf8');
+    expect(lib).toMatch(/Application \(tech\)/);
+    expect(lib).toMatch(/DNS \/ TLS/);
+    expect(lib).toMatch(/Backups:/);
+    expect(lib).toMatch(/Integrations:/);
+    expect(lib).toMatch(/Real-money clearance/);
   });
 });

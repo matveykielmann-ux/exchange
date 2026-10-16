@@ -1,7 +1,9 @@
-# Arcvale on a single VPS: the app container behind Caddy (automatic HTTPS).
-#   cp .env.example .env.production   # fill it in; never commit it
-#   docker compose --env-file .env.production up -d --build
-# See README_DEPLOY.md. Nothing here deploys anywhere by itself.
+# CryptoBit Exchange on a single VPS: app container behind Caddy (automatic HTTPS).
+#   ./deploy/configure-env.sh --domain <REAL_DOMAIN> --email <REAL_EMAIL>
+#   ./deploy/install.sh
+# Compose project/volume/image names keep the legacy "arcvale" identifier for
+# compatibility with existing volumes and tagged images — do not rename casually.
+# See docs/integrator/README.md. Nothing here deploys anywhere by itself.
 
 name: arcvale
 

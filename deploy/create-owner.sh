@@ -2,9 +2,12 @@
 # Create the first owner account via the existing CLI (no public setup endpoint).
 # Re-running with the same email+role is a no-op (does not reset password or MFA).
 #
-# Usage:
+# Preferred (interactive, password never on argv / never logged):
+#   ./deploy/create-owner.sh --email you@example.com --name "Your Name"
+#
+# Non-interactive (CI/automation only) — still not placed on argv:
 #   ARCVALE_NEW_PASSWORD='…' ./deploy/create-owner.sh --email you@example.com --name "Your Name"
-#   ./deploy/create-owner.sh --email you@example.com   # prompts for password on TTY
+#   (CRYPTOBIT_NEW_PASSWORD is accepted as an alias; ARCVALE_NEW_PASSWORD kept for CLI compatibility.)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -13,7 +16,6 @@ source "$ROOT/deploy/lib.sh"
 
 EMAIL=""
 NAME=""
-ROLE="owner"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -28,8 +30,17 @@ while [[ $# -gt 0 ]]; do
 Usage: create-owner.sh --email ADDR [--name "Full Name"]
 
 Requires a running production stack (.env.production + compose).
-Password via ARCVALE_NEW_PASSWORD or interactive prompt (min 12 chars).
-No default password. Does not publish any HTTP setup route.
+
+Password (preferred):
+  Interactive hidden prompts with confirmation (min 12 characters).
+  Nothing is written to shell history as a command argument.
+
+Automation only:
+  ARCVALE_NEW_PASSWORD or CRYPTOBIT_NEW_PASSWORD in the environment
+  (passed into the container via env, never as a CLI flag).
+
+No default password. No public HTTP setup route.
+Replace ADDR with a real mailbox — not you@YOUR_DOMAIN.
 EOF
       exit 0
       ;;
@@ -37,7 +48,11 @@ EOF
   esac
 done
 
-[[ -n "$EMAIL" ]] || { log_err "--email is required"; exit 2; }
+[[ -n "$EMAIL" ]] || { log_err "--email is required (e.g. --email you@example.com)"; exit 2; }
+if is_placeholder "$EMAIL" || [[ "$EMAIL" == *YOUR_DOMAIN* ]]; then
+  log_err "Email looks like a placeholder. Replace YOUR_DOMAIN with your real domain (e.g. you@example.com)."
+  exit 2
+fi
 [[ -n "$NAME" ]] || NAME="$EMAIL"
 
 ENV_FILE="$(env_file_default)"
@@ -55,21 +70,52 @@ if [[ "$mode" != "production" ]]; then
 fi
 
 crm="$(env_get CRM_ORIGIN "$ENV_FILE")"
+if is_placeholder "$crm"; then
+  log_err "CRM_ORIGIN is still a placeholder. Run ./deploy/configure-env.sh with a real domain first."
+  exit 2
+fi
+
+# Resolve password: interactive (preferred) or env alias for automation.
+PASSWORD=""
+if [[ -n "${CRYPTOBIT_NEW_PASSWORD:-}" ]]; then
+  PASSWORD="${CRYPTOBIT_NEW_PASSWORD}"
+elif [[ -n "${ARCVALE_NEW_PASSWORD:-}" ]]; then
+  PASSWORD="${ARCVALE_NEW_PASSWORD}"
+fi
+
+if [[ -z "$PASSWORD" ]]; then
+  if [[ ! -t 0 ]]; then
+    log_err "No TTY for password entry. Run interactively, or set ARCVALE_NEW_PASSWORD / CRYPTOBIT_NEW_PASSWORD for automation."
+    exit 2
+  fi
+  log "Enter owner password (hidden; min 12 characters). It will not be printed or logged."
+  # shellcheck disable=SC2162
+  read -r -s -p "Password: " PASSWORD
+  printf '\n' >&2
+  # shellcheck disable=SC2162
+  read -r -s -p "Confirm password: " PASSWORD_CONFIRM
+  printf '\n' >&2
+  if [[ "$PASSWORD" != "$PASSWORD_CONFIRM" ]]; then
+    log_err "Passwords do not match."
+    exit 2
+  fi
+fi
+
+if [[ ${#PASSWORD} -lt 12 ]]; then
+  log_err "Password must be at least 12 characters."
+  exit 2
+fi
 
 log "Creating owner via CLI (idempotent for same email+role)…"
-log "Password is not echoed. TOTP secret (if printed) is shown once — save it immediately."
+log "Password is not echoed. TOTP secret (if printed by the CLI) is shown once — save it immediately."
 
-# Pass password only through env to the container; do not put it on argv.
-# shellcheck disable=SC2097,SC2098
-if [[ -n "${ARCVALE_NEW_PASSWORD:-}" ]]; then
-  compose exec -T -e ARCVALE_NEW_PASSWORD app \
-    node --disable-warning=ExperimentalWarning dist-server/cli.js create-user \
-    --email "$EMAIL" --role owner --name "$NAME"
-else
-  compose exec -it app \
-    node --disable-warning=ExperimentalWarning dist-server/cli.js create-user \
-    --email "$EMAIL" --role owner --name "$NAME"
-fi
+# Pass password only through container env (ARCVALE_NEW_PASSWORD is what the Node CLI reads).
+# Never put the password on argv. Do not enable compose logging of env.
+set +x
+compose exec -T -e ARCVALE_NEW_PASSWORD="$PASSWORD" app \
+  node --disable-warning=ExperimentalWarning dist-server/cli.js create-user \
+  --email "$EMAIL" --role owner --name "$NAME"
+unset PASSWORD PASSWORD_CONFIRM CRYPTOBIT_NEW_PASSWORD ARCVALE_NEW_PASSWORD 2>/dev/null || true
 
 log ""
 log "Sign in at: ${crm}/admin/login"

@@ -46,10 +46,11 @@ pnpm server:cli verify-audit
 Deploying to a VPS: [`docs/integrator/README.md`](docs/integrator/README.md) (turnkey installer) · [`README_DEPLOY.md`](README_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ```bash
-./deploy/configure-env.sh --domain YOUR_DOMAIN --email ops@YOUR_DOMAIN
+# Replace exchange.example.com / ops@example.com / you@example.com with real values (not YOUR_DOMAIN).
+./deploy/configure-env.sh --domain exchange.example.com --email ops@example.com
 ./deploy/preflight.sh
 ./deploy/install.sh
-ARCVALE_NEW_PASSWORD='…' ./deploy/create-owner.sh --email you@YOUR_DOMAIN
+./deploy/create-owner.sh --email you@example.com   # interactive hidden password
 ```
 
 ## Docs
