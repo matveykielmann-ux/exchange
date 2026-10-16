@@ -402,6 +402,14 @@ export const RU_PUBLIC3: Record<string, string> = {
   'Hand cash only to the courier at your saved address': 'Передавайте наличные только курьеру по сохранённому адресу',
   'Hand cash only to the courier at this meeting point': 'Передавайте наличные только курьеру в этой точке встречи',
   'Hand cash only to the courier at your collection address': 'Передавайте наличные только курьеру по адресу забора',
+  'Hand cash only to the courier at the confirmed meeting place':
+    'Передавайте наличные только курьеру в подтверждённой точке встречи',
+  'We will choose the best meeting place': 'Мы подберём лучшее место встречи',
+  'Based on the location you gave, we will pick the best place for the cash exchange. The exact street address and time appear here when they are ready — you do not need to confirm a deposit.':
+    'Исходя из указанного вами местоположения, мы подберём самое удобное место для обмена наличных. Точный адрес и время появятся здесь, когда будут готовы — подтверждать депозит не нужно.',
+  'Location you provided': 'Указанное вами местоположение',
+  'Wait for the confirmed meeting place on this page. The courier checks your ID and collects exactly':
+    'Дождитесь подтверждённой точки встречи на этой странице. Курьер проверит документ и заберёт ровно',
   'Waiting for the courier meeting point': 'Ожидание точки встречи с курьером',
   'Our team will assign the street address, city, state and time where the courier will meet you. This page updates by itself when the details are ready.':
     'Наша команда назначит улицу, город, штат и время встречи с курьером. Страница обновится сама, когда детали будут готовы.',

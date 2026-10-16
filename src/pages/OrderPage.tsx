@@ -1370,7 +1370,9 @@ export function OrderPage() {
             <CardPayInInstructions order={order} />
           ) : null}
 
-          {(order.status === 'awaiting_deposit' || order.status === 'created' || order.status === 'compliance_review') &&
+          {/* Wire, card and crypto sells can attach payment proof. Cash-by-courier has no deposit to confirm. */}
+          {order.payIn !== 'courier_cash' &&
+          (order.status === 'awaiting_deposit' || order.status === 'created' || order.status === 'compliance_review') &&
           !TERMINAL_ORDER_STATUSES.has(order.status) ? (
             <ConfirmPaymentPanel order={order} onDone={load} />
           ) : null}
@@ -1403,10 +1405,17 @@ export function OrderPage() {
               <h2 id="collect-title" className="flow__step-title">
                 {t('Have')} {formatUsd(order.quote.grossCents)} {t('in cash ready')}
               </h2>
+              <Notice tone="info" title={t('We will choose the best meeting place')}>
+                <p>
+                  {t(
+                    'Based on the location you gave, we will pick the best place for the cash exchange. The exact street address and time appear here when they are ready — you do not need to confirm a deposit.',
+                  )}
+                </p>
+              </Notice>
               {order.payout.delivery ? (
                 <div className="deposit-box">
                   <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                    <strong>{t('Courier collection')}</strong>
+                    <strong>{t('Location you provided')}</strong>
                     {order.status === 'awaiting_deposit' ? (
                       <Countdown to={order.deposit.deadline} prefix={t('Collection window closes in')} ended={t('Window closed')} />
                     ) : null}
@@ -1454,7 +1463,7 @@ export function OrderPage() {
                   <ol className="small next-steps">
                     <li>{t('Upload the photo ID you will show the courier (below).')}</li>
                     <li>
-                      {t('Meet the courier only at the address above. They check your ID and collect exactly')}{' '}
+                      {t('Wait for the confirmed meeting place on this page. The courier checks your ID and collects exactly')}{' '}
                       {formatUsd(order.quote.grossCents)}.
                     </li>
                     <li>
@@ -1476,15 +1485,13 @@ export function OrderPage() {
                   <SupportContact title={t('Questions about this order?')} orderReference={order.reference} />
                 </Notice>
               )}
-              {order.payout.delivery ? (
-                <Notice tone="warn" title={t('Hand cash only to the courier at your collection address')}>
-                  <p>
-                    {t(
-                      'Nobody from this service will ask you to pay elsewhere, send crypto, or hand cash to someone without an ID check. If anything seems wrong, stop and contact support.',
-                    )}
-                  </p>
-                </Notice>
-              ) : null}
+              <Notice tone="warn" title={t('Hand cash only to the courier at the confirmed meeting place')}>
+                <p>
+                  {t(
+                    'Nobody from this service will ask you to pay elsewhere, send crypto, or hand cash to someone without an ID check. If anything seems wrong, stop and contact support.',
+                  )}
+                </p>
+              </Notice>
             </section>
           ) : null}
 
@@ -1515,7 +1522,7 @@ export function OrderPage() {
             </Notice>
           ) : null}
 
-          {order.status === 'created' && !wire ? (
+          {order.status === 'created' && !wire && order.payIn !== 'courier_cash' && !buy ? (
             <Notice tone="warn" title={t('Deposit instructions unavailable')} role="status">
               <p>
                 {t(
