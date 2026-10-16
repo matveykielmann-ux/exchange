@@ -10,8 +10,9 @@ Replace `YOUR_DOMAIN` with the real hostname when you deploy. This checklist doe
 - [ ] `PUBLIC_ORIGIN=https://YOUR_DOMAIN` and `CRM_ORIGIN=https://crm.YOUR_DOMAIN`
 - [ ] `PUBLIC_DOMAIN` / `CRM_DOMAIN` / `ACME_EMAIL` set for Caddy
 - [ ] `APP_MODE=production`, no `SANDBOX_*` variables
+- [ ] `FILES_DIR` left at default `/app/data/files` (same `arcvale-data` volume as SQLite) unless intentionally split
 - [ ] `RATES_SOURCE=coingecko` (or documented exception)
-- [ ] `check-config` exits 0
+- [ ] `check-config` exits 0 (prints `files dir:` and provider states)
 - [ ] `backups/` writable by container UID 1000
 
 ## After `docker compose up -d`
@@ -26,13 +27,15 @@ Replace `YOUR_DOMAIN` with the real hostname when you deploy. This checklist doe
 - [ ] Staff can open orders / credentials on CRM; customer session cookie not present on CRM host
 - [ ] CSRF: state-changing CRM API calls work from CRM origin; evil origin rejected
 - [ ] CoinGecko prices on `/api/prices` (or explicit unavailable state — not sandbox schedule)
-- [ ] Nightly `backup.sh` scheduled; off-site copy planned
+- [ ] Nightly `backup.sh` scheduled (DB `.db.gz` + `*-files.tar.gz`); off-site copy planned
+- [ ] Restore drill on a non-production host confirmed once
 - [ ] External uptime monitor on `/api/ready`
 
 ## Security smoke
 
 - [ ] Anonymous `/api/admin/*` → 401
 - [ ] Customer session on `/api/admin/*` → 403
+- [ ] Order/KYC file download without ownership or staff role → 401/404
 - [ ] No stack traces in API error JSON
 - [ ] HSTS present without `includeSubDomains` until every subdomain is ready
 - [ ] `.env`, `backups/`, and `/app/data` not reachable over HTTP
@@ -41,4 +44,4 @@ Replace `YOUR_DOMAIN` with the real hostname when you deploy. This checklist doe
 
 - [ ] Real custody / bank / cash providers contracted and configured
 - [ ] Compliance launch gate signed ([`docs/compliance-readiness.md`](docs/compliance-readiness.md))
-- [ ] Document storage provider (production uploads currently `NOT_CONFIGURED`)
+- [ ] Order attachments use local encrypted `FILES_DIR` on the data volume (no external object store required)

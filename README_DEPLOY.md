@@ -12,8 +12,9 @@ CryptoBit Exchange on one Linux server with Docker: the app container (API + bui
 | --- | --- | --- |
 | `app` | `Dockerfile` | Node 22, non-root `node` user, read-only root filesystem, `tini` as PID 1. Serves `/api/*` and the built web app. No npm packages at runtime. |
 | Database | volume `arcvale-data` → `/app/data/arcvale-<mode>.db` | SQLite in WAL mode. Migrations run automatically at start. A database records its mode and refuses to open in the other mode. |
+| Order files | same volume → `FILES_DIR` (default `/app/data/files`) | Encrypted blobs; metadata in SQLite. Created at startup (`ensureFilesDir`). Not publicly served. |
 | `caddy` | `deploy/Caddyfile` | Automatic Let's Encrypt certificates for `PUBLIC_DOMAIN` and `CRM_DOMAIN`, HTTP→HTTPS, HSTS (no `includeSubDomains` until ready), compression, 8 MB body cap, unbuffered SSE. |
-| Backups | `./backups` on the host | `deploy/scripts/backup.sh` (online, consistent `VACUUM INTO`). |
+| Backups | `./backups` on the host | `deploy/scripts/backup.sh`: `VACUUM INTO` DB + `*-files.tar.gz`; restore via `restore.sh`. |
 
 Two modes, chosen with `APP_MODE`:
 
@@ -47,7 +48,8 @@ openssl rand -base64 32   # → DATA_ENCRYPTION_KEY
 Fill in `.env.production`:
 
 - `APP_MODE`, `PUBLIC_DOMAIN`, `CRM_DOMAIN`, `ACME_EMAIL`, `PUBLIC_ORIGIN`, and `CRM_ORIGIN` (`https://YOUR_DOMAIN` and `https://crm.YOUR_DOMAIN`).
-- `SESSION_SECRET` and `DATA_ENCRYPTION_KEY`. **Store the encryption key in your password manager too.** Without it, payout details and MFA secrets in the database and in every backup are unreadable.
+- `SESSION_SECRET` and `DATA_ENCRYPTION_KEY`. **Store the encryption key in your password manager too.** Without it, payout details, MFA secrets, order attachments, and KYC blobs in the database/backups are unreadable.
+- Leave `FILES_DIR` at `/app/data/files` (compose default) so uploads stay on `arcvale-data`.
 - Provider blocks only for providers you have contracts with ([`docs/providers.md`](docs/providers.md)).
 
 ### Exchange rates (CoinGecko)
