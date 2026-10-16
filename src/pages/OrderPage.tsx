@@ -12,7 +12,7 @@ import { ASSETS, NETWORKS, networkLabel } from '@/domain/assets';
 import { COURIER_WINDOW_LABELS } from '@/domain/courier';
 import { explorerAddressUrl } from '@/domain/explorer';
 import { formatUsd } from '@/domain/money';
-import { exchangeRateMicros, valueAtRateCents } from '@/domain/quote';
+import { buyReceiveAmountAtomic, exchangeRateMicros, valueAtRateCents } from '@/domain/quote';
 import { feeLineLabel } from '@/domain/payout';
 import { canRaise, DEPOSIT_EXCEPTION_LABEL, orderStatusLabel, orderTone, TERMINAL_ORDER_STATUSES } from '@/domain/order';
 import { validateRefundAddress, validateTxHash } from '@/domain/validation';
@@ -71,7 +71,18 @@ function AcceptCourierFee({ order, onAccepted }: { order: OrderView; onAccepted:
         ) : (
           <>
             {' '}
-            {t('· You receive')} <strong>{formatAsset(order.amountAtomic, order.asset)}</strong>
+            {t('· You receive')}{' '}
+            <strong>
+              {formatAsset(
+                buyReceiveAmountAtomic({
+                  asset: order.asset,
+                  amountAtomic: order.amountAtomic,
+                  netCents: order.quote.netCents,
+                  referencePriceMicros: order.quote.referencePriceMicros,
+                }),
+                order.asset,
+              )}
+            </strong>
           </>
         )}
       </p>
@@ -989,6 +1000,31 @@ function SuccessPanel({ order, animate }: { order: OrderView; animate: boolean }
 function Receipt({ order }: { order: OrderView }) {
   const buy = order.direction === 'buy';
   const wire = order.payIn === 'wire';
+  const feePending = !!(order.courierFee?.pending || order.quote.feePending);
+  const buyAmount = buy
+    ? buyReceiveAmountAtomic({
+        asset: order.asset,
+        amountAtomic: order.amountAtomic,
+        netCents: order.quote.netCents,
+        referencePriceMicros: order.quote.referencePriceMicros,
+      })
+    : order.amountAtomic;
+  const rateMicros = buy
+    ? exchangeRateMicros({
+        asset: order.asset,
+        amountAtomic: buyAmount,
+        // While the courier fee is pending, show cash per unit at the locked market rate.
+        grossCents: feePending ? order.quote.grossCents : order.quote.grossCents - order.quote.payoutFeeCents,
+        spreadCents: 0n,
+      })
+    : exchangeRateMicros({
+        asset: order.asset,
+        amountAtomic: order.amountAtomic,
+        grossCents: order.quote.grossCents,
+        spreadCents: order.quote.spreadCents,
+      });
+  // Prefer the locked market price when a fee-pending buy still has no convertible amount.
+  const shownRate = rateMicros > 0n ? rateMicros : buy ? order.quote.referencePriceMicros : 0n;
   return (
     <dl className="dl">
       <div>
@@ -998,17 +1034,7 @@ function Receipt({ order }: { order: OrderView }) {
       <div>
         <dt>{t('Exchange rate')}</dt>
         <dd className="tabular">
-          {formatPriceMicros(
-            exchangeRateMicros({
-              asset: order.asset,
-              amountAtomic: order.amountAtomic,
-              // A buy's rate is the cash after the courier fee per unit received; a sell's is the value after the spread.
-              grossCents: buy ? order.quote.grossCents - order.quote.payoutFeeCents : order.quote.grossCents,
-              spreadCents: buy ? 0n : order.quote.spreadCents,
-            }),
-            order.asset,
-          )}{' '}
-          {t('per')} {ASSETS[order.asset].code}
+          {formatPriceMicros(shownRate, order.asset)} {t('per')} {ASSETS[order.asset].code}
         </dd>
       </div>
       {!buy ? (
@@ -1020,20 +1046,23 @@ function Receipt({ order }: { order: OrderView }) {
       <div>
         <dt>{t(buy && !wire ? 'Courier fee' : feeLineLabel(order.payout.method))}</dt>
         <dd className="tabular">
-          {order.courierFee?.pending || order.quote.feePending
-            ? t('Calculated individually')
-            : `−${formatUsd(order.quote.payoutFeeCents)}`}
+          {feePending ? t('Calculated individually') : `−${formatUsd(order.quote.payoutFeeCents)}`}
         </dd>
       </div>
       <div>
         <dt>{t('You receive')}</dt>
         <dd className="tabular">
           <strong>
-            {order.courierFee?.pending || order.quote.feePending
-              ? t('After courier fee')
-              : buy
-                ? formatAsset(order.amountAtomic, order.asset)
-                : formatUsd(order.quote.netCents)}
+            {buy ? (
+              <>
+                {formatAsset(buyAmount, order.asset)}
+                {feePending ? <span className="small muted"> {t('(before courier fee)')}</span> : null}
+              </>
+            ) : feePending ? (
+              t('After courier fee')
+            ) : (
+              formatUsd(order.quote.netCents)
+            )}
           </strong>
         </dd>
       </div>
@@ -1220,6 +1249,14 @@ export function OrderPage() {
   const addressExplorer = showAddress ? explorerAddressUrl(address, order.network) : null;
   const label = t(orderStatusLabel(order.status, order.direction, order.payIn ?? undefined));
   const steps = order.steps;
+  const buyCrypto = buy
+    ? buyReceiveAmountAtomic({
+        asset: order.asset,
+        amountAtomic: order.amountAtomic,
+        netCents: order.quote.netCents,
+        referencePriceMicros: order.quote.referencePriceMicros,
+      })
+    : order.amountAtomic;
 
   return (
     <div className="container flow">
@@ -1232,9 +1269,9 @@ export function OrderPage() {
             <h1 className="display-l">{label}</h1>
             <p className="muted">
               {wire
-                ? t('Buying {0} for {1} by bank wire', [formatAsset(order.amountAtomic, order.asset), formatUsd(order.quote.grossCents)])
+                ? t('Buying {0} for {1} by bank wire', [formatAsset(buyCrypto, order.asset), formatUsd(order.quote.grossCents)])
                 : buy
-                  ? t('Buying {0} for {1} in cash', [formatAsset(order.amountAtomic, order.asset), formatUsd(order.quote.grossCents)])
+                  ? t('Buying {0} for {1} in cash', [formatAsset(buyCrypto, order.asset), formatUsd(order.quote.grossCents)])
                   : t('Selling {0} for {1}', [formatAsset(order.amountAtomic, order.asset), formatUsd(order.quote.netCents)])}{' '}
               {t('· created')} {formatDateTime(order.createdAt)}
             </p>
@@ -1467,8 +1504,9 @@ export function OrderPage() {
                       {formatUsd(order.quote.grossCents)}.
                     </li>
                     <li>
-                      {t('The cash is counted and verified, then')} {formatAsset(order.amountAtomic, order.asset)} {t('is sent to your')}{' '}
-                      {networkLabel(order.asset, order.network)} {t('wallet.')}
+                      {t('The cash is counted and verified, then')} {formatAsset(buyCrypto, order.asset)}{' '}
+                      {(order.courierFee?.pending || order.quote.feePending) ? t('(before courier fee)') + ' ' : ''}
+                      {t('is sent to your')} {networkLabel(order.asset, order.network)} {t('wallet.')}
                     </li>
                   </ol>
                   <div style={{ marginTop: 12 }}>

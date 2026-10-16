@@ -513,6 +513,7 @@ export const RU_PUBLIC3: Record<string, string> = {
     'Комиссия за обмен 3% для банковского перевода, wire и дебетовой карты — настроенный тариф. Стоимость доставки наличных с курьером зависит от заявки: оператор назначает её, и вы подтверждаете сумму в расчёте до продолжения обмена. Фиксированный тариф курьера не публикуется.',
   'Calculated individually': 'Рассчитывается индивидуально',
   'After courier fee': 'После комиссии курьера',
+  '(before courier fee)': '(до комиссии курьера)',
   'Courier fee calculated individually': 'Комиссия курьера рассчитывается индивидуально',
   'There is no fixed courier tariff. An operator sets the delivery cost for your order; you confirm the amount before the exchange continues.':
     'Фиксированного тарифа курьера нет. Оператор назначает стоимость доставки для вашей заявки; вы подтверждаете сумму до продолжения обмена.',

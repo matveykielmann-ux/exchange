@@ -1,7 +1,7 @@
 import { NETWORKS, networkLabel } from '@/domain/assets';
 import { formatUsd } from '@/domain/money';
 import { PAYOUT_METHODS, describeFee, exchangeFeeBps, feeLineLabel, feeScheduleFor, wireFeeParts } from '@/domain/payout';
-import { exchangeRateMicros, valueAtRateCents, type Quote } from '@/domain/quote';
+import { buyReceiveAmountAtomic, exchangeRateMicros, valueAtRateCents, type Quote } from '@/domain/quote';
 import { formatAsset, formatPriceMicros } from '@/lib/format';
 import { InfoHint } from './InfoHint';
 import { RollingAmount } from './RollingAmount';
@@ -186,13 +186,14 @@ export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; lo
               {t(', market rate')}
             </small>
           </dt>
-          <dd className={sk}>{feePending ? '—' : formatPriceMicros(buyRateMicros(quote), quote.asset)}</dd>
+          <dd className={sk}>{formatPriceMicros(buyRateMicros(quote), quote.asset)}</dd>
         </div>
       </dl>
       <div className="quote-total">
         <span className="quote-total__label">{t('You receive')}</span>
         <span className={`quote-total__value tabular${sk}`}>
-          {feePending ? t('After courier fee') : formatAsset(quote.amountAtomic, quote.asset)}
+          {formatAsset(buyReceiveAmountAtomic(quote), quote.asset)}
+          {feePending ? <span className="small muted"> {t('(before courier fee)')}</span> : null}
         </span>
       </div>
       {feePending ? (
@@ -220,5 +221,8 @@ export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; lo
 
 /** Buy: dollars paid after fees, per whole unit of crypto received. */
 function buyRateMicros(quote: Quote) {
-  return exchangeRateMicros({ ...quote, grossCents: quote.grossCents - quote.payoutFeeCents, spreadCents: 0n });
+  const amountAtomic = buyReceiveAmountAtomic(quote);
+  const grossCents = quote.feePending ? quote.grossCents : quote.grossCents - quote.payoutFeeCents;
+  const fromAmount = exchangeRateMicros({ ...quote, amountAtomic, grossCents, spreadCents: 0n });
+  return fromAmount > 0n ? fromAmount : quote.referencePriceMicros;
 }

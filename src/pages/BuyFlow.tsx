@@ -23,7 +23,15 @@ import { defaultNetwork, isAssetCode, isSupportedPair, NETWORKS, networkLabel, t
 import { CASH_COLLECTION_WINDOW_MS } from '@/domain/courier';
 import { formatUsd, parseDecimal } from '@/domain/money';
 import { describeFee, PAYOUT_METHODS } from '@/domain/payout';
-import { amountIssues, buyPayInMethod, isBuyPayIn, PRICING_POLICY, type BuyPayIn, type QuoteIssue } from '@/domain/quote';
+import {
+  amountIssues,
+  buyPayInMethod,
+  buyReceiveAmountAtomic,
+  isBuyPayIn,
+  PRICING_POLICY,
+  type BuyPayIn,
+  type QuoteIssue,
+} from '@/domain/quote';
 import { WIRE_RECEIPT_WINDOW_MS } from '@/domain/wire';
 import { validateCashAmount, validateReceiveAddress } from '@/domain/validation';
 import { errorMessage } from '@/lib/errors';
@@ -788,7 +796,12 @@ export function BuyFlow({ header }: { header: ReactNode }) {
             {quote.data ? (
               <div className="summary-bar" aria-hidden="true">
                 <span className="small">{t('You receive (indicative)')}</span>
-                <strong>{formatAsset(quote.data.quote.amountAtomic, quote.data.quote.asset)}</strong>
+                <strong>
+                  {formatAsset(buyReceiveAmountAtomic(quote.data.quote), quote.data.quote.asset)}
+                  {quote.data.quote.feePending ? (
+                    <span className="small muted"> {t('(before courier fee)')}</span>
+                  ) : null}
+                </strong>
               </div>
             ) : null}
             <div className="panel flow__aside--hide-mobile">
