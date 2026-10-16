@@ -361,7 +361,8 @@ function ConfirmPaymentPanel({ order, onDone }: { order: OrderView; onDone(): vo
   const prior = (order as OrderView & { paymentConfirmations?: { id: string; status: string }[] }).paymentConfirmations ?? [];
 
   return (
-    <section className="panel stack status-fade" aria-labelledby="confirm-pay-title">
+    <section className="panel status-fade confirm-payment-panel" aria-labelledby="confirm-pay-title">
+      <div className="panel__body stack confirm-payment-panel__body">
       <h2 id="confirm-pay-title" className="flow__step-title">
         {t('Confirm payment')}
       </h2>
@@ -499,6 +500,7 @@ function ConfirmPaymentPanel({ order, onDone }: { order: OrderView; onDone(): vo
           </button>
         </form>
       )}
+      </div>
     </section>
   );
 }

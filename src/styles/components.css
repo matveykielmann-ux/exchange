@@ -721,11 +721,26 @@ main {
   min-height: 112px;
   resize: vertical;
 }
+.confirm-payment-panel {
+  overflow: visible;
+  min-width: 0;
+}
+.confirm-payment-panel__body {
+  gap: var(--s-5);
+  padding: var(--s-6);
+}
 .confirm-payment-form {
   gap: var(--s-5);
+  min-width: 0;
 }
 .confirm-payment-form .field {
   gap: 8px;
+  min-width: 0;
+}
+.confirm-payment-form .input,
+.confirm-payment-form .textarea {
+  box-sizing: border-box;
+  max-width: 100%;
 }
 .confirm-payment-form input[type='file'].input {
   display: block;
@@ -738,6 +753,15 @@ main {
 .confirm-payment-form .textarea {
   min-height: 120px;
   width: 100%;
+}
+.confirm-payment-form .btn {
+  width: 100%;
+  margin-top: var(--s-2);
+}
+@media (max-width: 767px) {
+  .confirm-payment-panel__body {
+    padding: var(--s-5);
+  }
 }
 .form-grid {
   display: grid;
