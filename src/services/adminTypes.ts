@@ -421,6 +421,20 @@ export interface AdminApi {
       accountType: 'checking' | 'savings';
       holderName: string;
     }>;
+    updateCourierMeeting(
+      orderId: string,
+      input: {
+        phone: string;
+        line1: string;
+        line2?: string;
+        city: string;
+        state: string;
+        zip: string;
+        window: 'morning' | 'afternoon' | 'evening' | 'any';
+        preferredDate?: string;
+        instructions?: string;
+      },
+    ): Promise<CourierDeliveryView>;
     reviewPaymentConfirmation(
       orderId: string,
       body: { confirmationId: string; status: 'approved' | 'needs_info' | 'rejected'; staffNote?: string | null },

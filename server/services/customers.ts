@@ -497,6 +497,59 @@ export function revealOrderCardDestination(ctx: AppContext, actor: Actor, orderI
 }
 
 /**
+ * Staff: update courier meeting / collection details on the order's destination.
+ * Used after the customer supplies an address so ops can set the visit logistics.
+ */
+export function updateOrderCourierMeeting(ctx: AppContext, actor: Actor, orderId: string, raw: CourierDeliveryInput) {
+  if (!actor.role || !['support', 'reviewer', 'admin', 'owner'].includes(actor.role))
+    throw new ApiError(403, 'forbidden', 'Only staff can update courier meeting details.');
+  const o = ctx.db.get<{ id: string; user_id: string; payout_method: string; payout_destination_id: string | null }>(
+    'SELECT id, user_id, payout_method, payout_destination_id FROM orders WHERE id = ?',
+    [orderId],
+  );
+  if (!o) throw notFound('Order not found.');
+  if (o.payout_method !== 'courier_cash' || !o.payout_destination_id)
+    throw conflict('This order has no courier meeting address.', 'not_courier');
+  const d = ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [o.payout_destination_id]);
+  if (!d || d.kind !== 'courier') throw notFound('Courier destination not found.');
+
+  const input = normalizeCourierInput(raw);
+  const errors = validateCourierDelivery(input, isoDay(ctx.clock.now()));
+  // Preferred date may be today for ops coordinating an imminent visit.
+  if (errors.preferredDate && input.preferredDate === isoDay(ctx.clock.now())) delete errors.preferredDate;
+  const first = Object.entries(errors)[0];
+  if (first) throw badRequest(first[1], { field: first[0] });
+
+  const existing = readCourier(ctx, d);
+  const details: CourierDetails = {
+    holderName: existing.holderName || getProfile(ctx, o.user_id).full_name,
+    phone: input.phone,
+    line1: input.line1,
+    line2: input.line2,
+    city: input.city,
+    state: input.state,
+    zip: input.zip,
+    window: input.window,
+    preferredDate: input.preferredDate || null,
+    instructions: input.instructions,
+  };
+  ctx.db.tx(() => {
+    ctx.db.run('UPDATE payout_destinations SET label = ?, details_enc = ? WHERE id = ?', [
+      courierLabel(input.city, input.state, input.zip),
+      encrypt(ctx.config.dataEncryptionKey, JSON.stringify(details)),
+      d.id,
+    ]);
+    audit(ctx, actor, {
+      action: 'order.courier_meeting_updated',
+      targetType: 'order',
+      targetId: orderId,
+      data: { destinationId: d.id, city: input.city, state: input.state, zip: zip5(input.zip), window: input.window },
+    });
+  });
+  return courierDelivery(ctx, d.id, { masked: false });
+}
+
+/**
  * Reveals full bank account details for an order's ACH/wire payout destination.
  * Audits the view without recording the account number. Never returned on customer APIs.
  */

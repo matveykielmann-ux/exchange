@@ -4,7 +4,8 @@ import { StatusBadge } from '@/components/ui';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Icon } from '@/components/Icon';
-import { COURIER_WINDOW_LABELS } from '@/domain/courier';
+import { COURIER_WINDOW_LABELS, COURIER_WINDOWS, type CourierWindow } from '@/domain/courier';
+import { US_STATE_NAMES, US_STATES } from '@/domain/usStates';
 import { formatUsd } from '@/domain/money';
 import { ORDER_STAGE_LABEL, orderStatusLabel, orderTone } from '@/domain/order';
 import { exchangeRateMicros } from '@/domain/quote';
@@ -88,6 +89,7 @@ export function OrderCard({ id, headingLevel = 1 }: { id: string; headingLevel?:
 
       <MainBlock detail={data} onResult={setResult} reload={reload} />
       <CredentialsBlock detail={data} onResult={setResult} reload={reload} />
+      <CourierMeetingBlock detail={data} onResult={setResult} reload={reload} />
       <CardPayInBlock detail={data} onResult={setResult} reload={reload} />
       <CardDestinationBlock detail={data} onResult={setResult} />
       <BankDestinationBlock detail={data} onResult={setResult} />
@@ -308,6 +310,173 @@ function BankDestinationBlock({ detail, onResult }: { detail: AdminOrderDetail; 
       ) : (
         <p className="small muted">{t('Pay out through your external service, then record the payout on this order.')}</p>
       )}
+    </section>
+  );
+}
+
+/* ---------- Courier meeting / collection address ---------- */
+
+function CourierMeetingBlock({ detail, onResult, reload }: { detail: AdminOrderDetail; onResult(r: Result): void; reload(): void }) {
+  const { admin } = useServices();
+  const o = detail.order;
+  const d = detail.courierDelivery;
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    phone: '',
+    line1: '',
+    line2: '',
+    city: '',
+    state: '',
+    zip: '',
+    window: 'any' as CourierWindow,
+    preferredDate: '',
+    instructions: '',
+  });
+  if (o.payout.method !== 'courier_cash') return null;
+  const buy = o.direction === 'buy';
+  const startEdit = () => {
+    setForm({
+      phone: d && !d.masked ? d.phone : '',
+      line1: d && !d.masked ? d.line1 : '',
+      line2: d && !d.masked ? d.line2 : '',
+      city: d?.city ?? '',
+      state: d?.state ?? '',
+      zip: d?.zip ?? '',
+      window: (d?.window as CourierWindow) || 'any',
+      preferredDate: d?.preferredDate ?? '',
+      instructions: d && !d.masked ? d.instructions : '',
+    });
+    setEditing(true);
+  };
+  return (
+    <section className="order-block" aria-labelledby="block-courier-meeting">
+      <h3 id="block-courier-meeting" className="order-block__title">
+        {buy ? t('Courier collection meeting') : t('Courier delivery meeting')}
+      </h3>
+      {d ? (
+        <dl className="kv">
+          <Row term={t('Recipient')}>{d.recipient}</Row>
+          <Row term={t('Phone')}>
+            <span className="tabular">{d.phone}</span>
+          </Row>
+          <Row term={t('Address')}>
+            {d.line1}
+            {d.line2 ? `, ${d.line2}` : ''}
+            <span className="small muted block">
+              {d.city}, {d.state} {d.zip}
+            </span>
+          </Row>
+          <Row term={t('Time window')}>{t(COURIER_WINDOW_LABELS[d.window])}</Row>
+          <Row term={t('Preferred date')}>{d.preferredDate || t('First available')}</Row>
+          <Row term={t('Meeting notes')}>{d.instructions || '—'}</Row>
+          {d.masked ? <p className="small muted">{t('Street address and phone are masked for your role.')}</p> : null}
+        </dl>
+      ) : (
+        <p className="small muted">{t('No courier address on this order yet.')}</p>
+      )}
+      {d && !d.masked ? (
+        editing ? (
+          <form
+            className="stack"
+            style={{ gap: 8, marginTop: 12 }}
+            onSubmit={async (e: FormEvent) => {
+              e.preventDefault();
+              setBusy(true);
+              try {
+                await admin.credentials.updateCourierMeeting(o.id, form);
+                onResult({ tone: 'success', text: t('Courier meeting details saved.') });
+                setEditing(false);
+                reload();
+              } catch (err) {
+                onResult({ tone: 'danger', text: errorMessage(err) });
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <p className="small muted">{t('Set where the courier should go and any notes for the visit.')}</p>
+            <label className="field">
+              <span className="field__label">{t('Phone')}</span>
+              <input className="input" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} required />
+            </label>
+            <label className="field">
+              <span className="field__label">{t('Street address')}</span>
+              <input className="input" value={form.line1} onChange={(e) => setForm((f) => ({ ...f, line1: e.target.value }))} required />
+            </label>
+            <label className="field">
+              <span className="field__label">{t('Apt / suite (optional)')}</span>
+              <input className="input" value={form.line2} onChange={(e) => setForm((f) => ({ ...f, line2: e.target.value }))} />
+            </label>
+            <div className="form-grid">
+              <label className="field">
+                <span className="field__label">{t('City')}</span>
+                <input className="input" value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} required />
+              </label>
+              <label className="field">
+                <span className="field__label">{t('State')}</span>
+                <select className="select" value={form.state} onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))} required>
+                  <option value="">{t('— select —')}</option>
+                  {US_STATES.map((s) => (
+                    <option key={s} value={s}>
+                      {US_STATE_NAMES[s]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span className="field__label">{t('ZIP')}</span>
+                <input className="input" value={form.zip} onChange={(e) => setForm((f) => ({ ...f, zip: e.target.value }))} required />
+              </label>
+              <label className="field">
+                <span className="field__label">{t('Time window')}</span>
+                <select
+                  className="select"
+                  value={form.window}
+                  onChange={(e) => setForm((f) => ({ ...f, window: e.target.value as CourierWindow }))}
+                >
+                  {COURIER_WINDOWS.map((w) => (
+                    <option key={w} value={w}>
+                      {t(COURIER_WINDOW_LABELS[w])}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label className="field">
+              <span className="field__label">{t('Preferred date')}</span>
+              <input
+                className="input"
+                type="date"
+                value={form.preferredDate}
+                onChange={(e) => setForm((f) => ({ ...f, preferredDate: e.target.value }))}
+              />
+            </label>
+            <label className="field">
+              <span className="field__label">{t('Meeting notes')}</span>
+              <textarea
+                className="textarea"
+                rows={3}
+                value={form.instructions}
+                onChange={(e) => setForm((f) => ({ ...f, instructions: e.target.value }))}
+                placeholder={t('Gate code, landmark, who meets the courier…')}
+              />
+            </label>
+            <div className="row" style={{ gap: 8 }}>
+              <button type="submit" className="btn btn--secondary" disabled={busy}>
+                {busy ? t('Saving…') : t('Save meeting details')}
+              </button>
+              <button type="button" className="btn btn--ghost" onClick={() => setEditing(false)}>
+                {t('Cancel')}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button type="button" className="btn btn--secondary" style={{ marginTop: 12 }} onClick={startEdit}>
+            {t('Edit meeting details')}
+          </button>
+        )
+      ) : null}
     </section>
   );
 }
@@ -1338,7 +1507,6 @@ function TextField({
 function ClientBlock({ detail }: { detail: AdminOrderDetail }) {
   const o = detail.order;
   const c = detail.customer;
-  const d = detail.courierDelivery;
   const buy = o.direction === 'buy';
   return (
     <section className="order-block" aria-labelledby="block-client">
@@ -1368,16 +1536,6 @@ function ClientBlock({ detail }: { detail: AdminOrderDetail }) {
               </>
             )}
           </Row>
-          {d ? (
-            <Row term={buy ? t('Courier collection') : t('Courier delivery')}>
-              {d.recipient} · <span className="tabular">{d.phone}</span>
-              <span className="small muted block">
-                {d.line1}
-                {d.line2 ? `, ${d.line2}` : ''}, {d.city}, {d.state} {d.zip} · {t(COURIER_WINDOW_LABELS[d.window])}
-              </span>
-              {d.masked ? <span className="small muted block">{t('Street address and phone are masked for your role.')}</span> : null}
-            </Row>
-          ) : null}
           {!buy ? (
             <Row term={t('Deposit address')}>
               <span className="mono small break">{o.deposit.address ?? '—'}</span>

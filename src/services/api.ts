@@ -319,6 +319,8 @@ export async function createApiServices(base = ''): Promise<Services> {
           accountType: 'checking' | 'savings';
           holderName: string;
         }>(`/api/admin/orders/${encodeURIComponent(orderId)}/bank-destination`),
+      updateCourierMeeting: (orderId, input) =>
+        http.post(`/api/admin/orders/${encodeURIComponent(orderId)}/courier-meeting`, input),
       reviewPaymentConfirmation: async (orderId, body) =>
         toOrder(await http.post(`/api/admin/orders/${encodeURIComponent(orderId)}/review-payment-confirmation`, body)),
       postVerificationMessage: async (orderId, body) =>

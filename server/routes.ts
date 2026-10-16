@@ -1008,6 +1008,39 @@ function registerAdminRoutes(r: Router, app: AppContext) {
     );
     return ops.setCourierFee(app, staffActor(ctx), id, b.feeCents, b.reason);
   });
+  r.post(
+    '/api/admin/orders/:id/courier-meeting',
+    (ctx) => {
+      const b = parse(
+        v.object({
+          phone: v.string({ min: 7, max: 40, label: 'a phone number' }),
+          line1: v.string({ min: 3, max: 100, label: 'a street address' }),
+          line2: v.optional(v.string({ max: 60, label: 'an address line' })),
+          city: v.string({ min: 1, max: 80, label: 'a city' }),
+          state: v.string({ min: 2, max: 2, label: 'a state' }),
+          zip: v.string({ min: 5, max: 10, label: 'a ZIP code' }),
+          window: v.enum(['morning', 'afternoon', 'evening', 'any'] as const, 'window'),
+          preferredDate: v.optional(v.string({ max: 10, label: 'a date' })),
+          instructions: v.optional(v.string({ max: 200, label: 'instructions' })),
+        }),
+        ctx.body,
+      );
+      return {
+        body: customers.updateOrderCourierMeeting(app, staffActor(ctx), ctx.params.id!, {
+          phone: b.phone,
+          line1: b.line1,
+          line2: b.line2 ?? '',
+          city: b.city,
+          state: b.state,
+          zip: b.zip,
+          window: b.window,
+          preferredDate: b.preferredDate ?? '',
+          instructions: b.instructions ?? '',
+        }),
+      };
+    },
+    { ...staff(SUPPORT), rateLimit: WRITE_LIMIT },
+  );
   orderAction('assign-wire-credentials', SUPPORT, (ctx, id) => {
     const b = parse(
       v.object({

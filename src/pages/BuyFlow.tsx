@@ -23,7 +23,7 @@ import { defaultNetwork, isAssetCode, isSupportedPair, NETWORKS, networkLabel, t
 import { CASH_COLLECTION_WINDOW_MS } from '@/domain/courier';
 import { formatUsd, parseDecimal } from '@/domain/money';
 import { describeFee, PAYOUT_METHODS } from '@/domain/payout';
-import { buyPayInMethod, isBuyPayIn, PRICING_POLICY, type BuyPayIn, type QuoteIssue } from '@/domain/quote';
+import { amountIssues, buyPayInMethod, isBuyPayIn, PRICING_POLICY, type BuyPayIn, type QuoteIssue } from '@/domain/quote';
 import { WIRE_RECEIPT_WINDOW_MS } from '@/domain/wire';
 import { validateCashAmount, validateReceiveAddress } from '@/domain/validation';
 import { errorMessage } from '@/lib/errors';
@@ -209,7 +209,8 @@ type DraftProps = { draft: BuyDraft; update: (patch: Partial<BuyDraft>) => void 
 function AmountStep({ draft, update, quote, onNext }: DraftProps & { quote: ReturnType<typeof useBuyQuote>; onNext: () => void }) {
   const [touched, setTouched] = useState(false);
   const fieldError = touched || draft.cash !== '' ? validateCashAmount(draft.cash) : null;
-  const issues = quote.data?.issues.filter((i) => i.code !== 'zero_amount') ?? [];
+  // Courier fee is set later in CRM — it must not block leaving step 1.
+  const issues = quote.data ? amountIssues(quote.data.issues).filter((i) => i.code !== 'zero_amount') : [];
   const ready = !validateCashAmount(draft.cash) && !!quote.data && !quote.loading && issues.length === 0;
   const wire = draft.payIn === 'wire';
   const card = draft.payIn === 'card';
@@ -736,7 +737,7 @@ export function BuyFlow({ header }: { header: ReactNode }) {
   const cents = cashCents(draft.cash);
   const reachable = cents === null ? 1 : !user ? 2 : 3;
   const quote = useBuyQuote(draft, { firm: false, enabled: Math.min(draft.step, reachable) < 3 });
-  const blocking = quote.data?.issues.filter((i) => i.code !== 'zero_amount') ?? [];
+  const blocking = quote.data ? amountIssues(quote.data.issues).filter((i) => i.code !== 'zero_amount') : [];
   const maxStep = blocking.length && !quote.loading ? 1 : reachable;
   const step = Math.min(draft.step, maxStep) as BuyDraft['step'];
   const headingRef = useRef<HTMLDivElement>(null);
