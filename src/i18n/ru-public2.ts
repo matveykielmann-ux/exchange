@@ -328,6 +328,7 @@ export const RU_PUBLIC2: Record<string, string> = {
   'Estimated timing': 'Ориентировочный срок',
   Minimum: 'Минимум',
   'Not offered': 'Недоступно',
+  'Not available yet': 'Пока недоступно',
   Timing: 'Срок',
   '{0}, no maximum': '{0}, без максимума',
   'Network fees': 'Сетевые комиссии',

@@ -111,7 +111,22 @@ function AmountStep({ state, onNext }: { state: QuoteState; onNext: () => void }
 /* ---------------- Step 2 ---------------- */
 function PayoutStep({ grossCents, onBack, onNext }: { grossCents: bigint | null; onBack: () => void; onNext: () => void }) {
   const { draft, update } = useDraft();
-  const options = payoutOptions(grossCents);
+  const config = useConfig();
+  const cardProviderReady = config.providers.some(
+    (p) => p.key === 'cardPayout' && (p.state === 'configured' || p.state === 'sandbox'),
+  );
+  const options = payoutOptions(grossCents).map((o) => {
+    if (o.method.id === 'instant_debit' && !cardProviderReady) {
+      return {
+        ...o,
+        eligibility: {
+          eligible: false as const,
+          reason: 'Debit card payouts require a configured card payout provider (secure card capture).',
+        },
+      };
+    }
+    return o;
+  });
   const selectedOk = options.some((o) => o.method.id === draft.payoutMethod && o.eligibility.eligible);
 
   return (
