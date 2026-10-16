@@ -36,7 +36,8 @@ export const RU_CRM: Record<string, string> = {
   read: 'прочитано',
   History: 'История',
   'Show all {0} entries': 'Показать все записи ({0})',
-  'More details: payments, reviews, conversations, audit': 'Подробнее: платежи, проверки, переписка, аудит',
+  'More details: payments, reviews, conversations, audit': 'Подробнее: платежи, проверки, переписка',
+  'More details: payments, reviews, conversations': 'Подробнее: платежи, проверки, переписка',
   'Payout attempt {0}': 'Попытка выплаты {0}',
   'Orders waiting on you come first. Open an order to see it and act on it.':
     'Сначала заявки, которые ждут вашего действия. Откройте заявку, чтобы посмотреть и обработать её.',

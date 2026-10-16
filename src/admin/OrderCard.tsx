@@ -1580,7 +1580,7 @@ function MoreDetails({ detail }: { detail: AdminOrderDetail; reload(): void }) {
   const o = detail.order;
   return (
     <details className="order-more">
-      <summary>{t('More details: payments, reviews, conversations, audit')}</summary>
+      <summary>{t('More details: payments, reviews, conversations')}</summary>
       <div className="stack" style={{ marginTop: 12 }}>
         <dl className="dl dl--compact">
           <Row term={t('Quote snapshot')}>
@@ -1621,9 +1621,6 @@ function MoreDetails({ detail }: { detail: AdminOrderDetail; reload(): void }) {
               : t('No conversations about this order.')}
           </Row>
         </dl>
-        <p className="small">
-          <Link to={`/admin/audit?targetType=order&targetId=${o.id}`}>{t('Open in audit log')}</Link>
-        </p>
       </div>
     </details>
   );

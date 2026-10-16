@@ -41,8 +41,6 @@ const AdminQueue = named(() => import('./admin/QueuePage'), 'QueuePage');
 const AdminOrder = named(() => import('./admin/OrderDetailPage'), 'OrderDetailPage');
 const AdminInbox = named(() => import('./admin/InboxPage'), 'InboxPage');
 const AdminUsers = named(() => import('./admin/UsersPage'), 'UsersPage');
-const AdminAudit = named(() => import('./admin/AuditPage'), 'AuditPage');
-const AdminSystem = named(() => import('./admin/SystemPage'), 'SystemPage');
 const AdminVerifications = named(() => import('./admin/VerificationsPage'), 'VerificationsPage');
 const AdminVerification = named(() => import('./admin/VerificationsPage'), 'VerificationDetailPage');
 const AdminCredentials = named(() => import('./admin/CredentialsPage'), 'CredentialsPage');
@@ -108,8 +106,6 @@ function AdminRoutes() {
         <Route path="verification/:id" element={<AdminVerification />} />
         <Route path="credentials" element={<AdminCredentials />} />
         <Route path="users" element={<AdminUsers />} />
-        <Route path="audit" element={<AdminAudit />} />
-        <Route path="system" element={<AdminSystem />} />
       </Route>
       <Route path="admin/login" element={<StaffSignInPage />} />
       <Route path="/" element={<Navigate to="/admin" replace />} />
@@ -144,8 +140,6 @@ function CustomerRoutes({ split }: { split: boolean }) {
           <Route path="verification/:id" element={<AdminVerification />} />
           <Route path="credentials" element={<AdminCredentials />} />
           <Route path="users" element={<AdminUsers />} />
-          <Route path="audit" element={<AdminAudit />} />
-          <Route path="system" element={<AdminSystem />} />
         </Route>
       )}
       <Route element={<Layout />}>

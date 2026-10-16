@@ -21,12 +21,10 @@ const NAV: NavItem[] = [
   { to: '/admin/credentials', label: 'Credentials & wallets', icon: 'bank', min: 'admin' },
   { to: '/admin/verification', label: 'Identity verification', icon: 'shield', min: 'admin' },
 ];
-/** Occasional: statistics, audit, people, service health. */
+/** Occasional: statistics and people. */
 const NAV_ADMIN: NavItem[] = [
   { to: '/admin/overview', label: 'Statistics', icon: 'grid', min: 'admin' },
-  { to: '/admin/audit', label: 'Audit log', icon: 'file', min: 'admin' },
   { to: '/admin/users', label: 'Users', icon: 'users', min: 'admin' },
-  { to: '/admin/system', label: 'Service status', icon: 'activity', min: 'admin' },
 ];
 
 /** The staff workspace: its own layout and navigation. Every request it makes is authorized on the server by role. */
