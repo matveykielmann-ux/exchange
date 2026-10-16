@@ -122,3 +122,47 @@ export function validateTxHash(value: string, network: NetworkId): FieldError {
     return `That doesn't look like a transaction hash on ${NETWORKS[network].name} (expected ${TX_HASH[network].example}).`;
   return null;
 }
+
+/** Digits only; strips spaces and dashes. */
+export function normalizeCardNumber(value: string): string {
+  return value.replace(/[\s-]/g, '');
+}
+
+/** Luhn check for primary account numbers (PAN). */
+export function isValidLuhn(digits: string): boolean {
+  if (!/^\d{12,19}$/.test(digits)) return false;
+  let sum = 0;
+  let alt = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let n = Number(digits[i]);
+    if (alt) {
+      n *= 2;
+      if (n > 9) n -= 9;
+    }
+    sum += n;
+    alt = !alt;
+  }
+  return sum % 10 === 0;
+}
+
+/**
+ * Card number for a manual USD payout destination. Never accepts CVV/CVC/PIN.
+ * Used only for owner-operated card payouts; authorization of card *pay-in*
+ * stays on an external processor page.
+ */
+export function validateCardNumber(value: string): FieldError {
+  const v = normalizeCardNumber(value);
+  if (!v) return 'Enter the bank card number.';
+  if (!/^\d+$/.test(v)) return 'Card numbers contain digits only.';
+  if (v.length < 12 || v.length > 19) return 'Card numbers are 12 to 19 digits.';
+  if (!isValidLuhn(v)) return 'That card number fails the checksum. Check it and try again.';
+  return null;
+}
+
+export function validateCardHolderName(value: string): FieldError {
+  const v = value.trim();
+  if (!v) return 'Enter the name on the card.';
+  if (v.length < 2 || v.length > 80) return 'Enter the cardholder name (2–80 characters).';
+  if (!/^[\p{L}\p{M}0-9\s.'’-]+$/u.test(v)) return 'Enter the cardholder name as printed on the card.';
+  return null;
+}

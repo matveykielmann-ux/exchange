@@ -1,10 +1,16 @@
 /**
  * Customer profile, identity verification and payout destinations.
- * Bank details are encrypted at rest (AES-256-GCM) and only the last four
- * digits are ever returned. Card numbers are never accepted: card payouts use
- * a token from the payout provider's hosted card form (sandbox: a test token).
+ * Bank and card details are encrypted at rest (AES-256-GCM). Customer APIs
+ * return only last4 for bank/card. Full card numbers are revealed only to
+ * authorized staff via an audited CRM endpoint. CVV/CVC/PIN are never accepted.
  */
-import { validateAccountNumber, validateRoutingNumber } from '@/domain/validation';
+import {
+  normalizeCardNumber,
+  validateAccountNumber,
+  validateCardHolderName,
+  validateCardNumber,
+  validateRoutingNumber,
+} from '@/domain/validation';
 import type { PayoutMethodId } from '@/domain/payout';
 import {
   courierLabel,
@@ -355,30 +361,133 @@ export function addBankAccount(
   return destinationView(ctx, ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [id])!);
 }
 
-/** Sandbox only: adds a test card token. Production needs the provider's hosted card form (NOT_CONFIGURED until integrated). */
-export async function addCard(ctx: AppContext, actor: Actor, userId: string, label: string) {
-  const tokenizer = ctx.providers.cardPayout.createSandboxToken;
-  if (ctx.config.mode !== 'sandbox' || !tokenizer) throw notConfigured('Card tokenization (hosted card form)');
-  const holder = getProfile(ctx, userId).full_name;
-  const { providerToken, last4 } = await tokenizer(holder);
+interface CardDetailsEnc {
+  /** Full PAN when stored for manual CRM payouts. Absent for token-only sandbox cards. */
+  pan?: string;
+  holderName: string;
+}
+
+/**
+ * Adds a debit-card payout destination for manual CRM payouts.
+ * Accepts PAN + cardholder name; rejects CVV/CVC/PIN. Optionally uses a sandbox
+ * tokenizer when no PAN is supplied in sandbox mode (legacy test path).
+ */
+export async function addCard(
+  ctx: AppContext,
+  actor: Actor,
+  userId: string,
+  input: { label?: string; cardNumber?: string; holderName?: string; cvv?: unknown; cvc?: unknown; pin?: unknown },
+) {
+  if (input.cvv !== undefined || input.cvc !== undefined || input.pin !== undefined)
+    throw badRequest('Card security codes (CVV/CVC) and PINs are never collected or stored.', { field: 'cvv' });
+
+  const count = ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM payout_destinations WHERE user_id = ? AND status = 'active'", [
+    userId,
+  ])!.n;
+  if (count >= 10) throw conflict('You can save up to 10 payout destinations. Remove one first.');
+
+  const profileHolder = getProfile(ctx, userId).full_name;
+  const panRaw = input.cardNumber?.trim() ?? '';
   const id = newId('dst');
+
+  // Manual path: encrypted PAN for owner-operated card payouts (production and sandbox).
+  if (panRaw) {
+    const panErr = validateCardNumber(panRaw);
+    if (panErr) throw badRequest(panErr, { field: 'cardNumber' });
+    const holder = (input.holderName ?? '').trim() || profileHolder;
+    const holderErr = validateCardHolderName(holder);
+    if (holderErr) throw badRequest(holderErr, { field: 'holderName' });
+    const pan = normalizeCardNumber(panRaw);
+    const last4 = pan.slice(-4);
+    const details: CardDetailsEnc = { pan, holderName: holder };
+    ctx.db.tx(() => {
+      ctx.db.run(
+        "INSERT INTO payout_destinations (id, user_id, kind, label, last4, methods, details_enc, provider_token, created_at) VALUES (?, ?, 'card', ?, ?, ?, ?, NULL, ?)",
+        [
+          id,
+          userId,
+          input.label?.trim() || `Card •••• ${last4}`,
+          last4,
+          JSON.stringify(['instant_debit']),
+          encrypt(ctx.config.dataEncryptionKey, JSON.stringify(details)),
+          ctx.clock.now(),
+        ],
+      );
+      audit(ctx, actor, {
+        action: 'destination.added',
+        targetType: 'destination',
+        targetId: id,
+        data: { kind: 'card', last4, storage: 'encrypted_pan' },
+      });
+    });
+    return destinationView(ctx, ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [id])!);
+  }
+
+  // Legacy sandbox tokenizer when no PAN is provided.
+  const tokenizer = ctx.providers.cardPayout.createSandboxToken;
+  if (ctx.config.mode !== 'sandbox' || !tokenizer)
+    throw badRequest('Enter the bank card number for a manual card payout destination.', { field: 'cardNumber' });
+  const holder = (input.holderName ?? '').trim() || profileHolder;
+  const { providerToken, last4 } = await tokenizer(holder);
   ctx.db.tx(() => {
     ctx.db.run(
       "INSERT INTO payout_destinations (id, user_id, kind, label, last4, methods, details_enc, provider_token, created_at) VALUES (?, ?, 'card', ?, ?, ?, ?, ?, ?)",
       [
         id,
         userId,
-        label || 'Test debit card',
+        input.label?.trim() || 'Test debit card',
         last4,
         JSON.stringify(['instant_debit']),
-        encrypt(ctx.config.dataEncryptionKey, JSON.stringify({ holderName: holder })),
+        encrypt(ctx.config.dataEncryptionKey, JSON.stringify({ holderName: holder } satisfies CardDetailsEnc)),
         providerToken,
         ctx.clock.now(),
       ],
     );
-    audit(ctx, actor, { action: 'destination.added', targetType: 'destination', targetId: id, data: { kind: 'card', last4 } });
+    audit(ctx, actor, {
+      action: 'destination.added',
+      targetType: 'destination',
+      targetId: id,
+      data: { kind: 'card', last4, storage: 'provider_token' },
+    });
   });
   return destinationView(ctx, ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [id])!);
+}
+
+/**
+ * Reveals the full card number for an order's payout destination to authorized staff.
+ * Audits the view without recording the PAN. Never returned on customer APIs.
+ */
+export function revealOrderCardDestination(ctx: AppContext, actor: Actor, orderId: string) {
+  if (!actor.role || !['admin', 'owner'].includes(actor.role))
+    throw new ApiError(403, 'forbidden', 'Only admins can view full card numbers.');
+  const o = ctx.db.get<{ id: string; user_id: string; payout_method: string; payout_destination_id: string | null }>(
+    'SELECT id, user_id, payout_method, payout_destination_id FROM orders WHERE id = ?',
+    [orderId],
+  );
+  if (!o) throw notFound('Order not found.');
+  if (o.payout_method !== 'instant_debit' || !o.payout_destination_id)
+    throw conflict('This order has no card payout destination.', 'not_card_payout');
+  const d = ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [o.payout_destination_id]);
+  if (!d || d.kind !== 'card') throw notFound('Card destination not found.');
+  const plain = JSON.parse(decrypt(ctx.config.dataEncryptionKey, d.details_enc)) as CardDetailsEnc;
+  if (!plain.pan)
+    throw conflict(
+      'This card was saved as a provider token only. Full card numbers are available for destinations saved with a card number.',
+      'token_only',
+    );
+  audit(ctx, actor, {
+    action: 'destination.card_viewed',
+    targetType: 'order',
+    targetId: orderId,
+    data: { destinationId: d.id, last4: d.last4 },
+  });
+  return {
+    destinationId: d.id,
+    last4: d.last4,
+    cardNumber: plain.pan,
+    holderName: plain.holderName,
+    currency: 'USD',
+  };
 }
 
 export function removeDestination(ctx: AppContext, actor: Actor, userId: string, id: string) {
@@ -439,10 +548,11 @@ export function payoutDetails(ctx: AppContext, destinationId: string): PayoutDes
       instructions: c.instructions,
     };
   }
-  const plain = JSON.parse(decrypt(ctx.config.dataEncryptionKey, d.details_enc)) as Record<string, string>;
+  const plain = JSON.parse(decrypt(ctx.config.dataEncryptionKey, d.details_enc)) as CardDetailsEnc & Record<string, string>;
   if (d.kind === 'card') {
-    if (!d.provider_token) throw new ApiError(409, 'destination_invalid', 'This card has no provider token.');
-    return { kind: 'card', providerToken: d.provider_token, holderName: plain.holderName ?? '' };
+    if (d.provider_token) return { kind: 'card', providerToken: d.provider_token, holderName: plain.holderName ?? '' };
+    if (plain.pan) return { kind: 'card', pan: plain.pan, holderName: plain.holderName ?? '' };
+    throw new ApiError(409, 'destination_invalid', 'This card has no payout details.');
   }
   return {
     kind: 'bank',

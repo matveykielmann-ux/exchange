@@ -13,8 +13,9 @@ import { formatUsd } from '@/domain/money';
 import { describeFee, feeLabel, PAYOUT_METHODS, payoutOptions } from '@/domain/payout';
 import { amountIssues } from '@/domain/quote';
 import { AddBankForm } from '@/components/AddBankForm';
+import { AddCardForm } from '@/components/AddCardForm';
 import { AddCourierForm } from '@/components/AddCourierForm';
-import { errorMessage, isNotConfigured } from '@/lib/errors';
+import { errorMessage } from '@/lib/errors';
 import { describeDestination, destinationLabel, formatAsset } from '@/lib/format';
 import { useUser } from '@/state/auth';
 import { useDraft, type ExchangeDraft } from '@/state/draft';
@@ -111,22 +112,8 @@ function AmountStep({ state, onNext }: { state: QuoteState; onNext: () => void }
 /* ---------------- Step 2 ---------------- */
 function PayoutStep({ grossCents, onBack, onNext }: { grossCents: bigint | null; onBack: () => void; onNext: () => void }) {
   const { draft, update } = useDraft();
-  const config = useConfig();
-  const cardProviderReady = config.providers.some(
-    (p) => p.key === 'cardPayout' && (p.state === 'configured' || p.state === 'sandbox'),
-  );
-  const options = payoutOptions(grossCents).map((o) => {
-    if (o.method.id === 'instant_debit' && !cardProviderReady) {
-      return {
-        ...o,
-        eligibility: {
-          eligible: false as const,
-          reason: 'Debit card payouts require a configured card payout provider (secure card capture).',
-        },
-      };
-    }
-    return o;
-  });
+  // Manual CRM card payouts are available without a card provider; automatic push stays optional.
+  const options = payoutOptions(grossCents);
   const selectedOk = options.some((o) => o.method.id === draft.payoutMethod && o.eligibility.eligible);
 
   return (
@@ -196,10 +183,7 @@ function PayoutStep({ grossCents, onBack, onNext }: { grossCents: bigint | null;
 function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
   const { draft, update } = useDraft();
   const user = useUser();
-  const { account } = useServices();
   const { list: destinations, reload: load } = useDestinations();
-  const [cardError, setCardError] = useState<{ message: string; notConfigured: boolean } | null>(null);
-  const [addingCard, setAddingCard] = useState(false);
   const [touched, setTouched] = useState(false);
   const [adding, setAdding] = useState(false);
   const method = PAYOUT_METHODS[draft.payoutMethod];
@@ -289,44 +273,22 @@ function DetailsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
       </fieldset>
 
       {draft.payoutMethod === 'instant_debit' ? (
-        usable.length === 0 ? (
-          <div className="stack">
-            <Notice tone="neutral" title={t('Cards are added through our card provider')}>
-              <p>
-                {t(
-                  'Card numbers are entered only in the card provider’s secure form, never on this site. The security code (CVV) is never stored.',
-                )}
-              </p>
-            </Notice>
-            {cardError ? <Notice tone={cardError.notConfigured ? 'warn' : 'danger'} title={cardError.message} role="alert" /> : null}
-            <div>
-              <button
-                type="button"
-                className="btn btn--secondary"
-                disabled={addingCard}
-                onClick={async () => {
-                  setAddingCard(true);
-                  setCardError(null);
-                  try {
-                    const d = await account.addCard('Debit card');
-                    update({ destinationId: d.id });
-                    load();
-                  } catch (e) {
-                    setCardError(
-                      isNotConfigured(e)
-                        ? { message: t('Card payouts are not available yet: the card provider is not connected.'), notConfigured: true }
-                        : { message: errorMessage(e), notConfigured: false },
-                    );
-                  } finally {
-                    setAddingCard(false);
-                  }
-                }}
-              >
-                {addingCard ? t('Adding…') : t('Add a debit card')}
-              </button>
-            </div>
+        adding || (destinations !== null && usable.length === 0) ? (
+          <AddCardForm
+            onAdded={(d) => {
+              setAdding(false);
+              update({ destinationId: d.id });
+              load();
+            }}
+            onCancel={usable.length ? () => setAdding(false) : undefined}
+          />
+        ) : (
+          <div>
+            <button type="button" className="btn btn--secondary" onClick={() => setAdding(true)}>
+              {t('Add a debit card')}
+            </button>
           </div>
-        ) : null
+        )
       ) : draft.payoutMethod === 'courier_cash' ? (
         adding || (destinations !== null && usable.length === 0) ? (
           <AddCourierForm

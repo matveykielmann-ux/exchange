@@ -240,13 +240,22 @@ function ev<T extends OrderEventType>(e: OrderEvent, type: T): Extract<OrderEven
 
 const isBuy = (s: Pick<OrderMachineState, 'direction'>) => s.direction === 'buy';
 const isWire = (s: Pick<OrderMachineState, 'direction' | 'payIn'>) => isBuy(s) && s.payIn === 'wire';
+const isCardBuy = (s: Pick<OrderMachineState, 'direction' | 'payIn'>) => isBuy(s) && s.payIn === 'card';
 /** Picks the customer-facing wording for the order's direction (and, for a buy, how it is paid). */
-const say = (s: Pick<OrderMachineState, 'direction' | 'payIn'>, sell: string, buy: string, wire: string = buy) =>
-  isWire(s) ? wire : isBuy(s) ? buy : sell;
+const say = (
+  s: Pick<OrderMachineState, 'direction' | 'payIn'>,
+  sell: string,
+  buy: string,
+  wire: string = buy,
+  card: string = wire,
+) => (isCardBuy(s) ? card : isWire(s) ? wire : isBuy(s) ? buy : sell);
 
 /** A buy's pay-in from the order's stored method (the method column holds the pay-in for a buy). */
 export function buyPayIn(direction: ExchangeDirection | undefined, method: PayoutMethodId): BuyPayIn | undefined {
-  return direction === 'buy' ? (method === 'wire' ? 'wire' : 'courier_cash') : undefined;
+  if (direction !== 'buy') return undefined;
+  if (method === 'wire') return 'wire';
+  if (method === 'instant_debit') return 'card';
+  return 'courier_cash';
 }
 
 /* ---------- Resolvers with guards ---------- */
@@ -269,29 +278,37 @@ const depositObserved: Resolver = (s, e, now) => {
   return {
     status: 'deposit_observed',
     patch: { depositTxHash: d.txHash, depositAmountAtomic: d.amountAtomic, depositException: exception, confirmationsCount: confirmations },
-    detail: isWire(s)
+    detail: isCardBuy(s)
       ? exception === 'late'
-        ? 'A wire arrived after the window closed. It cannot be exchanged at the quoted rate and will be reviewed for return.'
+        ? 'A card payment arrived after the window closed. It cannot be exchanged at the quoted rate and will be reviewed for return.'
         : exception === 'order_closed'
-          ? 'A wire arrived for an order that was already closed. It will be reviewed for return.'
+          ? 'A card payment arrived for an order that was already closed. It will be reviewed for return.'
           : exception === 'amount_mismatch'
-            ? 'The wire received differs from the quoted amount. It cannot be exchanged at the quoted rate and will be reviewed for return.'
-            : 'Your wire was received. It is being matched to this order and checked.'
-      : isBuy(s)
+            ? 'The card payment received differs from the quoted amount. It cannot be exchanged at the quoted rate and will be reviewed for return.'
+            : 'Your card payment was recorded. It is being matched to this order and checked.'
+      : isWire(s)
         ? exception === 'late'
-          ? 'Cash was collected after the collection window closed. It cannot be exchanged at the quoted rate and will be reviewed for return.'
+          ? 'A wire arrived after the window closed. It cannot be exchanged at the quoted rate and will be reviewed for return.'
           : exception === 'order_closed'
-            ? 'Cash was collected for an order that was already closed. It will be reviewed for return.'
+            ? 'A wire arrived for an order that was already closed. It will be reviewed for return.'
             : exception === 'amount_mismatch'
-              ? 'The cash collected differs from the quoted amount. It cannot be exchanged at the quoted rate and will be reviewed for return.'
-              : 'The courier collected your cash. It is being counted and checked.'
-        : exception === 'late'
-          ? 'A deposit arrived after the deposit window closed. It cannot be paid at the locked rate and will be reviewed for return to your refund address.'
-          : exception === 'order_closed'
-            ? 'A deposit arrived for an order that was already closed. It will be reviewed for return to your refund address.'
-            : exception === 'amount_mismatch'
-              ? 'A deposit arrived that differs from the quoted amount. It cannot be paid at the locked rate and will be reviewed for return to your refund address.'
-              : 'Your deposit was seen on the network. Waiting for confirmations.',
+              ? 'The wire received differs from the quoted amount. It cannot be exchanged at the quoted rate and will be reviewed for return.'
+              : 'Your wire was received. It is being matched to this order and checked.'
+        : isBuy(s)
+          ? exception === 'late'
+            ? 'Cash was collected after the collection window closed. It cannot be exchanged at the quoted rate and will be reviewed for return.'
+            : exception === 'order_closed'
+              ? 'Cash was collected for an order that was already closed. It will be reviewed for return.'
+              : exception === 'amount_mismatch'
+                ? 'The cash collected differs from the quoted amount. It cannot be exchanged at the quoted rate and will be reviewed for return.'
+                : 'The courier collected your cash. It is being counted and checked.'
+          : exception === 'late'
+            ? 'A deposit arrived after the deposit window closed. It cannot be paid at the locked rate and will be reviewed for return to your refund address.'
+            : exception === 'order_closed'
+              ? 'A deposit arrived for an order that was already closed. It will be reviewed for return to your refund address.'
+              : exception === 'amount_mismatch'
+                ? 'A deposit arrived that differs from the quoted amount. It cannot be paid at the locked rate and will be reviewed for return to your refund address.'
+                : 'Your deposit was seen on the network. Waiting for confirmations.',
     visibility: 'customer',
   };
 };
@@ -369,6 +386,7 @@ const manualDepositConfirmed: Resolver = (s, e, now) => {
       'Your deposit was verified by our team. This is an operator-recorded confirmation, not an automated network monitor report.',
       'Your cash was verified by our team. This is an operator-recorded confirmation, not an automated courier report.',
       'Your wire was verified by our team. This is an operator-recorded confirmation, not an automated bank match report.',
+      'Your card payment was verified by our team. This is an operator-recorded confirmation, not an automated processor webhook.',
     ),
     visibility: 'customer',
   };
@@ -802,9 +820,42 @@ const WIRE_STATUS_LABEL: Partial<Record<OrderStatus, string>> = {
   refunded: 'Wire returned',
 };
 
-export function orderStatusLabel(status: OrderStatus, direction: ExchangeDirection = 'sell', payIn?: BuyPayIn): string {
-  const buyLabels = payIn === 'wire' ? WIRE_STATUS_LABEL : BUY_STATUS_LABEL;
-  return (direction === 'buy' ? buyLabels[status] : undefined) ?? ORDER_STATUS_LABEL[status];
+/** Buy orders paid by bank card via an external payment page (CRM-issued link/instructions). */
+const CARD_BUY_STATUS_LABEL: Partial<Record<OrderStatus, string>> = {
+  ...BUY_STATUS_LABEL,
+  created: 'Preparing card payment instructions',
+  awaiting_deposit: 'Awaiting card payment',
+  deposit_observed: 'Card payment received',
+  confirming: 'Verifying card payment',
+  deposit_confirmed: 'Card payment verified',
+  refund_pending: 'Card payment return pending',
+  refunded: 'Card payment returned',
+};
+
+/** Sell → USD to a debit card (manual CRM payout). */
+const CARD_SELL_STATUS_LABEL: Partial<Record<OrderStatus, string>> = {
+  created: 'Awaiting processing',
+  awaiting_deposit: 'Awaiting processing',
+  deposit_observed: 'Deposit observed',
+  confirming: 'Confirming deposit',
+  deposit_confirmed: 'Deposit verified — payout pending',
+  ready_for_payout: 'Awaiting card payout',
+  payout_submitted: 'Card payout submitted',
+  payout_processing: 'Card payout processing',
+};
+
+export function orderStatusLabel(
+  status: OrderStatus,
+  direction: ExchangeDirection = 'sell',
+  payIn?: BuyPayIn,
+  payoutMethod?: PayoutMethodId,
+): string {
+  if (direction === 'buy') {
+    const buyLabels = payIn === 'wire' ? WIRE_STATUS_LABEL : payIn === 'card' ? CARD_BUY_STATUS_LABEL : BUY_STATUS_LABEL;
+    return buyLabels[status] ?? ORDER_STATUS_LABEL[status];
+  }
+  if (payoutMethod === 'instant_debit') return CARD_SELL_STATUS_LABEL[status] ?? ORDER_STATUS_LABEL[status];
+  return ORDER_STATUS_LABEL[status];
 }
 
 export type OrderTone = 'info' | 'success' | 'warn' | 'danger' | 'neutral';

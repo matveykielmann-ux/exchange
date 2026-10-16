@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AddBankForm } from '@/components/AddBankForm';
+import { AddCardForm } from '@/components/AddCardForm';
 import { AddCourierForm } from '@/components/AddCourierForm';
 import { FEATURE_FLAGS } from '@/config/runtime';
 import { Field } from '@/components/Field';
@@ -11,7 +12,7 @@ import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { US_STATE_NAMES, US_STATES, type UsStateCode } from '@/domain/usStates';
 import { countryName, countryOptions } from '@/domain/residence';
 import { validatePassword } from '@/domain/validation';
-import { errorMessage, isNotConfigured } from '@/lib/errors';
+import { errorMessage } from '@/lib/errors';
 import { describeDestination, destinationLabel, formatDateTime } from '@/lib/format';
 import type { Acceptance, KycStatus, SessionInfo, User } from '@/services/types';
 import { useDestinations } from '@/state/useDestinations';
@@ -214,7 +215,7 @@ function VerificationSection({ user }: { user: User }) {
 function PayoutSection() {
   const { account } = useServices();
   const { list: destinations, reload } = useDestinations();
-  const [adding, setAdding] = useState<'bank' | 'courier' | null>(null);
+  const [adding, setAdding] = useState<'bank' | 'courier' | 'card' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function act(fn: () => Promise<unknown>) {
@@ -223,7 +224,7 @@ function PayoutSection() {
       await fn();
       reload();
     } catch (e) {
-      setError(isNotConfigured(e) ? t('Card payouts are not available yet: the card provider is not connected.') : errorMessage(e));
+      setError(errorMessage(e));
     }
   }
 
@@ -274,6 +275,14 @@ function PayoutSection() {
           }}
           onCancel={() => setAdding(null)}
         />
+      ) : adding === 'card' ? (
+        <AddCardForm
+          onAdded={() => {
+            setAdding(null);
+            reload();
+          }}
+          onCancel={() => setAdding(null)}
+        />
       ) : (
         <div className="row">
           <button type="button" className="btn btn--secondary" onClick={() => setAdding('bank')}>
@@ -284,7 +293,7 @@ function PayoutSection() {
               {t('Add a cash delivery address')}
             </button>
           ) : null}
-          <button type="button" className="btn btn--ghost" onClick={() => act(() => account.addCard('Debit card'))}>
+          <button type="button" className="btn btn--ghost" onClick={() => setAdding('card')}>
             {t('Add a debit card')}
           </button>
         </div>

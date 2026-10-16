@@ -9,7 +9,6 @@ import { FAQ, FaqList } from '@/content/faq';
 import { ASSET_ORDER, ASSETS, NETWORKS, networkLabel } from '@/domain/assets';
 import { describeFee, PAYOUT_METHODS, PAYOUT_ORDER } from '@/domain/payout';
 import { t } from '@/i18n';
-import { useConfig } from '@/state/config';
 
 /** 1.5 ETH — amount only; the rate comes from the live pricing API. */
 const EXAMPLE_ETH_ATOMIC = 1_500_000_000_000_000_000n;
@@ -18,7 +17,7 @@ const STEPS = [
   { title: 'Get a quote', body: 'Pick the asset and network, enter an amount, and see the full breakdown before anything else.' },
   {
     title: 'Choose your payout',
-    body: 'Bank transfer, wire, or cash by courier. Each available option shows its fee and estimated timing.',
+    body: 'Bank transfer, wire, debit card, or cash by courier. Each available option shows its fee and estimated timing.',
   },
   { title: 'Send your crypto', body: 'Confirm, then send to the deposit address shown, on the network shown, before the window closes.' },
   { title: 'Receive dollars', body: 'Track confirmations and your payout on one status page. Every step is time-stamped.' },
@@ -26,10 +25,6 @@ const STEPS = [
 
 export function HomePage() {
   useDocumentTitle('');
-  const config = useConfig();
-  const cardProviderReady = config.providers.some(
-    (p) => p.key === 'cardPayout' && (p.state === 'configured' || p.state === 'sandbox'),
-  );
   return (
     <>
       <section className="hero">
@@ -285,8 +280,7 @@ export function HomePage() {
           <ul className="payout-grid">
             {PAYOUT_ORDER.map((id) => {
               const m = PAYOUT_METHODS[id];
-              const cardOff = id === 'instant_debit' && !cardProviderReady;
-              const off = !m.availability.available || cardOff;
+              const off = !m.availability.available;
               return (
                 <li key={id} className="payout-card" data-disabled={off || undefined}>
                   <Icon
@@ -307,13 +301,8 @@ export function HomePage() {
                   </dl>
                   {off ? (
                     <p className="small">
-                      <span className="badge badge--neutral">{t(cardOff ? 'Not available yet' : 'Not offered')}</span>
-                      {!cardOff ? (
-                        <>
-                          {' '}
-                          <Link to="/cash-delivery">{t('Why')}</Link>
-                        </>
-                      ) : null}
+                      <span className="badge badge--neutral">{t('Not offered')}</span>{' '}
+                      <Link to="/cash-delivery">{t('Why')}</Link>
                     </p>
                   ) : null}
                 </li>

@@ -334,6 +334,10 @@ export function confirmDepositManual(
       const err = validateWireReference(txHash);
       if (err) throw badRequest(err, { field: 'txHash' });
     }
+  } else if (order.payout_method === 'instant_debit') {
+    // Card pay-in: processor payment id / desk log — not a blockchain hash.
+    if (!txHash) txHash = `card:${order.reference}`;
+    if (txHash.length < 4) throw badRequest('Enter the processor payment id (at least 4 characters).', { field: 'txHash' });
   } else {
     // Cash: desk log / collection id is enough; TXID is not a blockchain hash.
     if (!txHash) txHash = `cash:${order.reference}`;
@@ -722,7 +726,11 @@ export function availableActions(ctx: AppContext, o: OrderRow, role: string) {
     ok && roleOk ? null : !roleOk ? `Requires the ${roleName} role.` : stateMsg;
   const notHeld = (msg: string | null) => msg ?? (held ? 'The order is on hold. Release the hold first.' : null);
   const list = [
-    { action: 'assign', label: 'Assign', unavailable: null },
+    {
+      action: 'assign',
+      label: o.direction === 'sell' && o.payout_method === 'instant_debit' ? 'Take into processing' : 'Assign',
+      unavailable: null,
+    },
     { action: 'note', label: 'Add internal note', unavailable: null },
     {
       action: 'flag',
@@ -803,7 +811,7 @@ export function availableActions(ctx: AppContext, o: OrderRow, role: string) {
     },
     {
       action: 'record_manual_payout',
-      label: 'Record manual payout',
+      label: o.direction === 'sell' && o.payout_method === 'instant_debit' ? 'Record card payout' : 'Record manual payout',
       unavailable: notHeld(
         why(
           s === 'ready_for_payout' && !o.payout_provider_ref,
@@ -813,6 +821,18 @@ export function availableActions(ctx: AppContext, o: OrderRow, role: string) {
             ? 'A provider payout is already in progress.'
             : 'Only when the order is ready for payout and no provider payout is in progress.',
         ),
+      ),
+    },
+    {
+      action: 'issue_card_payin_instructions',
+      label: 'Issue card payment instructions',
+      unavailable: why(
+        o.direction === 'buy' && o.payout_method === 'instant_debit' && s === 'created',
+        ['support', 'reviewer', 'admin', 'owner'].includes(role),
+        'support',
+        o.direction === 'buy' && o.payout_method === 'instant_debit'
+          ? 'Card payment instructions were already issued.'
+          : 'Only for card pay-in orders waiting for instructions.',
       ),
     },
     {

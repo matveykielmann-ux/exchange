@@ -54,10 +54,15 @@ export type QuoteSource = 'mock' | 'sandbox' | 'live';
 /** sell: the customer sends crypto and receives USD. buy: the customer pays USD (cash to a courier, or a bank wire) and receives crypto. */
 export type ExchangeDirection = 'sell' | 'buy';
 
-/** How the customer pays the dollars of a buy: cash handed to a courier, or a bank wire. */
-export type BuyPayIn = 'courier_cash' | 'wire';
-export const BUY_PAY_INS: readonly BuyPayIn[] = ['courier_cash', 'wire'];
-export const isBuyPayIn = (v: unknown): v is BuyPayIn => v === 'courier_cash' || v === 'wire';
+/** How the customer pays the dollars of a buy: cash, bank wire, or card via an external payment page. */
+export type BuyPayIn = 'courier_cash' | 'wire' | 'card';
+export const BUY_PAY_INS: readonly BuyPayIn[] = ['courier_cash', 'wire', 'card'];
+export const isBuyPayIn = (v: unknown): v is BuyPayIn => v === 'courier_cash' || v === 'wire' || v === 'card';
+
+/** Fee schedule method stored on a buy quote for each pay-in. Card reuses the 3% debit schedule. */
+export function buyPayInMethod(payIn: BuyPayIn): PayoutMethodId {
+  return payIn === 'card' ? 'instant_debit' : payIn;
+}
 
 export type QuoteIssue =
   | { code: 'unsupported_network' }
@@ -203,7 +208,7 @@ export interface BuyQuoteRequest {
 }
 
 /** The default pay-in of a buy: cash collected by courier. */
-export const BUY_CASH_METHOD: PayoutMethodId = 'courier_cash';
+export const BUY_CASH_METHOD: BuyPayIn = 'courier_cash';
 
 export function calculateBuyQuote(req: BuyQuoteRequest): QuoteResult {
   const issues: QuoteIssue[] = [];
@@ -211,9 +216,10 @@ export function calculateBuyQuote(req: BuyQuoteRequest): QuoteResult {
   const grossCents = req.cashCents > 0n ? req.cashCents : 0n;
   const spreadBps = spreadBpsFor(req.asset, grossCents);
   const spreadCents = divRoundHalfUp(grossCents * BigInt(spreadBps), 10_000n);
-  const payIn = req.payIn ?? BUY_CASH_METHOD;
-  // The pay-in reuses the matching method's fee and minimum (courier fee, or the wire fee).
-  const method = PAYOUT_METHODS[payIn];
+  const payIn: BuyPayIn = req.payIn ?? BUY_CASH_METHOD;
+  // Card buy reuses the published 3% debit fee; wire and courier keep their schedules.
+  const methodId = buyPayInMethod(payIn);
+  const method = PAYOUT_METHODS[methodId];
   const resolvedFee = payoutFeeCents(method, grossCents, req.quotedFeeCents);
   const feePending = resolvedFee === null;
   if (feePending) issues.push({ code: 'courier_fee_pending' });
@@ -246,7 +252,7 @@ export function calculateBuyQuote(req: BuyQuoteRequest): QuoteResult {
       grossCents,
       spreadBps,
       spreadCents,
-      payoutMethod: payIn,
+      payoutMethod: methodId,
       payoutFeeCents: feeCents,
       netCents,
       // Cash paid per whole unit received.

@@ -242,7 +242,7 @@ function notifyStatusChange(ctx: AppContext, o: OrderRow, detail: string) {
     vars: {
       reference: o.reference,
       stage: ORDER_STAGE_LABEL[orderStage(o.status, o.on_hold === 1)],
-      status: orderStatusLabel(o.status, o.direction, buyPayIn(o.direction, o.payout_method)),
+      status: orderStatusLabel(o.status, o.direction, buyPayIn(o.direction, o.payout_method), o.payout_method),
       detail,
     },
   });
@@ -348,17 +348,9 @@ export async function screenAddress(
 /**
  * Placement readiness for owner-managed ops: automatic adapters are optional
  * when CRM credentials and admin actions can complete the flow safely.
- * Card payouts stay blocked without a PCI-capable card provider.
  */
-function assertPlacementReady(ctx: AppContext, quote: Quote) {
-  if (quote.direction === 'buy') return;
-  if (quote.payoutMethod === 'instant_debit' && !isUsable(ctx.providers.cardPayout.info())) {
-    throw new ApiError(
-      422,
-      'method_unavailable',
-      'Debit card payouts require a configured card payout provider (secure card capture). Choose bank transfer, wire, or cash by courier for manual processing.',
-    );
-  }
+function assertPlacementReady(_ctx: AppContext, _quote: Quote) {
+  /* Manual CRM path is available for all published payout methods, including card. */
 }
 
 /** Public order number: digits only. Retries on rare UNIQUE collisions. */
@@ -390,7 +382,7 @@ export async function createOrder(
   const now = ctx.clock.now();
 
   // Automatic custody/payout/screening adapters are optional when CRM wallets
-  // and record_manual_payout can complete the exchange. Card still needs PCI infra.
+  // and record_manual_payout can complete the exchange (including card payouts).
   assertPlacementReady(ctx, quote);
 
   if (quoteRow.used_at) throw conflict('This quote has already been used. Get a new quote.', 'quote_used');
@@ -648,15 +640,18 @@ async function createBuyOrder(
 ): Promise<OrderRow> {
   const now = ctx.clock.now();
   const wire = quote.payoutMethod === 'wire';
-  // Wire and cash buys can be processed manually via CRM credentials / admin
-  // confirmation. Crypto payout uses record_manual_payout when custody is absent.
+  const card = quote.payoutMethod === 'instant_debit';
+  const payIn = buyPayIn('buy', quote.payoutMethod) ?? 'courier_cash';
+  // Wire, card, and cash buys can be processed manually via CRM credentials /
+  // payment instructions and admin confirmation. Crypto payout uses
+  // record_manual_payout when custody is absent.
 
   if (usedAt) throw conflict('This quote has already been used. Get a new quote.', 'quote_used');
   if (isQuoteExpired(quote, now)) throw new ApiError(409, 'quote_expired', 'This quote has expired. Get a new quote to continue.');
   if (hasBlockingQuoteIssues(issuesJson))
     throw new ApiError(422, 'quote_issues', 'This quote cannot be accepted. Change the amount.');
-  const feePending = !wire && quoteHasCourierFeePending(issuesJson);
-  const eligibility = payoutEligibility(PAYOUT_METHODS[wire ? 'wire' : 'courier_cash'], quote.grossCents);
+  const feePending = !wire && !card && quoteHasCourierFeePending(issuesJson);
+  const eligibility = payoutEligibility(PAYOUT_METHODS[quote.payoutMethod], quote.grossCents);
   if (!eligibility.eligible) throw new ApiError(422, 'method_unavailable', eligibility.reason);
 
   const profile = getProfile(ctx, userId);
@@ -674,14 +669,15 @@ async function createBuyOrder(
       { field: 'receiveAddress' },
     );
 
-  // A wire needs no saved destination: the customer sends it from their own bank.
-  const dest = wire
-    ? null
-    : ctx.db.get<DestinationRow>(
-        "SELECT * FROM payout_destinations WHERE id = ? AND user_id = ? AND status = 'active' AND kind = 'courier'",
-        [input.destinationId, userId],
-      );
-  if (!wire && !dest) throw badRequest('Choose the address where the courier collects the cash.', { field: 'destinationId' });
+  // Wire/card need no saved destination: customer pays from their own bank/card.
+  const dest =
+    wire || card
+      ? null
+      : ctx.db.get<DestinationRow>(
+          "SELECT * FROM payout_destinations WHERE id = ? AND user_id = ? AND status = 'active' AND kind = 'courier'",
+          [input.destinationId, userId],
+        );
+  if (!wire && !card && !dest) throw badRequest('Choose the address where the courier collects the cash.', { field: 'destinationId' });
 
   const docs = requireAcceptance(input.accepted, 'order');
 
@@ -693,7 +689,8 @@ async function createBuyOrder(
 
   const id = newId('ord');
   const reference = newReference(ctx);
-  const deadline = now + (wire ? WIRE_RECEIPT_WINDOW_MS : CASH_COLLECTION_WINDOW_MS);
+  const deadline = now + (wire || card ? WIRE_RECEIPT_WINDOW_MS : CASH_COLLECTION_WINDOW_MS);
+  const payoutLabel = wire ? 'Bank wire' : card ? 'Card payment' : (dest?.label ?? 'Cash by courier');
   ctx.db.tx(() => {
     const { changes } = ctx.db.run('UPDATE quotes SET used_at = ? WHERE id = ? AND used_at IS NULL', [now, quote.id]);
     if (changes !== 1) throw conflict('This quote has already been used. Get a new quote.', 'quote_used');
@@ -717,9 +714,9 @@ async function createBuyOrder(
         Number(quote.spreadCents),
         Number(quote.payoutFeeCents),
         Number(quote.netCents),
-        wire ? 'wire' : 'courier_cash',
+        quote.payoutMethod,
         dest?.id ?? null,
-        dest?.label ?? 'Bank wire',
+        payoutLabel,
         dest?.last4 ?? '',
         receiveAddress,
         deadline,
@@ -736,7 +733,7 @@ async function createBuyOrder(
       actor,
       visibility: 'customer',
       detail: 'Exchange request created with your accepted quote.',
-      data: { quoteId: quote.id, direction: 'buy', payIn: wire ? 'wire' : 'courier_cash' },
+      data: { quoteId: quote.id, direction: 'buy', payIn },
     });
     recordAcceptances(ctx, userId, docs, 'order', { ip: actor.ip, orderId: id });
     audit(ctx, actor, {
@@ -746,16 +743,15 @@ async function createBuyOrder(
       data: {
         quoteId: quote.id,
         direction: 'buy',
-        payIn: wire ? 'wire' : 'courier_cash',
+        payIn,
         grossCents: quote.grossCents,
         amountAtomic: quote.amountAtomic,
       },
     });
   });
 
-  // Wire: wait in `created` until an admin assigns bank credentials in CRM.
-  // Do not auto-issue — the customer must see an explicit waiting state first.
-  if (wire) return getOrderRow(ctx, id);
+  // Wire/card: wait in `created` until an admin issues payment instructions in CRM.
+  if (wire || card) return getOrderRow(ctx, id);
   if (!dest) return getOrderRow(ctx, id);
   // Courier collection waits until an operator sets the fee and the customer accepts it.
   if (feePending) return getOrderRow(ctx, id);
@@ -904,6 +900,91 @@ export function issueWireInstructions(
     });
     return updated;
   });
+}
+
+/**
+ * Card buys: issue an external payment-page URL and/or payment instructions.
+ * Does not collect card data in-app. Moves created → awaiting_deposit.
+ */
+export function issueCardPayInInstructions(
+  ctx: AppContext,
+  actor: Actor,
+  orderId: string,
+  input: { paymentUrl?: string | null; instructions?: string | null; providerRef?: string | null },
+): OrderRow {
+  const o = getOrderRow(ctx, orderId);
+  if (o.direction !== 'buy' || o.payout_method !== 'instant_debit')
+    throw conflict('Only card pay-in orders accept card payment instructions.', 'invalid_transition');
+  if (o.status !== 'created')
+    throw conflict(`Card payment instructions were already issued (the order is ${o.status}).`, 'invalid_transition');
+
+  const paymentUrl = (input.paymentUrl ?? '').trim();
+  const instructions = (input.instructions ?? '').trim();
+  const providerRef = (input.providerRef ?? '').trim() || null;
+  if (!paymentUrl && !instructions)
+    throw badRequest('Provide a payment page URL and/or payment instructions from your processor.', { field: 'paymentUrl' });
+  if (paymentUrl) {
+    let parsed: URL;
+    try {
+      parsed = new URL(paymentUrl);
+    } catch {
+      throw badRequest('Enter a valid https payment page URL.', { field: 'paymentUrl' });
+    }
+    if (parsed.protocol !== 'https:') throw badRequest('Payment page URLs must use https.', { field: 'paymentUrl' });
+    if (paymentUrl.length > 2000) throw badRequest('Payment URL is too long.', { field: 'paymentUrl' });
+  }
+  if (instructions.length > 4000) throw badRequest('Instructions are too long.', { field: 'instructions' });
+
+  return ctx.db.tx(() => {
+    ctx.db.run(
+      `INSERT INTO order_card_payin_snapshots
+         (order_id, payment_url, instructions, provider_ref, assigned_by, assigned_at, revealed_to_customer)
+       VALUES (?, ?, ?, ?, ?, ?, 1)`,
+      [o.id, paymentUrl || null, instructions || null, providerRef, actor.id, ctx.clock.now()],
+    );
+    ctx.db.run(
+      'INSERT INTO deposit_instructions (id, order_id, provider, provider_ref, address, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        newId('dep'),
+        o.id,
+        'crm',
+        providerRef ?? `crm_card_${o.id.replace(/^ord_/, '')}`,
+        paymentUrl || 'card-payin-instructions',
+        o.reference,
+        ctx.clock.now(),
+      ],
+    );
+    audit(ctx, actor, {
+      action: 'order.card_payin_instructions_issued',
+      targetType: 'order',
+      targetId: o.id,
+      data: { hasUrl: !!paymentUrl, hasInstructions: !!instructions, providerRef },
+    });
+    const updated = applyOrderEvent(ctx, o.id, { type: 'DEPOSIT_INSTRUCTIONS_ISSUED' }, SYSTEM);
+    const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [o.user_id])!.email;
+    notify(ctx, {
+      userId: o.user_id,
+      to: email,
+      template: 'buy_card_payin_instructions',
+      orderId: o.id,
+      vars: { reference: o.reference, cash: formatUsd(BigInt(o.gross_cents)), deadline: new Date(o.deposit_deadline).toISOString() },
+    });
+    return updated;
+  });
+}
+
+export function orderCardPayInSnapshot(ctx: AppContext, orderId: string) {
+  return (
+    ctx.db.get<{
+      order_id: string;
+      payment_url: string | null;
+      instructions: string | null;
+      provider_ref: string | null;
+      assigned_by: string | null;
+      assigned_at: number;
+      revealed_to_customer: number;
+    }>('SELECT * FROM order_card_payin_snapshots WHERE order_id = ?', [orderId]) ?? null
+  );
 }
 
 /** Staff: assign or replace wire credentials on an order (replace needs confirm + reason once revealed). */
@@ -1270,6 +1351,7 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
   ]);
   const customerTxHash = reported ? ((JSON.parse(reported.data) as { txHash?: string | null }).txHash ?? null) : null;
   const wireSnap = payIn === 'wire' ? orderWireSnapshot(ctx, o.id) : null;
+  const cardPayInSnap = payIn === 'card' ? orderCardPayInSnapshot(ctx, o.id) : null;
   const walletSnap = !buy ? orderWalletSnapshot(ctx, o.id) : null;
   // CRM-issued addresses are shown even in sandbox; MOCK custody addresses remain sandbox-only.
   const address =
@@ -1284,12 +1366,21 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
           ? wireInstructionsPreview(o.reference).filter((l) => !l.placeholder || isPreviewWireValue(l.value))
           : null
       : null;
+  const cardPayInInstructions =
+    payIn === 'card' && o.status !== 'created' && cardPayInSnap
+      ? {
+          paymentUrl: cardPayInSnap.payment_url,
+          instructions: cardPayInSnap.instructions,
+          providerRef: cardPayInSnap.provider_ref,
+          assignedAt: cardPayInSnap.assigned_at,
+        }
+      : null;
   return {
     id: o.id,
     reference: o.reference,
     source: o.source,
     direction: o.direction,
-    /** Buy orders: how the dollars are paid (courier_cash or wire). */
+    /** Buy orders: how the dollars are paid (courier_cash, wire, or card). */
     payIn: payIn ?? null,
     status: o.status,
     /** The owner-facing pipeline stage (New, Awaiting Payment, Payment Review, …). */
@@ -1356,6 +1447,10 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
     wireInstructions,
     /** True when a wire buy is waiting for staff to assign bank credentials. */
     wireCredentialsPending: payIn === 'wire' && o.status === 'created' && !wireSnap,
+    /** Card buys, once issued: external payment URL / instructions (never a fake processor page). */
+    cardPayInInstructions,
+    /** True when a card buy is waiting for staff to issue a payment link or instructions. */
+    cardPayInPending: payIn === 'card' && o.status === 'created' && !cardPayInSnap,
     /** True when a sell has no deposit address yet (no CRM wallet / not assigned). */
     depositCredentialsPending: !buy && o.status === 'created' && !deposit,
     /** Sell: where crypto is returned, once the customer has given it. Null for a buy, whose cash is returned by courier. */

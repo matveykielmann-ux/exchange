@@ -57,7 +57,7 @@ export async function sandboxCustomer(ctx: AppContext, email: string, fullName =
     accountNumber: '000123456789',
     accountType: 'checking',
   });
-  const card = await addCard(ctx, actor, userId, 'Test debit card');
+  const card = await addCard(ctx, actor, userId, { label: 'Test debit card' });
   return { userId, actor, bankId: bank.id, cardId: card.id };
 }
 

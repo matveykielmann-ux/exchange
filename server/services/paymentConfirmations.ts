@@ -35,7 +35,7 @@ function confirmationView(r: ConfirmationRow) {
   return {
     id: r.id,
     orderId: r.order_id,
-    kind: r.kind as 'crypto_txid' | 'wire_reference' | 'receipt',
+    kind: r.kind as 'crypto_txid' | 'wire_reference' | 'receipt' | 'card_reference',
     txid: r.txid,
     wireReference: r.wire_reference,
     comment: r.comment,
@@ -87,11 +87,12 @@ export function submitPaymentConfirmation(
     throw conflict('Payment confirmation is not available for this order status.', 'invalid_transition');
 
   const wire = o.direction === 'buy' && o.payout_method === 'wire';
+  const cardBuy = o.direction === 'buy' && o.payout_method === 'instant_debit';
   const crypto = o.direction !== 'buy';
   const txid = input.txid?.trim() || null;
   const wireRef = input.wireReference?.trim() || null;
   const comment = input.comment?.trim() || null;
-  if (!txid && !wireRef && !input.file) throw badRequest('Provide a TXID, a bank reference, or a receipt file.');
+  if (!txid && !wireRef && !input.file) throw badRequest('Provide a TXID, a payment reference, or a receipt file.');
 
   if (crypto && txid) {
     const err = validateTxHash(txid, o.network);
@@ -101,10 +102,12 @@ export function submitPaymentConfirmation(
     const err = validateWireReference(wireRef);
     if (err) throw badRequest(err, { field: 'wireReference' });
   }
+  if (cardBuy && wireRef && wireRef.length < 4)
+    throw badRequest('Enter the processor payment id (at least 4 characters).', { field: 'wireReference' });
   if (!crypto && txid) throw badRequest('Transaction hashes apply to crypto deposits only.', { field: 'txid' });
-  if (!wire && wireRef) throw badRequest('Bank references apply to wire orders only.', { field: 'wireReference' });
+  if (!wire && !cardBuy && wireRef) throw badRequest('Bank references apply to wire orders only.', { field: 'wireReference' });
 
-  const kind = txid ? 'crypto_txid' : wireRef ? 'wire_reference' : 'receipt';
+  const kind = txid ? 'crypto_txid' : wireRef ? (cardBuy ? 'card_reference' : 'wire_reference') : 'receipt';
   const id = newId('payc');
   if (input.file && orderDocuments(ctx, o.id).filter((d) => d.kind === 'payment_receipt').length >= 5)
     throw conflict('Too many receipt uploads on this order.', 'too_many_documents');

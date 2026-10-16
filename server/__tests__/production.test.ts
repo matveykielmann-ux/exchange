@@ -171,9 +171,19 @@ describe('production mode without credentials', () => {
     );
     expect(bank.status).toBe(201);
     expect(bank.body.kind).toBe('bank');
-    // Card capture still requires a PCI-capable card provider (or sandbox tokenizer).
-    const card = await call('POST', '/api/me/destinations/card', {}, cookie, csrf);
-    expect(card.body.error.code).toBe('NOT_CONFIGURED');
+    // Manual card payout destinations accept an encrypted PAN; CVV is rejected.
+    const cardBad = await call('POST', '/api/me/destinations/card', { cardNumber: '4111111111111111', cvv: '123' }, cookie, csrf);
+    expect(cardBad.status).toBe(400);
+    const card = await call(
+      'POST',
+      '/api/me/destinations/card',
+      { cardNumber: '4111111111111111', holderName: 'Test Holder' },
+      cookie,
+      csrf,
+    );
+    expect(card.status).toBe(201);
+    expect(card.body.last4).toBe('1111');
+    expect(JSON.stringify(card.body)).not.toMatch(/4111111111111111/);
     const quote = await call(
       'POST',
       '/api/quotes',

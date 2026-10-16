@@ -171,9 +171,15 @@ describe('manual workflows E2E (isolated production DB)', () => {
     expect(bank.status).toBe(201);
     expect(bank.body.last4).toBe('4321');
 
-    // Card remains blocked without card provider.
-    const card = await c.post('/api/me/destinations/card', { label: 'x' });
-    expect(card.body.error.code).toBe('NOT_CONFIGURED');
+    // Manual card destination stores encrypted PAN (no CVV); full number never returned to the customer.
+    const card = await c.post('/api/me/destinations/card', {
+      label: 'Manual debit',
+      cardNumber: '4111111111111111',
+      holderName: 'E2E Card Holder',
+    });
+    expect(card.status).toBe(201);
+    expect(card.body.last4).toBe('1111');
+    expect(JSON.stringify(card.body)).not.toMatch(/4111111111111111/);
 
     const wal = await admin.post('/api/admin/credentials/wallets', {
       name: 'E2E USDC Eth deposit',

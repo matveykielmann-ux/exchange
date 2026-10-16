@@ -218,6 +218,15 @@ export interface OrderView {
   wireInstructions: { label: string; value: string; placeholder: boolean }[] | null;
   /** Wire buy waiting for staff to assign bank credentials. */
   wireCredentialsPending?: boolean;
+  /** Card buys, once issued: external payment URL / instructions. */
+  cardPayInInstructions?: {
+    paymentUrl: string | null;
+    instructions: string | null;
+    providerRef: string | null;
+    assignedAt: number;
+  } | null;
+  /** Card buy waiting for staff to issue payment instructions. */
+  cardPayInPending?: boolean;
   /** Sell order with no deposit address yet. */
   depositCredentialsPending?: boolean;
   documents: OrderDocumentView[];
@@ -471,7 +480,7 @@ export interface AccountApi {
     accountNumber: string;
     accountType: 'checking' | 'savings';
   }): Promise<Destination>;
-  addCard(label: string): Promise<Destination>;
+  addCard(input: { label?: string; cardNumber?: string; holderName?: string }): Promise<Destination>;
   addCourierAddress(input: CourierDeliveryInput): Promise<Destination>;
   removeDestination(id: string): Promise<void>;
   notifications(): Promise<NotificationList>;

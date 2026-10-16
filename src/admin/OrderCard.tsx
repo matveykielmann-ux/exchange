@@ -64,7 +64,15 @@ export function OrderCard({ id, headingLevel = 1 }: { id: string; headingLevel?:
           </H>
           <p className="small muted">
             {t('Created {0}', [formatDateTime(o.createdAt)])} ·{' '}
-            {o.direction === 'buy' ? (o.payIn === 'wire' ? t('Buy · wire → crypto') : t('Buy · cash → crypto')) : t('Sell · crypto → USD')}
+            {o.direction === 'buy'
+              ? o.payIn === 'wire'
+                ? t('Buy · wire → crypto')
+                : o.payIn === 'card'
+                  ? t('Buy · card → crypto')
+                  : t('Buy · cash → crypto')
+              : o.payout.method === 'instant_debit'
+                ? t('Sell · crypto → card')
+                : t('Sell · crypto → USD')}
           </p>
         </div>
         <div className="row" style={{ gap: 8 }}>
@@ -80,6 +88,8 @@ export function OrderCard({ id, headingLevel = 1 }: { id: string; headingLevel?:
 
       <MainBlock detail={data} onResult={setResult} reload={reload} />
       <CredentialsBlock detail={data} onResult={setResult} reload={reload} />
+      <CardPayInBlock detail={data} onResult={setResult} reload={reload} />
+      <CardDestinationBlock detail={data} onResult={setResult} />
       <PaymentReviewBlock detail={data} onResult={setResult} reload={reload} />
       <VerificationBlock detail={data} onResult={setResult} reload={reload} />
       <RefundRequestBlock detail={data} onResult={setResult} reload={reload} />
@@ -87,6 +97,145 @@ export function OrderCard({ id, headingLevel = 1 }: { id: string; headingLevel?:
       <HistoryBlock detail={data} />
       <MoreDetails detail={data} reload={reload} />
     </article>
+  );
+}
+
+/* ---------- Card pay-in instructions (buy with card) ---------- */
+
+function CardPayInBlock({ detail, onResult, reload }: { detail: AdminOrderDetail; onResult(r: Result): void; reload(): void }) {
+  const { admin } = useServices();
+  const o = detail.order;
+  const [paymentUrl, setPaymentUrl] = useState('');
+  const [instructions, setInstructions] = useState('');
+  const [providerRef, setProviderRef] = useState('');
+  const [busy, setBusy] = useState(false);
+  if (o.payIn !== 'card') return null;
+  const issued = o.cardPayInInstructions;
+  return (
+    <section className="order-block" aria-labelledby="block-card-payin">
+      <h3 id="block-card-payin" className="order-block__title">
+        {t('Card payment instructions')}
+      </h3>
+      {issued ? (
+        <dl className="kv">
+          {issued.paymentUrl ? (
+            <Row term={t('Payment page')}>
+              <a className="mono small break" href={issued.paymentUrl} target="_blank" rel="noreferrer">
+                {issued.paymentUrl}
+              </a>
+            </Row>
+          ) : null}
+          {issued.instructions ? <Row term={t('Instructions')}>{issued.instructions}</Row> : null}
+          {issued.providerRef ? (
+            <Row term={t('Processor reference')}>
+              <span className="mono small">{issued.providerRef}</span>
+            </Row>
+          ) : null}
+          <Row term={t('Issued')}>{formatDateTime(issued.assignedAt)}</Row>
+        </dl>
+      ) : (
+        <form
+          className="stack"
+          style={{ gap: 8 }}
+          onSubmit={async (e: FormEvent) => {
+            e.preventDefault();
+            setBusy(true);
+            try {
+              await admin.credentials.issueCardPayIn(o.id, {
+                paymentUrl: paymentUrl.trim() || null,
+                instructions: instructions.trim() || null,
+                providerRef: providerRef.trim() || null,
+              });
+              onResult({ tone: 'success', text: t('Card payment instructions issued to the customer.') });
+              reload();
+            } catch (err) {
+              onResult({ tone: 'danger', text: errorMessage(err) });
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <p className="notice notice--info small">
+            {t(
+              'Paste a real https payment-page URL from your processor, and/or written instructions. Do not invent a fake payment page.',
+            )}
+          </p>
+          <label className="field">
+            <span className="field__label">{t('Payment page URL (https)')}</span>
+            <input className="input" value={paymentUrl} onChange={(e) => setPaymentUrl(e.target.value)} placeholder="https://" />
+          </label>
+          <label className="field">
+            <span className="field__label">{t('Payment instructions')}</span>
+            <textarea className="input" rows={3} value={instructions} onChange={(e) => setInstructions(e.target.value)} />
+          </label>
+          <label className="field">
+            <span className="field__label">{t('Processor reference (optional)')}</span>
+            <input className="input" value={providerRef} onChange={(e) => setProviderRef(e.target.value)} />
+          </label>
+          <button type="submit" className="btn btn--primary" disabled={busy || (!paymentUrl.trim() && !instructions.trim())}>
+            {busy ? t('Saving…') : t('Issue to customer')}
+          </button>
+        </form>
+      )}
+    </section>
+  );
+}
+
+/* ---------- Card payout destination (sell → card) ---------- */
+
+function CardDestinationBlock({ detail, onResult }: { detail: AdminOrderDetail; onResult(r: Result): void }) {
+  const { admin } = useServices();
+  const summary = detail.cardDestinationSummary;
+  const o = detail.order;
+  const [revealed, setRevealed] = useState<{ cardNumber: string; holderName: string; currency: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  if (!summary || o.direction !== 'sell' || o.payout.method !== 'instant_debit') return null;
+  return (
+    <section className="order-block" aria-labelledby="block-card-dest">
+      <h3 id="block-card-dest" className="order-block__title">
+        {t('Customer card for payout')}
+      </h3>
+      <dl className="kv">
+        <Row term={t('Label')}>{summary.label}</Row>
+        <Row term={t('Card')}>•••• {summary.last4}</Row>
+        <Row term={t('Payout amount')}>{formatUsd(o.quote.netCents)} USD</Row>
+        <Row term={t('Gross / fees')}>
+          {formatUsd(o.quote.grossCents)} − {formatUsd(o.quote.payoutFeeCents)} fee
+        </Row>
+        {revealed ? (
+          <>
+            <Row term={t('Full card number')}>
+              <span className="mono">{revealed.cardNumber}</span>
+            </Row>
+            <Row term={t('Cardholder')}>{revealed.holderName}</Row>
+            <Row term={t('Currency')}>{revealed.currency}</Row>
+          </>
+        ) : null}
+      </dl>
+      {!revealed ? (
+        <button
+          type="button"
+          className="btn btn--secondary"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              const r = await admin.credentials.revealCardDestination(o.id);
+              setRevealed({ cardNumber: r.cardNumber, holderName: r.holderName, currency: r.currency });
+              onResult({ tone: 'success', text: t('Full card number revealed. This view was recorded in the audit log.') });
+            } catch (e) {
+              onResult({ tone: 'danger', text: errorMessage(e) });
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? t('Loading…') : t('Reveal full card number')}
+        </button>
+      ) : (
+        <p className="small muted">{t('CVV/CVC is never stored. Pay out through your external service, then record the payout.')}</p>
+      )}
+    </section>
   );
 }
 
@@ -571,7 +720,9 @@ function MainBlock({ detail, onResult, reload }: { detail: AdminOrderDetail; onR
         {t('Essentials')}
       </h3>
       <div className="order-status-line">
-        <StatusBadge tone={orderTone(o.status)}>{t(orderStatusLabel(o.status, o.direction, o.payIn ?? undefined))}</StatusBadge>
+        <StatusBadge tone={orderTone(o.status)}>
+          {t(orderStatusLabel(o.status, o.direction, o.payIn ?? undefined, o.payout.method))}
+        </StatusBadge>
         {o.onHold ? <span className="badge badge--warn">{t('On hold')}</span> : null}
         <span className="small muted">{t('Updated {0}', [formatDateTime(o.updatedAt)])}</span>
       </div>
@@ -733,6 +884,9 @@ function ActionDialog({
   );
   const [depositComment, setDepositComment] = useState('');
   const [courierFeeUsd, setCourierFeeUsd] = useState('');
+  const [cardPayUrl, setCardPayUrl] = useState('');
+  const [cardPayInstructions, setCardPayInstructions] = useState('');
+  const [cardPayProviderRef, setCardPayProviderRef] = useState('');
   const [template, setTemplate] = useState(templates[0]!.id);
   const [rejectReason, setRejectReason] = useState(REJECT_REASONS[0]!);
   const [assignee, setAssignee] = useState(detail.order.assignedOperatorId ?? '');
@@ -784,6 +938,10 @@ function ActionDialog({
       }
       feeCents = Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0'));
     }
+    if (action === 'issue_card_payin_instructions' && !cardPayUrl.trim() && !cardPayInstructions.trim()) {
+      setErr(t('Provide a payment page URL and/or payment instructions.'));
+      return;
+    }
     setBusy(true);
     setErr(null);
     const expectedStatus = o.status;
@@ -809,6 +967,13 @@ function ActionDialog({
         });
       else if (action === 'set_courier_fee')
         await admin.act(o.id, action, { feeCents, reason: reasonText.trim() || t('Courier fee quoted for this order.'), expectedStatus });
+      else if (action === 'issue_card_payin_instructions')
+        await admin.act(o.id, action, {
+          paymentUrl: cardPayUrl.trim() || null,
+          instructions: cardPayInstructions.trim() || null,
+          providerRef: cardPayProviderRef.trim() || null,
+          expectedStatus,
+        });
       else await admin.act(o.id, action, { reason: reasonText.trim(), expectedStatus });
       onDone({ tone: 'success', text: t(SUCCESS[action] ?? 'Done.') });
     } catch (x) {
@@ -938,6 +1103,38 @@ function ActionDialog({
                 />
               </div>
               <TextField id="courier-fee-reason" label={t('Reason (recorded in the audit log)')} value={text} onChange={setText} rows={2} />
+            </>
+          ) : action === 'issue_card_payin_instructions' ? (
+            <>
+              <p className="notice notice--info small">
+                {t(
+                  'Paste a real https payment-page URL from your processor, and/or written instructions. Do not invent a fake payment page.',
+                )}
+              </p>
+              <div className="field">
+                <label className="field__label" htmlFor="card-pay-url">
+                  {t('Payment page URL (https)')}
+                </label>
+                <input id="card-pay-url" className="input" value={cardPayUrl} onChange={(e) => setCardPayUrl(e.target.value)} />
+              </div>
+              <TextField
+                id="card-pay-instructions"
+                label={t('Payment instructions')}
+                value={cardPayInstructions}
+                onChange={setCardPayInstructions}
+                rows={3}
+              />
+              <div className="field">
+                <label className="field__label" htmlFor="card-pay-ref">
+                  {t('Processor reference (optional)')}
+                </label>
+                <input
+                  id="card-pay-ref"
+                  className="input"
+                  value={cardPayProviderRef}
+                  onChange={(e) => setCardPayProviderRef(e.target.value)}
+                />
+              </div>
             </>
           ) : action === 'confirm_deposit_manual' ? (
             <>

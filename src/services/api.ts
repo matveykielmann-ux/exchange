@@ -303,6 +303,12 @@ export async function createApiServices(base = ''): Promise<Services> {
         ),
       issueWire: async (orderId, wireSetId) =>
         toOrder(await http.post(`/api/admin/orders/${encodeURIComponent(orderId)}/issue-wire-instructions`, { wireSetId })),
+      issueCardPayIn: async (orderId, input) =>
+        toOrder(await http.post(`/api/admin/orders/${encodeURIComponent(orderId)}/issue-card-payin-instructions`, input)),
+      revealCardDestination: (orderId) =>
+        http.get<{ destinationId: string; last4: string; cardNumber: string; holderName: string; currency: string }>(
+          `/api/admin/orders/${encodeURIComponent(orderId)}/card-destination`,
+        ),
       reviewPaymentConfirmation: async (orderId, body) =>
         toOrder(await http.post(`/api/admin/orders/${encodeURIComponent(orderId)}/review-payment-confirmation`, body)),
       postVerificationMessage: async (orderId, body) =>
@@ -422,7 +428,7 @@ export async function createApiServices(base = ''): Promise<Services> {
       },
       destinations: async () => (await http.get<{ destinations: Destination[] }>('/api/me/destinations')).destinations,
       addBankAccount: (input) => http.post('/api/me/destinations/bank', input),
-      addCard: (label) => http.post('/api/me/destinations/card', { label }),
+      addCard: (input) => http.post('/api/me/destinations/card', typeof input === 'string' ? { label: input } : input),
       addCourierAddress: (input) => http.post('/api/me/destinations/courier', input),
       removeDestination: (id) => http.delete(`/api/me/destinations/${encodeURIComponent(id)}`),
       notifications: () => http.get('/api/me/notifications'),

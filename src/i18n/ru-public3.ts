@@ -486,4 +486,99 @@ export const RU_PUBLIC3: Record<string, string> = {
   'Accepting confirms the delivery cost shown above. Deposit or collection instructions follow after acceptance.':
     'Принятие подтверждает стоимость доставки выше. Инструкции по депозиту или забору появятся после подтверждения.',
   'Accept courier fee and continue': 'Принять комиссию курьера и продолжить',
+  'Issue card payment instructions': 'Выдать инструкции для оплаты картой',
+  'Saves a real external payment-page URL and/or instructions from your processor on this order. Does not create a fake payment page. The customer pays off-site; you confirm receipt separately.':
+    'Сохраняет на заявке реальную ссылку на платёжную страницу и/или инструкции вашего процессинга. Не создаёт фальшивую платёжную страницу. Клиент платит вне сайта; поступление вы подтверждаете отдельно.',
+  'External processor payment page issued for this order.': 'Для этой заявки выдана платёжная страница внешнего процессинга.',
+  'Card payment instructions issued to the customer.': 'Клиенту выданы инструкции для оплаты картой.',
+  'Buy · card → crypto': 'Покупка · карта → крипто',
+  'Sell · crypto → card': 'Продажа · крипто → карта',
+  'Card payment instructions': 'Инструкции для оплаты картой',
+  'Payment page': 'Платёжная страница',
+  'Payment page URL (https)': 'URL платёжной страницы (https)',
+  'Payment instructions': 'Платёжные инструкции',
+  'Processor reference': 'Ссылка процессинга',
+  'Processor reference (optional)': 'Ссылка процессинга (необязательно)',
+  'Processor payment id': 'Идентификатор платежа у процессинга',
+  'Issue to customer': 'Выдать клиенту',
+  'Paste a real https payment-page URL from your processor, and/or written instructions. Do not invent a fake payment page.':
+    'Вставьте реальный https-URL платёжной страницы вашего процессинга и/или текстовые инструкции. Не создавайте фальшивую платёжную страницу.',
+  'Provide a payment page URL and/or payment instructions.': 'Укажите URL платёжной страницы и/или инструкции по оплате.',
+  'Customer card for payout': 'Карта клиента для выплаты',
+  'Full card number': 'Полный номер карты',
+  'Cardholder': 'Держатель карты',
+  'Reveal full card number': 'Показать полный номер карты',
+  'Full card number revealed. This view was recorded in the audit log.':
+    'Полный номер карты показан. Этот просмотр записан в журнал аудита.',
+  'CVV/CVC is never stored. Pay out through your external service, then record the payout.':
+    'CVV/CVC никогда не хранится. Выполните выплату во внешнем сервисе, затем зафиксируйте её.',
+  'Awaiting payment instructions': 'Ожидание платёжных инструкций',
+  'Your order is accepted. We are preparing the card payment page or instructions. When they are ready, they will appear here.':
+    'Заявка принята. Мы готовим платёжную страницу или инструкции для оплаты картой. Когда они будут готовы, они появятся здесь.',
+  'Order accepted — awaiting processing': 'Заявка принята — ожидает обработки',
+  'Your request was accepted. The payout will be processed after verification.':
+    'Заявка принята. Выплата будет обработана после проверки.',
+  'Awaiting processing': 'Ожидает обработки',
+  'Bank card': 'Банковская карта',
+  'You pay on a secure external payment page. We never collect your CVV or full card details for this payment.':
+    'Вы платите на защищённой внешней платёжной странице. Мы не собираем CVV и полный набор карточных данных для этой оплаты.',
+  'Dollars you pay by card (USD)': 'Доллары к оплате картой (USD)',
+  'Paid on the external payment page linked from your order after instructions are issued.':
+    'Оплата на внешней платёжной странице по ссылке из заявки после выдачи инструкций.',
+  'After you confirm, card payment instructions appear on your order page. Pay only through the https link or instructions shown there — never through a page sent by email.':
+    'После подтверждения инструкции для оплаты картой появятся на странице заявки. Платите только по https-ссылке или инструкциям там — никогда по странице из письма.',
+  'We send the {0} here once the card payment is verified. Use a wallet you control on {1}; transfers can’t be reversed.':
+    'Сюда отправим {0} после проверки оплаты картой. Используйте кошелёк, которым вы управляете, в сети {1}; переводы необратимы.',
+  'The exchange rate, card payment fee, minimum, quote validity and payment window shown here are the conditions of this exchange. Under clause 4.24 of the':
+    'Курс, комиссия за оплату картой, минимум, срок действия котировки и окно оплаты здесь — условия этого обмена. Согласно п. 4.24',
+  'I will pay exactly': 'Я оплачу ровно',
+  'by card only through the payment page or instructions on my order page. The':
+    'картой только через платёжную страницу или инструкции на странице заявки.',
+  'Enter the bank card number for a manual card payout destination.':
+    'Введите номер банковской карты для ручной выплаты на карту.',
+  'Enter the bank card number.': 'Введите номер банковской карты.',
+  'Card numbers contain digits only.': 'Номер карты содержит только цифры.',
+  'Card numbers are 12 to 19 digits.': 'Номер карты — от 12 до 19 цифр.',
+  'That card number fails the checksum. Check it and try again.':
+    'Этот номер карты не проходит проверку контрольной суммы. Проверьте и попробуйте снова.',
+  'Enter the name on the card.': 'Введите имя на карте.',
+  'Enter the cardholder name (2–80 characters).': 'Введите имя держателя карты (2–80 символов).',
+  'Enter the cardholder name as printed on the card.': 'Введите имя держателя, как на карте.',
+  'Card security codes (CVV/CVC) and PINs are never collected or stored.':
+    'Коды безопасности карты (CVV/CVC) и PIN никогда не собираются и не хранятся.',
+  'Enter the debit card that should receive USD. The number is encrypted at rest. The security code (CVV/CVC) and PIN are never collected.':
+    'Укажите дебетовую карту для получения USD. Номер шифруется при хранении. Код безопасности (CVV/CVC) и PIN никогда не собираются.',
+  'Name on card': 'Имя на карте',
+  'Manual card payout': 'Ручная выплата на карту',
+  'An operator pays this card through an external service after your deposit is verified. Completion is recorded only after the payout is actually sent.':
+    'Оператор выплатит на эту карту через внешний сервис после проверки депозита. Завершение фиксируется только после фактической отправки.',
+  'Save card': 'Сохранить карту',
+  'Pay': 'Оплатить',
+  'Pay only through the https link or instructions shown here. Nobody from this service will send you a payment page by email or chat. Card security codes stay on the processor’s page — we never ask for CVV/CVC.':
+    'Платите только по https-ссылке или инструкциям здесь. Никто из сервиса не пришлёт платёжную страницу по email или в чат. Коды безопасности карты остаются на странице процессинга — мы никогда не просим CVV/CVC.',
+  'Enter the processor payment id (at least 4 characters).':
+    'Введите идентификатор платежа у процессинга (не менее 4 символов).',
+  'Provide a TXID, a payment reference, or a receipt file.':
+    'Укажите TXID, платёжную ссылку или файл квитанции.',
+  'Waiting for card payment instructions to be issued': 'Ожидание выдачи инструкций для оплаты картой',
+  'Take into processing': 'Взять в обработку',
+  'Record card payout': 'Зафиксировать выплату на карту',
+  'Payout amount': 'Сумма выплаты',
+  'Gross / fees': 'Брутто / комиссии',
+  'Issued': 'Выдано',
+  'Preparing card payment instructions': 'Подготовка инструкций для оплаты картой',
+  'Awaiting card payment': 'Ожидание оплаты картой',
+  'Card payment received': 'Оплата картой получена',
+  'Verifying card payment': 'Проверка оплаты картой',
+  'Card payment verified': 'Оплата картой проверена',
+  'Card payment return pending': 'Ожидание возврата оплаты картой',
+  'Card payment returned': 'Оплата картой возвращена',
+  'Deposit verified — payout pending': 'Депозит проверен — выплата ожидает',
+  'Awaiting card payout': 'Ожидание выплаты на карту',
+  'Card payout submitted': 'Выплата на карту отправлена',
+  'Card payout processing': 'Выплата на карту обрабатывается',
+  Label: 'Метка',
+  Card: 'Карта',
+  Currency: 'Валюта',
+  'Card number': 'Номер карты',
 };

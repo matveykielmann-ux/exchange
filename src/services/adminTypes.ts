@@ -96,7 +96,8 @@ export type OrderActionKey =
   | 'message'
   | 'hold'
   | 'release_hold'
-  | 'set_courier_fee';
+  | 'set_courier_fee'
+  | 'issue_card_payin_instructions';
 
 export interface ActionAvailability {
   action: OrderActionKey;
@@ -133,6 +134,8 @@ export interface AdminOrderDetail {
   };
   /** Courier orders only. Masked for support staff. */
   courierDelivery: CourierDeliveryView | null;
+  /** Sell → card: last4 summary; full PAN via audited reveal. */
+  cardDestinationSummary: { destinationId: string; last4: string; label: string; revealPath: string } | null;
   notes: { id: string; body: string; createdAt: number; author: { id: string; email: string } }[];
   /** Every notice sent to the customer about this order (in-account and email record). */
   notifications: import('./types').Notification[];
@@ -395,6 +398,17 @@ export interface AdminApi {
     ): Promise<OrderView>;
     assignWallet(orderId: string, walletId: string, opts?: { confirmReplace?: boolean; reason?: string }): Promise<OrderView>;
     issueWire(orderId: string, wireSetId?: string): Promise<OrderView>;
+    issueCardPayIn(
+      orderId: string,
+      input: { paymentUrl?: string | null; instructions?: string | null; providerRef?: string | null },
+    ): Promise<OrderView>;
+    revealCardDestination(orderId: string): Promise<{
+      destinationId: string;
+      last4: string;
+      cardNumber: string;
+      holderName: string;
+      currency: string;
+    }>;
     reviewPaymentConfirmation(
       orderId: string,
       body: { confirmationId: string; status: 'approved' | 'needs_info' | 'rejected'; staffNote?: string | null },

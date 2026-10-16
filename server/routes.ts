@@ -430,8 +430,19 @@ export function registerRoutes(r: Router, app: AppContext) {
   r.post(
     '/api/me/destinations/card',
     async (ctx) => {
-      const b = parse(v.object({ label: v.optional(v.string({ min: 0, max: 60 })) }), ctx.body);
-      return { status: 201, body: await customers.addCard(app, actorOf(ctx), me(ctx), b.label ?? '') };
+      const b = parse(
+        v.object({
+          label: v.optional(v.string({ min: 0, max: 60 })),
+          cardNumber: v.optional(v.string({ min: 0, max: 32, label: 'a card number' })),
+          holderName: v.optional(v.string({ min: 0, max: 80, label: 'the cardholder name' })),
+          // Explicitly rejected in the service if present — keep schema from silently dropping them.
+          cvv: v.optional(v.string({ min: 0, max: 8 })),
+          cvc: v.optional(v.string({ min: 0, max: 8 })),
+          pin: v.optional(v.string({ min: 0, max: 12 })),
+        }),
+        ctx.body,
+      );
+      return { status: 201, body: await customers.addCard(app, actorOf(ctx), me(ctx), b) };
     },
     { auth: 'user', rateLimit: WRITE_LIMIT },
   );
@@ -830,6 +841,16 @@ function registerAdminRoutes(r: Router, app: AppContext) {
             o.payout_method === 'courier_cash' && o.payout_destination_id
               ? customers.courierDelivery(app, o.payout_destination_id, { masked: ctx.auth!.role === 'support' })
               : null,
+          cardDestinationSummary:
+            o.payout_method === 'instant_debit' && o.direction === 'sell' && o.payout_destination_id
+              ? {
+                  destinationId: o.payout_destination_id,
+                  last4: o.payout_last4,
+                  label: o.payout_label,
+                  /** Full PAN requires a separate audited reveal call. */
+                  revealPath: `/api/admin/orders/${o.id}/card-destination`,
+                }
+              : null,
           notes: ops.orderNotes(app, o.id),
           reviews: app.db.all(
             'SELECT id, status, reason, opened_by AS openedBy, decided_by AS decidedBy, decision_reason AS decisionReason, created_at AS createdAt, decided_at AS decidedAt FROM compliance_reviews WHERE order_id = ? ORDER BY created_at',
@@ -1071,6 +1092,22 @@ function registerAdminRoutes(r: Router, app: AppContext) {
     const b = parse(v.object({ wireSetId: v.optional(v.string({ min: 8, max: 64 })) }), ctx.body && typeof ctx.body === 'object' ? ctx.body : {});
     return orders.issueWireInstructions(app, staffActor(ctx), id, { wireSetId: b.wireSetId });
   });
+  orderAction('issue-card-payin-instructions', SUPPORT, (ctx, id) => {
+    const b = parse(
+      v.object({
+        paymentUrl: v.optional(v.nullable(v.string({ min: 0, max: 2000, label: 'a payment URL' }))),
+        instructions: v.optional(v.nullable(v.string({ min: 0, max: 4000, label: 'payment instructions' }))),
+        providerRef: v.optional(v.nullable(v.string({ min: 0, max: 120, label: 'a provider reference' }))),
+      }),
+      ctx.body && typeof ctx.body === 'object' ? ctx.body : {},
+    );
+    return orders.issueCardPayInInstructions(app, staffActor(ctx), id, b);
+  });
+  r.get(
+    '/api/admin/orders/:id/card-destination',
+    (ctx) => ({ body: customers.revealOrderCardDestination(app, staffActor(ctx), ctx.params.id!) }),
+    { ...staff(ADMIN), rateLimit: WRITE_LIMIT },
+  );
 
   /* ---------- Credentials (wire sets + crypto wallets) ---------- */
   r.get('/api/admin/credentials/wire', () => ({ body: { items: credentials.listWireSets(app) } }), staff());

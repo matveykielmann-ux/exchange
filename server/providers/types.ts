@@ -128,7 +128,7 @@ export interface ScreeningProvider extends Provider {
 /* ---------- Payouts (bank: ACH and wire; card: push to debit) ---------- */
 export type PayoutDestinationDetails =
   | { kind: 'bank'; routingNumber: string; accountNumber: string; accountType: 'checking' | 'savings'; holderName: string }
-  | { kind: 'card'; providerToken: string; holderName: string }
+  | { kind: 'card'; providerToken?: string; pan?: string; holderName: string }
   | {
       kind: 'courier';
       /** The verified account holder. Cash is released only to this person after an ID check. */

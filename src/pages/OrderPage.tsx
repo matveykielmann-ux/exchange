@@ -182,6 +182,60 @@ function TxHashForm({ order, busy, run }: { order: OrderView; busy: boolean; run
  * Wire buys: issued wire instructions and the optional "I've sent the wire"
  * step with a customer bank reference.
  */
+function CardPayInInstructions({ order }: { order: OrderView }) {
+  const info = order.cardPayInInstructions;
+  if (!info) return null;
+  return (
+    <section className="stack" aria-labelledby="card-payin-title">
+      <h2 id="card-payin-title" className="flow__step-title">
+        {t('Pay')} {formatUsd(order.quote.grossCents)}
+      </h2>
+      <div className="deposit-box">
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <strong>{t('Card payment instructions')}</strong>
+          <Countdown to={order.deposit.deadline} prefix={t('Window closes in')} ended={t('Window closed')} />
+        </div>
+        <dl className="dl">
+          <div>
+            <dt>{t('Amount')}</dt>
+            <dd className="tabular">{formatUsd(order.quote.grossCents)}</dd>
+          </div>
+          {info.paymentUrl ? (
+            <div>
+              <dt>{t('Payment page')}</dt>
+              <dd style={{ overflowWrap: 'anywhere' }}>
+                <a href={info.paymentUrl} target="_blank" rel="noopener noreferrer">
+                  {info.paymentUrl}
+                </a>{' '}
+                <CopyButton value={info.paymentUrl} label={t('Copy')} />
+              </dd>
+            </div>
+          ) : null}
+          {info.instructions ? (
+            <div>
+              <dt>{t('Instructions')}</dt>
+              <dd style={{ whiteSpace: 'pre-wrap' }}>{info.instructions}</dd>
+            </div>
+          ) : null}
+          {info.providerRef ? (
+            <div>
+              <dt>{t('Processor reference')}</dt>
+              <dd className="mono">{info.providerRef}</dd>
+            </div>
+          ) : null}
+        </dl>
+      </div>
+      <Notice tone="warn" title={t('Use only the instructions on this page')}>
+        <p>
+          {t(
+            'Pay only through the https link or instructions shown here. Nobody from this service will send you a payment page by email or chat. Card security codes stay on the processor’s page — we never ask for CVV/CVC.',
+          )}
+        </p>
+      </Notice>
+    </section>
+  );
+}
+
 function WireInstructions({ order, busy, run }: { order: OrderView; busy: boolean; run: Run }) {
   const { orders } = useServices();
   const [ref, setRef] = useState('');
@@ -291,10 +345,11 @@ function WireInstructions({ order, busy, run }: { order: OrderView; busy: boolea
   );
 }
 
-/** Customer payment proof: receipt and/or TXID / wire reference. Never auto-confirms a deposit. */
+/** Customer payment proof: receipt and/or TXID / wire / card reference. Never auto-confirms a deposit. */
 function ConfirmPaymentPanel({ order, onDone }: { order: OrderView; onDone(): void }) {
   const { orders } = useServices();
   const wire = order.direction === 'buy' && order.payIn === 'wire';
+  const cardBuy = order.direction === 'buy' && order.payIn === 'card';
   const crypto = order.direction !== 'buy';
   const [txid, setTxid] = useState('');
   const [wireRef, setWireRef] = useState('');
@@ -345,8 +400,12 @@ function ConfirmPaymentPanel({ order, onDone }: { order: OrderView; onDone(): vo
                 return;
               }
             }
+            if (cardBuy && wireRef.trim() && wireRef.trim().length < 4) {
+              setError(t('Enter the processor payment id (at least 4 characters).'));
+              return;
+            }
             if (!txid.trim() && !wireRef.trim() && !file) {
-              setError(t('Provide a TXID, a bank reference, or a receipt file.'));
+              setError(t('Provide a TXID, a payment reference, or a receipt file.'));
               return;
             }
             setBusy(true);
@@ -358,7 +417,7 @@ function ConfirmPaymentPanel({ order, onDone }: { order: OrderView; onDone(): vo
                 file?: { fileName: string; contentType: string; dataBase64: string } | null;
               } = {
                 txid: crypto ? txid.trim() || null : null,
-                wireReference: wire ? wireRef.trim() || null : null,
+                wireReference: wire || cardBuy ? wireRef.trim() || null : null,
                 comment: comment.trim() || null,
                 file: null,
               };
@@ -391,10 +450,10 @@ function ConfirmPaymentPanel({ order, onDone }: { order: OrderView; onDone(): vo
               />
             </div>
           ) : null}
-          {wire ? (
+          {wire || cardBuy ? (
             <div className="field">
               <label className="field__label" htmlFor="pay-wire-ref">
-                {t('Bank payment reference')}
+                {cardBuy ? t('Processor payment id') : t('Bank payment reference')}
               </label>
               <input
                 id="pay-wire-ref"
@@ -693,6 +752,7 @@ function IdUpload({ order, onChange }: { order: OrderView; onChange: () => void 
 function StatusNotice({ order }: { order: OrderView }) {
   const buy = order.direction === 'buy';
   const wire = order.payIn === 'wire';
+  const cardBuy = order.payIn === 'card';
   const help = (
     <p className="small">
       {t('Questions? Reach support on')} <TelegramLink /> {t('or in your')} <Link to="/support">{t('support messages')}</Link>.
@@ -706,11 +766,15 @@ function StatusNotice({ order }: { order: OrderView }) {
           title={
             wire
               ? t('Awaiting bank details')
-              : buy
-                ? t('Arranging the courier')
-                : order.depositCredentialsPending
-                  ? t('Awaiting deposit details')
-                  : t('Preparing your deposit address')
+              : cardBuy
+                ? t('Awaiting payment instructions')
+                : buy
+                  ? t('Arranging the courier')
+                  : order.payout.method === 'instant_debit'
+                    ? t('Awaiting processing')
+                    : order.depositCredentialsPending
+                      ? t('Awaiting deposit details')
+                      : t('Preparing your deposit address')
           }
           role="status"
         >
@@ -719,7 +783,13 @@ function StatusNotice({ order }: { order: OrderView }) {
               ? t(
                   'Your order is accepted. We are preparing the bank wire details. When they are ready, they will appear in your account.',
                 )
-              : t('This usually takes a moment. The page updates by itself.')}
+              : cardBuy
+                ? t(
+                    'Your order is accepted. We are preparing the card payment page or instructions. When they are ready, they will appear here.',
+                  )
+                : order.payout.method === 'instant_debit'
+                  ? t('Your request was accepted. The payout will be processed after verification.')
+                  : t('This usually takes a moment. The page updates by itself.')}
           </p>
         </Notice>
       );
@@ -1284,6 +1354,20 @@ export function OrderPage() {
             </p>
           </Notice>
         ) : null}
+        {order.cardPayInPending ? (
+          <Notice tone="info" title={t('Awaiting payment instructions')} role="status">
+            <p>
+              {t(
+                'Your order is accepted. We are preparing the card payment page or instructions. When they are ready, they will appear here.',
+              )}
+            </p>
+          </Notice>
+        ) : null}
+        {order.direction === 'sell' && order.payout.method === 'instant_debit' && order.status !== 'completed' && order.status !== 'rejected' ? (
+          <Notice tone="info" title={t('Order accepted — awaiting processing')} role="status">
+            <p>{t('Your request was accepted. The payout will be processed after verification.')}</p>
+          </Notice>
+        ) : null}
         {order.depositCredentialsPending ? (
           <Notice tone="warn" title={t('Deposit address not available')} role="alert">
             <p>
@@ -1376,6 +1460,10 @@ export function OrderPage() {
 
           {wire && order.wireInstructions && order.status === 'awaiting_deposit' ? (
             <WireInstructions order={order} busy={busy} run={run} />
+          ) : null}
+
+          {order.payIn === 'card' && order.cardPayInInstructions && order.status === 'awaiting_deposit' ? (
+            <CardPayInInstructions order={order} />
           ) : null}
 
           {(order.status === 'awaiting_deposit' || order.status === 'created' || order.status === 'compliance_review') &&

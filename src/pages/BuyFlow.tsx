@@ -23,7 +23,7 @@ import { defaultNetwork, isAssetCode, isSupportedPair, NETWORKS, networkLabel, t
 import { CASH_COLLECTION_WINDOW_MS } from '@/domain/courier';
 import { formatUsd, parseDecimal } from '@/domain/money';
 import { describeFee, PAYOUT_METHODS } from '@/domain/payout';
-import { isBuyPayIn, PRICING_POLICY, type BuyPayIn, type QuoteIssue } from '@/domain/quote';
+import { buyPayInMethod, isBuyPayIn, PRICING_POLICY, type BuyPayIn, type QuoteIssue } from '@/domain/quote';
 import { WIRE_RECEIPT_WINDOW_MS } from '@/domain/wire';
 import { validateCashAmount, validateReceiveAddress } from '@/domain/validation';
 import { errorMessage } from '@/lib/errors';
@@ -180,12 +180,12 @@ function BuyIssues({ issues, payIn = 'courier_cash' }: { issues: QuoteIssue[]; p
 }
 
 const STEPS = ['Amount', 'Collection & wallet', 'Review'] as const;
-const WIRE_STEPS = ['Amount', 'Wallet', 'Review'] as const;
+const REMOTE_PAY_STEPS = ['Amount', 'Wallet', 'Review'] as const;
 
 function Stepper({ current, payIn }: { current: number; payIn: BuyPayIn }) {
   return (
     <ol className="stepper" aria-label={t('Exchange progress')}>
-      {(payIn === 'wire' ? WIRE_STEPS : STEPS).map((label, i) => {
+      {(payIn === 'wire' || payIn === 'card' ? REMOTE_PAY_STEPS : STEPS).map((label, i) => {
         const n = i + 1;
         const state = n < current ? 'done' : n === current ? 'current' : 'upcoming';
         return (
@@ -213,6 +213,7 @@ function AmountStep({ draft, update, quote, onNext }: DraftProps & { quote: Retu
   const issues = quote.data?.issues.filter((i) => i.code !== 'zero_amount') ?? [];
   const ready = !validateCashAmount(draft.cash) && !!quote.data && !quote.loading && issues.length === 0;
   const wire = draft.payIn === 'wire';
+  const card = draft.payIn === 'card';
   return (
     <form
       className="flow__main"
@@ -235,17 +236,22 @@ function AmountStep({ draft, update, quote, onNext }: DraftProps & { quote: Retu
       />
       <fieldset className="option-list">
         <legend className="field__label">{t('How you pay')}</legend>
-        {(['courier_cash', 'wire'] as const).map((id) => {
-          const m = PAYOUT_METHODS[id];
+        {(['courier_cash', 'wire', 'card'] as const).map((id) => {
+          const m = PAYOUT_METHODS[buyPayInMethod(id)];
+          const title = id === 'wire' ? t('Bank wire') : id === 'card' ? t('Bank card') : t('Cash by courier');
+          const meta =
+            id === 'wire'
+              ? t('You send a wire from your own US bank account. No wallet or card needed on our side.')
+              : id === 'card'
+                ? t('You pay on a secure external payment page. We never collect your CVV or full card details for this payment.')
+                : t('A courier collects US dollar cash from you after an ID check.');
           return (
             <label className="option" key={id} htmlFor={`pay-${id}`}>
               <input id={`pay-${id}`} type="radio" name="pay-in" checked={draft.payIn === id} onChange={() => update({ payIn: id })} />
               <span>
-                <span className="option__title">{id === 'wire' ? t('Bank wire') : t('Cash by courier')}</span>
+                <span className="option__title">{title}</span>
                 <span className="option__meta" style={{ display: 'block' }}>
-                  {id === 'wire'
-                    ? t('You send a wire from your own US bank account. No wallet or card needed on our side.')
-                    : t('A courier collects US dollar cash from you after an ID check.')}
+                  {meta}
                 </span>
               </span>
               <span className="option__aside small" style={{ whiteSpace: 'normal', textAlign: 'right', maxWidth: '16rem' }}>
@@ -256,13 +262,15 @@ function AmountStep({ draft, update, quote, onNext }: DraftProps & { quote: Retu
         })}
       </fieldset>
       <Field
-        label={wire ? t('Dollars you wire (USD)') : t('Cash you pay (USD)')}
+        label={wire ? t('Dollars you wire (USD)') : card ? t('Dollars you pay by card (USD)') : t('Cash you pay (USD)')}
         id="buy-cash"
         error={fieldError}
         hint={
           wire
             ? t('Sent by bank wire to the instructions on your order page.')
-            : t('Calculated individually based on the order parameters')
+            : card
+              ? t('Paid on the external payment page linked from your order after instructions are issued.')
+              : t('Calculated individually based on the order parameters')
         }
       >
         {(p) => (
@@ -339,7 +347,9 @@ function ReceiveAddressField({ draft, update, error, onBlur }: DraftProps & { er
       hint={t(
         draft.payIn === 'wire'
           ? 'We send the {0} here once the wire is matched and verified. Use a wallet you control on {1}; transfers can’t be reversed.'
-          : 'We send the {0} here once the cash is counted and verified. Use a wallet you control on {1}; transfers can’t be reversed.',
+          : draft.payIn === 'card'
+            ? 'We send the {0} here once the card payment is verified. Use a wallet you control on {1}; transfers can’t be reversed.'
+            : 'We send the {0} here once the cash is counted and verified. Use a wallet you control on {1}; transfers can’t be reversed.',
         [draft.asset, NETWORKS[draft.network].name],
       )}
     >
@@ -471,9 +481,13 @@ function WireDetailsStep({ draft, update, onBack, onNext }: DraftProps & { onBac
       <h2 className="flow__step-title">{t('Where should we send the crypto?')}</h2>
       <ReceiveAddressField draft={draft} update={update} error={addressError} onBlur={() => setTouched(true)} />
       <p className="small muted">
-        {t(
-          'After you confirm, the wire instructions appear on your order page. Send the wire from a US bank account in your own name and quote the order number as the reference.',
-        )}
+        {draft.payIn === 'card'
+          ? t(
+              'After you confirm, card payment instructions appear on your order page. Pay only through the https link or instructions shown there — never through a page sent by email.',
+            )
+          : t(
+              'After you confirm, the wire instructions appear on your order page. Send the wire from a US bank account in your own name and quote the order number as the reference.',
+            )}
       </p>
       <div className="flow__actions">
         <button type="button" className="btn btn--secondary btn--lg" onClick={onBack}>
@@ -507,6 +521,8 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
 
   if (!user) return null;
   const wire = draft.payIn === 'wire';
+  const card = draft.payIn === 'card';
+  const remotePay = wire || card;
   const verified = user.verification.status === 'verified';
   const canConfirm =
     !!locked &&
@@ -516,11 +532,11 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
     verified &&
     ackCash &&
     ackDocs &&
-    (wire || !!destination) &&
+    (remotePay || !!destination) &&
     !submitting;
 
   async function confirm() {
-    if (!locked || (!wire && !destination)) return;
+    if (!locked || (!remotePay && !destination)) return;
     if (keyRef.current?.quoteId !== locked.quote.id) keyRef.current = { quoteId: locked.quote.id, key: clientId('order') };
     setSubmitting(true);
     setError(null);
@@ -598,9 +614,13 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
             ? t(
                 'The exchange rate, wire fee, minimum, quote validity and wire window shown here are the conditions of this exchange. Under clause 4.24 of the',
               )
-            : t(
-                'The exchange rate, courier fee, minimum, quote validity and collection window shown here are the conditions of this exchange. Under clause 4.24 of the',
-              )}{' '}
+            : card
+              ? t(
+                  'The exchange rate, card payment fee, minimum, quote validity and payment window shown here are the conditions of this exchange. Under clause 4.24 of the',
+                )
+              : t(
+                  'The exchange rate, courier fee, minimum, quote validity and collection window shown here are the conditions of this exchange. Under clause 4.24 of the',
+                )}{' '}
           <Link to="/legal/terms#clause-4-24">{t('Service Rules')}</Link>
           {t(
             ', continuing with this Exchange Request signifies your agreement with them. Submitting it is acceptance of the public offer (Section 3).',
@@ -614,6 +634,14 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
                 {t('I will wire exactly')} {locked ? formatUsd(locked.quote.grossCents) : t('the quoted amount')}{' '}
                 {t(
                   'from a US bank account in my own name, only to the instructions on my order page, with the order number as the reference. The',
+                )}{' '}
+                {draft.asset}
+              </>
+            ) : card ? (
+              <>
+                {t('I will pay exactly')} {locked ? formatUsd(locked.quote.grossCents) : t('the quoted amount')}{' '}
+                {t(
+                  'by card only through the payment page or instructions on my order page. The',
                 )}{' '}
                 {draft.asset}
               </>
@@ -706,7 +734,8 @@ export function BuyFlow({ header }: { header: ReactNode }) {
   const [params] = useSearchParams();
   const payParam = params.get('pay');
   useEffect(() => {
-    if (payParam === 'wire' || payParam === 'cash') update({ payIn: payParam === 'wire' ? 'wire' : 'courier_cash' });
+    if (payParam === 'wire' || payParam === 'cash' || payParam === 'card')
+      update({ payIn: payParam === 'wire' ? 'wire' : payParam === 'card' ? 'card' : 'courier_cash' });
   }, [payParam, update]);
   const user = useUser();
   const cents = cashCents(draft.cash);
@@ -747,7 +776,7 @@ export function BuyFlow({ header }: { header: ReactNode }) {
           <div ref={headingRef} className="flow__step" key={`step-${step}`}>
             {step === 1 && <AmountStep draft={draft} update={update} quote={quote} onNext={() => go(2)} />}
             {step === 2 &&
-              (draft.payIn === 'wire' ? (
+              (draft.payIn === 'wire' || draft.payIn === 'card' ? (
                 <WireDetailsStep draft={draft} update={update} onBack={() => go(1)} onNext={() => go(3)} />
               ) : (
                 <DetailsStep draft={draft} update={update} onBack={() => go(1)} onNext={() => go(3)} />

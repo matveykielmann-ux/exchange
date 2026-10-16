@@ -27,7 +27,7 @@ interface OrderLike {
   status: OrderStatus;
   onHold: boolean;
   direction?: 'sell' | 'buy';
-  payIn?: 'courier_cash' | 'wire' | null;
+  payIn?: 'courier_cash' | 'wire' | 'card' | null;
   payoutMethod?: string;
   courierFeePending?: boolean;
   /** Sell: a pending refund waits for the customer's refund address. */
@@ -55,6 +55,7 @@ function preferred(o: OrderLike): [CardAction[], CardAction[]] {
     case 'refund_pending':
       return [['record_manual_refund', 'resubmit_refund'], ['resubmit_refund', 'notify']];
     case 'created':
+      if (o.payIn === 'card') return [['issue_card_payin_instructions'], ['notify', 'reject']];
       return needsCourierFee ? [['set_courier_fee'], ['notify', 'reject']] : [['notify'], ['reject']];
     case 'awaiting_deposit':
       return needsCourierFee
@@ -87,6 +88,7 @@ export const WAITING: Partial<Record<OrderStatus, string>> = {
 /** Actions that stay in the "More" menu even when allowed, in this order. */
 const MENU_ORDER: CardAction[] = [
   'set_courier_fee',
+  'issue_card_payin_instructions',
   'confirm_deposit_manual',
   'request_info',
   'notify',
@@ -120,7 +122,9 @@ export function actionPlan(o: OrderLike, available: readonly ActionAvailability[
         ? 'Waiting for the customer’s refund address'
         : o.payIn === 'wire' && o.status === 'created'
           ? 'Waiting for wire instructions to be issued'
-          : (WAITING[o.status] ?? null);
+          : o.payIn === 'card' && o.status === 'created'
+            ? 'Waiting for card payment instructions to be issued'
+            : (WAITING[o.status] ?? null);
   return { primary, secondary, more, waitingFor };
 }
 
@@ -165,6 +169,7 @@ export const ACTION_LABEL: Record<CardAction, string> = {
   assign: 'Assign',
   note: 'Add internal note',
   set_courier_fee: 'Set courier fee',
+  issue_card_payin_instructions: 'Issue card payment instructions',
 };
 
 /** What each confirming action does, shown in its dialog. */
@@ -176,6 +181,8 @@ export const ACTION_EXPLAIN: Partial<Record<CardAction, string>> = {
     'The payout instruction is sent to the configured automatic payout provider. The order is completed only when that provider reports the payout as done. Prefer Record manual payout when you pay from your own accounts.',
   record_manual_payout:
     'Records that the payout was completed through an explicit operational procedure (not a provider webhook). Requires a reason and an evidence reference (bank ref, TXID, or desk log). This is marked as operator-recorded, not provider-verified.',
+  issue_card_payin_instructions:
+    'Saves a real external payment-page URL and/or instructions from your processor on this order. Does not create a fake payment page. The customer pays off-site; you confirm receipt separately.',
   reject: 'The order is rejected. If the customer’s funds were already received, a refund is started under Section 9 of the Service Rules.',
   hold: 'Nothing moves this order toward a payout until the hold is released. Provider reports are still recorded.',
   release_hold: 'Processing continues from the current status.',
@@ -200,6 +207,7 @@ export const DEFAULT_REASON: Partial<Record<CardAction, string>> = {
   retry_payout: 'Retrying after the provider failure.',
   resubmit_refund: 'Resubmitting the refund.',
   set_courier_fee: 'Courier fee quoted for this order.',
+  issue_card_payin_instructions: 'External processor payment page issued for this order.',
 };
 
 export const REJECT_REASONS = [
@@ -284,6 +292,7 @@ export const SUCCESS: Partial<Record<CardAction, string>> = {
   assign: 'Assignment saved.',
   note: 'Note added.',
   set_courier_fee: 'Courier fee set. The customer must accept the updated quote.',
+  issue_card_payin_instructions: 'Card payment instructions issued to the customer.',
 };
 
 /** How a notification's delivery is described in the order history. */

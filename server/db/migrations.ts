@@ -977,4 +977,122 @@ CREATE INDEX refund_requests_order ON refund_requests(order_id, created_at);
 CREATE INDEX refund_requests_status ON refund_requests(status, created_at);
 `,
   },
+  {
+    id: 12,
+    name: 'card_payin_snapshots_and_payment_kind',
+    disableForeignKeys: true,
+    sql: `
+-- Buy with card (instant_debit) may have no saved destination, same as wire.
+CREATE TABLE orders_v12 (
+  id TEXT PRIMARY KEY,
+  reference TEXT NOT NULL UNIQUE,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  quote_id TEXT NOT NULL UNIQUE REFERENCES quotes(id),
+  ${ORDER_STATUS_CHECK.replace('status IN', 'status TEXT NOT NULL CHECK (status IN')}),
+  version INTEGER NOT NULL DEFAULT 1,
+  source TEXT NOT NULL CHECK (source IN ('sandbox','live')),
+  asset TEXT NOT NULL,
+  network TEXT NOT NULL,
+  ${digits('amount_atomic')},
+  ${digits('reference_price_micros')},
+  ${cents('gross_cents')},
+  spread_bps INTEGER NOT NULL,
+  ${cents('spread_cents')},
+  ${cents('payout_fee_cents')},
+  ${cents('net_cents')},
+  payout_method TEXT NOT NULL CHECK (payout_method IN ('ach','wire','instant_debit','courier_cash')),
+  payout_destination_id TEXT REFERENCES payout_destinations(id),
+  payout_label TEXT NOT NULL,
+  payout_last4 TEXT NOT NULL,
+  refund_address TEXT CHECK (refund_address IS NULL OR length(refund_address) BETWEEN 20 AND 128),
+  deposit_deadline INTEGER NOT NULL,
+  confirmations_required INTEGER NOT NULL CHECK (confirmations_required > 0),
+  confirmations_count INTEGER NOT NULL DEFAULT 0 CHECK (confirmations_count >= 0),
+  deposit_tx_hash TEXT,
+  ${digits('deposit_amount_atomic', true)},
+  deposit_exception TEXT CHECK (deposit_exception IS NULL OR deposit_exception IN ('amount_mismatch','late','order_closed')),
+  review_reason TEXT,
+  payout_provider_ref TEXT,
+  refund_tx_hash TEXT,
+  assigned_operator_id TEXT REFERENCES users(id),
+  customer_reported_sent_at INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  closed_at INTEGER,
+  direction TEXT NOT NULL DEFAULT 'sell' CHECK (direction IN ('sell','buy')),
+  on_hold INTEGER NOT NULL DEFAULT 0 CHECK (on_hold IN (0,1)),
+  courier_fee_pending INTEGER NOT NULL DEFAULT 0 CHECK (courier_fee_pending IN (0,1)),
+  courier_fee_accepted_at INTEGER,
+  CHECK (gross_cents - spread_cents - payout_fee_cents = net_cents),
+  CHECK (direction = 'sell' OR refund_address IS NOT NULL),
+  CHECK (
+    payout_destination_id IS NOT NULL
+    OR (direction = 'buy' AND payout_method IN ('wire','instant_debit'))
+  )
+);
+INSERT INTO orders_v12 SELECT
+  id, reference, user_id, quote_id, status, version, source, asset, network, amount_atomic, reference_price_micros,
+  gross_cents, spread_bps, spread_cents, payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label,
+  payout_last4, refund_address, deposit_deadline, confirmations_required, confirmations_count, deposit_tx_hash,
+  deposit_amount_atomic, deposit_exception, review_reason, payout_provider_ref, refund_tx_hash, assigned_operator_id,
+  customer_reported_sent_at, created_at, updated_at, closed_at, direction, on_hold, courier_fee_pending, courier_fee_accepted_at
+FROM orders;
+DROP TABLE orders;
+ALTER TABLE orders_v12 RENAME TO orders;
+CREATE INDEX orders_user ON orders(user_id, created_at DESC);
+CREATE INDEX orders_status ON orders(status, updated_at);
+CREATE INDEX orders_assigned ON orders(assigned_operator_id);
+CREATE INDEX orders_created ON orders(created_at DESC);
+CREATE INDEX orders_deadline ON orders(status, deposit_deadline);
+
+DROP TRIGGER IF EXISTS orders_snapshot_immutable;
+CREATE TRIGGER orders_snapshot_immutable BEFORE UPDATE OF
+  quote_id, user_id, source, asset, network, amount_atomic, reference_price_micros, gross_cents, spread_bps, spread_cents,
+  payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label, payout_last4,
+  deposit_deadline, confirmations_required, reference, created_at, direction
+ON orders
+WHEN NOT (OLD.courier_fee_pending = 1 AND NEW.courier_fee_pending = 0)
+BEGIN SELECT RAISE(ABORT, 'order snapshot fields are immutable'); END;
+DROP TRIGGER IF EXISTS orders_refund_address_once;
+CREATE TRIGGER orders_refund_address_once BEFORE UPDATE OF refund_address ON orders
+WHEN OLD.refund_address IS NOT NULL
+BEGIN SELECT RAISE(ABORT, 'the refund address is already set'); END;
+
+-- CRM-issued external card payment page / instructions for buy→crypto card pay-in.
+CREATE TABLE order_card_payin_snapshots (
+  order_id TEXT PRIMARY KEY REFERENCES orders(id),
+  payment_url TEXT CHECK (payment_url IS NULL OR length(payment_url) BETWEEN 8 AND 2000),
+  instructions TEXT CHECK (instructions IS NULL OR length(instructions) <= 4000),
+  provider_ref TEXT CHECK (provider_ref IS NULL OR length(provider_ref) BETWEEN 1 AND 120),
+  assigned_by TEXT REFERENCES users(id),
+  assigned_at INTEGER NOT NULL,
+  revealed_to_customer INTEGER NOT NULL DEFAULT 0 CHECK (revealed_to_customer IN (0,1)),
+  CHECK (payment_url IS NOT NULL OR instructions IS NOT NULL)
+);
+
+-- Allow processor payment references on customer payment confirmations (not auto-credit).
+CREATE TABLE payment_confirmations_v12 (
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL REFERENCES orders(id),
+  user_id TEXT NOT NULL REFERENCES users(id),
+  kind TEXT NOT NULL CHECK (kind IN ('crypto_txid','wire_reference','receipt','card_reference')),
+  txid TEXT CHECK (txid IS NULL OR length(txid) BETWEEN 8 AND 128),
+  wire_reference TEXT CHECK (wire_reference IS NULL OR length(wire_reference) BETWEEN 1 AND 120),
+  comment TEXT CHECK (comment IS NULL OR length(comment) <= 2000),
+  document_id TEXT REFERENCES order_documents(id),
+  status TEXT NOT NULL DEFAULT 'submitted' CHECK (status IN ('submitted','approved','needs_info','rejected')),
+  staff_note TEXT CHECK (staff_note IS NULL OR length(staff_note) <= 2000),
+  reviewed_by TEXT REFERENCES users(id),
+  reviewed_at INTEGER,
+  created_at INTEGER NOT NULL
+);
+INSERT INTO payment_confirmations_v12
+  (id, order_id, user_id, kind, txid, wire_reference, comment, document_id, status, staff_note, reviewed_by, reviewed_at, created_at)
+  SELECT id, order_id, user_id, kind, txid, wire_reference, comment, document_id, status, staff_note, reviewed_by, reviewed_at, created_at
+  FROM payment_confirmations;
+DROP TABLE payment_confirmations;
+ALTER TABLE payment_confirmations_v12 RENAME TO payment_confirmations;
+CREATE INDEX payment_confirmations_order ON payment_confirmations(order_id, created_at);
+`,
+  },
 ];
