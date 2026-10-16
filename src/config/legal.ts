@@ -1,8 +1,8 @@
 /**
  * Business and legal facts used by the legal pages. Every field that is `null`
  * (or an empty list) is UNVERIFIED: the owner or counsel has not supplied it.
- * Pages omit unverified facts rather than inventing them, and LEGAL_REVIEW.md
- * tracks each one. Fill these in only from documents the owner has provided.
+ * Pages omit unverified facts rather than inventing them. Open items that still
+ * need documents or counsel are tracked in LEGAL_REVIEW.md and CRYPTOBIT_LEGAL_REVIEW.md.
  */
 export interface StateLicense {
   state: string;
@@ -17,13 +17,15 @@ export const LEGAL_ENTITY = {
   /** Jurisdiction of incorporation (Service Rules, preamble). */
   jurisdiction: 'Republic of Panama' as string | null,
   registrationNumber: 'No. 155778934' as string | null,
+  /** Not supplied by the owner — do not invent. */
   registeredAddress: null as string | null,
   mailingAddress: null as string | null,
   /** FinCEN MSB registration number, if registered. */
   fincenMsbRegistration: null as string | null,
   nmlsId: null as string | null,
   stateLicenses: [] as StateLicense[],
-  supportEmail: 'support@example.com', // RFC 2606 reserved domain until the owner supplies a real inbox.
+  /** No published support email (owner decision). Use Telegram + in-app support. */
+  supportEmail: null as string | null,
   complaintsEmail: null as string | null,
   privacyEmail: null as string | null,
   supportPhone: null as string | null,
@@ -35,6 +37,11 @@ export const LEGAL_ENTITY = {
   governingLaw: 'the laws of the Republic of Panama' as string | null,
   /** Dispute resolution (Section 16): negotiations, then the competent court of the Republic of Panama after 60 calendar days. */
   disputeForum: 'the competent court of the Republic of Panama' as string | null,
-  /** Owner decision 2026-10-14: not limited to US residents; only the territories in clause 8.5 are refused. */
+  /**
+   * Primary market is the US (owner decision, 2026-03-01). Listing states in the
+   * UI is not a claim of licensed coverage in every state.
+   */
   servedStates: null as string[] | null,
+  /** Owner-declared effective date for the customer legal package. */
+  documentsEffectiveDate: '2026-03-01' as string,
 } as const;

@@ -3,29 +3,22 @@ import type { LegalDocument } from './types';
 export const FEE_DISCLOSURE: LegalDocument = {
   slug: 'fees',
   title: 'Fee and Exchange-Rate Disclosure',
-  version: '2.0.0',
-  effectiveDate: null,
-  lastUpdated: '2026-10-14',
+  version: '3.0.0',
+  effectiveDate: '2026-03-01',
+  lastUpdated: '2026-03-01',
   summary:
-    'How the {{brand}} commission is defined in the Service Rules, how it appears in your quote as a spread and a payout fee, and which return fees the Service Rules allow.',
+    'How {{brand}} calculates the exchange fee (2% buy / 3% sell), how bank wire estimates and courier costs appear on your quote, and how the locked rate works. In effect from March 1, 2026.',
   acceptance: 'order',
   sections: [
     {
       id: 'commission',
       heading: 'The commission in the Service Rules',
-      blocks: [{ type: 'rules', refs: ['6', '2'] }],
+      blocks: [{ type: 'rules', refs: ['6'] }],
     },
     {
       id: 'rates',
       heading: 'How rates are determined',
-      blocks: [
-        { type: 'rules', refs: ['5'] },
-        {
-          type: 'review',
-          id: 'LR-34',
-          text: '[CONFLICT WITH SITE BEHAVIOR: this site locks a quote for 60 seconds and holds its rate for a deposit that arrives within 30 minutes, rather than fixing the rate when the required confirmations arrive during working hours. See LEGAL_REVIEW.md.]',
-        },
-      ],
+      blocks: [{ type: 'rules', refs: ['5'] }],
     },
     {
       id: 'how-pricing-works',
@@ -35,49 +28,36 @@ export const FEE_DISCLOSURE: LegalDocument = {
         {
           type: 'list',
           items: [
-            'Reference price: the market price per unit of the asset that we use as the starting point for your quote, and the resulting US dollar value of the amount you are selling (the reference value).',
-            'Spread: our charge, calculated as a percentage of the reference value and expressed in basis points (one basis point is 0.01%). It is deducted from the reference value.',
-            'Exchange fee: our charge for the payout or pay-in method you choose (shown as a separate line).',
-            'Net payout: the amount in US dollars you will receive after the exchange fee (and any bank processing fee) is deducted.',
+            'Reference price: the market price per unit of the asset from the connected reference source (CoinGecko), and the resulting US dollar value of the amount you are exchanging (the reference value).',
+            'Exchange fee: {{brand}}’s commission — 3% when you sell crypto for USD, 2% when you buy crypto with USD — calculated on the reference value and rounded to the nearest cent.',
+            'Bank processing fee (wire only): an estimated bank charge (typically $30). It is not {{brand}} commission and is not kept by {{brand}} as its fee.',
+            'Courier fee (cash by courier only): calculated individually for your order and shown before you continue.',
+            'Net amount: what you receive (sell) or the USD amount converted after fees (buy).',
           ],
         },
         {
           type: 'p',
-          text: 'Your quote uses the market reference price with no spread. Prices from other providers may be higher or lower than ours.',
-        },
-        {
-          type: 'p',
-          text: 'The exchange fee, any bank processing fee, quote validity and deposit window that apply to your order are shown when you create it. Clause 4.24 of the Service Rules provides:',
+          text: 'Your quote uses the market reference price with no spread. The final quote is not the same as the raw reference price: it includes the fees and conditions of the Exchange Request.',
         },
         { type: 'rules', refs: ['4.24'] },
       ],
     },
     {
-      id: 'spread',
-      heading: 'Exchange rate',
-      blocks: [
-        {
-          type: 'p',
-          text: 'There is no spread. The quote uses the market reference price at the moment of the quote. The fee for your method is shown as a separate dollar line on the Fees page and in each quote.',
-        },
-      ],
-    },
-    {
       id: 'payout-fees',
-      heading: 'Payout fees',
+      heading: 'Fee schedule',
       blocks: [
         {
           type: 'list',
           items: [
-            'ACH bank transfer: a 3% exchange fee.',
-            'Domestic bank wire: a published bank processing fee ($30) plus a 3% exchange fee.',
-            'Debit card: a 3% exchange fee.',
-            'Cash by courier: delivery cost calculated individually for each order (set by an operator and shown on the quote before you confirm).',
+            'Sell crypto for USD (ACH, wire, or debit card): 3% {{brand}} exchange fee.',
+            'Buy crypto with USD (wire, card, or cash collection): 2% {{brand}} exchange fee.',
+            'Domestic bank wire: estimated $30 bank processing fee in addition to the exchange fee (bank’s charge, not {{brand}} revenue).',
+            'Cash by courier: delivery or collection cost calculated individually for each order (set by an operator and accepted by you before the exchange continues).',
           ],
         },
         {
           type: 'p',
-          text: 'Current amounts are shown on the Fees page and in each quote. There is no published minimum order amount and no maximum. Wire orders include a published bank processing fee plus the exchange fee, both shown before you confirm.',
+          text: 'There is no published minimum or maximum order amount. Amounts on your quote before you confirm are the amounts that apply to that order if you send a conforming payment in the deposit window.',
         },
       ],
     },
@@ -87,34 +67,19 @@ export const FEE_DISCLOSURE: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'A locked quote is valid for a limited time, currently 60 seconds, and must be refreshed if it expires. When you confirm an order, the rate, fees and net payout in the accepted quote apply to that order, provided that you send the quoted amount within the deposit window, currently 30 minutes. If the amount received differs, or funds arrive after the window, the Service Rules provide:',
+          text: 'A quote is valid for a limited time, currently 60 seconds, and must be refreshed if it expires. When you confirm an order, the rate, fees and net amounts in the accepted quote apply for the deposit window, currently 30 minutes. If funds arrive after the window, or the amount differs, the Service Rules provide:',
         },
         { type: 'rules', refs: ['4.12', '4.14'] },
         {
           type: 'p',
-          text: 'We may change our fee schedules and spread tiers at any time by updating the Fees page. A change does not affect an order you have already confirmed.',
-        },
-      ],
-    },
-    {
-      id: 'large-transactions',
-      heading: 'Large transactions',
-      blocks: [
-        {
-          type: 'p',
-          text: 'You may ask our large-transaction desk to price an order of $25,000 or more individually. Desk pricing is confirmed with you in writing, itemized in the same way, before you send any funds. Any indicative pricing shown on the request form is not an offer. Large orders placed online use the standard schedule.',
+          text: 'We may change published fee schedules by updating this page and the Service Rules. A change does not affect an order you have already confirmed.',
         },
       ],
     },
     {
       id: 'return-fees',
       heading: 'Return fees',
-      blocks: [{ type: 'rules', refs: ['9.2', '9.7', '9.8'] }],
-    },
-    {
-      id: 'additional-conditions',
-      heading: 'Rates for additional conditions',
-      blocks: [{ type: 'rules', refs: ['4.23'] }],
+      blocks: [{ type: 'rules', refs: ['9.2', '9.3'] }],
     },
     {
       id: 'fees-not-charged-by-us',
@@ -123,8 +88,8 @@ export const FEE_DISCLOSURE: LegalDocument = {
         {
           type: 'list',
           items: [
-            'Network fees: you pay a network fee to the blockchain network when you send your deposit. This fee is not paid to {{brand}} and is not included in your quote.',
-            'Bank and card fees: your bank or card issuer may charge fees to receive a wire or other payment. These are set by them and are not included in your quote.',
+            'Network fees: you pay a network fee to the blockchain when you send a deposit. It is not paid to {{brand}} and is not included in your quote.',
+            'Bank and card issuer fees: your bank or card issuer may charge their own fees. Those are separate from the estimated bank processing fee shown on a wire quote.',
           ],
         },
       ],
@@ -135,12 +100,7 @@ export const FEE_DISCLOSURE: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'After your order completes, a receipt showing the same itemized amounts, the deposit transaction hash and the payout reference is available in your transaction history.',
-        },
-        {
-          type: 'review',
-          id: 'LR-05',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Any state-mandated consumer disclosures that must appear in the Service Rules, the Risk Disclosure, receipts or complaint notices (for example 23 NYCRR Part 200 disclosures in New York, California DFAL disclosures, and state regulator contact details for complaints).]',
+          text: 'After your order completes, a receipt showing the itemized amounts, deposit reference and payout reference (when available) is shown in your transaction history.',
         },
       ],
     },

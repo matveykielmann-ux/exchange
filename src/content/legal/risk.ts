@@ -3,11 +3,11 @@ import type { LegalDocument } from './types';
 export const RISK_DISCLOSURE: LegalDocument = {
   slug: 'risk',
   title: 'Risk Disclosure',
-  version: '2.0.0',
-  effectiveDate: null,
-  lastUpdated: '2026-10-14',
+  version: '3.0.0',
+  effectiveDate: '2026-03-01',
+  lastUpdated: '2026-03-01',
   summary:
-    'Selling digital assets carries real risks, including price changes, irreversible blockchain transactions, scams and the absence of government deposit insurance, and you should understand them before you place an order.',
+    'Selling digital assets carries real risks, including price changes, irreversible blockchain transactions, scams and the absence of government deposit insurance, and you should understand them before you place an order. In effect from March 1, 2026.',
   acceptance: 'order',
   sections: [
     {
@@ -21,11 +21,6 @@ export const RISK_DISCLOSURE: LegalDocument = {
         {
           type: 'p',
           text: 'Digital assets you send to {{brand}} are not held in a bank account in your name, and US dollars due to you are not FDIC-insured deposits while your payout is being processed.',
-        },
-        {
-          type: 'review',
-          id: 'LR-05',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Any state-mandated consumer disclosures that must appear in the Service Rules, the Risk Disclosure, receipts or complaint notices (for example 23 NYCRR Part 200 disclosures in New York, California DFAL disclosures, and state regulator contact details for complaints).]',
         },
       ],
     },

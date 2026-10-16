@@ -1,7 +1,7 @@
 /**
  * Accounts, sessions, second factor (TOTP), password reset.
  *
- * - Passwords: scrypt; minimum 12 characters; never logged.
+ * - Passwords: scrypt; minimum 8 characters; never logged.
  * - Sessions: 256-bit random token in an httpOnly SameSite=Lax cookie; only
  *   an HMAC of it is stored. Fixed lifetime; revoked on password change/reset.
  * - CSRF: a per-session token, sent back in the X-CSRF-Token header (see router).
@@ -168,23 +168,24 @@ export async function signUp(
     email: string;
     password: string;
     fullName: string;
-    /** ISO 3166-1 alpha-2. Defaults to US when only a US state is given (older clients). */
-    countryOfResidence?: string | null;
+    /** US state (primary market). Country is stored as US; not collected on the form. */
     stateOfResidence: string | null;
     /** Confirms the person does not live in a territory listed in clause 8.5 of the Service Rules. */
     notInRestrictedTerritory: boolean;
     accepted: { slug: string; version: string }[];
+    /** Ignored if present (older clients); sign-up always records US. */
+    countryOfResidence?: string | null;
   },
   meta: { ip: string | null; userAgent: string | null },
 ): Promise<{ userId: string; grant: SessionGrant }> {
-  const country = input.countryOfResidence ?? (input.stateOfResidence ? 'US' : null);
-  const residence = residenceError(country ?? '', input.stateOfResidence);
-  if (residence) throw badRequest(residence, { field: country ? 'stateOfResidence' : 'countryOfResidence' });
+  const residence = residenceError(input.stateOfResidence);
+  if (residence) throw badRequest(residence, { field: 'stateOfResidence' });
   if (input.notInRestrictedTerritory !== true)
     throw badRequest('Confirm that you do not live in a territory listed in clause 8.5 of the Service Rules.', {
       field: 'notInRestrictedTerritory',
     });
-  const state = country === 'US' ? input.stateOfResidence : null;
+  const state = input.stateOfResidence;
+  const country = 'US';
   const emailError = validateEmail(input.email);
   if (emailError) throw badRequest(emailError, { field: 'email' });
   const passwordError = validatePassword(input.password);
@@ -213,7 +214,7 @@ export async function signUp(
     audit(
       ctx,
       { type: 'customer', id: userId, role: 'customer', ip: meta.ip },
-      { action: 'auth.signup', targetType: 'user', targetId: userId, data: { country, notInRestrictedTerritory: true } },
+      { action: 'auth.signup', targetType: 'user', targetId: userId, data: { country, state, notInRestrictedTerritory: true } },
     );
     notify(ctx, { userId, to: email, template: 'welcome', vars: { name: input.fullName } });
     return createSession(ctx, userId, false, meta);

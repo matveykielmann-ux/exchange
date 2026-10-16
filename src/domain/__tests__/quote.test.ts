@@ -188,10 +188,17 @@ describe('calculateBuyQuote', () => {
     expect(btc.quote.amountAtomic).toBe(exact); // floor
   });
 
-  it('flags zero amounts and applies wire fees on buy', () => {
+  it('flags zero amounts and applies wire fees on buy at 2%', () => {
     expect(calculateBuyQuote({ ...buy, cashCents: 0n, quotedFeeCents: 0n }).issues.map((i) => i.code)).toEqual(['zero_amount']);
     const wire = calculateBuyQuote({ ...buy, cashCents: 1_000_00n, payIn: 'wire' });
     expect(wire.issues).toEqual([]);
-    expect(wire.quote.payoutFeeCents).toBe(WIRE_BANK_FEE_CENTS + 30_00n);
+    // $30 bank + 2% of $1000 = $20
+    expect(wire.quote.payoutFeeCents).toBe(WIRE_BANK_FEE_CENTS + 20_00n);
+  });
+
+  it('charges 2% exchange fee on card buy', () => {
+    const card = calculateBuyQuote({ ...buy, cashCents: 1_000_00n, payIn: 'card' });
+    expect(card.issues).toEqual([]);
+    expect(card.quote.payoutFeeCents).toBe(20_00n);
   });
 });

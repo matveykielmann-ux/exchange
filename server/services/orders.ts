@@ -11,7 +11,6 @@ import { isPreviewWireValue, validateWireReference, WIRE_RECEIPT_WINDOW_MS, wire
 import { formatUsd } from '@/domain/money';
 import { PAYOUT_METHODS, payoutEligibility, type PayoutMethodId } from '@/domain/payout';
 import { isQuoteExpired, PRICING_POLICY, type ExchangeDirection, type Quote } from '@/domain/quote';
-import { canConfirmExchange } from '@/domain/identity';
 import {
   buyPayIn,
   isPreviewDepositAddress,
@@ -393,9 +392,7 @@ export async function createOrder(
   const eligibility = payoutEligibility(PAYOUT_METHODS[quote.payoutMethod], quote.grossCents);
   if (!eligibility.eligible) throw new ApiError(422, 'method_unavailable', eligibility.reason);
 
-  const profile = getProfile(ctx, userId);
-  if (!canConfirmExchange(profile.kyc_status === 'verified' ? 'verified' : 'unverified'))
-    throw new ApiError(403, 'kyc_required', 'Verify your identity before confirming an exchange.');
+  getProfile(ctx, userId); // ensure profile exists; KYC is not required to place an order
 
   // The refund address is optional: without one, it is asked for only if funds have to be returned.
   const refundAddress = input.refundAddress?.trim() || null;
@@ -654,9 +651,7 @@ async function createBuyOrder(
   const eligibility = payoutEligibility(PAYOUT_METHODS[quote.payoutMethod], quote.grossCents);
   if (!eligibility.eligible) throw new ApiError(422, 'method_unavailable', eligibility.reason);
 
-  const profile = getProfile(ctx, userId);
-  if (!canConfirmExchange(profile.kyc_status === 'verified' ? 'verified' : 'unverified'))
-    throw new ApiError(403, 'kyc_required', 'Verify your identity before confirming an exchange.');
+  getProfile(ctx, userId); // ensure profile exists; KYC is not required to place an order
 
   const receiveAddress = (input.receiveAddress ?? '').trim();
   if (!receiveAddress)

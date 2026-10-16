@@ -2,7 +2,9 @@
 
 ### PUBLIC OFFER OF THE CryptoBit Exchange SERVICE
 
-**Last Updated**: March 27, 2026
+**Last Updated**: March 1, 2026
+
+**Effective**: March 1, 2026 (owner-declared effective date for this version).
 
 These Terms of Use (“Terms”) govern access to the crypto-asset exchange service CryptoBit Exchange (the “Service”) and the conditions of its use.
 
@@ -38,7 +40,7 @@ Please read these Terms carefully before using the Service. By submitting an ele
 
 The Company undertakes to provide cryptoasset exchange services for a commission fee from the User, after the User submits the corresponding Exchange Request. Exchanges are conducted through selling or buying cryptoassets to/from third parties willing to exchange them at a price not lower than indicated in the Exchange Request. Funds are transferred by the Company to the details specified by the User. Profits generated during the exchange remain at the Company’s disposal and are considered additional remuneration for the provided services.
 
-**CryptoBit Exchange does not store cryptoassets in its own wallets. To ensure liquidity and conduct operations, the Service uses reliable, verified third-party providers.**
+**Deposit addresses and operational wallets used for Exchange Requests may be managed by the Company through its operations tools (including CRM-assigned wallets). Blockchain explorers and external monitoring systems may provide transaction information that the Company does not control. Staff may verify deposits manually when processing an Exchange Request. The Company does not claim automated on-chain monitoring as a guaranteed service feature.**
 
 The Company undertakes to provide services in accordance with these Terms and applicable law, as well as to inform the User about the status of their Exchange Request and current exchange conditions. All operations with cryptoassets or fiat funds are conducted in accordance with the rules of the respective electronic payment systems. In turn, the User undertakes to provide accurate, truthful, and complete information necessary for the Company to fulfill its obligations under these Terms.
 
@@ -46,13 +48,13 @@ The Company undertakes to provide services in accordance with these Terms and ap
 
 These Terms are considered accepted by the User at the moment of submitting an Exchange Request. Information about exchange conditions posted by the Company constitutes a public offer. Submission of an Exchange Request by the User constitutes acceptance of this offer and confirms consent to the transaction. The time, date, and parameters of the Exchange Request are automatically recorded by the system at the time of submission.
 
-The terms of the Exchange Request take effect upon the full receipt of cryptoassets, non-cash funds from the User to the Company’s accounts, or upon delivery of cash funds to the Company in the prescribed manner, provided that the User successfully passes the AML procedure in accordance with the Service’s AML/CTF Policy posted on the Company’s website. These Terms apply from the submission of the Exchange Request until its execution according to the schedule specified in the Exchange Request, or until termination at the initiative of either party.
+The terms of the Exchange Request take effect upon the full receipt of cryptoassets, non-cash funds from the User to the Company’s accounts, or upon delivery of cash funds to the Company in the prescribed manner. The User may view quotes, register, and submit an Exchange Request before identity verification is completed. The Company may suspend payout, refund, or other money movement until identity verification or other checks required by applicable law, risk policy, or a contracted integration are completed. These Terms apply from the submission of the Exchange Request until its execution according to the schedule specified in the Exchange Request, or until termination at the initiative of either party.
 
 ### 4. Procedure for Conducting Exchange Operations
 
 4.1. It is strictly prohibited to use the Service for illegal transfers, fraudulent activities, or other unlawful operations. The User undertakes to comply with these requirements and bear responsibility in accordance with applicable law.
 
-4.2. If the Exchange Request cannot be fulfilled within the specified timeframe for reasons beyond the Company’s control (including, but not limited to: technical communication failures; insufficient funds in the Company’s or other parties’ accounts; provision of incorrect, unreliable, or incomplete contact information by the User; incorrect or incomplete recipient details; and similar circumstances), funds will be returned to the User’s details or credited to their account within 72 hours, except as provided in Sections 8 and 13 of these Terms.
+4.2. If the Exchange Request cannot be fulfilled within the specified timeframe for reasons beyond the Company’s control (including, but not limited to: technical communication failures; insufficient funds in the Company’s or other parties’ accounts; provision of incorrect, unreliable, or incomplete contact information by the User; incorrect or incomplete recipient details; and similar circumstances), funds will be returned to the User’s details or credited to their account after manual review by the Company, except as provided in Sections 8 and 13 of these Terms. No fixed return deadline is promised unless separately confirmed for that request.
 
 4.3. The Company may provide transaction information to law enforcement agencies, payment system administrations, and victims of unlawful acts proven by court decisions.
 
@@ -76,13 +78,13 @@ The terms of the Exchange Request take effect upon the full receipt of cryptoass
 - Unpack and count the received funds after photographing.
 - Provide photos and count confirmation within 24 hours of receipt. Claims for shortages after this period are not accepted.
 
-4.11. The User may cancel an Exchange Request before the transaction is completed after transferring cryptoassets, non-cash, or cash funds to the Company, except as provided in Sections 8 and 13. User-initiated returns not caused by the Company’s fault incur additional costs under Section 9.
+4.11. The User may cancel an Exchange Request on the Service before funds have been sent. After funds have been sent, cancellation or return requests are submitted only through support (Telegram or in-app support messages) and are reviewed manually by an administrator. Self-service automatic cancellation of crypto already sent is not supported. Returns are handled under Section 9.
 
-4.12. If an amount received in the Company’s account differs from the amount specified in the Exchange Request, the Company shall make a recalculation corresponding to the actual funds received. If the difference exceeds 10%, the Company may terminate the Exchange Request unilaterally, as if it had not come into effect, without the need to notify the User. In such cases, funds are returned to the User’s details, minus commission fees. Similarly, in the case of receiving cash, recalculation and refund shall be carried out based on the actual amount and any potential expenses incurred by the Company related to the handling of cash.
+4.12. If an amount received differs from the amount specified in the Exchange Request, the request is held for manual review. The Company may offer a new quote based on the amount actually confirmed; any change of rate or conditions requires notice to the User and the User’s acceptance of the new quote. The Company may instead return the funds under Section 9. Silent re-pricing without the User’s consent is not permitted.
 
-4.13. If cryptoassets or funds are not transferred to the User’s specified details within the timeframe indicated in the Exchange Request, the User has the right to cancel the agreement and request return of assets: cryptoassets are returned to the specified wallet, cash — personally, non-cash funds — to the specified bank or electronic account. Return is processed by the Company only if the corresponding funds have not yet been transferred to the User’s specified account details. Returns are completed within 72 hours from the moment the request for termination is received, except in cases provided for in Sections 8 and 13 of these Rules. The Company is not responsible for delays beyond its control.
+4.13. If cryptoassets or funds are not transferred to the User’s specified details within the timeframe indicated in the Exchange Request, the User has the right to cancel the agreement and request return of assets: cryptoassets are returned to the specified wallet, cash — personally, non-cash funds — to the specified bank or electronic account. Return is processed by the Company only if the corresponding funds have not yet been transferred to the User’s specified account details. Returns are completed after manual review, except in cases provided for in Sections 8 and 13 of these Rules. No fixed return deadline is promised unless separately confirmed. The Company is not responsible for delays beyond its control.
 
-4.14. If the crypto assets or funds are not transferred to the Company within the period specified in the Exchange Request from the moment it was submitted by the User, the terms of the Exchange Request may be terminated by the Company unilaterally, as not having entered into force, without the need to notify the User. If the crypto assets or non-cash funds are received in the Company’s accounts after the specified period, such funds shall be transferred back to the User’s account, with all commission fees related to the transfer deducted from these funds. In the event that the User requests to proceed with the exchange operation after the period specified in the Exchange Request, the Company reserves the right to modify the exchange rate and the terms of the Exchange Request.
+4.14. If cryptoassets or funds are not transferred to the Company within the deposit window shown on the Exchange Request (currently thirty (30) minutes from confirmation of the request), the Company may treat the request as expired. If funds arrive after that window, the request is held for manual review. The locked rate does not apply automatically. To proceed, the Company must notify the User of any new quote or conditions and obtain the User’s acceptance; otherwise funds are returned under Section 9. Bank and network costs of a return under this model are borne by the Service, and the CryptoBit exchange fee is returned if it was actually collected.
 
 4.15. If a delay occurs in the transfer of funds to the details specified by the User due to the fault of the payment system, the Company shall not be held liable for any losses arising from the delayed receipt of funds. In such a case, the User agrees that all claims shall be directed to the payment system, while the Company will provide assistance to the extent possible and within the framework of applicable law.
 
@@ -96,11 +98,11 @@ The terms of the Exchange Request take effect upon the full receipt of cryptoass
 
 4.20. In the event of a failure on the part of the payment system, such exchanges will be processed manually during the Service’s working hours.
 
-4.21. The Company is not responsible for third parties impersonating it. **Only contacts listed on the website are official and can be used for performing exchange operations**. For security reasongs, use links on the website when accessing social networks or messengers. Verify Telegram username carefully.
+4.21. The Company is not responsible for third parties impersonating it. **Only contacts listed on the website are official and can be used for performing exchange operations**. For security reasons, use links on the website when accessing social networks or messengers. Official customer support channels are the Telegram account published on the website (https://t.me/cryptocurrency_1exchange) and in-app support messages after sign-in. Verify the Telegram username carefully. No other email address is published as an official support contact in this version.
 
-4.22. When sending cryptoassets to the Company’s wallet, the User must provide transaction confirmation: a screenshot showing time, Company wallet address, transfer amount, and TXID or blockchain link. For non-cash transfers, an electronic statement must be provided.
+4.22. The User may provide a transaction hash (TXID) or other reference as a tip to help staff locate a transfer. A TXID, screenshot, or customer statement does not by itself confirm receipt. The status of an Exchange Request changes according to the Company’s actual processing, including manual verification by staff. Independent blockchain explorers and external systems may be used for information; the Company does not control them.
 
-4.23. The Serice may adjust rates if additional conditions are set by the User not described in the Exchange Request or Terms:
+4.23. The Service may adjust rates if additional conditions are set by the User not described in the Exchange Request or Terms:
 
 - Issuance time,
 - Special requirements for the denomination, appearance, and year of issue of the banknotes,
@@ -111,34 +113,42 @@ The terms of the Exchange Request take effect upon the full receipt of cryptoass
 
 ### 5. Rules for Rate Fixation
 
-For indicative (reference) market prices of cryptoassets, the Service may use market data from [CoinGecko](https://www.coingecko.com/), [Coinbase](https://www.coinbase.com/) and [Kraken](https://www.kraken.com/). These sources provide reference market information only; they do not guarantee that an Exchange Request will be executed at any displayed reference price. The final quote offered to the User is calculated by the Service from the applicable reference market price together with the Service’s fees and the other conditions of the Exchange Request, and is shown to the User before the User accepts those conditions. The exchange rate applicable to an Exchange Request is fixed at the moment the required number of confirmations is received in the respective network, exclusively during Service working hours, and only after providing proof of sending cryptoassets to the Service operator within 30 minutes from the creation of the Request. The Service hedges Requests via market orders; rate volatility may reach up to 5%.
+For indicative (reference) market prices of cryptoassets, the Service uses market data from [CoinGecko](https://www.coingecko.com/) as the connected reference source. CoinGecko provides reference market information only; it does not guarantee that an Exchange Request will be executed at any displayed reference price. Other market-data brands are not connected integrations of this Service unless later published. The final quote offered to the User is calculated by the Service from the applicable reference market price together with the Service’s fees and the other conditions of the Exchange Request, and is shown to the User before the User accepts those conditions.
 
-**Required confirmations for various cryptoassets are as follows:**
+A quote is available for acceptance for a limited time (currently sixty (60) seconds). When the User confirms the Exchange Request, the rate and itemized fees in that accepted quote are locked for the deposit window shown on the request (currently thirty (30) minutes from confirmation), provided a conforming deposit is received in that window. Confirmations required on a network are used to treat a deposit as sufficiently confirmed for processing; they do not by themselves re-fix the locked rate. If the deposit arrives after the deposit window, clause 4.14 applies.
 
-| Cryptocurrency                | Confirmations |
+**Required confirmations for assets and networks offered on this Service are as follows:**
+
+| Asset / network | Confirmations |
 | :---------------------------- | :------------ |
-| BTC (Bitcoin)                 | 4             |
-| ETH (Ethereum)                | 21            |
-| USDT (TRC-20, ERC-20, BEP-20) | 21            |
-| USDC (TRC-20, ERC-20, BEP-20) | 21            |
+| BTC (Bitcoin) | 4 |
+| ETH (Ethereum) | 21 |
+| USDT on Ethereum (ERC-20) | 21 |
+| USDT on Tron (TRC-20) | 21 |
+| USDT on BNB Smart Chain (BEP-20) | 15 |
+| USDC on Ethereum (ERC-20) | 21 |
+| USDC on Solana (SPL) | 32 |
+| USDC on Base | 12 |
+| XRP (XRP Ledger) | 1 |
+| SOL (Solana) | 32 |
+| BNB on BNB Smart Chain (BEP-20) | 15 |
 
-When exchanging fiat funds for cryptoassets, the exchange rate is fixed after payment confirmation during Service working hours. Fiat cross-rates are determined according to market rates; in high volatility, cross-rates may be fixed based on [www.xe.com](https://www.xe.com/).
+When exchanging fiat funds for cryptoassets, the same quote-acceptance and deposit-window rules apply: the rate is locked when the User confirms the Exchange Request, for the payment window shown on the request, subject to manual verification of the payment.
 
-The amount to be received is determined based on the actual payment received by the Service, except as provided in Sections 4 and also Sections 8, 11 and 13.
+The amount to be received is determined based on the accepted quote and the funds actually confirmed by the Service, except as provided in Sections 4 and also Sections 8, 11 and 13.
 
 ### 6. Fees
 
-The Service commission is calculated using the formula:\
-**I (%) = (P / L − 1) × 100**, where:
+The CryptoBit Exchange commission (exchange fee) is a percentage of the USD value of the Exchange Request at the reference market price used in the quote, rounded to the nearest cent (half-up), and is shown as a separate line before the User confirms:
 
-**P** — asset value on the Service at the time it is credited to the Service account;\
-**L** — market value of the asset at the time it is credited, determined:\
+- **Sale of cryptoassets for USD:** three percent (3%);
+- **Purchase of cryptoassets with USD:** two percent (2%).
 
+For domestic bank wire directions, an **estimated bank processing fee of thirty US dollars (USD 30)** may be shown on the quote. That amount is a bank charge, not CryptoBit Exchange commission, and is not retained by CryptoBit Exchange as its own fee. Actual bank charges may differ; the quote shows the estimate used for that request.
 
-- **For cryptoassets** — based on reference market data that may be obtained from [CoinGecko](https://www.coingecko.com/), [Coinbase](https://www.coinbase.com/) and/or [Kraken](https://www.kraken.com/) (indicative sources; not a guarantee of execution price);
-- **For fiat funds** — based on market cross-rate (during high volatility, cross-rate may be fixed according to [www.xe.com](https://www.xe.com/)).
+Cash collection or delivery by courier has **no published flat tariff**. Delivery or collection cost is calculated individually for the order by an operator and must be accepted by the User before the exchange continues.
 
-This formula is used to calculate the percentage commission retained by the Service for performing the exchange operation.
+There is no additional spread beyond the exchange fee and any separately shown bank or courier amounts. Network fees paid to a blockchain when the User sends cryptoassets are paid by the User to the network and are not included in the quote.
 
 ### 7. Warranty Period
 
@@ -156,7 +166,7 @@ Verification may include (but is not limited to):
 - Information and documents within the framework of Proof of Funds / Source of Funds procedures;
 - Transaction-specific documents for high-risk transactions per AML/CTF policy.
 
-8.2. The Company has implemented a monitoring system to detect high-risk transactions and other unlawful activity, using [crystalintelligence.com](https://crystalintelligence.com/) and/or other authoritative analytics at its discretion, which may be used either in combination or separately.
+8.2. The Company has implemented a monitoring system to detect high-risk transactions and other unlawful activity, using blockchain-analytics and screening tools at its discretion when available. Specific vendor names are published only when a contracted provider is confirmed for customer disclosure.
 
 In order to prevent the circumvention of control mechanisms and in accordance with applicable regulatory requirements, the Company does not disclose the parameters of its monitoring systems, including threshold values, internal rules, and other risk assessment criteria. This information is confidential.
 
@@ -192,9 +202,9 @@ A low AML risk level does not guarantee successful crediting of funds for an exc
 
 If the Service refuses return to other addresses provided by the User, the funds are returned exclusively to original details.
 
-Users must provide confiramtion of correct details for return.
+Users must provide confirmation of correct details for return.
 
-The return of such funds is processed by the Company within 14 calendar days, starting from the date the User is notified of the Service’s decision regarding their refund request and provided that all requirements of this Agreement are met.
+The return of such funds is processed by the Company after manual review, starting from the date the User is notified of the Service’s decision regarding their refund request and provided that all requirements of this Agreement are met. No fixed return deadline is promised unless separately confirmed.
 
 8.4. The Company may complete an exchange operation only after:
 
@@ -210,29 +220,23 @@ Detailed AML/CTF policy information is available via the corresponding [link](/e
 
 9.1. The Company reserves the right to refuse the provision of exchange services and initiate a refund if there are suspicions of a violation of these Rules, the Service’s applicable AML/CTF Policy, applicable legislation, the legislation of the User’s country, or any other regulatory acts, or if the funds were sent on behalf of a person whose name does not match the User’s name. In the event of a refund, the provisions of Clauses 4.8, 4.11, 4.12, 4.13, and 4.14 of these Rules shall apply, as well as Clause 4.5 regarding verification upon the Company’s request.
 
-9.2. If the User terminates the Terms after transferring funds and before an exchange is completed, returns are made with retention of direct return costs and possible Company losses, up to 5% of the exchanged amount.
+9.2. A return request is submitted only through support (Telegram or in-app support messages). Each return is reviewed manually by an administrator. Self-service automatic cancellation of cryptoassets already sent by the User is not supported.
 
-9.3. Returns are processed within 72 hours of termination request, except as in Sections 8 and 13. The Company is not liable for delays beyond its control. Delays may extend if necessary funds are unavailable.
+9.3. A return is calculated from the amount of funds actually confirmed as received. If the CryptoBit exchange fee was actually collected from the User for that request, it is returned with the refund under this model. Bank and network costs of carrying out the return under this model are borne by the Service. No additional fixed return fee (including former percentage caps, fixed network tariff tables, or fixed technical fees) applies unless the owner separately publishes one.
 
 9.4. Returns are made to the original details from which the funds were sent unless the User provides another address, which is verified and approved by the Service’s security team, except in cases specified in Sections 8 and 13 of these Terms.
 
-9.5. The User cannot request returns for completed Exchange Requests.
+9.5. The User cannot request returns for completed Exchange Requests. A payout that has already been recorded as sent cannot be cancelled after the fact.
 
-9.6. High-risk transaction returns are processed within 14 calendar days from notification. Users must confirm return details after verification.
+9.6. High-risk or compliance-related returns are processed after the required checks. Users must confirm return details after verification when asked.
 
-9.7. Fees for transaction processing are paid separately, at the rate established by the Service, and depend on the network in which the deposit was made:
+9.7. Wrong network, wrong amount, delayed transfer, or similar non-conforming transfers are reviewed individually. A return may be made by decision of the Service, subject to mandatory rights of the User under applicable law. The Service may refuse a return where recovery is not reasonably possible.
 
-- TRC20 — 40 TRX;
-- ERC20 — 0.0045 ETH;
-- BEP20 — 0.0025 BNB.
+9.8. Accidental transfers to the Service’s wallets that do not match an active Exchange Request are reviewed individually. The Service may refuse a return where recovery is not reasonably possible.
 
-For other cryptoassets, the fee is deducted from the deposit amount according to actual blockchain transaction cost.
+9.9. The same return must not be completed twice. The operations record prevents duplicate completion of a return that has already been recorded as sent.
 
-9.8. Additionally, the Service reserves the right to charge the User a fixed fee of 100 USDT to cover the labor costs of the technical team required to process the refund.
-
-9.9. In the event of accidental transfer of crypto assets to the wrong network, the possibility of a refund is determined on a case-by-case basis. The Service reserves the right to refuse the refund of funds sent to an incorrect network.
-
-9.10. In the event of accidental transfer of funds to the Service’s wallets, the possibility of a refund is determined on a case-by-case basis. The Service reserves the right to refuse the refund of such funds.
+9.10. No fixed calendar deadline for completing a return is promised in these Rules unless separately confirmed for that request.
 
 ### 10. Taxation
 

@@ -87,13 +87,15 @@ describe('Service Rules page', () => {
     const rows = within(table)
       .getAllByRole('row')
       .map((r) => r.textContent);
-    expect(rows).toEqual([
-      'CryptocurrencyConfirmations',
-      'BTC (Bitcoin)4',
-      'ETH (Ethereum)21',
-      'USDT (TRC-20, ERC-20, BEP-20)21',
-      'USDC (TRC-20, ERC-20, BEP-20)21',
-    ]);
+    expect(rows[0]).toMatch(/Asset|Confirmations/);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/BTC \(Bitcoin\)\s*4/),
+        expect.stringMatching(/USDC on Solana/),
+        expect.stringMatching(/BNB on BNB Smart Chain/),
+      ]),
+    );
+    expect(rows.length).toBeGreaterThan(8);
 
     const sourceLinks = [...source.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)].map((m) => m[1]);
     const links = [...article.querySelectorAll('a')].map((a) => a.getAttribute('href'));

@@ -55,4 +55,7 @@ export const US_STATE_NAMES = {
 } as const;
 
 export type UsStateCode = keyof typeof US_STATE_NAMES;
+/** All codes accepted for US addresses (50 states + DC + PR). */
 export const US_STATES = Object.keys(US_STATE_NAMES) as UsStateCode[];
+/** The 50 US states only (excludes DC and PR), for residence selection per owner package. */
+export const US_STATES_50 = US_STATES.filter((s) => s !== 'DC' && s !== 'PR') as UsStateCode[];

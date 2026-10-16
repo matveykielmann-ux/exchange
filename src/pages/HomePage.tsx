@@ -102,7 +102,7 @@ export function HomePage() {
                 <Icon name="bank" />
               </span>
               <span>
-                <strong>{t('3% exchange fee')}</strong>
+                <strong>{t('2% buy · 3% sell')}</strong>
                 <span>{t(PAYOUT_METHODS.ach.timingEstimate)}</span>
               </span>
             </li>
@@ -161,7 +161,7 @@ export function HomePage() {
                   <h3>{t('Exchange fee')}</h3>
                   <p>
                     {t(
-                      '3% of the value, for bank transfer, wire and debit card. Cash by courier: delivery cost is calculated individually for each order.',
+                      'Sell: 3% exchange fee. Buy: 2% exchange fee. Wire may show an estimated $30 bank fee (not CryptoBit commission). Cash by courier: delivery cost is calculated individually for each order.',
                     )}
                   </p>
                 </div>
@@ -317,7 +317,7 @@ export function HomePage() {
           <div className="section-head">
             <p className="eyebrow">{t('Security and compliance')}</p>
             <h2 id="security-title" className="display-m">
-              {t('Designed for regulated operation.')}
+              {t('Built for careful exchange operations.')}
             </h2>
             <p className="lead">
               {t('These controls run on our server for every order.')} {t('None of them is a claim of licensing or insurance.')}

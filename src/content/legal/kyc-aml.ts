@@ -3,11 +3,11 @@ import type { LegalDocument } from './types';
 export const KYC_AML_NOTICE: LegalDocument = {
   slug: 'kyc-aml',
   title: 'Identity Verification and AML/KYC Notice',
-  version: '2.0.0',
-  effectiveDate: null,
-  lastUpdated: '2026-10-14',
+  version: '3.0.0',
+  effectiveDate: '2026-03-01',
+  lastUpdated: '2026-03-01',
   summary:
-    'How {{brand}} verifies identity and checks transactions under the KYC and AML/CTF provisions of the Service Rules, which are quoted here word for word.',
+    'How {{brand}} verifies identity and checks transactions under the KYC and AML/CTF provisions of the Service Rules, which are quoted here word for word. In effect from March 1, 2026.',
   acceptance: null,
   sections: [
     {
@@ -16,12 +16,7 @@ export const KYC_AML_NOTICE: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'This notice quotes the identity-verification (KYC) and AML/CTF provisions of the {{brand}} Service Rules and explains how they apply to an order placed on this site. The Service Rules link to a detailed AML/CTF policy at /en/kyc-aml-policy; that link currently opens this notice.',
-        },
-        {
-          type: 'review',
-          id: 'LR-40',
-          text: '[OWNER INPUT REQUIRED: The detailed AML/CTF Policy that Section 8 of the Service Rules refers to has not been supplied. It must not be written from assumptions; publish it here or at /en/kyc-aml-policy once the owner provides it.]',
+          text: 'This notice quotes the identity-verification (KYC) and AML/CTF provisions of the {{brand}} Service Rules and explains how they apply on this site. A separate owner-supplied detailed AML/CTF policy has not been published; until it is, this notice and Section 8 of the Service Rules are the published KYC/AML terms. The /en/kyc-aml-policy path opens this notice.',
         },
       ],
     },
@@ -32,17 +27,7 @@ export const KYC_AML_NOTICE: LegalDocument = {
         { type: 'rules', refs: ['8.1', '4.4', '4.5'] },
         {
           type: 'p',
-          text: 'On this site, you must complete identity verification before you can confirm an order. Identity verification is performed by a third-party identity-verification provider on our behalf. You submit your ID and selfie directly to the provider through the Service. The provider checks the authenticity of your documents, compares your selfie with your ID, and checks your details against third-party data sources. It returns a result and a reference to us; we keep your verification status and the information we are required to keep.',
-        },
-        {
-          type: 'review',
-          id: 'LR-11',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Names of the contracted identity-verification, sanctions-screening and blockchain-analytics providers, if they must be identified to customers, and any provider terms the customer must accept.]',
-        },
-        {
-          type: 'review',
-          id: 'LR-19',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Whether the selfie and ID comparison creates biometric data under the laws that apply to customers of the Service and, if so, the required notice, consent, retention schedule and destruction policy, and whether the identity-verification provider or the operator is responsible.]',
+          text: 'You may view quotes, register and submit an Exchange Request before identity verification is completed. The Company may suspend payout, refund or other money movement until verification or other checks required by applicable law, risk policy or a contracted integration are completed. When verification is used, you submit your ID and selfie through the Service (or a contracted provider’s flow). We keep your verification status and the information we are required to keep. Provider names are published only when a contracted provider is confirmed for customer disclosure.',
         },
       ],
     },
@@ -53,7 +38,7 @@ export const KYC_AML_NOTICE: LegalDocument = {
         { type: 'rules', refs: ['8.2'] },
         {
           type: 'p',
-          text: 'On this site, the addresses deposits come from and the refund address you give us are screened, and an order may be held for review at any stage. During a review the order does not proceed until the review is complete. If funds are returned, Section 9 of the Service Rules applies, including the return fees in clauses 9.7 and 9.8.',
+          text: 'On this site, the addresses deposits come from and the refund address you give us are screened, and an order may be held for review at any stage. During a review the order does not proceed until the review is complete. If funds are returned, Section 9 of the Service Rules applies.',
         },
       ],
     },
@@ -101,11 +86,6 @@ export const KYC_AML_NOTICE: LegalDocument = {
         {
           type: 'p',
           text: 'We keep identity and transaction records for as long as applicable law requires, including after your account is closed. Our Privacy Policy explains how we use and protect this information.',
-        },
-        {
-          type: 'review',
-          id: 'LR-21',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Retention schedule for each category of personal information (account, identity verification, transaction, payout, device/security, support chat, notifications, legal acceptances) under the law that applies to the operator, a company incorporated in the Republic of Panama.]',
         },
       ],
     },

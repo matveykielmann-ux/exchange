@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AddBankForm } from '@/components/AddBankForm';
 import { AddCardForm } from '@/components/AddCardForm';
@@ -9,8 +9,7 @@ import { Icon } from '@/components/Icon';
 import { NotificationItem } from '@/components/NotificationItem';
 import { Notice, PageHeader, StatusBadge } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
-import { US_STATE_NAMES, US_STATES, type UsStateCode } from '@/domain/usStates';
-import { countryName, countryOptions } from '@/domain/residence';
+import { US_STATE_NAMES, US_STATES_50, type UsStateCode } from '@/domain/usStates';
 import { validatePassword } from '@/domain/validation';
 import { errorMessage } from '@/lib/errors';
 import { describeDestination, destinationLabel, formatDateTime } from '@/lib/format';
@@ -19,13 +18,13 @@ import { useDestinations } from '@/state/useDestinations';
 import { useUser } from '@/state/auth';
 import { useServices } from '@/state/services';
 import { useNotifications } from '@/state/useNotifications';
-import { getLang, t } from '@/i18n';
+import { t } from '@/i18n';
 
 const KYC: Record<KycStatus, { label: string; tone: 'neutral' | 'success' | 'info' | 'warn' | 'danger'; body: string }> = {
   unverified: {
     label: 'Not verified',
     tone: 'neutral',
-    body: 'Verify your identity before your first exchange: upload a photo ID, a selfie and a proof of address. You only need to do this once.',
+    body: 'Verify your identity when asked — often before payout or refund: upload a photo ID, a selfie and a proof of address. You only need to do this once.',
   },
   pending: {
     label: 'In review',
@@ -62,9 +61,7 @@ function ProfileSection({ user }: { user: User }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user.fullName);
   const [phone, setPhone] = useState(user.phone ?? '');
-  const [country, setCountry] = useState(user.countryOfResidence ?? (user.stateOfResidence ? 'US' : ''));
   const [state, setState] = useState(user.stateOfResidence ?? '');
-  const countries = useMemo(() => countryOptions(getLang()), []);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const locked = user.verification.status === 'verified' || user.verification.status === 'pending';
@@ -77,8 +74,8 @@ function ProfileSection({ user }: { user: User }) {
       await account.updateProfile({
         ...(locked ? {} : { fullName: name.trim() }),
         phone: phone.trim() || null,
-        countryOfResidence: country || null,
-        stateOfResidence: country === 'US' ? state || null : null,
+        countryOfResidence: 'US',
+        stateOfResidence: state || null,
       });
       setEditing(false);
     } catch (err) {
@@ -108,32 +105,18 @@ function ProfileSection({ user }: { user: User }) {
                 <input className="input" {...p} type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
               )}
             </Field>
-            <Field label={t('Country of residence')} id="pf-country">
+            <Field label={t('State of residence')} id="pf-state" hint={t('United States')}>
               {(p) => (
-                <select className="select" {...p} autoComplete="country" value={country} onChange={(e) => setCountry(e.target.value)}>
-                  <option value="">{t('Choose a country')}</option>
-                  {countries.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.name}
+                <select className="select" {...p} value={state} onChange={(e) => setState(e.target.value)}>
+                  <option value="">{t('Choose a state')}</option>
+                  {US_STATES_50.map((s) => (
+                    <option key={s} value={s}>
+                      {US_STATE_NAMES[s]}
                     </option>
                   ))}
                 </select>
               )}
             </Field>
-            {country === 'US' ? (
-              <Field label={t('State of residence')} id="pf-state">
-                {(p) => (
-                  <select className="select" {...p} value={state} onChange={(e) => setState(e.target.value)}>
-                    <option value="">{t('Choose a state')}</option>
-                    {US_STATES.map((s) => (
-                      <option key={s} value={s}>
-                        {US_STATE_NAMES[s]}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </Field>
-            ) : null}
           </div>
           {error ? <Notice tone="danger" title={error} role="alert" /> : null}
           <div className="row">
@@ -161,15 +144,13 @@ function ProfileSection({ user }: { user: User }) {
               <dd>{user.phone ?? t('Not added')}</dd>
             </div>
             <div>
-              <dt>{t('Country')}</dt>
-              <dd>{user.countryOfResidence ? countryName(user.countryOfResidence, getLang()) : t('Not added')}</dd>
+              <dt>{t('State of residence')}</dt>
+              <dd>
+                {user.stateOfResidence
+                  ? US_STATE_NAMES[user.stateOfResidence as UsStateCode] ?? user.stateOfResidence
+                  : t('Not added')}
+              </dd>
             </div>
-            {user.stateOfResidence ? (
-              <div>
-                <dt>{t('State')}</dt>
-                <dd>{US_STATE_NAMES[user.stateOfResidence as UsStateCode] ?? user.stateOfResidence}</dd>
-              </div>
-            ) : null}
           </dl>
           <div>
             <button type="button" className="btn btn--secondary" onClick={() => setEditing(true)}>
@@ -344,7 +325,7 @@ function PasswordForm() {
             />
           )}
         </Field>
-        <Field label={t('New password')} id="pw-new" hint={t('At least 12 characters.')}>
+        <Field label={t('New password')} id="pw-new" hint={t('At least 8 characters.')}>
           {(p) => (
             <input
               className="input"

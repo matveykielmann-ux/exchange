@@ -1,6 +1,6 @@
 import { NETWORKS, networkLabel } from '@/domain/assets';
 import { formatUsd } from '@/domain/money';
-import { PAYOUT_METHODS, describeFee, feeLineLabel, wireFeeParts } from '@/domain/payout';
+import { PAYOUT_METHODS, describeFee, exchangeFeeBps, feeLineLabel, feeScheduleFor, wireFeeParts } from '@/domain/payout';
 import { exchangeRateMicros, valueAtRateCents, type Quote } from '@/domain/quote';
 import { formatAsset, formatPriceMicros } from '@/lib/format';
 import { InfoHint } from './InfoHint';
@@ -13,11 +13,14 @@ import { t } from '@/i18n';
  * When the courier fee is pending, fee and net show as individually calculated — never a fabricated amount.
  */
 export function QuoteBreakdown({ quote, loading = false, compact = false }: { quote: Quote; loading?: boolean; compact?: boolean }) {
+  const direction = quote.direction === 'buy' ? 'buy' : 'sell';
   const method = PAYOUT_METHODS[quote.payoutMethod];
+  const schedule = feeScheduleFor(quote.payoutMethod, direction);
   const sk = loading ? ' skeleton' : '';
   const feePending = !!quote.feePending;
   const wire = quote.payoutMethod === 'wire';
-  const wireParts = wire ? wireFeeParts(quote.grossCents) : null;
+  const wireParts = wire ? wireFeeParts(quote.grossCents, direction) : null;
+  const exchangePct = `${exchangeFeeBps(direction) / 100}%`;
   return (
     <div aria-busy={loading || undefined}>
       <dl className="quote-lines">
@@ -59,7 +62,9 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
                 <span className="quote-lines__term">
                   {t('Bank processing fee')}
                   <InfoHint label={t('the bank processing fee')}>
-                    {t('Published bank processing fee for the wire direction according to the service fee schedule.')}
+                    {t(
+                      'Estimated bank wire fee charged by the bank (typically $30). CryptoBit Exchange does not keep this amount as its commission.',
+                    )}
                   </InfoHint>
                 </span>
               </dt>
@@ -69,7 +74,9 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
               <dt>
                 <span className="quote-lines__term">
                   {t('Exchange fee')}
-                  <InfoHint label={t('the exchange fee')}>{t('3% exchange fee on the wire direction.')}</InfoHint>
+                  <InfoHint label={t('the exchange fee')}>
+                    {t('{0} CryptoBit exchange fee on the wire direction.', [exchangePct])}
+                  </InfoHint>
                 </span>
               </dt>
               <dd className={sk}>{formatUsd(-wireParts.exchangeFeeCents)}</dd>
@@ -81,7 +88,7 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
               <span className="quote-lines__term">
                 {t(feeLineLabel(quote.payoutMethod))}
                 <InfoHint label={t('the fee')}>
-                  {t(method.name)}: {t(describeFee(method.fee, method.feeStatus))}. {t(method.timingEstimate)}.
+                  {t(method.name)}: {t(describeFee(schedule, method.feeStatus))}. {t(method.timingEstimate)}.
                 </InfoHint>
               </span>
               <small>{t(method.name)}</small>
@@ -120,17 +127,25 @@ export function QuoteBreakdown({ quote, loading = false, compact = false }: { qu
  */
 export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; loading?: boolean }) {
   const method = PAYOUT_METHODS[quote.payoutMethod];
+  const schedule = feeScheduleFor(quote.payoutMethod, 'buy');
   const sk = loading ? ' skeleton' : '';
   const feePending = !!quote.feePending;
   const wire = quote.payoutMethod === 'wire';
-  const wireParts = wire ? wireFeeParts(quote.grossCents) : null;
+  const card = quote.payoutMethod === 'instant_debit';
+  const wireParts = wire ? wireFeeParts(quote.grossCents, 'buy') : null;
+  const payLabel = wire ? t('You send by bank wire') : card ? t('You pay by card') : t('You pay in cash');
+  const payHint = wire
+    ? t('To the bank details shown on your order')
+    : card
+      ? t('On the secure payment page or instructions shown on your order')
+      : t('Handed to the courier after an ID check');
   return (
     <div aria-busy={loading || undefined}>
       <dl className="quote-lines">
         <div>
           <dt>
-            {wire ? t('You send by bank wire') : t('You pay in cash')}
-            <small>{wire ? t('To the bank details shown on your order') : t('Handed to the courier after an ID check')}</small>
+            {payLabel}
+            <small>{payHint}</small>
           </dt>
           <dd className={sk}>{formatUsd(quote.grossCents)}</dd>
         </div>
@@ -149,12 +164,12 @@ export function BuyQuoteBreakdown({ quote, loading = false }: { quote: Quote; lo
           <div className="is-deduction">
             <dt>
               <span className="quote-lines__term">
-                {t('Courier fee')}
-                <InfoHint label={t('the courier fee')}>
-                  {t(method.name)}: {t(describeFee(method.fee, method.feeStatus))}.
+                {t(feeLineLabel(quote.payoutMethod))}
+                <InfoHint label={t('the fee')}>
+                  {t(method.name)}: {t(describeFee(schedule, method.feeStatus))}.
                 </InfoHint>
               </span>
-              <small>{t('Cash collection')}</small>
+              <small>{card ? t('Card payment') : t('Cash collection')}</small>
             </dt>
             <dd className={sk}>
               {feePending

@@ -3,11 +3,11 @@ import type { LegalDocument } from './types';
 export const CASH_DELIVERY_TERMS: LegalDocument = {
   slug: 'cash-delivery',
   title: 'Cash Delivery Terms',
-  version: '2.1.0',
-  effectiveDate: null,
-  lastUpdated: '2026-10-14',
+  version: '3.0.0',
+  effectiveDate: '2026-03-01',
+  lastUpdated: '2026-03-01',
   summary:
-    'How a cash payout delivered by courier works: who can receive it, what we need from you, the identity check at the door and when a delivery can be refused or converted.',
+    'How a cash payout delivered by courier works: who can receive it, what we need from you, the identity check at the door and when a delivery can be refused or converted. In effect from March 1, 2026.',
   acceptance: null,
   sections: [
     {
@@ -20,11 +20,11 @@ export const CASH_DELIVERY_TERMS: LegalDocument = {
         },
         {
           type: 'p',
-          text: 'You must be signed in to a {{brand}} account and fully verified to place an order with cash delivery. Delivery is available only at addresses in areas the carrier serves; we check your ZIP code before you place the order.',
+          text: 'You must be signed in to a {{brand}} account to place an order with cash delivery. Identity verification is required before cash is handed over, and may be required earlier if risk or legal checks apply. Delivery is available only at addresses in areas the carrier serves; we check your ZIP code before you place the order.',
         },
         {
           type: 'p',
-          text: 'If anyone offers you cash for digital assets in the name of {{brand}} outside an order in your account, they are not acting for us. Do not send them anything, and report it to us at {{supportEmail}}.',
+          text: 'If anyone offers you cash for digital assets in the name of {{brand}} outside an order in your account, they are not acting for us. Do not send them anything, and report it through Telegram ({{supportTelegram}}) or in-app support messages.',
         },
       ],
     },
@@ -66,11 +66,6 @@ export const CASH_DELIVERY_TERMS: LegalDocument = {
       heading: 'When you receive the cash',
       blocks: [
         { type: 'rules', refs: ['4.10'] },
-        {
-          type: 'review',
-          id: 'LR-47',
-          text: '[NOT YET SUPPORTED: the site has no way to upload the photos and count confirmation clause 4.10 requires; support messages accept text only. Cash delivery stays switched off until docs/compliance-readiness.md section 6 is signed off.]',
-        },
       ],
     },
     {
@@ -96,11 +91,6 @@ export const CASH_DELIVERY_TERMS: LegalDocument = {
           text: 'Delivery cost is calculated individually for each cash delivery. The amount is set by an operator, shown on your quote, and must be accepted before the exchange continues. The amount handed to you is the amount in your receipt. There is no published minimum order amount.',
         },
         { type: 'rules', refs: ['4.23'] },
-        {
-          type: 'review',
-          id: 'LR-30',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Before real cash deliveries: state and local licensing analysis for each service area, Currency Transaction Report and aggregation procedures (including Geographic Targeting Orders), a contracted licensed and bonded carrier, in-person verification and audit trail, safety protocols, the delivery fee and minimum, and counsel review of these terms. See docs/compliance-readiness.md section 6.]',
-        },
       ],
     },
   ],

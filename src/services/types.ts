@@ -402,10 +402,11 @@ export interface AuthApi {
     email: string;
     password: string;
     fullName: string;
-    countryOfResidence: string;
     stateOfResidence: string | null;
     notInRestrictedTerritory: boolean;
     accepted: { slug: string; version: string }[];
+    /** Ignored; server records US as the primary market. */
+    countryOfResidence?: string | null;
   }): Promise<User>;
   /** `staffOnly` is the staff entrance: the server refuses customer accounts. */
   signIn(input: { email: string; password: string; staffOnly?: boolean }): Promise<SignInResult>;

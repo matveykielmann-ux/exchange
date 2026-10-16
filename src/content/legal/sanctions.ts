@@ -3,11 +3,11 @@ import type { LegalDocument } from './types';
 export const SANCTIONS_NOTICE: LegalDocument = {
   slug: 'sanctions',
   title: 'Sanctions and Restricted-Jurisdiction Notice',
-  version: '2.1.0',
-  effectiveDate: null,
-  lastUpdated: '2026-10-14',
+  version: '3.0.0',
+  effectiveDate: '2026-03-01',
+  lastUpdated: '2026-03-01',
   summary:
-    'The countries and regions the Service Rules exclude, the ban on tools that conceal identity or location, and what happens to funds affected by sanctions.',
+    'The countries and regions the Service Rules exclude, the ban on tools that conceal identity or location, and what happens to funds affected by sanctions. In effect from March 1, 2026.',
   acceptance: null,
   sections: [
     {
@@ -21,7 +21,7 @@ export const SANCTIONS_NOTICE: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'The Service is not limited to residents of the United States. Sign-up asks for your country of residence and a confirmation that you are not resident in, and are not acting from, a country or region listed in clause 8.5; accounts from those places are refused. Bank and card payouts are made to US bank accounts and US debit cards, and cash collection and delivery by courier are available only at US addresses in a courier’s service area.',
+          text: 'The United States is the primary market. Sign-up asks for a US state of residence and a confirmation that you are not resident in, and are not acting from, a country or region listed in clause 8.5. Listing every US state in the interface is not a claim that the Service is licensed in every state. Availability for customers outside the United States is handled through support. Bank and card payouts are made to US bank accounts and US debit cards, and cash collection and delivery by courier are available only at US addresses in a courier’s service area.',
         },
       ],
     },
@@ -43,11 +43,6 @@ export const SANCTIONS_NOTICE: LegalDocument = {
         {
           type: 'p',
           text: 'We screen customers, deposits and blockchain addresses, including the addresses that send deposits to us and the refund addresses you give us. We will not accept deposits from, or send returns to, addresses that are identified on a sanctions list or that we determine are associated with sanctioned persons or other illicit activity.',
-        },
-        {
-          type: 'review',
-          id: 'LR-44',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: The Service Rules do not name specific sanctions regimes or lists. Confirm which sanctions lists the operator screens against, and whether this page should name them, given that the Service is not limited to US residents.]',
         },
       ],
     },

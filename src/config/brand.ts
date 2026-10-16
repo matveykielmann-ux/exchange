@@ -1,14 +1,18 @@
 /**
  * Brand constants. "CryptoBit Exchange" is the brand named in the owner's
- * Service Rules (src/content/legal/source/). Trademark clearance is an open
- * item in LEGAL_REVIEW.md (LR-12). Legal-entity facts live in src/config/legal.ts.
+ * Service Rules (src/content/legal/source/). Trademark clearance remains an
+ * open counsel item (LEGAL_REVIEW.md). Legal-entity facts live in src/config/legal.ts.
  */
 export const BRAND = {
   name: 'CryptoBit Exchange',
-  supportEmail: 'support@example.com', // RFC 2606 reserved domain until the owner provides a real inbox (LEGAL_REVIEW.md, LR-39).
+  /**
+   * No customer support email is published. Use SUPPORT.telegramUrl and in-app
+   * support messages (owner decision, 2026-03-01 package).
+   */
+  supportEmail: '' as string,
 } as const;
 
-/** Official support contacts supplied by the owner (2026-10-14). Clause 4.21 of the Service Rules: use only these. */
+/** Official support contacts supplied by the owner. Clause 4.21 of the Service Rules: use only these. */
 export const SUPPORT = {
   telegramUrl: 'https://t.me/cryptocurrency_1exchange',
   telegramHandle: '@cryptocurrency_1exchange',

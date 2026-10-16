@@ -2,113 +2,95 @@
 
 ## Purpose and status
 
-This register tracks every unresolved fact and decision in the customer-facing legal documents in `src/content/legal/`.
+This register tracks unresolved facts and decisions in the customer-facing legal documents in `src/content/legal/`.
 
-- **Status:** Draft v2.0.0, last updated 2026-10-14. No document has an effective date yet.
-- **Canonical source (2026-10-14):** the owner's Service Rules (`src/content/legal/source/CRYPTOBIT_EXCHANGE_SERVICE_RULES.md`, kept byte-for-byte; a test checks its SHA-256). The `terms` page renders it in full, and other documents quote its clauses word for word with `{ type: 'rules', refs: [...] }` blocks instead of restating them. Where a document and the Rules differ, the Rules text is used; where the site behaves differently from the Rules, the difference is an item below (LR-34 onward), not hidden.
-- **Audience:** the owner, a designated compliance officer, and qualified US payments and digital-asset counsel.
-- **This is not legal advice.** The documents are a template prepared for counsel review. They were written from the product's actual behavior and must not be published as final until counsel has reviewed them against current law and every item below is resolved.
-- **How gaps are handled:** where a fact is unknown (entity name, licenses, addresses, governing law and so on), the customer-facing text omits it and still reads professionally. A `review` block with an `LR-NN` ID marks the place where the fact belongs. Review blocks render as highlighted callouts only in sandbox mode and are omitted from production pages. A given ID has the same text wherever it appears.
-- **Nothing in the documents claims** that the operator is licensed, registered, regulated, insured, FDIC- or SIPC-covered, or partnered with any bank or institution. Timings are stated as estimates. Keep it that way until counsel confirms otherwise.
+- **Status:** Owner package v3.0.0, **owner-declared effective date 2026-03-01**. Documents were synchronized with product behavior under the owner decisions of 2026-10-16 (applied in-repo). **This is not a claim of counsel approval.**
+- **Canonical source:** `src/content/legal/source/CRYPTOBIT_EXCHANGE_SERVICE_RULES.md` (SHA-256 checked in tests). Other pages quote it with `{ type: 'rules' }` blocks where applicable.
+- **Audience:** the owner, a designated compliance officer, and qualified counsel.
+- **Full audit table:** see `CRYPTOBIT_LEGAL_REVIEW.md` (updated with this package).
 
 ## Documents
 
-| #   | Slug                  | Title                                                     | Acceptance                 |
-| --- | --------------------- | --------------------------------------------------------- | -------------------------- |
-| 1   | `terms`               | Service Rules (public offer), owner-supplied, verbatim    | Each order                 |
-| 2   | `privacy`             | Privacy Policy                                            | Sign-up                    |
-| 3   | `e-sign`              | Electronic Communications Consent                         | Sign-up                    |
-| 4   | `cookies`             | Cookie Policy                                             | None (informational)       |
-| 5   | `risk`                | Risk Disclosure                                           | Each order                 |
-| 6   | `crypto-transactions` | Cryptocurrency Transaction and Irreversibility Disclosure | Each order                 |
-| 7   | `fees`                | Fee and Exchange-Rate Disclosure                          | Each order                 |
-| 8   | `refunds`             | Cancellation, Rejection and Refund Policy                 | Each order                 |
-| 9   | `kyc-aml`             | Identity Verification and AML/KYC Notice                  | None (informational)       |
-| 10  | `sanctions`           | Sanctions and Restricted-Jurisdiction Notice              | None (informational)       |
-| 11  | `complaints`          | Complaints and Support Policy                             | None (informational)       |
-| 12  | `cash-delivery`       | Cash Delivery and Pickup Terms                            | None (service not offered) |
-| 13  | `accessibility`       | Accessibility Statement                                   | None (informational)       |
-| 14  | `contact`             | Contact and Legal Notices                                 | None (informational)       |
+| #   | Slug                  | Title                                                     | Acceptance                 | effectiveDate |
+| --- | --------------------- | --------------------------------------------------------- | -------------------------- | ------------- |
+| 1   | `terms`               | Service Rules (public offer)                              | Each order                 | 2026-03-01    |
+| 2   | `privacy`             | Privacy Policy                                            | Sign-up                    | 2026-03-01    |
+| 3   | `e-sign`              | Electronic Communications Consent                         | Sign-up                    | 2026-03-01    |
+| 4   | `cookies`             | Cookie Policy                                             | None (informational)       | 2026-03-01    |
+| 5   | `risk`                | Risk Disclosure                                           | Each order                 | 2026-03-01    |
+| 6   | `crypto-transactions` | Cryptocurrency Transaction and Irreversibility Disclosure | Each order                 | 2026-03-01    |
+| 7   | `fees`                | Fee and Exchange-Rate Disclosure                          | Each order                 | 2026-03-01    |
+| 8   | `refunds`             | Cancellation, Rejection and Refund Policy                 | Each order                 | 2026-03-01    |
+| 9   | `kyc-aml`             | Identity Verification and AML/KYC Notice                  | None (informational)       | 2026-03-01    |
+| 10  | `sanctions`           | Sanctions and Restricted-Jurisdiction Notice              | None (informational)       | 2026-03-01    |
+| 11  | `complaints`          | Complaints and Support Policy                             | None (informational)       | 2026-03-01    |
+| 12  | `cash-delivery`       | Cash Delivery and Pickup Terms                            | None                       | 2026-03-01    |
+| 13  | `accessibility`       | Accessibility Statement                                   | None (informational)       | 2026-03-01    |
+| 14  | `contact`             | Contact and Legal Notices                                 | None (informational)       | 2026-03-01    |
 
-Counsel should confirm whether any "informational" document (for example the KYC/AML or Sanctions notice) should also require acceptance.
+**Re-acceptance:** signup/order document versions bumped to 3.0.0. Customers who accepted older versions will be asked to accept the new versions on the next signup/order acceptance flow. No acceptances were backdated.
 
-## Review items
+## Classification of items
 
-| ID    | Document(s)                               | Unresolved fact or decision                                                                                                                                                                               | Why it matters                                                                                                                                | Who must confirm                   | Status |
-| ----- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ------ |
-| LR-01 | terms, privacy, contact                   | Registered legal name and state of formation of the operating entity.                                                                                                                                     | The Terms need an identified contracting party; the Privacy Policy needs the responsible business; regulators expect the entity to be named.  | Owner, Counsel                     | Resolved 2026-10-14: CryptoBit Exchange, a company incorporated under the laws of the Republic of Panama, registration number No. 155778934 (Service Rules, preamble). Registered address still open (LR-18). |
-| LR-02 | terms, sanctions                          | States and territories served at launch, and states expressly excluded (for example NY, CA).                                                                                                              | Eligibility, licensing exposure and geo-restriction depend on it; the list must match server-side enforcement.                                | Owner, Counsel                     | Superseded by LR-41. |
-| LR-03 | terms                                     | Transaction structure: principal vs agent, who controls deposit addresses, any custodian or liquidity provider.                                                                                           | Determines how the sale, title transfer and custody are described, and affects licensing analysis and risk disclosures.                       | Owner, Counsel, Provider           | Open   |
-| LR-04 | terms, contact                            | Money transmitter / virtual-currency licensing status per served state, including NY BitLicense and CA DFAL.                                                                                              | Operating without a required license is a serious violation; the Service must not be offered in a state until resolved.                       | Counsel, Owner                     | Open   |
-| LR-05 | terms, risk, fees, complaints             | State-mandated consumer disclosures (for example 23 NYCRR Part 200, CA DFAL disclosures, state regulator complaint contacts) for Terms, risk disclosure, receipts and complaint notices.                  | Many states prescribe disclosure content and form; missing text can be a violation in itself.                                                 | Counsel                            | Open   |
-| LR-06 | terms                                     | Policy for locked quotes affected by obvious pricing errors or market disruption.                                                                                                                         | Must be fair and clearly disclosed to avoid UDAAP risk; the current draft offers a corrected quote or a return.                               | Owner, Counsel                     | Open   |
-| LR-07 | terms, crypto-transactions                | Required confirmations per asset/network; whether to publish them; whether the deposit window is measured to first observation or to required confirmations.                                              | Customers need to know when a deposit counts; the window rule decides whether network congestion can make a deposit "late".                   | Owner, Compliance officer          | Resolved 2026-10-14 by the Section 5 table (BTC 4; ETH, USDT, USDC 21), applied in `src/domain/assets.ts`. Solana and Base: LR-38. |
-| LR-08 | terms, crypto-transactions, fees, refunds | Non-conforming deposits: re-quote option vs return only, any handling fee beyond network fees, minimum returnable amount, target review time.                                                             | Directly affects customer funds; must be identical across four documents and disclosed before the order.                                      | Owner, Counsel                     | Resolved 2026-10-14 by clauses 4.12, 4.14, 9.2, 9.7 and 9.8 of the Service Rules. Not implemented yet: LR-36, LR-37. |
-| LR-09 | terms                                     | Payout provider(s) and originating bank; how USD proceeds are held before payout (for example segregated or trust accounts).                                                                              | State laws often regulate permissible investments and customer-fund handling; disclosure may be required.                                     | Owner, Counsel, Provider           | Open   |
-| LR-10 | terms, refunds, complaints                | Whether Regulation E or the Remittance Transfer Rule applies to any part of the payout, and resulting error-resolution and cancellation rights.                                                           | If either applies, specific disclosures, cancellation windows and error-resolution procedures are mandatory.                                  | Counsel                            | Open   |
-| LR-11 | terms, kyc-aml                            | Names of identity-verification, sanctions-screening and blockchain-analytics providers; any provider terms customers must accept.                                                                         | Some providers require their own terms or privacy notice to be presented; customers may need to know who processes their ID.                  | Owner, Provider                    | Open   |
-| LR-12 | terms, contact                            | Trademark clearance and ownership of the "Arcvale" name and logo.                                                                                                                                         | Avoids infringement claims and identifies the IP owner in the Terms.                                                                          | Owner, Counsel                     | Open   |
-| LR-13 | terms                                     | Aggregate liability cap (amount or formula) and state-law carve-outs.                                                                                                                                     | Caps must be reasonable and enforceable in consumer contracts; some states restrict them.                                                     | Counsel                            | Resolved 2026-10-14 by Section 12 (liability limited to the commission fee received for the completed transaction). |
-| LR-14 | terms                                     | Governing-law state.                                                                                                                                                                                      | Needed to interpret and enforce the Terms.                                                                                                    | Owner, Counsel                     | Resolved 2026-10-14 by Section 16 (laws of the Republic of Panama). |
-| LR-15 | terms                                     | Dispute forum: arbitration (administrator, rules, fees, opt-out, small-claims carve-out, mass-arbitration procedure) and class waiver, or courts and venue.                                               | Enforceability varies by state and by drafting; a defective clause can be struck entirely.                                                    | Counsel                            | Resolved 2026-10-14 by Section 16 (negotiations; claims to official contacts; after 60 calendar days, the competent court of the Republic of Panama). |
-| LR-16 | terms, privacy                            | Minimum advance-notice period for material changes, and when re-acceptance is required.                                                                                                                   | Unilateral-change clauses must give adequate notice to be enforceable and to avoid UDAAP concerns.                                            | Counsel                            | Open   |
-| LR-17 | terms, refunds                            | Handling of funds or assets that cannot be paid out or returned, including escheatment and dormancy periods.                                                                                              | State unclaimed-property laws impose reporting and remittance duties on held customer property.                                               | Counsel, Owner                     | Open   |
-| LR-18 | terms, contact                            | Registered address and mailing address for legal notices and service of process.                                                                                                                          | Notice clauses and dispute procedures need a physical address; until then the draft directs notices to the support email.                     | Owner                              | Open   |
-| LR-19 | privacy, kyc-aml                          | Whether selfie/ID matching creates biometric data under state laws (for example IL BIPA, TX CUBI, WA); consent, retention and destruction policy; operator vs provider responsibility.                    | BIPA carries statutory damages and private rights of action; written consent and a public retention policy may be required before collection. | Counsel, Provider                  | Open   |
-| LR-20 | privacy                                   | Confirmed list of contracted service providers and whether any use data for their own purposes.                                                                                                           | Sharing disclosures must be accurate; own-purpose use (for example fraud consortiums) may need specific disclosure or opt-out.                | Owner, Provider                    | Open   |
-| LR-21 | privacy, kyc-aml                          | Retention schedule for each data category, including confirmation of the BSA recordkeeping period (generally five years) and any longer state requirements.                                               | Retention must satisfy recordkeeping law while honoring deletion rights and data-minimization rules.                                          | Compliance officer, Counsel        | Open   |
-| LR-22 | privacy                                   | Hosting locations of production data and providers; any transfers outside the US.                                                                                                                         | Accurate disclosure; some state laws and contracts restrict offshore processing.                                                              | Owner, Provider                    | Open   |
-| LR-23 | privacy                                   | GLBA "financial institution" status and privacy-notice obligations; which state privacy laws apply (for example CCPA/CPRA notice at collection, rights, "Do Not Sell or Share").                          | Determines the required form and content of the Privacy Policy and any separate GLBA notice.                                                  | Counsel                            | Open   |
-| LR-24 | privacy, contact                          | Dedicated privacy contact (email, and toll-free number or web form where required) and postal address.                                                                                                    | Some state laws require specific request methods.                                                                                             | Owner, Counsel                     | Open   |
-| LR-25 | e-sign                                    | Whether paper copies are provided, any fee, the request period and the mailing address.                                                                                                                   | E-SIGN requires disclosure of how to obtain paper copies and any fees.                                                                        | Owner, Counsel                     | Open   |
-| LR-26 | cookies                                   | Cookie expiry periods; confirmation that the inventory matches production, including any provider components embedded in the Service.                                                                     | The Cookie Policy must be accurate; undisclosed third-party cookies would contradict the "no tracking" statement.                             | Owner, Provider                    | Open   |
-| LR-27 | kyc-aml                                   | Verification tiers, documents per tier, transaction limits per tier, and enhanced-due-diligence triggers.                                                                                                 | Must reflect the written AML program and CIP.                                                                                                 | Compliance officer                 | Open   |
-| LR-28 | sanctions                                 | Restricted-jurisdiction list (and whether to name it), IP-geolocation and VPN controls, treatment of travelling customers.                                                                                | OFAC liability is strict; controls and disclosures must match.                                                                                | Compliance officer, Counsel        | Resolved 2026-10-14 by clause 8.5 (named countries and regions). US-only operation: LR-41. |
-| LR-29 | complaints, contact                       | Support hours, phone number (if any), complaints email, and any published response or resolution targets, including state-required timeframes.                                                            | Some states require complaint procedures and timelines; no response times are promised until decided.                                         | Owner, Counsel                     | Open   |
-| LR-30 | cash-delivery                             | Every precondition for cash payouts: licensing per area, CTR and aggregation (including GTOs), licensed and bonded carrier and insurance, caps, in-person verification, safety protocols, complete terms. | The page must keep stating that the service is not offered until the checklist in `docs/compliance-readiness.md` section 6 is signed off.     | Owner, Counsel, Compliance officer | Open   |
-| LR-31 | accessibility                             | Manual accessibility evaluation results and date, known limitations, accessibility of the identity-verification flow, additional contact channel.                                                         | Accessibility statements should be accurate and current; supports ADA risk management.                                                        | Owner, Provider                    | Open   |
-| LR-32 | contact                                   | FinCEN MSB registration status and number.                                                                                                                                                                | Must be stated accurately and never described as a license.                                                                                   | Owner, Counsel                     | Open   |
-| LR-33 | contact                                   | NMLS unique identifier and NMLS Consumer Access link, if any.                                                                                                                                             | Several states require licensees to display their NMLS ID.                                                                                    | Owner, Counsel                     | Open   |
-| LR-34 | terms, fees | Rate fixation (Section 5): the Rules fix the rate when the required confirmations arrive, during working hours, after proof of sending within 30 minutes; the site locks a quote for 60 seconds and holds it for a deposit seen within 30 minutes. | Conflict between the Rules and the system's behavior. Changing the pricing engine needs the owner's decision (CLAUDE.md). | Owner | Open |
-| LR-35 | terms, crypto-transactions | Proof of sending (clause 4.22: screenshot with time, wallet address, amount and TXID): the site takes only an optional transaction hash and has no upload. | Conflict between the Rules and the system's behavior. | Owner | Open |
-| LR-36 | terms, refunds | Return costs (9.2 up to 5%, 9.7 network fees, 9.8 100 USDT) and return periods (72 hours, 14 calendar days) are not implemented; refunds send the full observed deposit. | Conflict; implementing fees changes the fee schedule (CLAUDE.md: ask first). | Owner | Open |
-| LR-37 | terms, crypto-transactions | Recalculation for amount differences (4.12, termination only above 10%) is not implemented; any differing deposit is held and returned. | Conflict between the Rules and the system's behavior. | Owner | Open |
-| LR-38 | terms, crypto-transactions | Networks: the Rules list USDT/USDC on TRC-20, ERC-20, BEP-20; the site accepts USDT on ERC-20/TRC-20 and USDC on ERC-20, Solana and Base, no BEP-20. Confirmations for Solana (32) and Base (12) are not set by the Rules. | The Rules must cover every direction the site offers. | Owner | Open |
-| LR-39 | terms, contact | Service working hours (4.20, Section 5) and the official contacts (4.21: email, Telegram username, social networks), which Section 16 also relies on for claims. | Hours and Telegram confirmed by the owner on 2026-10-14 and published (contact page, exchange form, order pages, footer); the official email, social networks and other messengers are still not supplied. | Owner | Partly resolved 2026-10-14 (hours 07:00–16:00 America/New_York; Telegram https://t.me/cryptocurrency_1exchange). |
-| LR-40 | terms, kyc-aml, privacy | The AML/CTF Policy (`/en/kyc-aml-policy`) and the privacy policy (`/en/privacy-policy`) linked from Sections 8 and 15 were not supplied. Both paths redirect to the existing notices, which now quote the Rules. | Must not be written from assumptions. | Owner | Open |
-| LR-41 | terms, sanctions, privacy | Sign-up required a US state of residence, while the Rules (Panama law) restrict only the territories in 8.5. | Sign-up now asks for the country of residence and a clause 8.5 confirmation, and refuses the listed territories; bank, card and courier payouts still go only to US accounts or addresses. | Owner, Counsel | Resolved 2026-10-14 (owner decision: not limited to US residents). |
-| LR-42 | terms, refunds | Cancellation after funds are sent (4.11): the site shows Cancel only before funds are sent; later cancellations go through support. | Conflict between the Rules and the system's behavior. | Owner | Open |
-| LR-43 | terms | The supplied Rules contain typos ("reasongs" 4.21, "Serice" 4.23, "confiramtion" 8.3), reproduced verbatim. | The owner corrects the source document; the site never edits it. | Owner | Open |
-| LR-44 | sanctions | The Rules name no sanctions regime or list; the Service is not limited to US residents. | Confirm which lists are screened and whether to name them. | Owner, Counsel | Open |
-| LR-45 | privacy | Section 15 limits use of personal data to fulfilling obligations and disclosure to what law or those obligations require. Uses (service improvement, legal claims) and disclosures (advisers, successor, consent-based) were removed from the Privacy Policy to match. | Counsel to confirm the final privacy policy. | Owner, Counsel | Open |
-| LR-46 | e-sign | The consent relies on the US E-SIGN Act; the Rules are governed by Panama law. | Confirm the governing electronic-communications law. | Counsel | Open |
-| LR-47 | cash-delivery | Clause 4.10 requires photos and a count confirmation within 24 hours of receiving cash; the site has no upload (support messages are text only). | Needed before cash delivery is ever switched on. | Owner | Open |
-| LR-48 | terms | Effective date: Section 17 makes changes effective on publication; the Rules show "Last Updated: March 27, 2026" but have not been published on a production site. The page shows "Not yet in effect". | Set `effectiveDate` when the Rules are published. | Owner | Open |
-| LR-49 | cash-delivery, fees | Buying crypto with cash collected by courier. The collection window (72 hours, `CASH_COLLECTION_WINDOW_MS`), per-order courier fee quoting, and the network-fee treatment of the crypto sent need final commercial and legal confirmation. There is no published order minimum. The Rules describe crypto-to-fiat exchanges only. | Confirm the collection window, how per-order courier fees are set, and how the Rules apply to cash-to-crypto exchanges before any real cash is collected. | Owner, Counsel | Open |
+### Resolved by owner business decision (2026-03-01 package)
 
-**Total: 48 items; 8 resolved by the Service Rules on 2026-10-14.**
+| ID | Topic | Resolution |
+| --- | --- | --- |
+| LR-34 / CLA-04 | Rate fixation | Locked on order confirm; 60s quote TTL; 30m deposit window; late deposit → manual review + new quote consent |
+| LR-35 / CLA-09 | Proof of sending | TXID tip only; status follows actual processing / manual verify |
+| LR-36 / CLA-06 | Return fees | Manual support returns; return exchange fee if collected; Service bears bank/network costs; no fixed 5%/100 USDT/network table |
+| LR-37 / CLA-07 | Amount mismatch | Manual review; new quote with consent or return — no silent reprice |
+| LR-38 / CLA-10 | Networks table | Synced to `assets.ts` |
+| LR-39 | Contacts | Telegram + in-app only; fake email removed |
+| LR-42 / CLA-08 | Cancel after send | Support-only after funds sent |
+| LR-43 | Typos | Fixed in owner Rules source |
+| LR-48 / CLA-25 | Effective date | Owner-declared `2026-03-01` (not counsel approval) |
+| CLA-05 / fees | Commission | Sell 3% / buy 2%; wire $30 = bank estimate not CryptoBit revenue; courier individual |
+| CLA-11 | Market data | CoinGecko only as connected source |
+| CLA-16 / card privacy | PAN storage | Encrypt at rest + audited CRM reveal; no tokenization “never store” claim |
+| CLA-17 / signup | Residence | US state (50 states); no country field |
+| CLA-03 / wallets | Custody wording | CRM/operator wallets + explorers; no false “no own wallets / verified providers only” |
+| Password | Min length | 8 characters |
+| KYC gate | Order placement | Allowed before KYC; payout/refund may still require verification |
 
-## Areas requiring qualified US payments/crypto counsel review
+### Synced with code
 
-- **Money transmission and MSB/state licensing.** Confirm whether exchanging customers' digital assets for USD is money transmission (FinCEN guidance FIN-2019-G001), complete FinCEN MSB registration, and make a state-by-state licensing determination, including NY BitLicense / money transmitter license (23 NYCRR Part 200) and California DFAL. Bonding, net-worth and permissible-investment requirements follow from this.
-- **BSA/AML program, recordkeeping and the Travel Rule.** Written AML program, BSA officer, CIP/KYC tiers, transaction monitoring and SAR procedures, independent testing; confirm recordkeeping periods and whether Travel Rule obligations (31 CFR 1010.410) arise on any leg.
-- **OFAC sanctions.** Strict-liability screening of customers, IP locations and blockchain addresses; blocking and reject reporting procedures; restricted-jurisdiction list and wording.
-- **UDAAP and advertising.** Review all customer copy, including these documents, for unfair, deceptive or abusive practices: fee and spread presentation, quote-error handling, unilateral-change clauses, and the absence of licensing, insurance or speed claims.
-- **E-SIGN.** Confirm the consent flow meets the consumer-consent and "reasonably demonstrates" requirements, and the paper-copy and withdrawal terms.
-- **Regulation E / Remittance Rule applicability.** Determine whether either applies to the USD payout (ACH, wire, push-to-card), and add any required disclosures, cancellation rights and error-resolution procedures.
-- **GLBA and state privacy.** Determine GLBA status and notice obligations, applicability of CCPA/CPRA and other state comprehensive privacy laws, biometric-privacy laws for selfie verification, and breach-notification duties.
-- **Arbitration and class-waiver enforceability.** Draft and test any arbitration clause and class waiver against each served state's law and the chosen administrator's consumer rules, including mass-arbitration provisions.
-- **Unclaimed property.** Dormancy periods and escheatment duties for payouts or returns that cannot be delivered.
-- **Cash-delivery licensing and CTR.** If cash payouts are ever considered: in-person disbursement licensing per area, Currency Transaction Reports and aggregation, GTOs, carrier licensing and insurance, and local law. The feature stays disabled until signed off.
-- **Accessibility and ADA.** Confirm the WCAG 2.2 AA target and statement wording, and assess Title III ADA exposure for the web service and the third-party verification flow.
+Fee engine (`SELL_EXCHANGE_FEE_BPS` / `BUY_EXCHANGE_FEE_BPS`), quote TTL/window, assets confirmations, manual CRM deposit/payout/refund, card pay-in/out, courier quoted fee, signup/password/KYC gate, legal page metadata and draft-banner logic.
 
-## How to update the content
+### Still requires confirmed fact or document (do not invent)
 
-1. Edit the relevant file in `src/content/legal/` (one file per document; `index.ts` sets the order and exports `getLegalDocument`). Text is plain strings; `{{brand}}` and `{{supportEmail}}` are replaced at render time. To state a rule from the Service Rules, quote it with a `rules` block (for example `{ type: 'rules', refs: ['9.7'] }` or `refs: ['6']` for a whole section) rather than paraphrasing it.
-   To update the Service Rules themselves, replace the file in `src/content/legal/source/` with the owner's new version, update `SERVICE_RULES_SHA256` and the version in `terms.ts`; never edit the Markdown by hand.
-2. When an item is resolved, put the confirmed fact into the customer text, remove the matching `review` block **from every document that carries that ID**, and mark the item here as Resolved with the date and source document.
-3. Fill the corresponding fields in `src/config/legal.ts` (`legalName`, `stateOfFormation`, addresses, `fincenMsbRegistration`, `nmlsId`, `stateLicenses`, contact emails, `governingLawState`, `disputeForum`, `servedStates`) only from documents the owner has supplied.
-4. Bump the document's `version` (semantic versioning: a substantive change is at least a minor bump), update `lastUpdated`, and set `effectiveDate` once counsel approves the text.
-5. Customers' acceptances are recorded by the server per document and version. Bumping the version of a document with `acceptance: 'signup'` or `'order'` means customers will be asked to accept the new version; confirm the notice period (LR-16) before changing an accepted document.
-6. Keep the documents consistent with each other and with the product: quote validity (currently 60 seconds), deposit window (currently 30 minutes), confirmation rules, return-to-refund-address policy and fee structure appear in several documents and must match `src/domain/quote.ts` and `src/domain/payout.ts`. Fee amounts belong on the Fees page and in quotes, not in legal text.
-7. Run `pnpm lint && pnpm typecheck && pnpm format:check && pnpm test && pnpm build` before committing.
+| ID | Topic | Who |
+| --- | --- | --- |
+| LR-18 | Registered / mailing address | Owner |
+| LR-04 / 32 / 33 | FinCEN MSB, state licenses, NMLS | Owner + Counsel |
+| LR-11 / 20 | Named contracted providers | Owner + Provider |
+| LR-40 | Owner-supplied full AML/CTF + Privacy (if distinct from current notices) | Owner |
+| LR-21 / 22 | Retention schedule; hosting locations | Owner + Counsel |
+| LR-12 | Trademark clearance CryptoBit Exchange | Owner + Counsel |
+| LR-30 / 47 / 49 | Real cash delivery compliance gate | Owner + Counsel + Compliance |
+| LR-26 | Cookie expiry inventory vs production (incl. `arcvale_*` names) | Tech + Owner |
+
+### Still requires legal / counsel evaluation
+
+| ID | Topic |
+| --- | --- |
+| LR-03 / 09 | Principal vs agent; customer-fund segregation |
+| LR-05 / 10 / 29 | State disclosures; Reg E / Remittance; complaint timelines |
+| LR-16 / 23 / 24 / 25 / 46 | Change notice; GLBA/CCPA; privacy contact; E-SIGN / paper copies; Panama vs US e-comms |
+| LR-17 | Unclaimed property / dormancy |
+| LR-19 / 27 | Biometrics; KYC tiers |
+| LR-44 | Which sanctions lists to name |
+| LR-31 | Accessibility evaluation |
+
+### Not current product / deferred
+
+- Automatic custody webhooks as the only deposit path (manual CRM remains primary when providers are absent).
+- Real cash until `docs/compliance-readiness.md` §6 signed off.
+- Claims of licensing, insurance, FDIC/SIPC coverage, PCI DSS certification — **not made**.
+
+## How to update
+
+1. Edit `src/content/legal/` (or replace Service Rules Markdown + `SERVICE_RULES_SHA256`).
+2. Bump `version`, set `lastUpdated`; change `effectiveDate` only with an explicit owner/counsel decision.
+3. Do not invent addresses, licenses, providers, or counsel approval.
+4. Run `pnpm lint && pnpm typecheck && pnpm test && pnpm build`.

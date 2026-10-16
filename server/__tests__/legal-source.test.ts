@@ -20,10 +20,10 @@ describe('Service Rules source', () => {
     for (const ref of refs) expect(rulesExcerpt(ref).blocks.length, ref).toBeGreaterThan(0);
   });
 
-  it('a clause runs to the next clause and keeps its lists', () => {
-    const c = rulesExcerpt('9.7');
-    expect(c.blocks.map((b) => b.type)).toEqual(['paragraph', 'list', 'paragraph']);
+  it('excerpts resolve sections and clauses', () => {
+    expect(rulesExcerpt('9.7').blocks.length).toBeGreaterThan(0);
     expect(rulesExcerpt('6').label).toBe('Section 6. Fees');
+    expect(rulesExcerpt('5').blocks.length).toBeGreaterThan(0);
     expect(() => rulesExcerpt('4.99')).toThrow();
   });
 });

@@ -40,7 +40,7 @@ export const FAQ: FaqItem[] = [
     a: (
       <p>
         {t(
-          'The quote shows the market exchange rate, with no spread, and the value of your crypto at that rate. The fee is taken off as a separate line: 3% for bank transfer, wire and debit card, or the courier fee for cash by courier. The result is what you receive, to the cent.',
+          'The quote shows the market exchange rate, with no spread, and the value of your crypto at that rate. The CryptoBit fee is a separate line: 3% when you sell, 2% when you buy (ACH, wire or debit card), plus any estimated bank wire fee or individually quoted courier cost. The result is what you receive, to the cent.',
         )}
       </p>
     ),

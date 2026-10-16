@@ -11,9 +11,12 @@ export function validateEmail(value: string): FieldError {
   return null;
 }
 
+/** Minimum password length (owner decision, 2026-03-01 package). */
+export const MIN_PASSWORD_LENGTH = 8;
+
 export function validatePassword(value: string): FieldError {
   if (!value) return 'Enter a password.';
-  if (value.length < 12) return 'Use at least 12 characters.';
+  if (value.length < MIN_PASSWORD_LENGTH) return `Use at least ${MIN_PASSWORD_LENGTH} characters.`;
   return null;
 }
 

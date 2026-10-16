@@ -118,8 +118,20 @@ function EnglishOnlyNotice() {
   return <Notice tone="info" title={t('Legal documents are published in English. The English text is the binding version.')} />;
 }
 
+/**
+ * Shown only for documents that are not yet in effect or that still contain
+ * unresolved in-document review callouts. Owner-accepted documents with an
+ * effective date and no review blocks do not show a draft banner.
+ * This is not a claim of counsel approval.
+ */
 function PendingReviewNotice({ sandbox, doc }: { sandbox: boolean; doc?: LegalDocument }) {
-  if (doc && !hasReviewItems(doc)) return null;
+  if (doc) {
+    if (doc.effectiveDate && !hasReviewItems(doc)) return null;
+  } else {
+    // Index: hide the draft banner when every document has an effective date and no review items.
+    const anyPending = LEGAL_DOCUMENTS.some((d) => !d.effectiveDate || hasReviewItems(d));
+    if (!anyPending) return null;
+  }
   return (
     <Notice tone="warn" title={t('Pending legal review')}>
       <p>
@@ -190,7 +202,11 @@ export function LegalDocumentPage() {
           </div>
           <div>
             <dt>{t('Effective')}</dt>
-            <dd>{doc.effectiveDate ? formatIsoDate(doc.effectiveDate) : t('Not yet in effect')}</dd>
+            <dd>
+              {doc.effectiveDate
+                ? t('In effect from {0}', [formatIsoDate(doc.effectiveDate)])
+                : t('Not yet in effect')}
+            </dd>
           </div>
           <div>
             <dt>{t('Last updated')}</dt>

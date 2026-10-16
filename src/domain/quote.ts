@@ -24,8 +24,9 @@ export const PRICING_POLICY = {
   /** How long the locked rate holds for an incoming deposit after confirmation. */
   depositWindowMs: 30 * 60_000,
   /**
-   * No spread (owner decision, 2026-10-15): the rate on the quote is the market reference price. The
-   * commission is the 3% exchange fee on ACH/wire/debit; courier delivery cost is quoted per order.
+   * No spread (owner decision): the rate on the quote is the market reference price.
+   * CryptoBit exchange fee: 3% on sell, 2% on buy (ACH/wire/debit). Courier delivery cost is
+   * quoted per order. Wire may also show an estimated bank processing fee that is not CryptoBit revenue.
    * The spread fields stay on quotes and orders, always 0, so stored quotes keep their shape.
    */
   spreadBps: 0,
@@ -59,7 +60,7 @@ export type BuyPayIn = 'courier_cash' | 'wire' | 'card';
 export const BUY_PAY_INS: readonly BuyPayIn[] = ['courier_cash', 'wire', 'card'];
 export const isBuyPayIn = (v: unknown): v is BuyPayIn => v === 'courier_cash' || v === 'wire' || v === 'card';
 
-/** Fee schedule method stored on a buy quote for each pay-in. Card reuses the 3% debit schedule. */
+/** Fee schedule method stored on a buy quote for each pay-in. Card reuses the debit fee schedule (2% on buy). */
 export function buyPayInMethod(payIn: BuyPayIn): PayoutMethodId {
   return payIn === 'card' ? 'instant_debit' : payIn;
 }
@@ -138,7 +139,7 @@ export function calculateQuote(req: QuoteRequest): QuoteResult {
   const spreadBps = spreadBpsFor(req.asset, grossCents);
   const spreadCents = divRoundHalfUp(grossCents * BigInt(spreadBps), 10_000n);
   const method = PAYOUT_METHODS[req.payoutMethod];
-  const resolvedFee = payoutFeeCents(method, grossCents, req.quotedFeeCents);
+  const resolvedFee = payoutFeeCents(method, grossCents, req.quotedFeeCents, 'sell');
   const feePending = resolvedFee === null;
   if (feePending) issues.push({ code: 'courier_fee_pending' });
   const feeCents = resolvedFee ?? 0n;
@@ -217,10 +218,10 @@ export function calculateBuyQuote(req: BuyQuoteRequest): QuoteResult {
   const spreadBps = spreadBpsFor(req.asset, grossCents);
   const spreadCents = divRoundHalfUp(grossCents * BigInt(spreadBps), 10_000n);
   const payIn: BuyPayIn = req.payIn ?? BUY_CASH_METHOD;
-  // Card buy reuses the published 3% debit fee; wire and courier keep their schedules.
+  // Card buy uses the buy exchange fee (2%); wire adds estimated bank fee; courier is quoted.
   const methodId = buyPayInMethod(payIn);
   const method = PAYOUT_METHODS[methodId];
-  const resolvedFee = payoutFeeCents(method, grossCents, req.quotedFeeCents);
+  const resolvedFee = payoutFeeCents(method, grossCents, req.quotedFeeCents, 'buy');
   const feePending = resolvedFee === null;
   if (feePending) issues.push({ code: 'courier_fee_pending' });
   const feeCents = resolvedFee ?? 0n;

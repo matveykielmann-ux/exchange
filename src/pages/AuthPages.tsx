@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { REGEXP_ONLY_DIGITS } from 'input-otp';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
@@ -7,13 +7,13 @@ import { ErrorSummary, Field } from '@/components/Field';
 import { errorMessage } from '@/lib/errors';
 import { Notice } from '@/components/ui';
 import { useDocumentTitle } from '@/lib/useDocumentTitle';
-import { US_STATE_NAMES, US_STATES } from '@/domain/usStates';
-import { countryOptions, RESTRICTED_TERRITORIES } from '@/domain/residence';
+import { US_STATE_NAMES, US_STATES_50 } from '@/domain/usStates';
+import { RESTRICTED_TERRITORIES } from '@/domain/residence';
 import { validateEmail, validatePassword, validateRequired } from '@/domain/validation';
 import { ApiError } from '@/services/http';
 import { isStaff } from '@/state/auth';
 import { useServices } from '@/state/services';
-import { getLang, t } from '@/i18n';
+import { t } from '@/i18n';
 
 function useReturnTo(fallback = '/account'): string {
   const location = useLocation();
@@ -221,11 +221,9 @@ export function SignUpPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [country, setCountry] = useState('');
   const [state, setState] = useState('');
   const [notRestricted, setNotRestricted] = useState(false);
   const [agree, setAgree] = useState(false);
-  const countries = useMemo(() => countryOptions(getLang()), []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -239,8 +237,7 @@ export function SignUpPage() {
     if (n) next['signup-name'] = n;
     if (em) next['signup-email'] = em;
     if (pw) next['signup-password'] = pw;
-    if (!country) next['signup-country'] = 'Choose the country where you live.';
-    else if (country === 'US' && !state) next['signup-state'] = 'Choose the state where you live.';
+    if (!state) next['signup-state'] = 'Choose the state where you live.';
     if (!notRestricted) next['signup-territory'] = 'Confirm that you do not live in one of the listed territories.';
     if (!agree) next['signup-agree'] = 'Accept the terms to create an account.';
     setErrors(next);
@@ -252,8 +249,7 @@ export function SignUpPage() {
         email,
         password,
         fullName: name,
-        countryOfResidence: country,
-        stateOfResidence: country === 'US' ? state : null,
+        stateOfResidence: state,
         notInRestrictedTerritory: notRestricted,
         accepted: signupDocs.map((d) => ({ slug: d.slug, version: d.version })),
       });
@@ -265,7 +261,6 @@ export function SignUpPage() {
         email: 'signup-email',
         password: 'signup-password',
         fullName: 'signup-name',
-        countryOfResidence: 'signup-country',
         stateOfResidence: 'signup-state',
         notInRestrictedTerritory: 'signup-territory',
       };
@@ -281,7 +276,9 @@ export function SignUpPage() {
       <div className="auth__panel stack stack--lg">
         <div className="stack">
           <h1 className="display-l">{t('Create an account')}</h1>
-          <p className="muted">{t("You'll need one to place an order. We'll verify your identity before your first payout.")}</p>
+          <p className="muted">
+            {t("You'll need one to place an order. Identity verification may be required before payout or refund.")}
+          </p>
         </div>
         <form className="stack" onSubmit={submit} noValidate>
           <ErrorSummary errors={errors} />
@@ -300,37 +297,28 @@ export function SignUpPage() {
               <input className="input" {...p} type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             )}
           </Field>
-          <Field label={t('Country of residence')} id="signup-country" error={errors['signup-country']}>
+          <Field
+            label={t('State of residence')}
+            id="signup-state"
+            error={errors['signup-state']}
+            hint={t('United States. For availability outside the US, contact support on Telegram.')}
+          >
             {(p) => (
-              <select className="select" {...p} autoComplete="country" value={country} onChange={(e) => setCountry(e.target.value)}>
-                <option value="">{t('Choose a country')}</option>
-                {countries.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.name}
+              <select className="select" {...p} autoComplete="address-level1" value={state} onChange={(e) => setState(e.target.value)}>
+                <option value="">{t('Choose a state')}</option>
+                {US_STATES_50.map((s) => (
+                  <option key={s} value={s}>
+                    {US_STATE_NAMES[s]}
                   </option>
                 ))}
               </select>
             )}
           </Field>
-          {country === 'US' ? (
-            <Field label={t('State of residence')} id="signup-state" error={errors['signup-state']}>
-              {(p) => (
-                <select className="select" {...p} autoComplete="address-level1" value={state} onChange={(e) => setState(e.target.value)}>
-                  <option value="">{t('Choose a state')}</option>
-                  {US_STATES.map((s) => (
-                    <option key={s} value={s}>
-                      {US_STATE_NAMES[s]}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </Field>
-          ) : null}
           <Field
             label={t('Password')}
             id="signup-password"
             error={errors['signup-password']}
-            hint={t('At least 12 characters. A passphrase works well.')}
+            hint={t('At least 8 characters. A passphrase works well.')}
           >
             {(p) => (
               <input
@@ -514,7 +502,7 @@ export function ResetConfirmPage() {
         ) : (
           <form className="stack" onSubmit={submit} noValidate>
             <ErrorSummary errors={errors} />
-            <Field label={t('New password')} id="reset-password" error={errors['reset-password']} hint={t('At least 12 characters.')}>
+            <Field label={t('New password')} id="reset-password" error={errors['reset-password']} hint={t('At least 8 characters.')}>
               {(p) => (
                 <input
                   className="input"

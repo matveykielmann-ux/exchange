@@ -143,6 +143,24 @@ export const RU_PUBLIC3: Record<string, string> = {
     'Условия, политики и раскрытия, которые применяются к вашему аккаунту и заявкам. У каждого документа есть версия, и мы храним запись о принятой вами версии.',
   'For your information': 'Для информации',
   'Pending legal review': 'Ожидает юридической проверки',
+  'In effect from {0}': 'Действует с {0}',
+  'In effect from March 1, 2026': 'Действует с 1 марта 2026 года',
+
+  '2% buy · 3% sell': 'Покупка 2% · продажа 3%',
+  'Built for careful exchange operations.': 'Создан для аккуратных обменных операций.',
+  'Sell: 3% exchange fee. Buy: 2% exchange fee. Wire may show an estimated $30 bank fee (not CryptoBit commission). Cash by courier: delivery cost is calculated individually for each order.':
+    'Продажа: комиссия 3%. Покупка: комиссия 2%. Для wire может отображаться ориентировочный банковский сбор $30 (не комиссия CryptoBit). Наличные с курьером: стоимость рассчитывается индивидуально.',
+  'Estimated bank wire fee charged by the bank (typically $30). CryptoBit Exchange does not keep this amount as its commission.':
+    'Ориентировочный банковский сбор за wire (обычно $30). CryptoBit Exchange не удерживает эту сумму как свою комиссию.',
+  '{0} CryptoBit exchange fee on the wire direction.': 'Комиссия CryptoBit {0} для направления wire.',
+  'You pay by card': 'Вы платите картой',
+  'On the secure payment page or instructions shown on your order': 'На защищённой платёжной странице или по инструкциям в заявке',
+  'Card payment': 'Оплата картой',
+  'United States. For availability outside the US, contact support on Telegram.':
+    'США. По доступности вне США обратитесь в поддержку в Telegram.',
+  "You'll need one to place an order. Identity verification may be required before payout or refund.":
+    'Аккаунт нужен, чтобы создать заявку. Проверка личности может потребоваться перед выплатой или возвратом.',
+
   'This document is a draft awaiting review by counsel and may change before it takes effect.':
     'Документ — проект, ожидающий проверки юристом, и может измениться до вступления в силу.',
   'This document is a draft awaiting review by counsel and has no effective date yet.':
@@ -153,7 +171,7 @@ export const RU_PUBLIC3: Record<string, string> = {
     'Выделенные заметки отмечают сведения, которые ещё должны предоставить владелец или юрист.',
   'Some details are still to be confirmed.': 'Некоторые детали ещё уточняются.',
   'Review item {0}': 'Пункт проверки {0}',
-  Effective: 'Действует с',
+  Effective: 'Срок действия',
   'Not yet in effect': 'Ещё не действует',
   'Last updated': 'Обновлён',
   Acceptance: 'Принятие',
@@ -161,6 +179,17 @@ export const RU_PUBLIC3: Record<string, string> = {
   'Accepted with each order': 'Принимается с каждой заявкой',
   'Legal documents are published in English. The English text is the binding version.':
     'Юридические документы опубликованы на английском языке. Обязательной является английская версия.',
+
+  'The quote shows the market exchange rate, with no spread, and the value of your crypto at that rate. The CryptoBit fee is a separate line: 3% when you sell, 2% when you buy (ACH, wire or debit card), plus any estimated bank wire fee or individually quoted courier cost. The result is what you receive, to the cent.':
+    'В расчёте указан рыночный курс без спреда и стоимость криптовалюты по этому курсу. Комиссия CryptoBit отдельной строкой: 3% при продаже, 2% при покупке (ACH, wire или дебетовая карта), плюс ориентировочный банковский сбор wire или индивидуально рассчитанная стоимость курьера. Итог — сумма к получению, до цента.',
+  'United States':
+    'США',
+  'seconds while you review it. When you confirm, the rate holds for deposits that arrive within':
+    'секунд на просмотр. После подтверждения курс действует для депозитов, поступивших в течение',
+  'Sell crypto: 3% CryptoBit exchange fee. Buy crypto: 2%. Wire may include an estimated $30 bank fee (bank’s charge). Cash by courier: delivery cost is calculated individually. There is no spread. Returns are reviewed manually through support.':
+    'Продажа криптовалюты: комиссия CryptoBit 3%. Покупка: 2%. Для wire может отображаться ориентировочный банковский сбор $30 (сбор банка). Наличные с курьером: стоимость рассчитывается индивидуально. Спреда нет. Возвраты рассматриваются вручную через поддержку.',
+  'The 3% sell / 2% buy exchange fees are the configured schedule. Cash-by-courier delivery cost depends on the order: an operator sets it and you confirm the amount on the quote before the exchange continues. No fixed courier tariff is published.':
+    'Комиссии 3% при продаже и 2% при покупке — настроенный тариф. Стоимость курьера зависит от заявки: оператор назначает её, и вы подтверждаете сумму в расчёте. Фиксированный тариф курьера не публикуется.',
 
   // Order page
   Copied: 'Скопировано',

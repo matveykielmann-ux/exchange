@@ -321,7 +321,7 @@ describe('manual workflows E2E (isolated production DB)', () => {
     expect(notices.body.notifications.some((n: { template: string }) => n.template === 'deposit_address_updated')).toBe(true);
   });
 
-  it('B — wire buy: $30 + 3% fees, CRM bank credentials, receipt ≠ deposit, manual confirm + crypto payout', async () => {
+  it('B — wire buy: $30 bank + 2% exchange fees, CRM bank credentials, receipt ≠ deposit, manual confirm + crypto payout', async () => {
     const c = env.client();
     await signupCustomer(c, env.app, 'e2e-b@example.test');
     const admin = await staff(env.app, env.base, 'e2e-b-owner@arcvale.test');
@@ -352,7 +352,7 @@ describe('manual workflows E2E (isolated production DB)', () => {
     const q = firm.body.quote;
     expect(q.payoutMethod).toBe('wire');
     expect(q.feePending).toBeFalsy();
-    const exchangeFee = (cashCents * 300n + 5000n) / 10000n;
+    const exchangeFee = (cashCents * 200n + 5000n) / 10000n; // buy: 2%
     expect(BigInt(q.payoutFeeCents)).toBe(WIRE_BANK_FEE_CENTS + exchangeFee);
     expect(BigInt(q.grossCents) - BigInt(q.spreadCents) - BigInt(q.payoutFeeCents)).toBe(BigInt(q.netCents));
 

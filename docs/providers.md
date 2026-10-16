@@ -27,7 +27,7 @@ Each provider reports one state on `/api/ready`, in `check-config` and on the ad
 | Identity (KYC) | `KYC_PROVIDER` | `POST v1/verifications {reference, email, fullName, level}` → `{id, status: pending, approved, needs_info or rejected; hostedUrl?}` |
 | Screening | `SCREENING_PROVIDER` | `POST v1/screen/address {network, address}`, `POST v1/screen/person {...}` → `{result: clear, review or blocked; note}` |
 | Bank payouts | `BANK_PAYOUT_PROVIDER` | `POST v1/payouts {reference, method: ach or wire, amountCents, currency: "USD", destination}` → `{id}` |
-| Card payouts | `CARD_PAYOUT_PROVIDER` | Same as bank payouts, `method: instant_debit`. `destination` is the provider's card token. Card numbers never reach Arcvale. |
+| Card payouts | `CARD_PAYOUT_PROVIDER` | Same as bank payouts, `method: instant_debit`, when an automatic provider is configured (`destination` is the provider's card token). Manual CRM card payouts may store an encrypted PAN for operator-handled payouts (no CVV); that path does not use this adapter. |
 | Cash by courier | `CASH_PROVIDER` | `GET v1/availability?zip=` → `{available, reason?}`; `POST v1/deliveries {reference, amountCents, currency: "USD", delivery}` → `{id}`. `delivery` holds the recipient (the verified account holder), phone, address, window, preferred date and instructions. Results arrive as `payout.*` webhooks from source `cash`. |
 | Email | `EMAIL_PROVIDER` + `EMAIL_FROM` | `POST v1/messages {from, to, subject, text}` → `{id}` |
 

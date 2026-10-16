@@ -434,21 +434,14 @@ export const SCENARIOS: Scenario[] = [
     },
   },
   {
-    name: 'kyc-rejected',
-    description: 'Identity verification rejects the customer; no order can be created.',
-    expected: 'kyc_required',
+    name: 'kyc-rejected-order-still-allowed',
+    description: 'Identity verification may reject the customer; creating an exchange request is still allowed.',
+    expected: 'awaiting_deposit',
     async run(ctx, _op, step, n) {
-      try {
-        const c = await sandboxCustomer(ctx, `kyc${n}@example.test`, `Pat ${SANDBOX_FIXTURES.kycRejectWord}`);
-        await placeOrder(ctx, c);
-      } catch (e) {
-        if (e instanceof ApiError) {
-          step(`refused: ${e.message}`);
-          return e.code;
-        }
-        throw e;
-      }
-      return 'accepted';
+      const c = await sandboxCustomer(ctx, `kyc${n}@example.test`, `Pat ${SANDBOX_FIXTURES.kycRejectWord}`);
+      const o = await placeOrder(ctx, c);
+      step(`order placed despite KYC outcome: ${status(ctx, o.id)}`);
+      return status(ctx, o.id);
     },
   },
 ];

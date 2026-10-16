@@ -3,11 +3,11 @@ import type { LegalDocument } from './types';
 export const COOKIE_POLICY: LegalDocument = {
   slug: 'cookies',
   title: 'Cookie Policy',
-  version: '1.0.0',
-  effectiveDate: null,
-  lastUpdated: '2026-10-13',
+  version: '3.0.0',
+  effectiveDate: '2026-03-01',
+  lastUpdated: '2026-03-01',
   summary:
-    '{{brand}} uses only the cookies and browser storage needed to sign you in, protect your account and remember your display preference; we use no analytics, advertising or third-party tracking cookies.',
+    '{{brand}} uses only the cookies and browser storage needed to sign you in, protect your account and remember your display preference; we use no analytics, advertising or third-party tracking cookies. In effect from March 1, 2026.',
   acceptance: null,
   sections: [
     {
@@ -43,11 +43,6 @@ export const COOKIE_POLICY: LegalDocument = {
             'Exchange draft (session storage): holds the details of an exchange you are part-way through so they survive a page reload. It is removed when you close the browser tab.',
           ],
         },
-        {
-          type: 'review',
-          id: 'LR-26',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Expiry periods of the arcvale_session and arcvale_csrf cookies, and confirmation before launch that this inventory matches production (including any cookies set by identity-verification or payout provider components embedded in the Service).]',
-        },
       ],
     },
     {
@@ -77,7 +72,7 @@ export const COOKIE_POLICY: LegalDocument = {
     {
       id: 'contact',
       heading: 'Questions',
-      blocks: [{ type: 'p', text: 'Questions about this policy can be sent to {{supportEmail}}.' }],
+      blocks: [{ type: 'p', text: 'Questions about this policy can be sent through Telegram ({{supportTelegram}}) or in-app support messages.' }],
     },
   ],
 };

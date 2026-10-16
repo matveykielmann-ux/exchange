@@ -231,10 +231,11 @@ export function registerRoutes(r: Router, app: AppContext) {
           email: v.string({ max: 254, label: 'your email' }),
           password: v.string({ min: 1, max: 200, trim: false, label: 'a password' }),
           fullName: v.string({ max: 120, label: 'your full legal name' }),
-          countryOfResidence: v.optional(v.nullable(v.enum(COUNTRY_CODES, 'country'))),
-          stateOfResidence: v.nullable(v.enum(customers.US_STATES, 'state')),
+          stateOfResidence: v.nullable(v.enum(customers.US_STATES_50, 'state')),
           notInRestrictedTerritory: v.bool(),
           accepted: acceptedV,
+          /** Accepted but ignored — country is always recorded as US (primary market). */
+          countryOfResidence: v.optional(v.nullable(v.string({ max: 2 }))),
         }),
         ctx.body,
       );

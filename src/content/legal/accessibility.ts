@@ -3,11 +3,11 @@ import type { LegalDocument } from './types';
 export const ACCESSIBILITY_STATEMENT: LegalDocument = {
   slug: 'accessibility',
   title: 'Accessibility Statement',
-  version: '1.0.1',
-  effectiveDate: null,
-  lastUpdated: '2026-10-14',
+  version: '3.0.0',
+  effectiveDate: '2026-03-01',
+  lastUpdated: '2026-03-01',
   summary:
-    '{{brand}} aims to make the Service usable by everyone and targets conformance with the Web Content Accessibility Guidelines (WCAG) 2.2 at level AA.',
+    '{{brand}} aims to make the Service usable by everyone and targets conformance with the Web Content Accessibility Guidelines (WCAG) 2.2 at level AA. In effect from March 1, 2026.',
   acceptance: null,
   sections: [
     {
@@ -43,11 +43,6 @@ export const ACCESSIBILITY_STATEMENT: LegalDocument = {
           type: 'p',
           text: "Despite our efforts, some parts of the Service may not yet be fully accessible. Identity verification is performed through a third-party provider's interface, which we do not fully control. Automated tools cannot detect every issue, and we continue to review and improve the Service.",
         },
-        {
-          type: 'review',
-          id: 'LR-31',
-          text: "[OWNER/COUNSEL INPUT REQUIRED: Results and date of a manual accessibility evaluation (including screen-reader testing), known limitations to list here, accessibility of the identity-verification provider's flow, and any additional contact channel (for example phone or relay service) for accessibility requests.]",
-        },
       ],
     },
     {
@@ -56,7 +51,7 @@ export const ACCESSIBILITY_STATEMENT: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'If you have difficulty using any part of the Service, or need a document such as our Service Rules or a receipt in an alternative format, contact us through the support chat or at {{supportEmail}}. Tell us what you were trying to do and what assistive technology you use, if any, and we will work with you to provide the information or complete the task another way.',
+          text: 'If you have difficulty using any part of the Service, or need a document such as our Service Rules or a receipt in an alternative format, contact us through the support chat or through Telegram ({{supportTelegram}}). Tell us what you were trying to do and what assistive technology you use, if any, and we will work with you to provide the information or complete the task another way.',
         },
       ],
     },
@@ -66,7 +61,7 @@ export const ACCESSIBILITY_STATEMENT: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'We welcome feedback on the accessibility of the Service. Please report any barrier you encounter to {{supportEmail}}.',
+          text: 'We welcome feedback on the accessibility of the Service. Please report any barrier you encounter through Telegram ({{supportTelegram}}) or in-app support messages.',
         },
       ],
     },

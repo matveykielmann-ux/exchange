@@ -1,43 +1,13 @@
 /**
- * Country of residence. The Service is not limited to US residents (owner
- * decision, 2026-10-14). The only geographic restriction the Service Rules
- * document is clause 8.5, which names territories rather than whole
- * countries, so sign-up asks for the country and a confirmation that the
- * person does not live in any of those territories.
+ * Residence for sign-up. The owner treats the United States as the primary market
+ * (2026-03-01 package): the form collects a US state only. Availability for
+ * customers outside the US is handled through support, not as a country field.
+ *
+ * Clause 8.5 of the Service Rules still lists territories that are refused.
+ * Listing all US states in the UI does not mean every state is licensed.
  */
 
-/** ISO 3166-1 alpha-2 codes. Display names come from the runtime (Intl.DisplayNames). */
-export const COUNTRY_CODES = (
-  'AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI ' +
-  'CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ ' +
-  'GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS ' +
-  'LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG ' +
-  'PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK ' +
-  'TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW'
-).split(' ');
-
-export type CountryCode = string;
-
-export function isCountryCode(v: unknown): v is CountryCode {
-  return typeof v === 'string' && COUNTRY_CODES.includes(v);
-}
-
-const names = new Map<string, Intl.DisplayNames>();
-/** The country's name in the interface language (English by default), from the runtime. */
-export function countryName(code: string, lang = 'en'): string {
-  try {
-    let n = names.get(lang);
-    if (!n) names.set(lang, (n = new Intl.DisplayNames([lang], { type: 'region' })));
-    return n.of(code) ?? code;
-  } catch {
-    return code;
-  }
-}
-
-/** Countries sorted by name in the interface language, for a select. */
-export function countryOptions(lang = 'en'): { code: CountryCode; name: string }[] {
-  return COUNTRY_CODES.map((code) => ({ code, name: countryName(code, lang) })).sort((a, b) => a.name.localeCompare(b.name, lang));
-}
+import { US_STATES_50, type UsStateCode } from './usStates';
 
 /** The territories clause 8.5 of the Service Rules excludes, in its own words. */
 export const RESTRICTED_TERRITORIES = [
@@ -49,9 +19,21 @@ export const RESTRICTED_TERRITORIES = [
   'territories temporarily not controlled by the government of Ukraine, including the Autonomous Republic of Crimea and certain areas of Donetsk and Luhansk regions',
 ] as const;
 
-/** Applies a US state only when the country is the United States. */
-export function residenceError(country: string, state: string | null): string | null {
-  if (!isCountryCode(country)) return 'Choose your country of residence.';
-  if (country === 'US' && !state) return 'Choose your US state of residence.';
+/** Validates US state selection for sign-up / profile (primary market — 50 states). */
+export function residenceError(state: string | null | undefined): string | null {
+  if (!state || !US_STATES_50.includes(state as UsStateCode)) return 'Choose your US state of residence.';
   return null;
+}
+
+/** @deprecated Country is no longer collected at sign-up; kept for profile display of legacy rows. */
+export const COUNTRY_CODES = ['US'] as const;
+export type CountryCode = string;
+export function isCountryCode(v: unknown): v is CountryCode {
+  return v === 'US';
+}
+export function countryName(code: string, _lang = 'en'): string {
+  return code === 'US' ? 'United States' : code;
+}
+export function countryOptions(_lang = 'en'): { code: CountryCode; name: string }[] {
+  return [{ code: 'US', name: 'United States' }];
 }

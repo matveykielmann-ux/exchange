@@ -7,7 +7,7 @@ const KYC_COPY: Record<string, { tone: 'info' | 'warn' | 'danger'; title: string
   unverified: {
     tone: 'info',
     title: 'Verify your identity to confirm',
-    body: 'Identity verification is required before an exchange (Service Rules, Section 8): a photo ID, a selfie and a proof of address. Additional documents may be requested for a transaction classified as high-risk.',
+    body: 'Identity verification may be required before payout or refund (Service Rules, Section 8): a photo ID, a selfie and a proof of address. You can place an exchange request before verification is complete. Additional documents may be requested for a high-risk transaction.',
   },
   pending: {
     tone: 'info',

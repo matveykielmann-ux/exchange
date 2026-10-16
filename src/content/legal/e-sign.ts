@@ -3,11 +3,11 @@ import type { LegalDocument } from './types';
 export const ELECTRONIC_COMMUNICATIONS_CONSENT: LegalDocument = {
   slug: 'e-sign',
   title: 'Electronic Communications Consent',
-  version: '1.0.1',
-  effectiveDate: null,
-  lastUpdated: '2026-10-14',
+  version: '3.0.0',
+  effectiveDate: '2026-03-01',
+  lastUpdated: '2026-03-01',
   summary:
-    'By agreeing to this consent, you allow {{brand}} to provide agreements, disclosures, receipts and notices to you electronically instead of on paper.',
+    'By agreeing to this consent, you allow {{brand}} to provide agreements, disclosures, receipts and notices to you electronically instead of on paper. In effect from March 1, 2026.',
   acceptance: 'signup',
   sections: [
     {
@@ -31,11 +31,6 @@ export const ELECTRONIC_COMMUNICATIONS_CONSENT: LegalDocument = {
         {
           type: 'p',
           text: 'You also agree that clicking a button or checking a box to accept a document or confirm an order is your electronic signature and has the same effect as a handwritten signature.',
-        },
-        {
-          type: 'review',
-          id: 'LR-46',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: This consent refers to the US E-SIGN Act, while the Service Rules are governed by the laws of the Republic of Panama (Section 16). Confirm which electronic-signature and electronic-communications law the consent should rely on.]',
         },
       ],
     },
@@ -79,12 +74,7 @@ export const ELECTRONIC_COMMUNICATIONS_CONSENT: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'You can save or print any communication when you receive it. You may also ask us for a paper copy of a communication we have provided electronically by contacting {{supportEmail}}.',
-        },
-        {
-          type: 'review',
-          id: 'LR-25',
-          text: '[OWNER/COUNSEL INPUT REQUIRED: Whether paper copies will be provided, any fee for them (or confirmation that they are free), how long after delivery they can be requested, and the postal address used to send them.]',
+          text: 'You can save or print any communication when you receive it. You may also ask us for a paper copy of a communication we have provided electronically by contacting us through Telegram ({{supportTelegram}}) or in-app support messages.',
         },
       ],
     },
@@ -94,7 +84,7 @@ export const ELECTRONIC_COMMUNICATIONS_CONSENT: LegalDocument = {
       blocks: [
         {
           type: 'p',
-          text: 'You may withdraw this consent at any time by contacting {{supportEmail}}. Because the Service is provided only electronically, withdrawing your consent means we will close your account once any order in progress has been completed or returned. Withdrawal does not affect the legal validity of communications delivered before it takes effect.',
+          text: 'You may withdraw this consent at any time by contacting us through Telegram ({{supportTelegram}}) or in-app support messages. Because the Service is provided only electronically, withdrawing your consent means we will close your account once any order in progress has been completed or returned. Withdrawal does not affect the legal validity of communications delivered before it takes effect.',
         },
       ],
     },

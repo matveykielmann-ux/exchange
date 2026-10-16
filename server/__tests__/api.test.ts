@@ -661,18 +661,18 @@ describe('API', () => {
     const c = env.client();
     await customer(c, 'wire-buyer@example.test');
     const indicative = await c.get('/api/quotes/indicative?direction=buy&asset=USDT&network=tron&cashCents=200000&payIn=wire');
-    // $30 bank processing fee + 3% exchange fee on $2,000.
+    // $30 estimated bank fee + 2% exchange fee on $2,000.
     expect(indicative.body.quote).toMatchObject({
       direction: 'buy',
       grossCents: '200000',
       payoutMethod: 'wire',
-      payoutFeeCents: '9000',
+      payoutFeeCents: '7000',
     });
     expect(indicative.body.issues).toEqual([]);
     // No published wire minimum: small amounts still quote.
     const small = await c.get('/api/quotes/indicative?direction=buy&asset=USDT&network=tron&cashCents=60000&payIn=wire');
     expect(small.body.issues).toEqual([]);
-    expect(small.body.quote.payoutFeeCents).toBe('4800'); // $30 + 3% of $600
+    expect(small.body.quote.payoutFeeCents).toBe('4200'); // $30 + 2% of $600
 
     const admin = await staff(env.app, env.base, 'admin');
     const wireSet = await admin.post('/api/admin/credentials/wire', SAMPLE_WIRE);
@@ -929,31 +929,30 @@ describe('API', () => {
     expect(replaced.body.deposit.address).toBe('0x52908400098527886E0F7030069857D2E4169EE7');
   });
 
-  it('asks for the country of residence and the clause 8.5 confirmation at sign-up', async () => {
+  it('asks for a US state of residence and the clause 8.5 confirmation at sign-up', async () => {
     const c = env.client();
     const base = { password: SANDBOX_PASSWORD, fullName: 'Kim Lee', accepted: docs('signup') };
     const r1 = await c.post('/api/auth/signup', {
       ...base,
       email: 'r1@example.test',
-      countryOfResidence: 'DE',
+      stateOfResidence: 'NY',
       notInRestrictedTerritory: false,
     });
     expect(r1.status).toBe(400);
     const r2 = await c.post('/api/auth/signup', {
       ...base,
       email: 'r2@example.test',
-      countryOfResidence: 'US',
       notInRestrictedTerritory: true,
     });
-    expect(r2.status).toBe(400); // a US resident also gives a state
+    expect(r2.status).toBe(400); // state is required
     const ok = await c.post('/api/auth/signup', {
       ...base,
       email: 'r3@example.test',
-      countryOfResidence: 'DE',
+      stateOfResidence: 'NY',
       notInRestrictedTerritory: true,
     });
     expect(ok.status).toBe(201);
-    expect((await c.get('/api/me')).body).toMatchObject({ countryOfResidence: 'DE', stateOfResidence: null });
+    expect((await c.get('/api/me')).body).toMatchObject({ countryOfResidence: 'US', stateOfResidence: 'NY' });
   });
 
   it('verifies identity by documents: encrypted files, reviewer-only access, decisions with a reason', async () => {

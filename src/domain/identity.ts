@@ -1,9 +1,12 @@
 /** Identity-verification tiers and the rules that depend on them. Shared by UI and services. */
 export type VerificationLevel = 'unverified' | 'verified' | 'enhanced';
 
-/** Online exchanges need at least basic verification. */
-export function canConfirmExchange(level: VerificationLevel): boolean {
-  return level !== 'unverified';
+/**
+ * Creating an exchange request is allowed before KYC (owner decision).
+ * Payout, refund approval and elevated-risk steps may still require verification.
+ */
+export function canConfirmExchange(_level: VerificationLevel): boolean {
+  return true;
 }
 
 /* ---------- Document verification (Service Rules 8.1) ---------- */

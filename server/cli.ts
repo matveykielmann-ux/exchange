@@ -63,7 +63,7 @@ async function readPassword(): Promise<string> {
   // Hidden prompt — password must not echo to the terminal.
   const stdin = process.stdin;
   const stdout = process.stdout;
-  stdout.write('Password (min 12 characters): ');
+  stdout.write('Password (min 8 characters): ');
   stdin.setRawMode?.(true);
   stdin.resume();
   stdin.setEncoding('utf8');

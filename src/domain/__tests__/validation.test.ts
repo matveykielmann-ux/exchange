@@ -22,7 +22,7 @@ describe('validators', () => {
   it('validates email and password', () => {
     expect(validateEmail('a@b.co')).toBeNull();
     expect(validateEmail('nope')).toMatch(/email address like/);
-    expect(validatePassword('short')).toMatch(/12 characters/);
+    expect(validatePassword('short')).toMatch(/8 characters/);
     expect(validatePassword('long-enough-pass')).toBeNull();
   });
   it('gives specific amount errors', () => {

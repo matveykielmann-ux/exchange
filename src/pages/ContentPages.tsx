@@ -70,7 +70,7 @@ export function HowItWorksPage() {
         <p>
           {t('We lock a quote for')} {PRICING_POLICY.quoteTtlMs / 1000}{' '}
           {t(
-            'seconds while you review it. Your identity must be verified first. When you confirm, the rate holds for deposits that arrive within',
+            'seconds while you review it. When you confirm, the rate holds for deposits that arrive within',
           )}{' '}
           {PRICING_POLICY.depositWindowMs / 60000} {t('minutes.')}
         </p>
@@ -145,7 +145,7 @@ export function FeesPage() {
         eyebrow={t('Fees')}
         title={t('One fee, shown on the quote.')}
         lead={t(
-          'A 3% exchange fee on every payout method except cash by courier, where delivery cost is calculated individually for each order. There is no spread: you get the market rate. Return fees apply only if funds have to be returned.',
+          'Sell crypto: 3% CryptoBit exchange fee. Buy crypto: 2%. Wire may include an estimated $30 bank fee (bank’s charge). Cash by courier: delivery cost is calculated individually. There is no spread. Returns are reviewed manually through support.',
         )}
       />
       <WithToc
@@ -162,7 +162,7 @@ export function FeesPage() {
         <Notice tone="warn" title={t('Courier fee calculated per order')}>
           <p>
             {t(
-              'The 3% exchange fee for bank transfer, wire and debit card is the configured schedule. Cash-by-courier delivery cost depends on the order: an operator sets it and you confirm the amount on the quote before the exchange continues. No fixed courier tariff is published.',
+              'The 3% sell / 2% buy exchange fees are the configured schedule. Cash-by-courier delivery cost depends on the order: an operator sets it and you confirm the amount on the quote before the exchange continues. No fixed courier tariff is published.',
             )}
           </p>
         </Notice>

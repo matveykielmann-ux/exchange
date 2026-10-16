@@ -272,7 +272,7 @@ describe('card workflows E2E (isolated production DB)', () => {
     });
     expect([200, 201]).toContain(firm.status);
     expect(firm.body.quote.payoutMethod).toBe('instant_debit');
-    expect(BigInt(firm.body.quote.payoutFeeCents)).toBe((100000n * 300n + 5000n) / 10000n);
+    expect(BigInt(firm.body.quote.payoutFeeCents)).toBe((100000n * 200n + 5000n) / 10000n); // buy: 2%
 
     const order = await c.post(
       '/api/orders',

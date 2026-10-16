@@ -29,7 +29,7 @@ export const RU_PUBLIC2: Record<string, string> = {
   'Change password': 'Сменить пароль',
   'Current password': 'Текущий пароль',
   'New password': 'Новый пароль',
-  'At least 12 characters.': 'Не менее 12 символов.',
+  'At least 8 characters.': 'Не менее 8 символов.',
   'Two-step sign-in': 'Двухэтапный вход',
   'Sign-in asks for a code from your authenticator app.': 'При входе запрашивается код из приложения-аутентификатора.',
   'Turn off': 'Отключить',
@@ -109,7 +109,7 @@ export const RU_PUBLIC2: Record<string, string> = {
   "You'll need one to place an order. We'll verify your identity before your first payout.":
     'Он нужен для оформления заявки. Перед первой выплатой мы проверим вашу личность.',
   'As it appears on your government ID.': 'Как в вашем удостоверении личности.',
-  'At least 12 characters. A passphrase works well.': 'Не менее 12 символов. Хорошо подходит парольная фраза.',
+  'At least 8 characters. A passphrase works well.': 'Не менее 8 символов. Хорошо подходит парольная фраза.',
   'I am not a citizen or resident of, and do not live in, any territory listed in clause 8.5 of the':
     'Я не являюсь гражданином или резидентом и не проживаю на территориях, перечисленных в п. 8.5',
   'I agree to the': 'Я принимаю',

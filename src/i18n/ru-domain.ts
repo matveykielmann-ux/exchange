@@ -173,7 +173,7 @@ export const RU_DOMAIN: Record<string, string> = {
   'Enter your email address.': 'Введите адрес электронной почты.',
   'Enter an email address like name@example.com.': 'Введите адрес вида name@example.com.',
   'Enter a password.': 'Введите пароль.',
-  'Use at least 12 characters.': 'Не менее 12 символов.',
+  'Use at least 8 characters.': 'Не менее 8 символов.',
   'Enter a number using a period for decimals, for example 0.25.': 'Введите число с точкой в качестве разделителя, например 0.25.',
   'Enter an amount greater than zero.': 'Введите сумму больше нуля.',
   'Enter the 9-digit routing number.': 'Введите 9-значный routing number.',
