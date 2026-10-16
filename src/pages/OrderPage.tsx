@@ -1403,16 +1403,7 @@ export function OrderPage() {
               <h2 id="collect-title" className="flow__step-title">
                 {t('Have')} {formatUsd(order.quote.grossCents)} {t('in cash ready')}
               </h2>
-              {order.courierMeetingPending || !order.payout.delivery ? (
-                <Notice tone="info" title={t('Waiting for the courier meeting point')}>
-                  <p>
-                    {t(
-                      'Our team will assign the street address, city, state and time where the courier will meet you. This page updates by itself when the details are ready.',
-                    )}
-                  </p>
-                  <SupportContact title={t('Questions about this order?')} orderReference={order.reference} />
-                </Notice>
-              ) : (
+              {order.payout.delivery ? (
                 <div className="deposit-box">
                   <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                     <strong>{t('Courier collection')}</strong>
@@ -1475,9 +1466,18 @@ export function OrderPage() {
                     <SupportContact title={t('Questions about this order?')} orderReference={order.reference} />
                   </div>
                 </div>
+              ) : (
+                <Notice tone="info" title={t('Waiting for the courier meeting point')}>
+                  <p>
+                    {t(
+                      'Our team will confirm the street address, city, state and time where the courier will meet you. This page updates by itself when the details are ready.',
+                    )}
+                  </p>
+                  <SupportContact title={t('Questions about this order?')} orderReference={order.reference} />
+                </Notice>
               )}
               {order.payout.delivery ? (
-                <Notice tone="warn" title={t('Hand cash only to the courier at this meeting point')}>
+                <Notice tone="warn" title={t('Hand cash only to the courier at your collection address')}>
                   <p>
                     {t(
                       'Nobody from this service will ask you to pay elsewhere, send crypto, or hand cash to someone without an ID check. If anything seems wrong, stop and contact support.',

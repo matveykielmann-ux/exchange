@@ -664,19 +664,16 @@ async function createBuyOrder(
       { field: 'receiveAddress' },
     );
 
-  // Wire/card need no saved destination. Cash collection: the meeting address is
-  // assigned later by staff in CRM — the customer only places the order + wallet.
+  // Wire/card need no saved destination: customer pays from their own bank/card.
+  // Cash buys require the collection address the customer chose (street, city, window).
   const dest =
-    wire || card || !input.destinationId
+    wire || card
       ? null
       : ctx.db.get<DestinationRow>(
           "SELECT * FROM payout_destinations WHERE id = ? AND user_id = ? AND status = 'active' AND kind = 'courier'",
           [input.destinationId, userId],
         );
-  if (!wire && !card && input.destinationId && !dest)
-    throw badRequest('That collection address was not found. Leave it blank — our team will set the meeting point.', {
-      field: 'destinationId',
-    });
+  if (!wire && !card && !dest) throw badRequest('Choose the address where the courier collects the cash.', { field: 'destinationId' });
 
   const docs = requireAcceptance(input.accepted, 'order');
 
@@ -749,9 +746,9 @@ async function createBuyOrder(
     });
   });
 
-  // Wire/card/cash-without-meeting: wait in `created` until staff issues instructions
-  // (and, for cash, assigns the courier meeting address in CRM).
-  if (wire || card || !dest) return getOrderRow(ctx, id);
+  // Wire/card: wait in `created` until an admin issues payment instructions in CRM.
+  if (wire || card) return getOrderRow(ctx, id);
+  if (!dest) return getOrderRow(ctx, id);
   // Courier collection waits until an operator sets the fee and the customer accepts it.
   if (feePending) return getOrderRow(ctx, id);
 
