@@ -323,7 +323,6 @@ function CredentialsBlock({ detail, onResult, reload }: { detail: AdminOrderDeta
   const [wireSets, setWireSets] = useState<{ id: string; name: string }[]>([]);
   const [wallets, setWallets] = useState<{ id: string; name: string; address: string; isDefault: boolean }[]>([]);
   const [selected, setSelected] = useState('');
-  const [confirmReplace, setConfirmReplace] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -355,15 +354,9 @@ function CredentialsBlock({ detail, onResult, reload }: { detail: AdminOrderDeta
     if (!selected) return;
     setBusy(true);
     try {
-      if (wire) {
-        await admin.credentials.assignWire(o.id, selected, { confirmReplace: revealed ? confirmReplace : undefined });
-      } else {
-        await admin.credentials.assignWallet(o.id, selected, {
-          confirmReplace: revealed ? confirmReplace : undefined,
-        });
-      }
+      if (wire) await admin.credentials.assignWire(o.id, selected);
+      else await admin.credentials.assignWallet(o.id, selected);
       onResult({ tone: 'success', text: t('Credentials saved on this order.') });
-      setConfirmReplace(false);
       reload();
     } catch (e) {
       onResult({ tone: 'danger', text: errorMessage(e) });
@@ -437,18 +430,7 @@ function CredentialsBlock({ detail, onResult, reload }: { detail: AdminOrderDeta
                 ))}
           </select>
         </label>
-        {revealed ? (
-          <label className="row" style={{ gap: 8 }}>
-            <input type="checkbox" checked={confirmReplace} onChange={(e) => setConfirmReplace(e.target.checked)} />
-            <span className="small">{t('I confirm replacing credentials the customer may already have')}</span>
-          </label>
-        ) : null}
-        <button
-          type="button"
-          className="btn btn--secondary"
-          disabled={!selected || busy || (revealed && !confirmReplace)}
-          onClick={() => void assign()}
-        >
+        <button type="button" className="btn btn--secondary" disabled={!selected || busy} onClick={() => void assign()}>
           {busy
             ? t('Saving…')
             : revealed
@@ -458,7 +440,7 @@ function CredentialsBlock({ detail, onResult, reload }: { detail: AdminOrderDeta
               : t('Assign credentials')}
         </button>
       </div>
-      {wire ? <CustomWireForm detail={detail} revealed={revealed} onResult={onResult} reload={reload} /> : null}
+      {wire ? <CustomWireForm detail={detail} onResult={onResult} reload={reload} /> : null}
       {snap?.assignmentHistory?.length ? (
         <details className="small" style={{ marginTop: 12 }}>
           <summary>{t('Assignment history')}</summary>
@@ -478,19 +460,16 @@ function CredentialsBlock({ detail, onResult, reload }: { detail: AdminOrderDeta
 
 function CustomWireForm({
   detail,
-  revealed,
   onResult,
   reload,
 }: {
   detail: AdminOrderDetail;
-  revealed: boolean;
   onResult(r: Result): void;
   reload(): void;
 }) {
   const { admin } = useServices();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [confirmReplace, setConfirmReplace] = useState(false);
   const [form, setForm] = useState({
     beneficiary: '',
     bankName: '',
@@ -522,7 +501,6 @@ function CustomWireForm({
             swiftBic: form.swiftBic || null,
             bankAddress: form.bankAddress || null,
             instructions: form.instructions || null,
-            confirmReplace: revealed ? confirmReplace : undefined,
           });
           onResult({ tone: 'success', text: t('Credentials saved on this order.') });
           setOpen(false);
@@ -556,14 +534,8 @@ function CustomWireForm({
           />
         </label>
       ))}
-      {revealed ? (
-        <label className="row" style={{ gap: 8 }}>
-          <input type="checkbox" checked={confirmReplace} onChange={(e) => setConfirmReplace(e.target.checked)} />
-          <span className="small">{t('I confirm replacing credentials the customer may already have')}</span>
-        </label>
-      ) : null}
       <div className="row" style={{ gap: 8 }}>
-        <button type="submit" className="btn btn--secondary" disabled={busy || (revealed && !confirmReplace)}>
+        <button type="submit" className="btn btn--secondary" disabled={busy}>
           {busy ? t('Saving…') : t('Save for this order')}
         </button>
         <button type="button" className="btn btn--ghost" onClick={() => setOpen(false)}>

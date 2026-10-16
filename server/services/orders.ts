@@ -982,7 +982,7 @@ export function orderCardPayInSnapshot(ctx: AppContext, orderId: string) {
   );
 }
 
-/** Staff: assign or replace wire credentials on an order (replace needs confirm once revealed). */
+/** Staff: assign or replace wire credentials on an order. */
 export function assignWireCredentials(
   ctx: AppContext,
   actor: Actor,
@@ -997,11 +997,7 @@ export function assignWireCredentials(
   const set = getWireSet(ctx, wireSetId);
   if (set.status !== 'active') throw conflict('That credential set is suspended.', 'invalid_status');
   const existing = orderWireSnapshot(ctx, orderId);
-  if (existing?.revealedToCustomer && !opts.confirmReplace)
-    throw conflict(
-      'The customer already has wire instructions. Confirm replacement to overwrite the snapshot.',
-      'confirm_replace_required',
-    );
+  void opts.confirmReplace;
 
   const snap = wireRowToSnapshot(set);
   return ctx.db.tx(() => {
@@ -1052,11 +1048,7 @@ export function assignCustomWireCredentials(
 
   const existing = orderWireSnapshot(ctx, orderId);
   const revealed = !!existing?.revealedToCustomer || o.status !== 'created';
-  if (existing?.revealedToCustomer && !input.confirmReplace)
-    throw conflict(
-      'The customer already has wire instructions. Confirm replacement to overwrite the snapshot.',
-      'confirm_replace_required',
-    );
+  void input.confirmReplace;
 
   const snap = {
     wireSetId: null as string | null,
@@ -1122,12 +1114,7 @@ export function assignWalletCredentials(
   const existing = orderWalletSnapshot(ctx, orderId);
   const hasDeposit = !!ctx.db.get('SELECT 1 FROM deposit_instructions WHERE order_id = ?', [o.id]);
   const revealed = !!(existing?.revealedToCustomer || hasDeposit);
-
-  if (revealed && !opts.confirmReplace)
-    throw conflict(
-      'The customer already has a deposit address. Confirm replacement to overwrite the snapshot.',
-      'confirm_replace_required',
-    );
+  void opts.confirmReplace;
 
   const snap = walletRowToSnapshot(wallet);
   return ctx.db.tx(() => {

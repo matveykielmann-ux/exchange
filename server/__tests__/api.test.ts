@@ -917,13 +917,9 @@ describe('API', () => {
     await admin.post(`/api/admin/credentials/wallets/${eth2.body.id}/default`);
     expect((await c.get(`/api/orders/${o.body.id}`)).body.deposit.address).toBe('0x3E9c431EEaaD6F41698A137907A93eF63EDD8ff3');
 
-    // Replace requires confirmation once revealed.
-    const replace = await admin.post(`/api/admin/orders/${o.body.id}/assign-wallet-credentials`, { walletId: eth2.body.id });
-    expect(replace.status).toBe(409);
+    // Staff can replace a revealed deposit address in one step.
     const replaced = await admin.post(`/api/admin/orders/${o.body.id}/assign-wallet-credentials`, {
       walletId: eth2.body.id,
-      confirmReplace: true,
-      reason: 'Customer requested alternate deposit address.',
     });
     expect(replaced.status).toBe(200);
     expect(replaced.body.deposit.address).toBe('0x52908400098527886E0F7030069857D2E4169EE7');
