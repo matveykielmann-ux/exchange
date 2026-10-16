@@ -1688,27 +1688,36 @@ function HistoryBlock({ detail }: { detail: AdminOrderDetail }) {
   const [all, setAll] = useState(false);
   const shown = all ? items : items.slice(0, 8);
   return (
-    <section className="order-block" aria-labelledby="block-history">
-      <h3 id="block-history" className="order-block__title">
+    <details className="order-more">
+      <summary>
         {t('History')}
-      </h3>
-      <ol className="history">
-        {shown.map((h, i) => (
-          <li key={`${h.at}-${i}`} className={`history__item history__item--${h.kind}`}>
-            <span className="history__time tabular small">{formatDateTime(h.at)}</span>
-            <span className="history__text">
-              {h.text}
-              {h.meta ? <span className="small muted block">{h.meta}</span> : null}
-            </span>
-          </li>
-        ))}
-      </ol>
-      {items.length > shown.length ? (
-        <button type="button" className="link-button small" onClick={() => setAll(true)}>
-          {t('Show all {0} entries', [items.length])}
-        </button>
-      ) : null}
-    </section>
+        {items.length ? ` · ${items.length}` : ''}
+      </summary>
+      <div className="stack" style={{ marginTop: 12 }}>
+        {items.length === 0 ? (
+          <p className="small muted">{t('No history yet.')}</p>
+        ) : (
+          <>
+            <ol className="history">
+              {shown.map((h, i) => (
+                <li key={`${h.at}-${i}`} className={`history__item history__item--${h.kind}`}>
+                  <span className="history__time tabular small">{formatDateTime(h.at)}</span>
+                  <span className="history__text">
+                    {h.text}
+                    {h.meta ? <span className="small muted block">{h.meta}</span> : null}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            {items.length > shown.length ? (
+              <button type="button" className="link-button small" onClick={() => setAll(true)}>
+                {t('Show all {0} entries', [items.length])}
+              </button>
+            ) : null}
+          </>
+        )}
+      </div>
+    </details>
   );
 }
 

@@ -35,6 +35,7 @@ export const RU_CRM: Record<string, string> = {
   Notification: 'Уведомление',
   read: 'прочитано',
   History: 'История',
+  'No history yet.': 'Истории пока нет.',
   'Show all {0} entries': 'Показать все записи ({0})',
   'More details: payments, reviews, conversations, audit': 'Подробнее: платежи, проверки, переписка',
   'More details: payments, reviews, conversations': 'Подробнее: платежи, проверки, переписка',
