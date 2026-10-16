@@ -311,3 +311,15 @@ describe('preflight readiness layers', () => {
     expect(lib).toMatch(/Real-money clearance/);
   });
 });
+
+describe('configure-local-production.sh', () => {
+  it('writes differing https origins and leaves sandbox DB path unused', () => {
+    const src = readFileSync(path.join(ROOT, 'deploy/configure-local-production.sh'), 'utf8');
+    expect(src).toMatch(/https:\/\/localhost/);
+    expect(src).toMatch(/https:\/\/127\.0\.0\.1/);
+    expect(src).toMatch(/must differ/);
+    expect(src).toMatch(/arcvale-production\.db/);
+    expect(src).toMatch(/Does NOT touch/);
+    expect(src).not.toMatch(/DATABASE_PATH=.*sandbox/);
+  });
+});

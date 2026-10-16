@@ -18,3 +18,4 @@ data
 backups
 secrets/*
 !secrets/README.md
+.local-certs

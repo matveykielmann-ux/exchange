@@ -115,9 +115,28 @@ See [`BACKUP_RESTORE.md`](BACKUP_RESTORE.md) and [`VPS_CHECKLIST.md`](VPS_CHECKL
 - Rollback image: `ARCVALE_IMAGE_TAG=<previous> docker compose --env-file .env.production up -d app`  
   If a migration shipped, restore the pre-upgrade DB backup as well.
 
-## 7. Local dual-host smoke (optional)
+## 7. Local dual-host (production-compatible)
 
-With the existing Vite + API ports:
+`CRM_ORIGIN` **must differ** from `PUBLIC_ORIGIN` (`server/config.ts`). Setting both to the same URL (e.g. both `http://127.0.0.1:43127`) is rejected. Production also requires `https://`.
+
+Prepared local path (does **not** open or wipe `./data/arcvale-sandbox.db`):
+
+```bash
+./deploy/configure-local-production.sh
+# → .env.local.production
+#   PUBLIC_ORIGIN=https://localhost:43127
+#   CRM_ORIGIN=https://127.0.0.1:43127
+#   DATABASE_PATH=./data/arcvale-production.db
+pnpm build   # or at least server build
+set -a && source .env.local.production && set +a
+node dist-server/cli.js check-config
+./deploy/run-local-production.sh
+ENV_FILE=.env.local.production ./deploy/create-owner.sh --email owner@local.test
+```
+
+Open the customer site on `https://localhost:43127` and the CRM on `https://127.0.0.1:43127` (accept the local self-signed cert once). Same API process and production DB; cookies do not cross.
+
+Sandbox dual-host (simulators only — not for production checks):
 
 ```bash
 PUBLIC_ORIGIN=http://localhost:43127 \
@@ -125,8 +144,6 @@ CRM_ORIGIN=http://127.0.0.1:43127 \
 APP_MODE=sandbox \
 # …other sandbox vars…
 ```
-
-Open the customer site on `localhost` and the CRM on `127.0.0.1` (different origins, same process). Cookies do not cross.
 
 ## Turnkey installer (recommended for integrators)
 

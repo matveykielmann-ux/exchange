@@ -29,6 +29,18 @@ This folder is the **handoff kit** for a professional integrator deploying Crypt
 
 CoinGecko (`RATES_SOURCE=coingecko`) supplies **reference market prices only**. It does not execute exchanges, custody, or payouts.
 
+## Local production dual-host (no VPS)
+
+If you previously launched with the same URL for both origins, config refuses: `CRM_ORIGIN must differ from PUBLIC_ORIGIN`. Production also requires `https://`.
+
+```bash
+./deploy/configure-local-production.sh   # → .env.local.production (does not touch sandbox DB)
+pnpm build && ./deploy/run-local-production.sh
+ENV_FILE=.env.local.production ./deploy/create-owner.sh --email owner@local.test
+# Customer: https://localhost:43127
+# CRM:      https://127.0.0.1:43127/admin/login
+```
+
 ## Replace placeholders before you run anything
 
 | Token in docs | Replace with |
