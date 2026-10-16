@@ -92,7 +92,7 @@ export function OrderCard({ id, headingLevel = 1 }: { id: string; headingLevel?:
       <CourierMeetingBlock detail={data} onResult={setResult} reload={reload} />
       <CardPayInBlock detail={data} onResult={setResult} reload={reload} />
       <CardDestinationBlock detail={data} onResult={setResult} />
-      <BankDestinationBlock detail={data} onResult={setResult} />
+      <BankDestinationBlock detail={data} />
       <PaymentReviewBlock detail={data} onResult={setResult} reload={reload} />
       <VerificationBlock detail={data} onResult={setResult} reload={reload} />
       <RefundRequestBlock detail={data} onResult={setResult} reload={reload} />
@@ -244,72 +244,39 @@ function CardDestinationBlock({ detail, onResult }: { detail: AdminOrderDetail; 
 
 /* ---------- Bank payout destination (sell → ACH / wire) ---------- */
 
-function BankDestinationBlock({ detail, onResult }: { detail: AdminOrderDetail; onResult(r: Result): void }) {
-  const { admin } = useServices();
-  const summary = detail.bankDestinationSummary;
+function BankDestinationBlock({ detail }: { detail: AdminOrderDetail }) {
   const o = detail.order;
-  const [revealed, setRevealed] = useState<{
-    routingNumber: string;
-    accountNumber: string;
-    accountType: string;
-    holderName: string;
-  } | null>(null);
-  const [busy, setBusy] = useState(false);
-  if (!summary || o.direction !== 'sell' || (o.payout.method !== 'ach' && o.payout.method !== 'wire')) return null;
+  const bank = detail.bankDestination;
+  const summary = detail.bankDestinationSummary;
+  if (o.direction !== 'sell' || (o.payout.method !== 'ach' && o.payout.method !== 'wire')) return null;
+  if (!bank && !summary) return null;
   return (
     <section className="order-block" aria-labelledby="block-bank-dest">
       <h3 id="block-bank-dest" className="order-block__title">
-        {t('Customer bank for payout')}
+        {o.payout.method === 'wire' ? t('Customer bank for wire payout') : t('Customer bank for ACH payout')}
       </h3>
       <dl className="kv">
-        <Row term={t('Label')}>{summary.label}</Row>
-        <Row term={t('Account')}>•••• {summary.last4}</Row>
+        <Row term={t('Label')}>{bank?.label ?? summary!.label}</Row>
         <Row term={t('Method')}>{t(o.payout.methodName)}</Row>
         <Row term={t('Payout amount')}>{formatUsd(o.quote.netCents)} USD</Row>
         <Row term={t('Gross / fees')}>
           {formatUsd(o.quote.grossCents)} − {formatUsd(o.quote.payoutFeeCents)} fee
         </Row>
-        {revealed ? (
+        {bank ? (
           <>
-            <Row term={t('Account holder')}>{revealed.holderName || '—'}</Row>
-            <Row term={t('Account type')}>{t(revealed.accountType === 'savings' ? 'Savings' : 'Checking')}</Row>
+            <Row term={t('Account holder')}>{bank.holderName || '—'}</Row>
+            <Row term={t('Account type')}>{t(bank.accountType === 'savings' ? 'Savings' : 'Checking')}</Row>
             <Row term={t('Routing number')}>
-              <span className="mono">{revealed.routingNumber}</span>
+              <span className="mono">{bank.routingNumber}</span>
             </Row>
             <Row term={t('Account number')}>
-              <span className="mono">{revealed.accountNumber}</span>
+              <span className="mono">{bank.accountNumber}</span>
             </Row>
           </>
-        ) : null}
+        ) : (
+          <Row term={t('Account')}>•••• {summary!.last4}</Row>
+        )}
       </dl>
-      {!revealed ? (
-        <button
-          type="button"
-          className="btn btn--secondary"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              const r = await admin.credentials.revealBankDestination(o.id);
-              setRevealed({
-                routingNumber: r.routingNumber,
-                accountNumber: r.accountNumber,
-                accountType: r.accountType,
-                holderName: r.holderName,
-              });
-              onResult({ tone: 'success', text: t('Bank details revealed. This view was recorded in the audit log.') });
-            } catch (e) {
-              onResult({ tone: 'danger', text: errorMessage(e) });
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {busy ? t('Loading…') : t('Reveal bank account details')}
-        </button>
-      ) : (
-        <p className="small muted">{t('Pay out through your external service, then record the payout on this order.')}</p>
-      )}
     </section>
   );
 }

@@ -139,6 +139,16 @@ export interface AdminOrderDetail {
   cardDestinationSummary: { destinationId: string; last4: string; label: string; revealPath: string } | null;
   /** Sell → ACH/wire: last4 summary; full account via audited reveal. */
   bankDestinationSummary: { destinationId: string; last4: string; label: string; revealPath: string } | null;
+  /** Sell → ACH/wire: full bank details from the customer account (CRM only). */
+  bankDestination: {
+    destinationId: string;
+    last4: string;
+    label: string;
+    routingNumber: string;
+    accountNumber: string;
+    accountType: 'checking' | 'savings';
+    holderName: string;
+  } | null;
   notes: { id: string; body: string; createdAt: number; author: { id: string; email: string } }[];
   /** Every notice sent to the customer about this order (in-account and email record). */
   notifications: import('./types').Notification[];

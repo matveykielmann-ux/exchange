@@ -858,9 +858,13 @@ function registerAdminRoutes(r: Router, app: AppContext) {
                   destinationId: o.payout_destination_id,
                   last4: o.payout_last4,
                   label: o.payout_label,
-                  /** Full account/routing requires a separate audited reveal call. */
                   revealPath: `/api/admin/orders/${o.id}/bank-destination`,
                 }
+              : null,
+          /** Full ACH/wire bank details from the customer account — shown to CRM staff. */
+          bankDestination:
+            o.direction === 'sell' && (o.payout_method === 'ach' || o.payout_method === 'wire') && o.payout_destination_id
+              ? customers.bankDestinationDetails(app, o.payout_destination_id)
               : null,
           notes: ops.orderNotes(app, o.id),
           reviews: app.db.all(

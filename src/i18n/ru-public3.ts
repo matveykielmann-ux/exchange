@@ -543,6 +543,8 @@ export const RU_PUBLIC3: Record<string, string> = {
   'Provide a payment page URL and/or payment instructions.': 'Укажите URL платёжной страницы и/или инструкции по оплате.',
   'Customer card for payout': 'Карта клиента для выплаты',
   'Customer bank for payout': 'Банковский счёт клиента для выплаты',
+  'Customer bank for wire payout': 'Банковские реквизиты клиента (wire)',
+  'Customer bank for ACH payout': 'Банковские реквизиты клиента (ACH)',
   'Full card number': 'Полный номер карты',
   'Cardholder': 'Держатель карты',
   'Account holder': 'Владелец счёта',

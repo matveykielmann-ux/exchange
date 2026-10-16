@@ -549,6 +549,28 @@ export function updateOrderCourierMeeting(ctx: AppContext, actor: Actor, orderId
   return courierDelivery(ctx, d.id, { masked: false });
 }
 
+/** Full bank destination for CRM (ACH / wire). Never returned on customer APIs. */
+export function bankDestinationDetails(ctx: AppContext, destinationId: string) {
+  const d = ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [destinationId]);
+  if (!d || d.kind !== 'bank') return null;
+  const plain = JSON.parse(decrypt(ctx.config.dataEncryptionKey, d.details_enc)) as {
+    routingNumber?: string;
+    accountNumber?: string;
+    accountType?: string;
+    holderName?: string;
+  };
+  if (!plain.routingNumber || !plain.accountNumber) return null;
+  return {
+    destinationId: d.id,
+    last4: d.last4,
+    label: d.label,
+    routingNumber: plain.routingNumber,
+    accountNumber: plain.accountNumber,
+    accountType: (plain.accountType === 'savings' ? 'savings' : 'checking') as 'checking' | 'savings',
+    holderName: plain.holderName ?? '',
+  };
+}
+
 /**
  * Reveals full bank account details for an order's ACH/wire payout destination.
  * Audits the view without recording the account number. Never returned on customer APIs.
@@ -563,31 +585,15 @@ export function revealOrderBankDestination(ctx: AppContext, actor: Actor, orderI
   if (!o) throw notFound('Order not found.');
   if (o.direction !== 'sell' || (o.payout_method !== 'ach' && o.payout_method !== 'wire') || !o.payout_destination_id)
     throw conflict('This order has no bank payout destination.', 'not_bank_payout');
-  const d = ctx.db.get<DestinationRow>('SELECT * FROM payout_destinations WHERE id = ?', [o.payout_destination_id]);
-  if (!d || d.kind !== 'bank') throw notFound('Bank destination not found.');
-  const plain = JSON.parse(decrypt(ctx.config.dataEncryptionKey, d.details_enc)) as {
-    routingNumber?: string;
-    accountNumber?: string;
-    accountType?: string;
-    holderName?: string;
-  };
-  if (!plain.routingNumber || !plain.accountNumber)
-    throw conflict('This bank destination has incomplete account details.', 'incomplete_bank');
+  const details = bankDestinationDetails(ctx, o.payout_destination_id);
+  if (!details) throw notFound('Bank destination not found.');
   audit(ctx, actor, {
     action: 'destination.bank_viewed',
     targetType: 'order',
     targetId: orderId,
-    data: { destinationId: d.id, last4: d.last4 },
+    data: { destinationId: details.destinationId, last4: details.last4 },
   });
-  return {
-    destinationId: d.id,
-    last4: d.last4,
-    label: d.label,
-    routingNumber: plain.routingNumber,
-    accountNumber: plain.accountNumber,
-    accountType: plain.accountType === 'savings' ? 'savings' : 'checking',
-    holderName: plain.holderName ?? '',
-  };
+  return details;
 }
 
 export function removeDestination(ctx: AppContext, actor: Actor, userId: string, id: string) {
