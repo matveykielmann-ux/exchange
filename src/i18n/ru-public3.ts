@@ -514,6 +514,7 @@ export const RU_PUBLIC3: Record<string, string> = {
   'Calculated individually': 'Рассчитывается индивидуально',
   'After courier fee': 'После комиссии курьера',
   '(before courier fee)': '(до комиссии курьера)',
+  'before courier fee': 'до комиссии курьера',
   'Courier fee calculated individually': 'Комиссия курьера рассчитывается индивидуально',
   'There is no fixed courier tariff. An operator sets the delivery cost for your order; you confirm the amount before the exchange continues.':
     'Фиксированного тарифа курьера нет. Оператор назначает стоимость доставки для вашей заявки; вы подтверждаете сумму до продолжения обмена.',

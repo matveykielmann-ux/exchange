@@ -11,7 +11,7 @@ import { providerInfos } from '../providers/registry';
 import { audit, verifyAuditChain } from './audit';
 import { migrationStatus } from '../db/database';
 import { maskEmail } from './format';
-import type { OrderRow } from './orders';
+import { displayAmountAtomic, type OrderRow } from './orders';
 
 const DAY = 86_400_000;
 
@@ -210,7 +210,7 @@ export function queue(ctx: AppContext, staffId: string, f: QueueFilter) {
       customer: { id: o.user_id, email: maskEmail(o.email), name: o.full_name ?? '' },
       asset: o.asset,
       network: o.network,
-      amountAtomic: o.amount_atomic,
+      amountAtomic: displayAmountAtomic(o),
       grossCents: String(o.gross_cents),
       netCents: String(o.net_cents),
       payoutMethod: o.payout_method,

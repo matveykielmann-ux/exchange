@@ -10,7 +10,7 @@ import { wireLinesFromSnapshot } from '@/domain/credentials';
 import { isPreviewWireValue, validateWireReference, WIRE_RECEIPT_WINDOW_MS, wireInstructionsPreview } from '@/domain/wire';
 import { formatUsd } from '@/domain/money';
 import { PAYOUT_METHODS, payoutEligibility, type PayoutMethodId } from '@/domain/payout';
-import { isQuoteExpired, PRICING_POLICY, type ExchangeDirection, type Quote } from '@/domain/quote';
+import { buyReceiveAmountAtomic, isQuoteExpired, PRICING_POLICY, type ExchangeDirection, type Quote } from '@/domain/quote';
 import {
   buyPayIn,
   isPreviewDepositAddress,
@@ -1325,6 +1325,17 @@ export function orderEvents(ctx: AppContext, orderId: string, includeInternal: b
     }));
 }
 
+/** Stored amount, or for older fee-pending buys with 0 atomic the indicative crypto from net × rate. */
+export function displayAmountAtomic(o: Pick<OrderRow, 'direction' | 'asset' | 'amount_atomic' | 'net_cents' | 'reference_price_micros'>): string {
+  if (o.direction !== 'buy') return o.amount_atomic;
+  return buyReceiveAmountAtomic({
+    asset: o.asset as AssetCode,
+    amountAtomic: BigInt(o.amount_atomic),
+    netCents: BigInt(o.net_cents),
+    referencePriceMicros: BigInt(o.reference_price_micros),
+  }).toString();
+}
+
 export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { internal?: boolean } = {}) {
   const deposit = ctx.db.get<{ address: string; memo: string | null; provider_ref: string | null; provider: string }>(
     'SELECT address, memo, provider_ref, provider FROM deposit_instructions WHERE order_id = ?',
@@ -1378,7 +1389,8 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
     asset: o.asset,
     network: o.network,
     networkLabel: networkLabel(o.asset, o.network),
-    amountAtomic: o.amount_atomic,
+    // Buy + fee-pending used to store 0; expose the indicative crypto amount from net cash × rate.
+    amountAtomic: displayAmountAtomic(o),
     quote: {
       id: o.quote_id,
       referencePriceMicros: o.reference_price_micros,
