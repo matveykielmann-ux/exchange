@@ -1154,46 +1154,56 @@ export function assignWalletCredentials(
           },
         });
       }
-      return getOrderRow(ctx, o.id);
+    } else {
+      upsertWalletSnapshot(ctx, o.id, snap, actor, true);
+      ctx.db.run('UPDATE deposit_instructions SET address = ?, provider = ?, provider_ref = ? WHERE order_id = ?', [
+        snap.address,
+        'crm',
+        `crm_wal_${wallet.id.replace(/^wal_/, '')}`,
+        o.id,
+      ]);
+      recordAssignment(ctx, o.id, 'wallet', 'replaced', actor, existing, snap, opts.reason?.trim() || null);
+      audit(ctx, actor, {
+        action: 'order.wallet_replaced',
+        targetType: 'order',
+        targetId: o.id,
+        reason: opts.reason?.trim() || null,
+        data: { walletId, address: snap.address, previousAddress: existing?.address ?? null },
+      });
+      insertEvent(ctx, o.id, {
+        type: 'DEPOSIT_ADDRESS_REPLACED',
+        from: o.status,
+        to: o.status,
+        actor,
+        visibility: 'customer',
+        detail: 'The deposit address for this order was updated. Use only the address shown on the order page.',
+        data: { address: snap.address, previousAddress: existing?.address ?? null, reason: opts.reason?.trim() || null },
+      });
+      const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [o.user_id])!.email;
+      notify(ctx, {
+        userId: o.user_id,
+        to: email,
+        template: 'deposit_address_updated',
+        orderId: o.id,
+        vars: {
+          reference: o.reference,
+          network: networkLabel(o.asset, o.network),
+          amount: formatAssetPlain(BigInt(o.amount_atomic), o.asset),
+        },
+      });
     }
 
-    upsertWalletSnapshot(ctx, o.id, snap, actor, true);
-    ctx.db.run('UPDATE deposit_instructions SET address = ?, provider = ?, provider_ref = ? WHERE order_id = ?', [
-      snap.address,
-      'crm',
-      `crm_wal_${wallet.id.replace(/^wal_/, '')}`,
-      o.id,
-    ]);
-    recordAssignment(ctx, o.id, 'wallet', 'replaced', actor, existing, snap, opts.reason?.trim() || null);
-    audit(ctx, actor, {
-      action: 'order.wallet_replaced',
-      targetType: 'order',
-      targetId: o.id,
-      reason: opts.reason?.trim() || null,
-      data: { walletId, address: snap.address, previousAddress: existing?.address ?? null },
-    });
-    insertEvent(ctx, o.id, {
-      type: 'DEPOSIT_ADDRESS_REPLACED',
-      from: o.status,
-      to: o.status,
-      actor,
-      visibility: 'customer',
-      detail: 'The deposit address for this order was updated. Use only the address shown on the order page.',
-      data: { address: snap.address, previousAddress: existing?.address ?? null, reason: opts.reason?.trim() || null },
-    });
-    const email = ctx.db.get<{ email: string }>('SELECT email FROM users WHERE id = ?', [o.user_id])!.email;
-    notify(ctx, {
-      userId: o.user_id,
-      to: email,
-      template: 'deposit_address_updated',
-      orderId: o.id,
-      vars: {
-        reference: o.reference,
-        network: networkLabel(o.asset, o.network),
-        amount: formatAssetPlain(BigInt(o.amount_atomic), o.asset),
-      },
-    });
-    return getOrderRow(ctx, o.id);
+    // Always bump and push live so the customer LK refreshes the deposit address without a manual reload.
+    // (applyOrderEvent already publishes when status moves from created → awaiting_deposit.)
+    ctx.db.run('UPDATE orders SET updated_at = ?, version = version + 1 WHERE id = ?', [ctx.clock.now(), o.id]);
+    const updated = getOrderRow(ctx, o.id);
+    ctx.db.afterCommit(() =>
+      ctx.bus.publish([{ userId: updated.user_id }, { staff: true }], {
+        type: 'order.updated',
+        data: { orderId: updated.id, status: updated.status, version: updated.version },
+      }),
+    );
+    return updated;
   });
 }
 
