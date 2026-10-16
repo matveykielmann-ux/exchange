@@ -127,7 +127,12 @@ export class Db {
   }
 }
 
-const checksum = (m: Migration) => createHash('sha256').update(m.sql).digest('hex');
+/** Checksum of a migration. Migrations without `run` keep the historical sha256(sql) form. */
+const checksum = (m: Migration) => {
+  const h = createHash('sha256').update(m.sql);
+  if (m.run) h.update('\0').update(m.run.toString());
+  return h.digest('hex');
+};
 
 export interface MigrationStatus {
   applied: { id: number; name: string; appliedAt: number }[];
@@ -161,6 +166,7 @@ export function migrate(db: Db, mode: AppMode, now: number): number[] {
     try {
       db.tx(() => {
         db.exec(m.sql);
+        if (m.run) m.run(db);
         if (m.disableForeignKeys) {
           const broken = db.all('PRAGMA foreign_key_check');
           if (broken.length) throw new Error(`Migration ${m.id} (${m.name}) would break ${broken.length} foreign key reference(s).`);

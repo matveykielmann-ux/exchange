@@ -25,6 +25,8 @@ Rules:
 | 1 | initial_schema | Core tables |
 | 2–6 | courier, documents, holds, refund address once, wire buys | See `server/db/migrations.ts` |
 | 8 | manual_payout_evidence | `completion_kind`, evidence fields on `payout_instructions` |
-| 9 | credentials_wallets | CRM wire credential sets and crypto deposit wallets |
-| 10 | courier_fee_lifecycle | Per-order courier fee columns and acceptance |
-| 11 | payment_flow_assets | `payment_confirmations`, `order_messages`, `refund_requests`; XRP/SOL/BNB quote and wallet support |
+| 9 | courier_fee_per_order | Per-order courier fee columns and acceptance |
+| 10 | crm_credentials | CRM wire credential sets and crypto deposit wallets |
+| 11 | assets_payment_proofs_refunds | `payment_confirmations`, `order_messages`, `refund_requests`; XRP/SOL/BNB |
+| 12 | card_payin_snapshots_and_payment_kind | Card pay-in snapshots; `card_reference` confirmations |
+| 13 | digit_order_references_and_payout_tx_hash | Idempotent rewrite of non-digit public order numbers; `payout_tx_hash` on payouts |

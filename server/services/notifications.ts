@@ -60,7 +60,9 @@ const TEMPLATES: Record<Template, (v: Vars) => { subject: string; body: string }
   }),
   buy_completed: (v) => ({
     subject: `Order ${v.reference}: completed`,
-    body: `The custody provider reports your transfer of ${v.amount} for order ${v.reference} as completed.`,
+    body: v.txHash
+      ? `Your transfer of ${v.amount} for order ${v.reference} was completed. Outgoing TXID: ${v.txHash}.`
+      : `Your transfer of ${v.amount} for order ${v.reference} was completed.`,
   }),
   buy_cash_verified: (v) => ({
     subject: `Order ${v.reference}: cash counted`,

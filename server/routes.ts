@@ -967,6 +967,8 @@ function registerAdminRoutes(r: Router, app: AppContext) {
         evidenceRef: v.string({ min: 4, max: 200, label: 'an evidence reference' }),
         evidenceNote: v.optional(v.string({ max: 2000, label: 'evidence notes' })),
         amountCents: v.optional(v.nullable(v.int({ min: 1, max: 100_000_000_00 }))),
+        /** Buy→crypto outgoing TXID; optional here — service requires/validates it for buys. */
+        payoutTxHash: v.optional(v.nullable(v.string({ min: 8, max: 128, label: 'an outgoing transaction hash' }))),
       }),
       ctx.body,
     );

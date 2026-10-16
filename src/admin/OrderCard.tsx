@@ -878,6 +878,7 @@ function ActionDialog({
   );
   const [evidenceRef, setEvidenceRef] = useState('');
   const [evidenceNote, setEvidenceNote] = useState('');
+  const [payoutTxHash, setPayoutTxHash] = useState('');
   const [depositTxHash, setDepositTxHash] = useState(o.deposit.customerTxHash ?? o.deposit.txHash ?? '');
   const [depositAmount, setDepositAmount] = useState(
     String(o.deposit.amountAtomic ?? (o.direction === 'buy' ? o.quote.grossCents : o.amountAtomic)),
@@ -901,18 +902,24 @@ function ActionDialog({
       .catch((e: unknown) => setErr(errorMessage(e)));
   }, [action, admin]);
 
+  const skipReason =
+    action === 'assign' || action === 'issue_wire_instructions' || action === 'issue_card_payin_instructions';
   const minLength = action === 'request_info' ? 10 : action === 'notify' || action === 'note' ? 2 : 4;
   const reasonText = action === 'reject' ? (rejectReason === 'Other' ? text : [t(rejectReason), text].filter(Boolean).join('. ')) : text;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
-    if (action !== 'assign' && reasonText.trim().length < minLength) {
+    if (!skipReason && reasonText.trim().length < minLength) {
       setErr(t('Write at least {0} characters.', [minLength]));
       return;
     }
     if ((action === 'record_manual_payout' || action === 'record_manual_refund') && evidenceRef.trim().length < 4) {
       setErr(t('Provide an evidence reference (at least 4 characters).'));
+      return;
+    }
+    if (action === 'record_manual_payout' && o.direction === 'buy' && payoutTxHash.trim().length < 8) {
+      setErr(t('Enter the outgoing crypto TXID after you sent the transfer.'));
       return;
     }
     if (action === 'confirm_deposit_manual') {
@@ -955,8 +962,10 @@ function ActionDialog({
           reason: reasonText.trim(),
           evidenceRef: evidenceRef.trim(),
           evidenceNote: evidenceNote.trim() || undefined,
+          ...(action === 'record_manual_payout' && o.direction === 'buy' ? { payoutTxHash: payoutTxHash.trim() } : {}),
           expectedStatus,
         });
+      else if (action === 'issue_wire_instructions') await admin.act(o.id, action, { expectedStatus });
       else if (action === 'confirm_deposit_manual')
         await admin.act(o.id, action, {
           txHash: depositTxHash.trim(),
@@ -1136,6 +1145,12 @@ function ActionDialog({
                 />
               </div>
             </>
+          ) : action === 'issue_wire_instructions' ? (
+            <p className="notice notice--info small">
+              {t(
+                'Issues the default active bank credential set on this order, notifies the customer, and opens the deposit window. To choose a different set, use Operation credentials below.',
+              )}
+            </p>
           ) : action === 'confirm_deposit_manual' ? (
             <>
               <p className="notice notice--warn small">
@@ -1194,6 +1209,23 @@ function ActionDialog({
                     )}
               </p>
               <TextField id="manual-reason" label={t('Reason (recorded in the audit log)')} value={text} onChange={setText} rows={2} />
+              {action === 'record_manual_payout' && o.direction === 'buy' ? (
+                <div className="field">
+                  <label className="field__label" htmlFor="payout-tx-hash">
+                    {t('Outgoing crypto TXID')}
+                  </label>
+                  <input
+                    id="payout-tx-hash"
+                    className="input mono"
+                    value={payoutTxHash}
+                    onChange={(e) => setPayoutTxHash(e.target.value)}
+                    placeholder={t('Actual TXID of the transfer you sent')}
+                    required
+                    minLength={8}
+                    maxLength={128}
+                  />
+                </div>
+              ) : null}
               <div className="field">
                 <label className="field__label" htmlFor="evidence-ref">
                   {t('Evidence reference')}
@@ -1203,7 +1235,11 @@ function ActionDialog({
                   className="input"
                   value={evidenceRef}
                   onChange={(e) => setEvidenceRef(e.target.value)}
-                  placeholder={t('Bank ref, TXID, receipt id, or desk log id')}
+                  placeholder={
+                    action === 'record_manual_payout' && o.direction === 'buy'
+                      ? t('Desk log id (or same as TXID)')
+                      : t('Bank ref, TXID, receipt id, or desk log id')
+                  }
                   required
                   minLength={4}
                   maxLength={200}
@@ -1348,6 +1384,11 @@ function ClientBlock({ detail }: { detail: AdminOrderDetail }) {
                 : o.payout.providerRef
                   ? t('Payout in progress')
                   : t(o.status.replace(/_/g, ' '))}
+            {o.payout.payoutTxHash ? (
+              <span className="small muted block">
+                {t('Outgoing TXID')}: <TxHashLink txHash={o.payout.payoutTxHash} network={o.network} className="mono small" />
+              </span>
+            ) : null}
             {o.payout.evidenceRef ? (
               <span className="small muted block mono">
                 {t('Evidence')}: {o.payout.evidenceRef}

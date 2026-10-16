@@ -1,12 +1,20 @@
-// Development: rebuilds the API server on change and restarts it, and runs the Vite dev server (which proxies /api).
-// Sandbox mode only; the server refuses production settings without the required secrets anyway.
+// Sandbox-only development watcher (simulated money-moving providers + sandbox DB).
+// Owner-operated / production dual-host: ./deploy/run-local-production.sh or `pnpm start:local-prod`.
+// This script refuses to open a production-named database so demos cannot mutate ops data by accident.
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 
+const databasePath = process.env.DATABASE_PATH ?? './data/arcvale-sandbox.db';
+if (/production/i.test(databasePath)) {
+  console.error('pnpm dev is sandbox-only and refuses DATABASE_PATH containing "production".');
+  console.error('Use ./deploy/run-local-production.sh (or pnpm start:local-prod) for APP_MODE=production.');
+  process.exit(2);
+}
+
 const env = {
   ...process.env,
-  APP_MODE: process.env.APP_MODE ?? 'sandbox',
-  DATABASE_PATH: process.env.DATABASE_PATH ?? './data/arcvale-sandbox.db',
+  APP_MODE: 'sandbox',
+  DATABASE_PATH: databasePath,
   SERVE_STATIC: 'false',
   // Live market prices via CoinGecko (no fabricated fallback). Override with RATES_SOURCE=default for offline.
   RATES_SOURCE: process.env.RATES_SOURCE ?? 'coingecko',

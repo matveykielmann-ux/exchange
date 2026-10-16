@@ -66,6 +66,20 @@ export const RU_CRM: Record<string, string> = {
     'Инструкция на выплату отправляется настроенному автоматическому провайдеру. Заявка завершается только когда провайдер подтвердит выплату. Если платите со своих счетов, используйте «Записать ручную выплату».',
   'Records that the payout was completed through an explicit operational procedure (not a provider webhook). Requires a reason and an evidence reference (bank ref, TXID, or desk log). This is marked as operator-recorded, not provider-verified.':
     'Фиксирует, что выплата завершена по явной операционной процедуре (не webhook провайдера). Нужны причина и ссылка на доказательство (банковский референс, TXID или журнал). Это запись оператора, а не подтверждение провайдера.',
+  'Records that the payout was completed through an explicit operational procedure (not a provider webhook). For buy→crypto, enter the actual outgoing TXID. For sell→USD, enter the bank/desk evidence. Marked as operator-recorded, not provider-verified.':
+    'Фиксирует, что выплата завершена по явной операционной процедуре (не webhook провайдера). Для покупки криптовалюты укажите фактический исходящий TXID. Для продажи — банковское или кассовое доказательство. Запись оператора, не подтверждение провайдера.',
+  'Issue wire credentials': 'Выдать банковские реквизиты',
+  'Issues the default active bank credential set on this order, notifies the customer, and opens the deposit window. To choose a different set, use Operation credentials below.':
+    'Выдаёт активный набор банковских реквизитов по умолчанию, уведомляет клиента и открывает окно оплаты. Чтобы выбрать другой набор, используйте блок «Операционные реквизиты» ниже.',
+  'Assigns bank credentials to this order, shows them to the customer, and opens the deposit window. Editing the credential set later never rewrites this order’s snapshot.':
+    'Назначает банковские реквизиты этой заявке, показывает их клиенту и открывает окно оплаты. Позднее изменение набора реквизитов не переписывает снимок этой заявки.',
+  'Wire credentials issued to the customer.': 'Банковские реквизиты выданы клиенту.',
+  'Default bank credential set issued for this order.': 'Для заявки выдан набор банковских реквизитов по умолчанию.',
+  'Outgoing crypto TXID': 'Исходящий TXID криптовалюты',
+  'Actual TXID of the transfer you sent': 'Фактический TXID отправленного перевода',
+  'Desk log id (or same as TXID)': 'ID журнала (или тот же TXID)',
+  'Enter the outgoing crypto TXID after you sent the transfer.': 'Укажите исходящий TXID после отправки перевода.',
+  'Outgoing TXID': 'Исходящий TXID',
   'The refund instruction is sent to the automatic provider again with the same idempotency key.':
     'Инструкция на возврат снова отправляется автоматическому провайдеру с тем же ключом идемпотентности.',
   'Records that you actually returned the funds. Requires a reason and evidence. Marked as operator-recorded, not a provider webhook. Do not mark completed until the return is done.':

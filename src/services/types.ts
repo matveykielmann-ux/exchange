@@ -201,6 +201,8 @@ export interface OrderView {
     completionKind: 'provider' | 'manual' | null;
     /** Present when completionKind is manual: the recorded evidence reference. */
     evidenceRef: string | null;
+    /** Buy→crypto: outgoing blockchain TXID when the payout was recorded. */
+    payoutTxHash?: string | null;
     /** Courier orders, customer view only. */
     delivery?: CourierDeliveryView | null;
     /** Staff-only fields for manual records. */

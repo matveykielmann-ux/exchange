@@ -472,6 +472,11 @@ export function recordManualPayout(
     evidenceNote?: string | null;
     /** Optional actual amount paid in cents (sell) or left at quoted net when omitted. */
     amountCents?: number | string | null;
+    /**
+     * Buy→crypto: actual outgoing blockchain TXID. Stored separately from
+     * provider_ref / evidence_ref. Required for buy orders.
+     */
+    payoutTxHash?: string | null;
   },
 ) {
   const reason = requireReason(input.reason);
@@ -487,6 +492,16 @@ export function recordManualPayout(
   if (order.on_hold === 1) throw conflict('Release the hold before recording a payout.', 'invalid_transition');
   if (order.payout_provider_ref)
     throw conflict('A provider payout is already in progress for this order.', 'invalid_transition');
+
+  let payoutTxHash: string | null = (input.payoutTxHash ?? '').trim() || null;
+  if (order.direction === 'buy') {
+    // Accept legacy clients that put the outgoing TXID only in evidenceRef.
+    if (!payoutTxHash) payoutTxHash = evidenceRef;
+    const err = validateTxHash(payoutTxHash, order.network);
+    if (err) throw badRequest(err, { field: 'payoutTxHash' });
+  } else if (payoutTxHash) {
+    throw badRequest('Outgoing crypto TXID applies to buy orders only.', { field: 'payoutTxHash' });
+  }
 
   let amountCents = order.net_cents;
   if (input.amountCents !== undefined && input.amountCents !== null && input.amountCents !== '') {
@@ -506,8 +521,8 @@ export function recordManualPayout(
       `INSERT INTO payout_instructions (
          id, order_id, attempt, idempotency_key, provider, method, amount_cents, status,
          provider_ref, authorized_by, authorization_reason, completion_kind, evidence_ref, evidence_note,
-         recorded_by, completed_at, created_at, updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?, ?, 'manual', ?, ?, ?, ?, ?, ?)`,
+         payout_tx_hash, recorded_by, completed_at, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?, ?, 'manual', ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         orderId,
@@ -521,6 +536,7 @@ export function recordManualPayout(
         reason,
         evidenceRef.slice(0, 200),
         evidenceNote,
+        payoutTxHash,
         actor.id,
         now,
         now,
@@ -541,7 +557,11 @@ export function recordManualPayout(
             userId: o.user_id,
             to: emailOf(ctx, o.user_id),
             template: 'buy_completed',
-            vars: { reference: o.reference, amount: formatAssetPlain(BigInt(o.amount_atomic), o.asset) },
+            vars: {
+              reference: o.reference,
+              amount: formatAssetPlain(BigInt(o.amount_atomic), o.asset),
+              ...(payoutTxHash ? { txHash: payoutTxHash } : {}),
+            },
           }
         : {
             userId: o.user_id,
@@ -821,6 +841,18 @@ export function availableActions(ctx: AppContext, o: OrderRow, role: string) {
             ? 'A provider payout is already in progress.'
             : 'Only when the order is ready for payout and no provider payout is in progress.',
         ),
+      ),
+    },
+    {
+      action: 'issue_wire_instructions',
+      label: 'Issue wire credentials',
+      unavailable: why(
+        o.direction === 'buy' && o.payout_method === 'wire' && s === 'created',
+        ['support', 'reviewer', 'admin', 'owner'].includes(role),
+        'support',
+        o.direction === 'buy' && o.payout_method === 'wire'
+          ? 'Wire credentials were already issued.'
+          : 'Only for wire buy orders waiting for bank credentials.',
       ),
     },
     {

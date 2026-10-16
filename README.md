@@ -2,28 +2,46 @@
 
 Sell BTC, ETH, USDT, USDC, XRP, SOL or BNB and receive US dollars by bank transfer, wire, debit card or cash by courier — or buy crypto with cash collection or bank wire. The repo has a React web app, a Node API server with SQLite, an admin CRM for a single Admin role, real-time support chat, and versioned legal documents.
 
-> **Money movement is provider-gated.** Missing providers report `NOT_CONFIGURED` and refuse money-moving steps — they never invent deposit addresses, confirmations, or payout references. Market reference prices come from CoinGecko. The operating entity holds no licenses. See [`docs/compliance-readiness.md`](docs/compliance-readiness.md).
+> **Owner-operated mode.** Standard local and VPS runs use `APP_MODE=production` with a dedicated production database and separate customer / CRM origins. Missing money-moving providers report `NOT_CONFIGURED` and never invent deposits or payouts — staff complete those steps manually in the CRM. Market reference prices come from CoinGecko. The operating entity holds no licenses. See [`docs/compliance-readiness.md`](docs/compliance-readiness.md).
 
-## Run it locally
+## Standard local run (production mode)
+
+Dual HTTPS hosts: customer site on `localhost`, CRM on `127.0.0.1` (cookies do not cross). Uses `./data/arcvale-production.db` and never opens the sandbox database.
 
 ```bash
 pnpm install
-pnpm server:seed     # staff and sample orders (local database only)
-pnpm dev             # web + API (market prices from CoinGecko by default)
+./deploy/configure-local-production.sh   # once → .env.local.production
+pnpm build
+./deploy/run-local-production.sh
+ENV_FILE=.env.local.production ./deploy/create-owner.sh --email owner@local.test
 ```
 
-This cloud session serves the app at [CryptoBit Exchange](http://127.0.0.1:43127) (API on `:8742`).
+- Customer: [https://localhost:43127](https://localhost:43127)
+- CRM: [https://127.0.0.1:43127/admin/login](https://127.0.0.1:43127/admin/login) (staff MFA required)
+- API: `:8742` (proxied through Vite)
 
-Market reference prices for BTC, ETH, USDT, USDC, XRP, SOL and BNB come from CoinGecko (`RATES_SOURCE=coingecko`). There is no fallback to fabricated prices if the feed is down. Offline/tests: `RATES_SOURCE=default`. Live prices do not enable custody or payouts.
+Or: `pnpm start:local-prod` (same as `./deploy/run-local-production.sh`).
 
-**CRM** (`/admin`): a single Admin role manages orders, wire credential sets, crypto wallets, identity verification, support and service status. Wire buy orders wait for the admin to assign bank details before the customer sees them. Customers confirm payment with a receipt/TXID for staff review (never auto-confirmed). Refunds are requested via support and require completed KYC before approval.
+**CRM** (`/admin`): Admin manages orders, wire credential sets, crypto wallets, identity verification, support and service status. Wire buy orders wait for the admin to assign bank details before the customer sees them. Customers upload a receipt/TXID for staff review (never auto-confirmed). Refunds are requested via support and require completed KYC before approval.
 
-**CRM credentials** (`/admin/credentials`): manage bank wire sets and crypto deposit wallets. New orders snapshot the active set/wallet; editing credentials later never rewrites existing orders. Private keys are never stored. XRP wallets may include a destination tag.
+**CRM credentials** (`/admin/credentials`): manage bank wire sets and crypto deposit wallets. New orders snapshot the active set/wallet; editing credentials later never rewrites existing orders. Private keys are never stored.
+
+## Sandbox / simulation (explicit only)
+
+For demos and automated tests only. Uses `./data/arcvale-sandbox.db` and simulated money-moving providers. **Do not use for owner-operated operations.**
+
+```bash
+pnpm server:seed     # sandbox DB only; refused in production mode
+pnpm dev             # forces APP_MODE=sandbox + sandbox DB
+```
+
+Sandbox seed, scenarios, and signed simulated webhooks cannot open the production database or send real payments.
 
 ## Fees (current product rules)
 
-- Exchange fee: **3%** on ACH, wire and debit.
-- Wire: published **$30 bank processing fee** + **3%** exchange fee (shown as separate lines).
+- Sell crypto → USD: exchange fee **3%**.
+- Buy crypto ← USD: exchange fee **2%**.
+- Wire: published **$30 bank processing fee** (separate from CryptoBit Exchange’s fee) + the exchange fee above.
 - Courier: delivery cost is **calculated individually** per order; the customer must accept it before the exchange continues.
 - No published order minimums; no maximum.
 
@@ -31,7 +49,7 @@ Market reference prices for BTC, ETH, USDT, USDC, XRP, SOL and BNB come from Coi
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test && pnpm build
-pnpm server:scenarios
+pnpm server:scenarios   # in-memory sandbox scenarios only
 ```
 
 ## Operations

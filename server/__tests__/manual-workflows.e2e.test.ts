@@ -405,12 +405,17 @@ describe('manual workflows E2E (isolated production DB)', () => {
 
     const paid = await admin.post(`/api/admin/orders/${id}/record-manual-payout`, {
       reason: 'USDC transferred from operating wallet',
-      evidenceRef: ETH_TX_2,
+      evidenceRef: 'DESK-BUY-OUT-1',
+      payoutTxHash: ETH_TX_2,
     });
     expect(paid.status).toBe(200);
     expect(paid.body.status).toBe('completed');
     expect(paid.body.payout.completionKind).toBe('manual');
-    expect((await c.get(`/api/orders/${id}`)).body.status).toBe('completed');
+    expect(paid.body.payout.payoutTxHash).toBe(ETH_TX_2);
+    expect(paid.body.reference).toMatch(/^\d{10}$/);
+    const customerDone = await c.get(`/api/orders/${id}`);
+    expect(customerDone.body.status).toBe('completed');
+    expect(customerDone.body.payout.payoutTxHash).toBe(ETH_TX_2);
   });
 
   it('C — cash/courier sell: courier_fee_pending → set fee → accept → deposit → manual payout', async () => {

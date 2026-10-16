@@ -97,6 +97,7 @@ export type OrderActionKey =
   | 'hold'
   | 'release_hold'
   | 'set_courier_fee'
+  | 'issue_wire_instructions'
   | 'issue_card_payin_instructions';
 
 export interface ActionAvailability {

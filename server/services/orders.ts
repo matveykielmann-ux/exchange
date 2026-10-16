@@ -1408,10 +1408,11 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
         evidence_ref: string | null;
         evidence_note: string | null;
         provider_ref: string | null;
+        payout_tx_hash: string | null;
         recorded_by: string | null;
         completed_at: number | null;
       }>(
-        `SELECT completion_kind, evidence_ref, evidence_note, provider_ref, recorded_by, completed_at
+        `SELECT completion_kind, evidence_ref, evidence_note, provider_ref, payout_tx_hash, recorded_by, completed_at
          FROM payout_instructions WHERE order_id = ? AND status = 'completed' ORDER BY attempt DESC LIMIT 1`,
         [o.id],
       );
@@ -1426,6 +1427,8 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
         completionKind: pi?.completion_kind ?? null,
         /** Customer-visible reference for a recorded payout; never invents one. */
         evidenceRef: pi?.completion_kind === 'manual' ? pi.evidence_ref : null,
+        /** Buy→crypto: actual outgoing TXID when recorded (manual or provider). */
+        payoutTxHash: pi?.payout_tx_hash ?? null,
         // The customer sees the delivery details they gave; staff views add role-masked details separately.
         delivery:
           !internal && o.payout_method === 'courier_cash' && o.payout_destination_id ? courierDelivery(ctx, o.payout_destination_id) : null,

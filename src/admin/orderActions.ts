@@ -55,6 +55,7 @@ function preferred(o: OrderLike): [CardAction[], CardAction[]] {
     case 'refund_pending':
       return [['record_manual_refund', 'resubmit_refund'], ['resubmit_refund', 'notify']];
     case 'created':
+      if (o.payIn === 'wire') return [['issue_wire_instructions'], ['notify', 'reject']];
       if (o.payIn === 'card') return [['issue_card_payin_instructions'], ['notify', 'reject']];
       return needsCourierFee ? [['set_courier_fee'], ['notify', 'reject']] : [['notify'], ['reject']];
     case 'awaiting_deposit':
@@ -88,6 +89,7 @@ export const WAITING: Partial<Record<OrderStatus, string>> = {
 /** Actions that stay in the "More" menu even when allowed, in this order. */
 const MENU_ORDER: CardAction[] = [
   'set_courier_fee',
+  'issue_wire_instructions',
   'issue_card_payin_instructions',
   'confirm_deposit_manual',
   'request_info',
@@ -132,6 +134,11 @@ export function actionPlan(o: OrderLike, available: readonly ActionAvailability[
 export function queueNextStep(o: OrderLike): { label: string; urgent: boolean } {
   if (o.onHold) return { label: 'Release hold', urgent: true };
   switch (o.status) {
+    case 'created':
+      if (o.payIn === 'wire') return { label: 'Issue wire credentials', urgent: true };
+      if (o.payIn === 'card') return { label: 'Issue card payment instructions', urgent: true };
+      if (o.courierFeePending) return { label: 'Set courier fee', urgent: true };
+      return { label: 'Assign credentials', urgent: true };
     case 'compliance_review':
       return { label: 'Review order', urgent: true };
     case 'ready_for_payout':
@@ -169,6 +176,7 @@ export const ACTION_LABEL: Record<CardAction, string> = {
   assign: 'Assign',
   note: 'Add internal note',
   set_courier_fee: 'Set courier fee',
+  issue_wire_instructions: 'Issue wire credentials',
   issue_card_payin_instructions: 'Issue card payment instructions',
 };
 
@@ -179,10 +187,12 @@ export const ACTION_EXPLAIN: Partial<Record<CardAction, string>> = {
     'Records that you verified the deposit yourself (explorer, bank statement, or cash desk). A customer TXID or receipt alone is not enough. Marked as operator-recorded (manual), not a provider webhook.',
   authorize_payout:
     'The payout instruction is sent to the configured automatic payout provider. The order is completed only when that provider reports the payout as done. Prefer Record manual payout when you pay from your own accounts.',
-  record_manual_payout:
-    'Records that the payout was completed through an explicit operational procedure (not a provider webhook). Requires a reason and an evidence reference (bank ref, TXID, or desk log). This is marked as operator-recorded, not provider-verified.',
+  issue_wire_instructions:
+    'Assigns bank credentials to this order, shows them to the customer, and opens the deposit window. Editing the credential set later never rewrites this order’s snapshot.',
   issue_card_payin_instructions:
     'Saves a real external payment-page URL and/or instructions from your processor on this order. Does not create a fake payment page. The customer pays off-site; you confirm receipt separately.',
+  record_manual_payout:
+    'Records that the payout was completed through an explicit operational procedure (not a provider webhook). For buy→crypto, enter the actual outgoing TXID. For sell→USD, enter the bank/desk evidence. Marked as operator-recorded, not provider-verified.',
   reject: 'The order is rejected. If the customer’s funds were already received, a refund is started under Section 9 of the Service Rules.',
   hold: 'Nothing moves this order toward a payout until the hold is released. Provider reports are still recorded.',
   release_hold: 'Processing continues from the current status.',
@@ -207,6 +217,7 @@ export const DEFAULT_REASON: Partial<Record<CardAction, string>> = {
   retry_payout: 'Retrying after the provider failure.',
   resubmit_refund: 'Resubmitting the refund.',
   set_courier_fee: 'Courier fee quoted for this order.',
+  issue_wire_instructions: 'Default bank credential set issued for this order.',
   issue_card_payin_instructions: 'External processor payment page issued for this order.',
 };
 
@@ -292,6 +303,7 @@ export const SUCCESS: Partial<Record<CardAction, string>> = {
   assign: 'Assignment saved.',
   note: 'Note added.',
   set_courier_fee: 'Courier fee set. The customer must accept the updated quote.',
+  issue_wire_instructions: 'Wire credentials issued to the customer.',
   issue_card_payin_instructions: 'Card payment instructions issued to the customer.',
 };
 

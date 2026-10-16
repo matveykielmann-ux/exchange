@@ -17,6 +17,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"server/**/*.ts\" \"scripts/**/*.mjs\" \".claude/skills/**/*.mjs\"",
     "dev:web": "vite",
     "start": "node --disable-warning=ExperimentalWarning dist-server/main.js",
+    "start:local-prod": "./deploy/run-local-production.sh",
     "server:build": "vite build -c vite.server.config.ts",
     "server:cli": "node --disable-warning=ExperimentalWarning dist-server/cli.js",
     "server:seed": "pnpm server:build && pnpm server:cli seed",

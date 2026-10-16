@@ -7,6 +7,14 @@
  * crypto atomic amounts and USD-micro prices are TEXT digit strings because
  * 18-decimal amounts overflow 64-bit integers. Code converts both to bigint.
  */
+/** Minimal DB surface for optional imperative migration steps (same transaction as `sql`). */
+export type MigrationDb = {
+  exec(sql: string): void;
+  run(sql: string, params?: unknown[] | Record<string, unknown>): { changes: number };
+  all<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, params?: unknown[] | Record<string, unknown>): T[];
+  get<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, params?: unknown[] | Record<string, unknown>): T | undefined;
+};
+
 export interface Migration {
   id: number;
   name: string;
@@ -17,6 +25,11 @@ export interface Migration {
    * then runs inside the same transaction and aborts it on any violation.
    */
   disableForeignKeys?: boolean;
+  /**
+   * Optional JS step after `sql`, still inside the migration transaction.
+   * Included in the migration checksum so edits are detected.
+   */
+  run?: (db: MigrationDb) => void;
 }
 
 const digits = (col: string, nullable = false) =>
@@ -1094,5 +1107,87 @@ DROP TABLE payment_confirmations;
 ALTER TABLE payment_confirmations_v12 RENAME TO payment_confirmations;
 CREATE INDEX payment_confirmations_order ON payment_confirmations(order_id, created_at);
 `,
+  },
+  {
+    id: 13,
+    name: 'digit_order_references_and_payout_tx_hash',
+    sql: `
+-- Outgoing crypto TXID for buy→crypto manual (and provider) payouts, separate from provider_ref.
+ALTER TABLE payout_instructions ADD COLUMN payout_tx_hash TEXT
+  CHECK (payout_tx_hash IS NULL OR length(payout_tx_hash) BETWEEN 8 AND 128);
+
+-- Public order numbers must be digits only. Temporarily allow rewriting the immutable snapshot field.
+DROP TRIGGER IF EXISTS orders_snapshot_immutable;
+`,
+    run: (db) => {
+      const rows = db.all<{ id: string; reference: string }>(
+        `SELECT id, reference FROM orders
+         WHERE length(reference) != 10 OR reference GLOB '*[^0-9]*'`,
+      );
+      if (!rows.length) {
+        // Restore immutability even when there is nothing to remap.
+        db.exec(`
+CREATE TRIGGER orders_snapshot_immutable BEFORE UPDATE OF
+  quote_id, user_id, source, asset, network, amount_atomic, reference_price_micros, gross_cents, spread_bps, spread_cents,
+  payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label, payout_last4,
+  deposit_deadline, confirmations_required, reference, created_at, direction
+ON orders
+WHEN NOT (OLD.courier_fee_pending = 1 AND NEW.courier_fee_pending = 0)
+BEGIN SELECT RAISE(ABORT, 'order snapshot fields are immutable'); END;
+`);
+        return;
+      }
+
+      const used = new Set(
+        db.all<{ reference: string }>(`SELECT reference FROM orders WHERE length(reference) = 10 AND reference NOT GLOB '*[^0-9]*'`).map((r) => r.reference),
+      );
+
+      const digits10FromId = (id: string, attempt: number): string => {
+        // Deterministic, stable across re-runs for the same order id + attempt.
+        let h = 2166136261 + attempt * 9973;
+        for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+        const n = 1_000_000_000 + (Math.abs(h) % 9_000_000_000);
+        return String(n).padStart(10, '0').slice(0, 10);
+      };
+
+      for (const row of rows) {
+        let next = '';
+        for (let attempt = 0; attempt < 64; attempt++) {
+          const candidate = digits10FromId(row.id, attempt);
+          if (!used.has(candidate)) {
+            next = candidate;
+            break;
+          }
+        }
+        if (!next) throw new Error(`Could not allocate a digit order reference for ${row.id}`);
+        used.add(next);
+        db.run('UPDATE orders SET reference = ? WHERE id = ?', [next, row.id]);
+        // Notification bodies/vars embed the public reference for the customer (mutable).
+        // Append-only tables (order_events, support_messages, audit_events) are left unchanged.
+        db.run('UPDATE notifications SET body = REPLACE(body, ?, ?), vars = REPLACE(COALESCE(vars, \'\'), ?, ?) WHERE body LIKE ? OR vars LIKE ?', [
+          row.reference,
+          next,
+          row.reference,
+          next,
+          `%${row.reference}%`,
+          `%${row.reference}%`,
+        ]);
+        db.run('UPDATE support_conversations SET subject = REPLACE(subject, ?, ?) WHERE subject LIKE ?', [
+          row.reference,
+          next,
+          `%${row.reference}%`,
+        ]);
+      }
+
+      db.exec(`
+CREATE TRIGGER orders_snapshot_immutable BEFORE UPDATE OF
+  quote_id, user_id, source, asset, network, amount_atomic, reference_price_micros, gross_cents, spread_bps, spread_cents,
+  payout_fee_cents, net_cents, payout_method, payout_destination_id, payout_label, payout_last4,
+  deposit_deadline, confirmations_required, reference, created_at, direction
+ON orders
+WHEN NOT (OLD.courier_fee_pending = 1 AND NEW.courier_fee_pending = 0)
+BEGIN SELECT RAISE(ABORT, 'order snapshot fields are immutable'); END;
+`);
+    },
   },
 ];
