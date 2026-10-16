@@ -35,7 +35,6 @@ import { useUser } from '@/state/auth';
 import { useConfig } from '@/state/config';
 import { useDestinations } from '@/state/useDestinations';
 import { useServices } from '@/state/services';
-import { KycNotice } from '@/components/KycNotice';
 import { t } from '@/i18n';
 
 export interface BuyDraft {
@@ -523,13 +522,11 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
   const wire = draft.payIn === 'wire';
   const card = draft.payIn === 'card';
   const remotePay = wire || card;
-  const verified = user.verification.status === 'verified';
   const canConfirm =
     !!locked &&
     !expired &&
     !firm.loading &&
     locked.issues.every((i) => i.code === 'courier_fee_pending') &&
-    verified &&
     ackCash &&
     ackDocs &&
     (remotePay || !!destination) &&
@@ -563,7 +560,6 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
     <div className="flow__grid">
       <div className="flow__main">
         <h2 className="flow__step-title">{t('Review and confirm')}</h2>
-        <KycNotice />
         <section className="panel" aria-labelledby="buy-locked-title">
           <div className="panel__head">
             <h3 id="buy-locked-title">{t('Your quote')}</h3>
@@ -678,10 +674,9 @@ function ReviewStep({ draft, onBack, onDone }: { draft: BuyDraft; onBack: () => 
             {submitting ? t('Confirming…') : t('Confirm exchange')}
           </HoldButton>
         </div>
-        {!canConfirm && locked && !expired ? (
+        {!canConfirm && locked && !expired && (!ackCash || !ackDocs) ? (
           <p className="small muted" style={{ textAlign: 'right' }}>
-            {!verified ? t('Verify your identity, then ') : ''}
-            {!ackCash || !ackDocs ? t('tick both boxes to confirm.') : ''}
+            {t('tick both boxes to confirm.')}
           </p>
         ) : null}
       </div>

@@ -158,8 +158,16 @@ export const RU_PUBLIC3: Record<string, string> = {
   'Card payment': 'Оплата картой',
   'United States. For availability outside the US, contact support on Telegram.':
     'США. По доступности вне США обратитесь в поддержку в Telegram.',
-  "You'll need one to place an order. Identity verification may be required before payout or refund.":
-    'Аккаунт нужен, чтобы создать заявку. Проверка личности может потребоваться перед выплатой или возвратом.',
+  "You'll need one to place an order.": 'Аккаунт нужен, чтобы оформить заявку.',
+  'Identity verification is optional for placing exchanges. Upload documents only if our team asks for them.':
+    'Подтверждение личности необязательно для обмена. Загружайте документы только если команда попросит.',
+  'Our team is reviewing your documents. You can still place and follow exchanges while the review is in progress.':
+    'Мы проверяем ваши документы. Пока идёт проверка, вы можете оформлять и отслеживать обмены.',
+  'Your identity is verified.': 'Личность подтверждена.',
+  'Our team needs more information. Open your documents to see the reviewer’s note. You can still place exchanges.':
+    'Нужны дополнительные сведения. Откройте документы, чтобы увидеть комментарий проверяющего. Обмены по-прежнему доступны.',
+  'We could not verify your identity from the documents you sent. Contact support if you think this is a mistake. You can still place exchanges unless support tells you otherwise.':
+    'Не удалось подтвердить личность по отправленным документам. Напишите в поддержку, если это ошибка. Обмены доступны, пока поддержка не сообщит иное.',
 
   'This document is a draft awaiting review by counsel and may change before it takes effect.':
     'Документ — проект, ожидающий проверки юристом, и может измениться до вступления в силу.',
@@ -545,8 +553,8 @@ export const RU_PUBLIC3: Record<string, string> = {
   'Your order is accepted. We are preparing the card payment page or instructions. When they are ready, they will appear here.':
     'Заявка принята. Мы готовим платёжную страницу или инструкции для оплаты картой. Когда они будут готовы, они появятся здесь.',
   'Order accepted — awaiting processing': 'Заявка принята — ожидает обработки',
-  'Your request was accepted. The payout will be processed after verification.':
-    'Заявка принята. Выплата будет обработана после проверки.',
+  'Your request was accepted. Our team will process the card payout and update this page.':
+    'Заявка принята. Команда обработает выплату на карту и обновит эту страницу.',
   'Awaiting processing': 'Ожидает обработки',
   'Bank card': 'Банковская карта',
   'You pay on a secure external payment page. We never collect your CVV or full card details for this payment.':

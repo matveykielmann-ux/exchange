@@ -277,7 +277,7 @@ export function SignUpPage() {
         <div className="stack">
           <h1 className="display-l">{t('Create an account')}</h1>
           <p className="muted">
-            {t("You'll need one to place an order. Identity verification may be required before payout or refund.")}
+            {t("You'll need one to place an order.")}
           </p>
         </div>
         <form className="stack" onSubmit={submit} noValidate>

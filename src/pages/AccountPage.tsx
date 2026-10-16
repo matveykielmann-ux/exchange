@@ -24,23 +24,23 @@ const KYC: Record<KycStatus, { label: string; tone: 'neutral' | 'success' | 'inf
   unverified: {
     label: 'Not verified',
     tone: 'neutral',
-    body: 'Verify your identity when asked — often before payout or refund: upload a photo ID, a selfie and a proof of address. You only need to do this once.',
+    body: 'Identity verification is optional for placing exchanges. Upload documents only if our team asks for them.',
   },
   pending: {
     label: 'In review',
     tone: 'info',
-    body: 'Our team is reviewing your documents. We will notify you when the review is finished.',
+    body: 'Our team is reviewing your documents. You can still place and follow exchanges while the review is in progress.',
   },
-  verified: { label: 'Verified', tone: 'success', body: 'You can place online exchanges.' },
+  verified: { label: 'Verified', tone: 'success', body: 'Your identity is verified.' },
   needs_info: {
     label: 'More information needed',
     tone: 'warn',
-    body: 'Our team needs more information to finish verifying you. Open your documents to see the reviewer’s note.',
+    body: 'Our team needs more information. Open your documents to see the reviewer’s note. You can still place exchanges.',
   },
   rejected: {
     label: 'Not approved',
     tone: 'danger',
-    body: 'We could not verify your identity, so exchanges are not available on this account.',
+    body: 'We could not verify your identity from the documents you sent. Contact support if you think this is a mistake. You can still place exchanges unless support tells you otherwise.',
   },
 };
 

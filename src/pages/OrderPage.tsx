@@ -788,7 +788,7 @@ function StatusNotice({ order }: { order: OrderView }) {
                     'Your order is accepted. We are preparing the card payment page or instructions. When they are ready, they will appear here.',
                   )
                 : order.payout.method === 'instant_debit'
-                  ? t('Your request was accepted. The payout will be processed after verification.')
+                  ? t('Your request was accepted. Our team will process the card payout and update this page.')
                   : t('This usually takes a moment. The page updates by itself.')}
           </p>
         </Notice>
@@ -1365,7 +1365,7 @@ export function OrderPage() {
         ) : null}
         {order.direction === 'sell' && order.payout.method === 'instant_debit' && order.status !== 'completed' && order.status !== 'rejected' ? (
           <Notice tone="info" title={t('Order accepted — awaiting processing')} role="status">
-            <p>{t('Your request was accepted. The payout will be processed after verification.')}</p>
+            <p>{t('Your request was accepted. Our team will process the card payout and update this page.')}</p>
           </Notice>
         ) : null}
         {order.depositCredentialsPending ? (

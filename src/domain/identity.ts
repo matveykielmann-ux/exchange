@@ -2,8 +2,8 @@
 export type VerificationLevel = 'unverified' | 'verified' | 'enhanced';
 
 /**
- * Creating an exchange request is allowed before KYC (owner decision).
- * Payout, refund approval and elevated-risk steps may still require verification.
+ * Placing and confirming an exchange does not require identity verification.
+ * Staff may still request documents ad hoc for a specific order or refund.
  */
 export function canConfirmExchange(_level: VerificationLevel): boolean {
   return true;

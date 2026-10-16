@@ -40,7 +40,7 @@ type Vars = Record<string, string>;
 const TEMPLATES: Record<Template, (v: Vars) => { subject: string; body: string }> = {
   welcome: (v) => ({
     subject: `Welcome to ${BRAND.name}`,
-    body: `Hi ${v.name},\n\nYour ${BRAND.name} account is ready. Verify your identity from your account page before your first exchange.\n\nIf you did not create this account, contact support.`,
+    body: `Hi ${v.name},\n\nYour ${BRAND.name} account is ready. You can place an exchange from the exchange page.\n\nIf you did not create this account, contact support.`,
   }),
   password_reset: (v) => ({
     subject: `Reset your ${BRAND.name} password`,
