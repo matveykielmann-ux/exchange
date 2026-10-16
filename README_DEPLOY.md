@@ -1,6 +1,8 @@
 # Deploying to a VPS (summary)
 
-> **Full runbook:** [`DEPLOYMENT.md`](DEPLOYMENT.md) · Backups: [`BACKUP_RESTORE.md`](BACKUP_RESTORE.md) · Checklist: [`VPS_CHECKLIST.md`](VPS_CHECKLIST.md)
+> **Integrator kit:** [`docs/integrator/README.md`](docs/integrator/README.md) · **Full runbook:** [`DEPLOYMENT.md`](DEPLOYMENT.md) · Backups: [`BACKUP_RESTORE.md`](BACKUP_RESTORE.md) · Checklist: [`VPS_CHECKLIST.md`](VPS_CHECKLIST.md)
+>
+> Turnkey: `./deploy/configure-env.sh` → `./deploy/preflight.sh` → `./deploy/install.sh` → `./deploy/create-owner.sh`
 
 CryptoBit Exchange on one Linux server with Docker: the app container (API + built web app + SQLite) behind Caddy for **two hostnames** — customer `https://YOUR_DOMAIN` and CRM `https://crm.YOUR_DOMAIN`. **Nothing here has been deployed.** Publishing the site is a separate, explicit decision.
 

@@ -43,9 +43,17 @@ pnpm server:cli backup ./backups/exchange.db
 pnpm server:cli verify-audit
 ```
 
-Deploying to a VPS: [`README_DEPLOY.md`](README_DEPLOY.md).
+Deploying to a VPS: [`docs/integrator/README.md`](docs/integrator/README.md) (turnkey installer) · [`README_DEPLOY.md`](README_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md).
+
+```bash
+./deploy/configure-env.sh --domain YOUR_DOMAIN --email ops@YOUR_DOMAIN
+./deploy/preflight.sh
+./deploy/install.sh
+ARCVALE_NEW_PASSWORD='…' ./deploy/create-owner.sh --email you@YOUR_DOMAIN
+```
 
 ## Docs
 
+- [Integrator package](docs/integrator/README.md), [integrations](docs/integrator/INTEGRATIONS.md), [acceptance](docs/integrator/ACCEPTANCE.md)
 - [Architecture](docs/architecture.md), [providers](docs/providers.md), [migrations](docs/migrations.md)
 - [Compliance readiness](docs/compliance-readiness.md), [production checklist](docs/production-checklist.md)

@@ -128,9 +128,21 @@ APP_MODE=sandbox \
 
 Open the customer site on `localhost` and the CRM on `127.0.0.1` (different origins, same process). Cookies do not cross.
 
+## Turnkey installer (recommended for integrators)
+
+```bash
+./deploy/configure-env.sh --domain YOUR_DOMAIN --email ops@YOUR_DOMAIN
+./deploy/preflight.sh
+./deploy/install.sh
+ARCVALE_NEW_PASSWORD='…' ./deploy/create-owner.sh --email you@YOUR_DOMAIN
+```
+
+Full handoff kit: [`docs/integrator/README.md`](docs/integrator/README.md).
+
 ## Related files
 
 - `.env.example` — every variable the app actually reads
 - `compose.yaml`, `Dockerfile`, `deploy/Caddyfile`
-- `deploy/scripts/{backup,restore,upgrade}.sh`
+- `deploy/install.sh`, `deploy/preflight.sh`, `deploy/configure-env.sh`, `deploy/create-owner.sh`
+- `deploy/scripts/{backup,restore,restore-drill,upgrade}.sh`
 - [`README_DEPLOY.md`](README_DEPLOY.md) — shorter pointer + historical notes

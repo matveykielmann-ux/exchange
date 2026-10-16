@@ -23,9 +23,21 @@ From the repo root on the server:
 
 Produces `backups/arcvale-<UTC>.db.gz` + `.sha256` and `backups/arcvale-<UTC>-files.tar.gz` + `.sha256`, verifies the audit hash chain, prunes files older than `KEEP_DAYS` (default 14).
 
-Copy `backups/` off the server (object storage or another host). A backup that only exists on the same disk is not a backup.
+Copy `backups/` off the server (object storage or another host). A backup that only exists on the same disk is not a backup. Example helper: [`deploy/scripts/backup-offsite.example.sh`](deploy/scripts/backup-offsite.example.sh).
 
-## Restore
+`backup.sh` verifies checksums (and a minimum DB size) **before** pruning older copies (`KEEP_DAYS`, default 14).
+
+Also keep an offline copy of `DATA_ENCRYPTION_KEY` (see `secrets/README.md`). Without it, restored ciphertext is useless.
+
+## Isolated restore drill (non-destructive)
+
+```bash
+./deploy/scripts/restore-drill.sh backups/arcvale-YYYYMMDDTHHMMSSZ.db.gz
+```
+
+Extracts into a temp directory, runs `migration-status`, `verify-audit`, and `verify-storage` against throwaway mounts. Does **not** touch the live `arcvale-data` volume.
+
+## Restore (live — destructive)
 
 ```bash
 ./deploy/scripts/restore.sh backups/arcvale-YYYYMMDDTHHMMSSZ.db.gz

@@ -10,7 +10,9 @@
  *   scenarios [name ...]    Sandbox only: run deterministic lifecycle scenarios on a throwaway in-memory database.
  *   backup <file>           Write a consistent copy of the database (VACUUM INTO).
  *   verify-audit            Verify the audit log hash chain.
+ *   verify-storage          Check FILES_DIR blobs decrypt and match order_documents hashes.
  */
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { BRAND } from '@/config/brand';
 import { createInterface } from 'node:readline/promises';
@@ -25,6 +27,7 @@ import { providerInfos } from './providers/registry';
 import { placeOrder, runScenarios, SANDBOX_PASSWORD, sandboxCustomer, sandboxOperator } from './scenarios';
 import { verifyAuditChain } from './services/audit';
 import { createAccount, normalizeEmail } from './services/auth';
+import { absoluteFilePath, orderFileExists, readOrderFile } from './services/fileStore';
 import * as ops from './services/operations';
 import * as sandbox from './services/sandbox';
 import { createConversation } from './services/support';
@@ -222,6 +225,44 @@ const commands: Record<string, () => Promise<void> | void> = {
     db.close();
     if (!r.ok) return fail(`Audit chain broken at event ${r.brokenAtId}.`);
     out(`Audit chain intact (${r.count} events).`);
+  },
+
+  /**
+   * Ops check after backup/restore: every stored order attachment must exist under
+   * FILES_DIR, decrypt with DATA_ENCRYPTION_KEY, and match sha256. Does not print
+   * file contents or secrets.
+   */
+  'verify-storage'() {
+    const c = config();
+    const app = createApp(c, { log: silentLogger });
+    try {
+      const rows = app.ctx.db.all<{ id: string; order_id: string; sha256: string; stored: number }>(
+        'SELECT id, order_id, sha256, stored FROM order_documents WHERE stored = 1',
+      );
+      let ok = 0;
+      const problems: string[] = [];
+      for (const row of rows) {
+        if (!orderFileExists(app.ctx, row.id)) {
+          problems.push(`${row.id}: missing file at ${absoluteFilePath(app.ctx, row.id)}`);
+          continue;
+        }
+        try {
+          const bytes = readOrderFile(app.ctx, row.id);
+          const sha = createHash('sha256').update(bytes).digest('hex');
+          if (sha !== row.sha256) problems.push(`${row.id}: sha256 mismatch after decrypt`);
+          else ok++;
+        } catch (e) {
+          problems.push(`${row.id}: decrypt failed (${e instanceof Error ? e.message : 'error'})`);
+        }
+      }
+      out(`FILES_DIR=${c.filesDir}`);
+      out(`Stored order documents: ${rows.length}; verified: ${ok}; failed: ${problems.length}`);
+      for (const p of problems) out(`  FAIL ${p}`);
+      if (problems.length) return fail('verify-storage found problems.', 1);
+      out('Storage verification ok.');
+    } finally {
+      void app.close();
+    }
   },
 };
 

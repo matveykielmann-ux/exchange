@@ -2,6 +2,8 @@
 
 Replace `YOUR_DOMAIN` with the real hostname when you deploy. This checklist does not claim the site is live.
 
+**Preferred path for integrators:** [`docs/integrator/README.md`](docs/integrator/README.md) (`configure-env` → `preflight` → `install` → `create-owner`).
+
 ## Before first start
 
 - [ ] DNS `A` for `YOUR_DOMAIN` and `crm.YOUR_DOMAIN` point at the VPS
