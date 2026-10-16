@@ -985,13 +985,6 @@ function SuccessPanel({ order, animate }: { order: OrderView; animate: boolean }
   );
 }
 
-/** Courier orders use the same payout states; only the words change. */
-const COURIER_STEP_LABELS: Partial<Record<string, string>> = { payout: 'Courier scheduled', completed: 'Cash delivered' };
-const courierStep = <T extends { key: string; label: string }>(step: T): T => ({
-  ...step,
-  label: COURIER_STEP_LABELS[step.key] ?? step.label,
-});
-
 function Receipt({ order }: { order: OrderView }) {
   const buy = order.direction === 'buy';
   const wire = order.payIn === 'wire';
@@ -1225,7 +1218,7 @@ export function OrderPage() {
   const showAddress = !!address;
   const addressExplorer = showAddress ? explorerAddressUrl(address, order.network) : null;
   const label = t(orderStatusLabel(order.status, order.direction, order.payIn ?? undefined));
-  const steps = !buy && order.payout.method === 'courier_cash' ? order.steps.map(courierStep) : order.steps;
+  const steps = order.steps;
 
   return (
     <div className="container flow">

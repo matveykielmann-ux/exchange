@@ -152,7 +152,37 @@ describe('order state machine', () => {
       },
     );
     expect(steps.find((s) => s.key === 'deposit')?.state).toBe('done');
+    expect(steps.find((s) => s.key === 'confirm')?.label).toBe('Confirmations (1 of 3)');
     expect(steps.some((s) => s.key === 'paid' && s.state === 'done')).toBe(false);
+  });
+
+  it('uses Deposit confirmed when the chain is not tracking confirmations', () => {
+    const steps = orderSteps(
+      'awaiting_deposit',
+      [
+        { type: 'ORDER_CREATED', toStatus: 'created', createdAt: 1, detail: '' },
+        { type: 'DEPOSIT_INSTRUCTIONS_ISSUED', toStatus: 'awaiting_deposit', createdAt: 2, detail: '' },
+      ],
+      { count: 0, required: 4 },
+    );
+    expect(steps.find((s) => s.key === 'confirm')?.label).toBe('Deposit confirmed');
+    expect(steps.find((s) => s.key === 'instructions')?.label).toBe('Deposit instructions');
+  });
+
+  it('marks remaining steps stopped when the order closes before a deposit', () => {
+    const steps = orderSteps(
+      'expired',
+      [
+        { type: 'ORDER_CREATED', toStatus: 'created', createdAt: 1, detail: '' },
+        { type: 'DEPOSIT_INSTRUCTIONS_ISSUED', toStatus: 'awaiting_deposit', createdAt: 2, detail: '' },
+        { type: 'DEPOSIT_WINDOW_EXPIRED', toStatus: 'expired', createdAt: 3, detail: '' },
+      ],
+      { count: 0, required: 4 },
+    );
+    expect(steps.find((s) => s.key === 'deposit')?.state).toBe('failed');
+    expect(steps.find((s) => s.key === 'confirm')?.state).toBe('failed');
+    expect(steps.find((s) => s.key === 'payout')?.state).toBe('failed');
+    expect(steps.find((s) => s.key === 'completed')?.state).toBe('failed');
   });
 });
 

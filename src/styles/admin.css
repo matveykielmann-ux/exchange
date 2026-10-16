@@ -723,6 +723,13 @@
   text-transform: uppercase;
   color: var(--gold);
 }
+.order-block__head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
 .order-block__cols {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

@@ -1477,6 +1477,7 @@ export function orderView(ctx: AppContext, o: OrderRow, { internal = false }: { 
       },
       o.direction,
       payIn,
+      o.payout_method,
     ),
     events,
     createdAt: o.created_at,

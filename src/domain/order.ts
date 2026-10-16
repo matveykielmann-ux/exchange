@@ -897,16 +897,22 @@ export interface OrderStep {
   at: number | null;
 }
 
-/** Customer progress rail, derived only from persisted events and the current status. */
+/**
+ * Progress rail shared by the customer order page and CRM. Derived only from
+ * persisted events + current status — operators never edit step states directly;
+ * CRM actions raise domain events, which rebuild this rail for both sides over SSE.
+ */
 export function orderSteps(
   status: OrderStatus,
   events: readonly PersistedOrderEvent[],
   confirmations: { count: number; required: number },
   direction: ExchangeDirection = 'sell',
   payIn?: BuyPayIn,
+  payoutMethod?: PayoutMethodId,
 ): OrderStep[] {
   const buy = direction === 'buy';
   const wire = buy && payIn === 'wire';
+  const courier = !buy && payoutMethod === 'courier_cash';
   const firstAt = (...types: PersistedOrderEvent['type'][]) => events.find((e) => types.includes(e.type))?.createdAt ?? null;
   const reachedReview = events.some((e) => e.toStatus === 'compliance_review');
   const refunding = status === 'refund_pending' || status === 'refunded';
@@ -919,6 +925,15 @@ export function orderSteps(
   const submittedAt = firstAt('PAYOUT_SUBMITTED');
   const completedAt = firstAt('PAYOUT_COMPLETED', 'MANUAL_PAYOUT_RECORDED');
   const instructionsAt = firstAt('DEPOSIT_INSTRUCTIONS_ISSUED');
+  const manualConfirm = events.some((e) => e.type === 'MANUAL_DEPOSIT_CONFIRMED');
+  const providerTracked = events.some(
+    (e) => e.type === 'DEPOSIT_OBSERVED' || e.type === 'DEPOSIT_CONFIRMED' || e.type === 'CONFIRMATIONS_UPDATED',
+  );
+  /** Owner-ops / manual verify: do not pretend a chain confirmation counter is running. */
+  const sellConfirmLabel =
+    manualConfirm || !providerTracked
+      ? 'Deposit confirmed'
+      : `Confirmations (${Math.min(confirmations.count, confirmations.required)} of ${confirmations.required})`;
 
   const steps: OrderStep[] = [
     { key: 'created', label: 'Request created', state: 'done', at: firstAt('ORDER_CREATED') },
@@ -948,11 +963,7 @@ export function orderSteps(
     },
     {
       key: 'confirm',
-      label: wire
-        ? 'Wire matched and verified'
-        : buy
-          ? 'Cash counted and verified'
-          : `Confirmations (${Math.min(confirmations.count, confirmations.required)} of ${confirmations.required})`,
+      label: wire ? 'Wire matched and verified' : buy ? 'Cash counted and verified' : sellConfirmLabel,
       state: confirmedAt ? 'done' : depositAt ? 'current' : 'upcoming',
       at: confirmedAt,
     },
@@ -972,18 +983,21 @@ export function orderSteps(
       state: status === 'refunded' ? 'done' : 'current',
       at: firstAt('REFUND_COMPLETED', 'MANUAL_REFUND_RECORDED'),
     });
+    haltTrailingFailed(steps);
     return steps;
   }
   const manualDone = events.some((e) => e.type === 'MANUAL_PAYOUT_RECORDED');
   steps.push({
     key: 'payout',
-    label: manualDone
-      ? buy
-        ? 'Crypto transfer recorded'
-        : 'Payout recorded'
-      : buy
-        ? 'Crypto transfer submitted'
-        : 'Payout submitted',
+    label: courier
+      ? 'Courier scheduled'
+      : manualDone
+        ? buy
+          ? 'Crypto transfer recorded'
+          : 'Payout recorded'
+        : buy
+          ? 'Crypto transfer submitted'
+          : 'Payout submitted',
     state:
       (submittedAt || manualDone) && status !== 'ready_for_payout'
         ? 'done'
@@ -994,7 +1008,7 @@ export function orderSteps(
   });
   steps.push({
     key: 'completed',
-    label: 'Completed',
+    label: courier ? 'Cash delivered' : 'Completed',
     state:
       status === 'completed'
         ? 'done'
@@ -1005,7 +1019,17 @@ export function orderSteps(
             : 'upcoming',
     at: completedAt,
   });
+  haltTrailingFailed(steps);
   return steps;
+}
+
+/** Once a step has failed, later "not started" steps are stopped too — not left hanging as upcoming. */
+function haltTrailingFailed(steps: OrderStep[]) {
+  const failIdx = steps.findIndex((s) => s.state === 'failed');
+  if (failIdx < 0) return;
+  for (let i = failIdx + 1; i < steps.length; i++) {
+    if (steps[i]!.state === 'upcoming') steps[i]!.state = 'failed';
+  }
 }
 
 /* ---------- Stages ---------- */

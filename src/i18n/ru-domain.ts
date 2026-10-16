@@ -2,6 +2,8 @@
 export const RU_DOMAIN: Record<string, string> = {
   // Order statuses (detailed)
   'Request created': 'Заявка создана',
+  'Deposit instructions': 'Инструкции для депозита',
+  'Collection arranged': 'Забор организован',
   'Awaiting deposit instructions': 'Ожидание инструкций для депозита',
   'Awaiting crypto deposit': 'Ожидание криптодепозита',
   'Awaiting deposit': 'Ожидание депозита',
@@ -15,6 +17,7 @@ export const RU_DOMAIN: Record<string, string> = {
   'Awaiting payout': 'Ожидание выплаты',
   'Ready for payout': 'Готово к выплате',
   'Payout submitted': 'Выплата отправлена',
+  'Payout recorded': 'Выплата зафиксирована',
   'Payout processing': 'Выплата обрабатывается',
   Completed: 'Выполнено',
   Rejected: 'Отклонена',
@@ -30,6 +33,7 @@ export const RU_DOMAIN: Record<string, string> = {
   'Cash verified': 'Наличные проверены',
   'Ready to send crypto': 'Готово к отправке криптовалюты',
   'Crypto transfer submitted': 'Перевод криптовалюты отправлен',
+  'Crypto transfer recorded': 'Перевод криптовалюты зафиксирован',
   'Crypto transfer processing': 'Перевод криптовалюты обрабатывается',
   'Cash return pending': 'Ожидает возврата наличных',
   'Cash returned': 'Наличные возвращены',

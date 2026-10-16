@@ -4,6 +4,7 @@ import { StatusBadge } from '@/components/ui';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Icon } from '@/components/Icon';
+import { StatusRail } from '@/components/TransactionProgress';
 import { COURIER_WINDOW_LABELS, COURIER_WINDOWS, type CourierWindow } from '@/domain/courier';
 import { US_STATE_NAMES, US_STATES } from '@/domain/usStates';
 import { formatUsd } from '@/domain/money';
@@ -88,6 +89,7 @@ export function OrderCard({ id, headingLevel = 1 }: { id: string; headingLevel?:
       ) : null}
 
       <MainBlock detail={data} onResult={setResult} reload={reload} />
+      <ProgressBlock detail={data} />
       <CredentialsBlock detail={data} onResult={setResult} reload={reload} />
       <CourierMeetingBlock detail={data} onResult={setResult} reload={reload} />
       <CardPayInBlock detail={data} onResult={setResult} reload={reload} />
@@ -962,6 +964,24 @@ function MainBlock({ detail, onResult, reload }: { detail: AdminOrderDetail; onR
         </p>
       ) : null}
       <ActionBar detail={detail} onResult={onResult} reload={reload} />
+    </section>
+  );
+}
+
+/** Same progress rail the customer sees — rebuilt from order.steps on every live reload. */
+function ProgressBlock({ detail }: { detail: AdminOrderDetail }) {
+  const o = detail.order;
+  return (
+    <section className="order-block" aria-labelledby="block-progress">
+      <div className="order-block__head-row">
+        <h3 id="block-progress" className="order-block__title">
+          {t('Progress')}
+        </h3>
+        <span className="small muted">
+          {t('Updated')} {formatDateTime(o.updatedAt)}
+        </span>
+      </div>
+      <StatusRail steps={o.steps} />
     </section>
   );
 }
