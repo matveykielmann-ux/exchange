@@ -350,4 +350,8 @@ export const RU_CRM: Record<string, string> = {
   'Edit meeting details': 'Изменить данные встречи',
   'Save meeting details': 'Сохранить данные встречи',
   'Gate code, landmark, who meets the courier…': 'Код домофона, ориентир, кто встречает курьера…',
+  Payout: 'Выплата',
+  Account: 'Счёт',
+  'Bank details': 'Реквизиты',
+  'Full account details unavailable.': 'Полные реквизиты счёта недоступны.',
 };

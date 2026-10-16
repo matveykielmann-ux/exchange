@@ -255,28 +255,49 @@ function BankDestinationBlock({ detail }: { detail: AdminOrderDetail }) {
       <h3 id="block-bank-dest" className="order-block__title">
         {o.payout.method === 'wire' ? t('Customer bank for wire payout') : t('Customer bank for ACH payout')}
       </h3>
-      <dl className="kv">
-        <Row term={t('Label')}>{bank?.label ?? summary!.label}</Row>
-        <Row term={t('Method')}>{t(o.payout.methodName)}</Row>
-        <Row term={t('Payout amount')}>{formatUsd(o.quote.netCents)} USD</Row>
-        <Row term={t('Gross / fees')}>
-          {formatUsd(o.quote.grossCents)} − {formatUsd(o.quote.payoutFeeCents)} fee
-        </Row>
-        {bank ? (
-          <>
-            <Row term={t('Account holder')}>{bank.holderName || '—'}</Row>
-            <Row term={t('Account type')}>{t(bank.accountType === 'savings' ? 'Savings' : 'Checking')}</Row>
-            <Row term={t('Routing number')}>
-              <span className="mono">{bank.routingNumber}</span>
+      <div className="bank-dest-grid">
+        <div className="bank-dest-card">
+          <h4 className="bank-dest-card__title">{t('Payout')}</h4>
+          <dl className="dl dl--compact">
+            <Row term={t('Method')}>{t(o.payout.methodName)}</Row>
+            <Row term={t('Payout amount')}>
+              <strong className="tabular">{formatUsd(o.quote.netCents)} USD</strong>
             </Row>
-            <Row term={t('Account number')}>
-              <span className="mono">{bank.accountNumber}</span>
+            <Row term={t('Gross / fees')}>
+              {formatUsd(o.quote.grossCents)} − {formatUsd(o.quote.payoutFeeCents)} fee
             </Row>
-          </>
-        ) : (
-          <Row term={t('Account')}>•••• {summary!.last4}</Row>
-        )}
-      </dl>
+          </dl>
+        </div>
+        <div className="bank-dest-card">
+          <h4 className="bank-dest-card__title">{t('Account')}</h4>
+          <dl className="dl dl--compact">
+            <Row term={t('Label')}>{bank?.label ?? summary!.label}</Row>
+            {bank ? (
+              <>
+                <Row term={t('Account holder')}>{bank.holderName || '—'}</Row>
+                <Row term={t('Account type')}>{t(bank.accountType === 'savings' ? 'Savings' : 'Checking')}</Row>
+              </>
+            ) : (
+              <Row term={t('Account')}>•••• {summary!.last4}</Row>
+            )}
+          </dl>
+        </div>
+        <div className="bank-dest-card bank-dest-card--keys">
+          <h4 className="bank-dest-card__title">{t('Bank details')}</h4>
+          {bank ? (
+            <dl className="dl dl--compact">
+              <Row term={t('Routing number')}>
+                <span className="mono bank-dest-card__value">{bank.routingNumber}</span>
+              </Row>
+              <Row term={t('Account number')}>
+                <span className="mono bank-dest-card__value">{bank.accountNumber}</span>
+              </Row>
+            </dl>
+          ) : (
+            <p className="small muted">{t('Full account details unavailable.')}</p>
+          )}
+        </div>
+      </div>
     </section>
   );
 }
