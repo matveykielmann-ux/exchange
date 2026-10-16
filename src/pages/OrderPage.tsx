@@ -5,7 +5,7 @@ import { Icon } from '@/components/Icon';
 import { SupportContact, TelegramLink } from '@/components/SupportContact';
 import { AcceptedBanner } from '@/components/AcceptedBanner';
 import { StageTrack } from '@/components/StageTrack';
-import { EventLog, StatusRail } from '@/components/TransactionProgress';
+import { StatusRail } from '@/components/TransactionProgress';
 import { LiveIndicator } from '@/components/chat/Chat';
 import { Notice, StatusBadge } from '@/components/ui';
 import { ASSETS, NETWORKS, networkLabel } from '@/domain/assets';
@@ -381,7 +381,7 @@ function ConfirmPaymentPanel({ order, onDone }: { order: OrderView; onDone(): vo
         </Notice>
       ) : (
         <form
-          className="stack"
+          className="stack confirm-payment-form"
           noValidate
           onSubmit={async (e: FormEvent) => {
             e.preventDefault();
@@ -469,7 +469,13 @@ function ConfirmPaymentPanel({ order, onDone }: { order: OrderView; onDone(): vo
             <label className="field__label" htmlFor="pay-comment">
               {t('Comment (optional)')}
             </label>
-            <textarea id="pay-comment" className="input" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} />
+            <textarea
+              id="pay-comment"
+              className="textarea"
+              rows={4}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+            />
           </div>
           <div className="field">
             <label className="field__label" htmlFor="pay-file">
@@ -477,6 +483,7 @@ function ConfirmPaymentPanel({ order, onDone }: { order: OrderView; onDone(): vo
             </label>
             <input
               id="pay-file"
+              className="input"
               type="file"
               accept="image/jpeg,image/png,application/pdf"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
@@ -490,94 +497,6 @@ function ConfirmPaymentPanel({ order, onDone }: { order: OrderView; onDone(): vo
           <button type="submit" className="btn btn--primary upload-pulse" disabled={busy}>
             {busy ? t('Submitting…') : t('Confirm payment')}
           </button>
-        </form>
-      )}
-    </section>
-  );
-}
-
-/** Refund only via support request after KYC — never a one-click auto refund. */
-function RefundRequestPanel({ order, onDone }: { order: OrderView; onDone(): void }) {
-  const { orders } = useServices();
-  const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ status: string } | null>(null);
-  const existing = (order as OrderView & { refundRequests?: { status: string }[] }).refundRequests?.[0];
-
-  if (existing || result) {
-    const status = result?.status ?? existing!.status;
-    return (
-      <section className="panel status-fade">
-        <h2 className="flow__step-title">{t('Request a refund via support')}</h2>
-        <p>
-          {t('Refund request status:')} {t(status)}
-          {status === 'needs_kyc'
-            ? '. ' + t('Complete identity verification before a refund can be considered.')
-            : ''}
-        </p>
-        {status === 'needs_kyc' ? (
-          <Link className="btn btn--secondary" to="/verification">
-            {t('Complete verification')}
-          </Link>
-        ) : null}
-      </section>
-    );
-  }
-
-  return (
-    <section className="panel stack">
-      <h2 className="flow__step-title">{t('Request a refund via support')}</h2>
-      {!open ? (
-        <button type="button" className="btn btn--secondary" onClick={() => setOpen(true)}>
-          {t('Request a refund via support')}
-        </button>
-      ) : (
-        <form
-          className="stack"
-          onSubmit={async (e: FormEvent) => {
-            e.preventDefault();
-            setBusy(true);
-            setError(null);
-            try {
-              const req = (await orders.requestRefund(order.id, { reason })) as { status: string };
-              setResult(req);
-              onDone();
-            } catch (err) {
-              setError(errorMessage(err));
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <div className="field">
-            <label className="field__label" htmlFor="refund-reason">
-              {t('Reason')}
-            </label>
-            <textarea
-              id="refund-reason"
-              className="input"
-              rows={4}
-              required
-              minLength={4}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </div>
-          {error ? (
-            <p className="field__error" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <div className="row" style={{ gap: 8 }}>
-            <button type="submit" className="btn btn--primary" disabled={busy || reason.trim().length < 4}>
-              {busy ? t('Submitting…') : t('Submit refund request')}
-            </button>
-            <button type="button" className="btn btn--ghost" onClick={() => setOpen(false)}>
-              {t('Cancel')}
-            </button>
-          </div>
         </form>
       )}
     </section>
@@ -1384,17 +1303,6 @@ export function OrderPage() {
       {justCreated && order.status !== 'completed' ? (
         <div className="stack" style={{ marginBottom: 24 }}>
           <AcceptedBanner reference={order.reference} detailsId="order-details" />
-          {order.status === 'awaiting_deposit' || (wire && order.status === 'created') ? (
-            <Notice tone="info" title={t('Order {0} placed', [order.reference])}>
-              <p>
-                {wire
-                  ? t('Your rate is held for a wire of exactly the amount shown that arrives in the window.')
-                  : buy
-                    ? t('Your rate is held for the cash amount shown. The courier will call to confirm the collection time.')
-                    : t('Your rate is held for a deposit of exactly the quoted amount that arrives in the window below.')}
-              </p>
-            </Notice>
-          ) : null}
         </div>
       ) : null}
 
@@ -1469,12 +1377,6 @@ export function OrderPage() {
           {(order.status === 'awaiting_deposit' || order.status === 'created' || order.status === 'compliance_review') &&
           !TERMINAL_ORDER_STATUSES.has(order.status) ? (
             <ConfirmPaymentPanel order={order} onDone={load} />
-          ) : null}
-
-          {['awaiting_deposit', 'deposit_observed', 'confirming', 'deposit_confirmed', 'compliance_review', 'failed', 'expired', 'cancelled'].includes(
-            order.status,
-          ) ? (
-            <RefundRequestPanel order={order} onDone={load} />
           ) : null}
 
           {Array.isArray((order as OrderView & { orderMessages?: { body: string; createdAt: number }[] }).orderMessages) &&
@@ -1614,13 +1516,6 @@ export function OrderPage() {
               </p>
             </div>
           ) : null}
-
-          <section aria-labelledby="log-title" className="stack">
-            <h2 id="log-title" className="title">
-              {t('Activity')}
-            </h2>
-            <EventLog log={order.events} />
-          </section>
 
           <SupportContact title={t('Questions about this order?')} orderReference={order.reference}>
             {t('Mention order')} <span className="mono">{order.reference}</span> {t('so we can find it quickly.')}
